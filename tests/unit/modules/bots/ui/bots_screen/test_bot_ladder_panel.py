@@ -129,7 +129,7 @@ def test_what_is_not_known_is_a_blank_cell_never_a_zero(open_bots_screen) -> Non
     assert _text(screen, 0, "gross_quote") != ""
     assert _text(screen, 0, "state") == "Not recorded"
     assert screen.view.ladder.summary.text().endswith("before fees (estimate)")
-    assert "not saved" in screen.view.ladder.summary.toolTip()
+    assert "no maker rate is recorded" in screen.view.ladder.summary.toolTip()
     assert _fact(screen, "last_price") == "no price yet"
     assert _fact(screen, "cycle_average") == "—"
     assert _fact(screen, "cycle_profit").endswith("before fees")

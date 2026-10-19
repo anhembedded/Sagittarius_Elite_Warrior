@@ -22,7 +22,11 @@ the definition's `config`, and what it has done so far is `GridRuntime`, with on
 level and at most one `LevelOrder` on each (`bots/domain/grid/grid_runtime.py` → `GridRuntime`,
 `RuntimeLevel`, `LevelOrder`), and on a position venue the protective stops saved with it
 (`GridRuntime.protective_stops`, `bots/domain/grid/protective_stop.py` → `ProtectiveStop`), written
-only when there are some. A level's own lifecycle is the second table in
+only when there are some. The runtime also records the account's maker fee rate the run's start read
+(`GridRuntime.maker_fee`, `bots/application/kinds/grid/start/grid_start_sequence.py` →
+`GridStartSequence.run`; `BOT-194`), kept by a resume and absent from a file an earlier build wrote: it
+is what a reader with no exchange (the Bots tab's Ladder, `bot show`) takes the net after fees from,
+and it is the rate of the run's start, not today's. A level's own lifecycle is the second table in
 [`state-machines.md`](state-machines.md). An order is the bot's when its client order id carries the
 bot's tag, which is how the reconcile finds and adopts it after a restart.
 

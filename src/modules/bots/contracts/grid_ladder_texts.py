@@ -30,10 +30,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridSpacing,
 )
 
-#: The account's maker rate is read from the exchange, not kept in the bot's record.
-FEE_NOT_SAVED = (
-    "before fees: the account's maker rate is read from the exchange and is not saved"
-)
+#: The account's maker rate is recorded when a run starts; a file an earlier build wrote has none.
+FEE_NOT_SAVED = "before fees: no maker rate is recorded for this run (it is recorded when a run starts)"
 LIQUIDATION_NOT_SAVED = (
     "not in the bot's record (the exchange reports it while it runs)"
 )
@@ -134,7 +132,7 @@ def _average_cycle(summary: LadderSummary, money: MoneyWriter) -> str:
     fee = (
         FEE_NOT_SAVED
         if summary.maker_fee is None
-        else f"after the {percent_of(summary.maker_fee)} maker fee on both legs"
+        else f"after the {percent_of(summary.maker_fee)} maker fee on both legs (rate recorded at run start)"
     )
     if summary.average_cycle_quote is None:
         return f"profit per cycle: {NOT_ESTIMATED} ({fee})"

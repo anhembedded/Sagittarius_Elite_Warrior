@@ -135,3 +135,29 @@ def test_a_file_written_before_the_earnings_fields_still_reads() -> None:
     assert decoded.mark_price is None
     assert decoded.mark_price_at is None
     assert decoded.unpriced_fees == 0
+
+
+def test_the_recorded_maker_rate_round_trips() -> None:
+    """`BOT-194` - the rate the run's start read."""
+    runtime = replace(_busy_runtime(), maker_fee=Decimal("0.0002"))
+
+    decoded = decode_runtime(encode_runtime(runtime))
+
+    assert decoded == runtime
+    assert decoded.maker_fee == Decimal("0.0002")
+
+
+def test_a_file_written_before_the_maker_rate_still_reads_with_no_rate() -> None:
+    """`BOT-194` - an earlier build wrote none: no rate, which readers say as "before fees"."""
+    encoded = encode_runtime(replace(_busy_runtime(), maker_fee=Decimal("0.001")))
+    encoded.pop("maker_fee")
+
+    assert decode_runtime(encoded).maker_fee is None
+
+
+def test_a_rate_that_is_not_a_number_is_refused_by_name() -> None:
+    encoded = encode_runtime(_busy_runtime())
+    encoded["maker_fee"] = "cheap"
+
+    with pytest.raises(GridRuntimeCodecError, match="maker_fee"):
+        decode_runtime(encoded)

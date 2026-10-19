@@ -100,7 +100,9 @@ class GridStartSequence:
         state = self._context.state
         if not self._ladder_is_placeable(plan):
             return
-        state.update(runtime_from_plan(plan, self._context.terms.step_size))
+        fresh = runtime_from_plan(plan, self._context.terms.step_size)
+        # The rate this start read, kept for readers with no exchange (`BOT-194`).
+        state.update(replace(fresh, maker_fee=self._context.terms.maker_fee))
         opened = self._opening.open(plan)
         if opened.ladder is None or not self._protection.protect(opened.ladder):
             return
@@ -175,6 +177,7 @@ class GridStartSequence:
                 start_price=earned.start_price or fresh.start_price,
                 mark_price=earned.mark_price,
                 mark_price_at=earned.mark_price_at,
+                maker_fee=earned.maker_fee,
                 unpriced_fees=earned.unpriced_fees,
                 earlier_runs_base=earned.earlier_runs_base,
                 earlier_runs_cost=earned.earlier_runs_cost,
