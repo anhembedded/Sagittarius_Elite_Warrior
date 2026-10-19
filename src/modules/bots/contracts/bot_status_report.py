@@ -32,6 +32,13 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    LadderUnavailable,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_payload import (
+    ladder_payload,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     RunEarnings,
 )
@@ -135,6 +142,9 @@ class BotStatusEntry:
     #: `BOT-192` - what the run has earned, read from the bot's file like the Bots tab reads it;
     #: `None` when the file holds no readable run account (never shown as zero).
     earnings: RunEarnings | None = None
+    #: `BOT-193` - the ladder the bot's saved parameters make with what its saved run records, read
+    #: like the Bots tab reads it; `None` when it was not asked for.
+    ladder: GridLadder | LadderUnavailable | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))
@@ -168,6 +178,7 @@ class BotStatusEntry:
                 else dict(sorted(self.parameters.items()))
             ),
             "earnings": _earnings_payload(self.earnings),
+            "ladder": ladder_payload(self.ladder),
         }
 
 
