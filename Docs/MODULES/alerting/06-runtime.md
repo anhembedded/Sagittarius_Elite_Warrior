@@ -47,7 +47,10 @@ beside the new runtime (`bots/domain/grid/grid_reactions.py` → `on_fill`, `Rea
 right after it. The executor saves the runtime, then publishes one `BotOrderFilledEvent` per filled
 order (`bots/application/kinds/grid/grid_facts.py` → `GridFacts._apply_fill`;
 `grid_fill_announcer.py` → `GridFillAnnouncer.announce`); a fill a reconcile applies from history after
-a restart is announced the same way (`grid_missed_fills.py` → `GridMissedFills._apply_missed`). The
+a restart is announced only once the reconcile's runtime is kept: `GridMissedFills` hands the filled
+orders over (`grid_missed_fills.py` → `GridMissedFills.take_filled`) and the callers that save the
+outcome announce them (`grid_reconciler.py` → `GridReconciler.announce_kept_fills`); a reconcile that
+ends in a mismatch or a wait announces nothing, because the next one applies the same fill again. The
 alerting source words it and calls `publish` (`BotFillAlertSource.on_order_filled`); the hub treats it as
 any INFO: deduplicated by the order, held in quiet hours, routed silent, bounded by `FillBacklog`.
 A partial fill, a trade the run already counted and an exit's market sell announce nothing. A stop loss,

@@ -7,7 +7,9 @@ stop having run; each is one alert, and none of them is also a fill message.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
@@ -20,11 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.recording_alert_publisher import (
     RecordingAlertPublisher,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
-from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
-    AlertSubject,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
@@ -47,6 +45,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.application.sources.b
     Bots,
     entry,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import build_rig
 
 
 def _source(bots: Bots) -> tuple[BotAlertSource, RecordingAlertPublisher]:
@@ -127,21 +126,34 @@ def test_a_bot_that_closes_outside_the_range_is_told_by_its_stop_not_twice() -> 
     assert published.published == []
 
 
-def test_the_return_inside_the_range_ends_the_condition_the_departure_opened() -> None:
+def test_the_return_inside_the_range_is_not_told() -> None:
     source, published = _source(Bots(entry("RUNNING")))
     source.on_range_changed(_range(RangePosition.BELOW))
-    [left] = published.published
     published.published.clear()
 
     source.on_range_changed(_range(RangePosition.INSIDE))
 
-    subject = AlertSubject.bot(BOT, "eth-grid", "grid", "spot_mainnet", "ETHUSDT")
-    assert published.cleared == [
-        Alert.condition_key(AlertKind.RANGE_EXIT, subject, side)
-        for side in ("BELOW", "ABOVE")
-    ]
-    assert left.dedup_key in published.cleared
     assert published.published == []
+    assert published.cleared == []
+
+
+def test_a_price_that_flaps_at_the_edge_is_one_message_per_window_not_a_stream(
+    tmp_path: Path,
+) -> None:
+    """The hub's 15 minute window for a WARNING is what bounds it; each crossing is an event."""
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    source = BotAlertSource(Bots(entry("RUNNING")), rig.hub, rig.clock)
+    for _ in range(5):
+        source.on_range_changed(_range(RangePosition.BELOW))
+        source.on_range_changed(_range(RangePosition.INSIDE))
+    rig.deliver_all()
+    assert rig.received_kinds("phone") == [AlertKind.RANGE_EXIT]
+
+    rig.clock.advance(timedelta(minutes=16))
+    source.on_range_changed(_range(RangePosition.BELOW))
+    rig.deliver_all()
+
+    assert rig.received_kinds("phone") == [AlertKind.RANGE_EXIT] * 2
 
 
 def test_leaving_on_the_other_side_is_a_new_alert_not_a_repeat() -> None:

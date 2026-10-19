@@ -20,14 +20,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
-    GridFillAnnouncer,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.reconcile_outcome import (
     ReconcileMismatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_filled_order import (
+    FilledOrder,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     Halt,
@@ -89,7 +89,8 @@ class GridMissedFills:
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
-        self._fills = GridFillAnnouncer(context)
+        #: The orders this reconcile filled from history, until the caller keeps its runtime.
+        self._filled: list[FilledOrder] = []
 
     def apply(
         self,
@@ -97,6 +98,7 @@ class GridMissedFills:
         open_orders: tuple[Order, ...],
         records: dict[str, OrderRecord],
     ) -> GridRuntime | ReconcileMismatch:
+        self._filled = []
         since = self._context.state.bot.lifecycle.run_started_at
         if since is None:
             return runtime
@@ -120,6 +122,14 @@ class GridMissedFills:
                     return ended
                 runtime = ended
         return runtime
+
+    def take_filled(self) -> tuple[FilledOrder, ...]:
+        """The orders the last `apply` filled, handed over once. Called only when the reconcile's
+        runtime is kept: a runtime that is thrown away re-applies its fills at the next reconcile,
+        so they are announced then and not now (`BOT-189`)."""
+        taken = tuple(self._filled)
+        self._filled = []
+        return taken
 
     def catch_up(
         self,
@@ -154,7 +164,7 @@ class GridMissedFills:
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
             return ReconcileMismatch(halt.reason, halt.detail)
-        self._fills.announce(reaction.filled)
+        self._filled.extend(reaction.filled)
         # The replay uses the stream's key (`EPIC-035P`): a trade this applied
         # from history is not counted again when the stream delivers it late.
         for trade in trades:

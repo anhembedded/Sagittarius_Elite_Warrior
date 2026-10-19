@@ -129,7 +129,6 @@ _EXIT_SENTENCES: Mapping[AlertKind, str] = MappingProxyType(
 #: `RangePosition.value`s, as the range event spells them (alerting reads contracts, not `bots.domain`).
 _INSIDE = "INSIDE"
 _BELOW = "BELOW"
-_OUTSIDE = (_BELOW, "ABOVE")
 
 #: A state whose entry ends these conditions.
 CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
@@ -251,15 +250,13 @@ class BotAlertSource:
 
     def on_range_changed(self, event: BotRangeChangedEvent) -> None:
         """`BOT-189`: the price left the range of a bot that holds its orders (a bot that closes
-        there is told by its stop, `EPIC-036B`'s `RANGE_EXIT`); its return ends the condition."""
+        there is told by its stop, `EPIC-036B`'s `RANGE_EXIT`); its return is not told."""
         entry = self._entry(event.bot_id)
         subject = _subject_or_bare(entry, event.bot_id)
         if event.position.value == _INSIDE:
-            for side in _OUTSIDE:
-                self._publisher.condition_cleared(
-                    Alert.condition_key(AlertKind.RANGE_EXIT, subject, side),
-                    self._clock.now(),
-                )
+            # No "Recovered": a price that oscillates around a bound would send a pair for each
+            # crossing, unbounded. The hub's window (15 min for a WARNING) keeps it to one message
+            # per side in that time (locked by `test_a_price_that_flaps_at_the_edge_...`).
             return
         if event.closes:
             return

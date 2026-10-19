@@ -240,7 +240,7 @@ def test_a_stop_loss_and_a_take_profit_are_told_once_and_loud_not_as_fills(
     )
 
 
-def test_a_price_outside_the_range_is_told_once_while_it_stays_out_and_again_when_it_returns(
+def test_a_price_outside_the_range_is_told_once_while_it_stays_out_and_not_again_on_a_flap(
     exchange: FakeExchange,
 ) -> None:
     with _told(exchange) as (app, transport):
@@ -250,12 +250,12 @@ def test_a_price_outside_the_range_is_told_once_while_it_stays_out_and_again_whe
         [left] = _settled(app, transport)
         _tick(app, 46_000.0)
         assert _settled(app, transport) == [left]
-        _tick(app, 50_000.0)
-        [_, back] = _settled(app, transport)
+        _tick(app, 50_000.0)  # back inside: not told
+        _tick(app, 47_000.0)  # out again inside the window: the same condition
+        assert _settled(app, transport) == [left]
 
     assert "WARNING" in left and "Price left the range: grid" in left
     assert "below the range 48000-52000" in left and "keeps its orders" in left
-    assert "Recovered" in back
 
 
 def test_a_read_only_copy_sends_nothing_for_a_fill(

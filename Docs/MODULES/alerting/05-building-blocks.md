@@ -72,7 +72,7 @@ The walking skeleton (`EPIC-036G`) added:
   entry into `STOPPING` with the reason `stop_loss`, `take_profit` or `range_exit` is one alert at once
   (`bot_alert_source.py` → `EXIT_ON_STOP`, `BotAlertSource._alert_on_exit`); `on_range_changed` tells a
   price outside the range of a bot that only holds (a bot that closes there is told by its stop) and
-  ends the condition on the return; `on_protective_stop` tells the exchange-side stop having run.
+  is not told on the return (a price that flaps at the edge is bounded by the hub's 15 minute window, one message per side); `on_protective_stop` tells the exchange-side stop having run.
 - **`FillBacklog`** (`alerting/application/fill_backlog.py` → `FillBacklog`; BOT-189) bounds the fill
   messages waiting on one channel: after each is stored, `FillBacklog.trim` asks the outbox to drop the
   oldest past `DeliveryPolicy.fill_backlog` (`IOutbox.shed_surplus`, kept as `DROPPED`), and the
