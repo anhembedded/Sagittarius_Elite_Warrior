@@ -124,7 +124,11 @@ class GridBlockedCounter:
             again = on_fill(
                 reaction.runtime, parked, self._context.terms.step_size, hold
             )
-            reaction = Reaction(again.runtime, (*reaction.actions, *again.actions))
+            reaction = Reaction(
+                again.runtime,
+                (*reaction.actions, *again.actions),
+                (*reaction.filled, *again.filled),
+            )
         return reaction
 
 

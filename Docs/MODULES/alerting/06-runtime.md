@@ -23,8 +23,9 @@ re-arms the key (`alert_hub.py` → `AlertHub.condition_cleared`).
 
 ## Built: boot
 
-At boot the module starts the lanes, subscribes the bot source to both bots events, then seeds it
-from the bots' report without alerting (`alerting/module.py` → `AlertingModule.boot`).
+At boot the module starts the lanes, subscribes the bot sources to the bots' events, then seeds the
+state source from the bots' report without alerting (`alerting/module.py` → `AlertingModule.boot`).
+A read-only copy returns before any of it.
 
 ## Built: the skeleton journey — a bot halts on the VPS, Discord hears it once
 
@@ -37,6 +38,31 @@ Discord's answer and `mark`, it is sent twice (at-least-once, the docstring of `
 A halt written by the bots' store and lost before `publish` is not covered: the source seeds its
 last-seen states at boot without alerting, so the skeleton does not re-alert old halts on every
 restart. `EPIC-036B` decides whether a boot-time "still halted" summary is wanted.
+
+## Built: a filled order, a cycle and an exit reach Discord
+
+`BOT-189`, `PRO-015` phase 1. On the bot's worker, `on_fill` returns the orders a fact filled whole
+beside the new runtime (`bots/domain/grid/grid_reactions.py` → `on_fill`, `Reaction.filled`;
+`grid_filled_order.py` → `FilledOrder`), with the cycle profit `book_cycle` booked and the run's totals
+right after it. The executor saves the runtime, then publishes one `BotOrderFilledEvent` per filled
+order (`bots/application/kinds/grid/grid_facts.py` → `GridFacts._apply_fill`;
+`grid_fill_announcer.py` → `GridFillAnnouncer.announce`); a fill a reconcile applies from history after
+a restart is announced the same way (`grid_missed_fills.py` → `GridMissedFills._apply_missed`). The
+alerting source words it and calls `publish` (`BotFillAlertSource.on_order_filled`); the hub treats it as
+any INFO: deduplicated by the order, held in quiet hours, routed silent, bounded by `FillBacklog`.
+A partial fill, a trade the run already counted and an exit's market sell announce nothing. A stop loss,
+a take profit or a range exit that closes is `STOPPING` with its reason: `BotAlertSource` raises the
+CRITICAL at once, with the bot's own detail ("price 2290, traded to 2288"). Nothing here places or
+changes an order.
+
+**What a restart does.** The bot counts a fill once and so publishes it once; the dedup windows are in
+memory ([`08-concepts.md`](08-concepts.md)), so the guarantee is the bot's, not the hub's. A fill that
+happened while the app was closed is told once, by the reconcile that finds it.
+
+**What is not measured.** Discord's real behaviour under a burst. What is measured, on the fake
+channel (`tests/unit/modules/alerting/application/test_fill_backlog.py`): with a channel that answers 429,
+60 fills and one CRITICAL, the lane tries nothing until the wait is over, then sends the CRITICAL first,
+the newest 25 fills and one "35 fill messages skipped" line.
 
 ## Built: the Options page, Save and Send test
 

@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records imp
     OutboxBacklog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 
 
@@ -78,6 +79,11 @@ class IOutbox(ABC):
         """Drop the oldest open delivery of the lowest severity strictly below
         `below` on `channel_id` (kept as `DROPPED`, not deleted). `False` when
         nothing is below."""
+
+    @abstractmethod
+    def shed_surplus(self, channel_id: str, kind: AlertKind, keep: int) -> int:
+        """Drop the oldest open deliveries of alerts of `kind` on `channel_id` until `keep` are
+        left (kept as `DROPPED`, not deleted); how many were dropped (`BOT-189`)."""
 
     @abstractmethod
     def purge_finished_before(self, cutoff: datetime) -> int:

@@ -20,6 +20,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
+    GridFillAnnouncer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
@@ -86,6 +89,7 @@ class GridMissedFills:
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
+        self._fills = GridFillAnnouncer(context)
 
     def apply(
         self,
@@ -150,6 +154,7 @@ class GridMissedFills:
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
             return ReconcileMismatch(halt.reason, halt.detail)
+        self._fills.announce(reaction.filled)
         # The replay uses the stream's key (`EPIC-035P`): a trade this applied
         # from history is not counted again when the stream delivers it late.
         for trade in trades:

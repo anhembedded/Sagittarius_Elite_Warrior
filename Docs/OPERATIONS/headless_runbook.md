@@ -6,11 +6,11 @@ Status: Current
 
 ## 0. Read this first: what is not supported yet
 
-**This host is not supported for unattended money.** A bot that halts, errs or whose stop gives up reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
+**This host is not supported for unattended money.** A bot that halts, errs, whose stop gives up, hits its stop loss or take profit, or leaves its range, and every order that fills whole (a silent message, with the cycle's profit on the fill that closes a cycle; `BOT-189`), reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
 
 | Missing | What it leaves you without | Task |
 | :--- | :--- | :--- |
-| The other alert sources | a stop loss or take profit hit, a lost user-data stream, a revoked key or a range exit is not sent to any channel | [`EPIC-036B`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) |
+| The other alert sources | a lost user-data stream or a revoked key is not sent to any channel | [`EPIC-036B`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) |
 | Dead man's switch | nothing tells you the host stopped on its own, or that the machine is off | [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
 
 Until then, use the host on a **testnet** venue. The host says whether a channel is configured: with no webhook stored, every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`. With a webhook stored, the start says `an alert channel carries bot events` instead.

@@ -338,3 +338,61 @@ def test_a_refused_placement_empties_its_level() -> None:
 
     assert runtime.levels[0].state is LevelState.EMPTY
     assert runtime.levels[0].order is None
+
+
+def test_only_the_fill_that_completes_an_order_is_told_as_a_filled_order() -> None:
+    """`BOT-189`: a partial fill tells nothing; the fill that completes the order tells it once."""
+    runtime = started_ladder()
+    told = []
+    for piece in ("0.3", "0.3", "0.4"):
+        reaction = on_fill(runtime, _fill(1, piece), STEP, hold=False)
+        runtime = reaction.runtime
+        told.extend(reaction.filled)
+
+    [filled] = told
+    assert (filled.client_order_id, filled.level_index) == (order_id(1), 1)
+    assert (filled.side, filled.price, filled.quantity) == (
+        OrderSide.BUY,
+        PRICES[1],
+        Decimal(1),
+    )
+    assert filled.cycle_profit is None
+
+
+def test_the_fill_that_closes_a_cycle_tells_the_profit_the_cycle_booked() -> None:
+    bought = on_fill(
+        started_ladder(), _fill(1, "1", base_fee="0.001"), STEP, hold=False
+    )
+    with_sell = perform(bought.runtime, _only_order(bought.actions))
+
+    sold = on_fill(with_sell, _fill(2, "0.999", quote_fee="0.11988"), STEP, hold=False)
+
+    [filled] = sold.filled
+    assert filled.side is OrderSide.SELL
+    assert filled.cycle_profit == Decimal("9.76012")
+    assert filled.cycle_profit == sold.runtime.realised_profit
+    assert (filled.realised_total, filled.completed_cycles) == (
+        sold.runtime.realised_profit,
+        1,
+    )
+
+
+def test_a_sell_of_opening_base_is_told_as_filled_with_no_cycle() -> None:
+    reaction = on_fill(started_ladder(), _fill(3, "1"), STEP, hold=False)
+
+    [filled] = reaction.filled
+    assert filled.cycle_profit is None
+    assert filled.completed_cycles == 0
+
+
+def test_a_late_duplicate_fill_after_the_level_settled_tells_nothing() -> None:
+    settled = on_fill(started_ladder(), _fill(1, "1"), STEP, hold=False).runtime
+
+    assert on_fill(settled, _fill(1, "1"), STEP, hold=False).filled == ()
+
+
+def test_a_fill_is_told_even_when_its_counter_order_is_held_by_a_pause() -> None:
+    reaction = on_fill(started_ladder(), _fill(1, "1"), STEP, hold=True)
+
+    assert reaction.actions == ()
+    assert len(reaction.filled) == 1

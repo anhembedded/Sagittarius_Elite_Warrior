@@ -16,7 +16,8 @@ subject is a bot, a venue or the app (`alerting/domain/alert_subject.py` → `Al
 `SubjectScope`); a bot subject carries id, name, kind, venue and symbol, so a later "stop this bot"
 can point at the right one. Each `AlertKind` (`alerting/domain/alert_kind.py` → `AlertKind`) has one
 group, one default severity and one label in `KIND_PROFILES` (`alerting/domain/alert_catalog.py` →
-`KIND_PROFILES`); `TEST` is the Send test's. `AlertSettings` holds disabled channels, route cells,
+`KIND_PROFILES`); `TEST` is the Send test's; `ORDER_FILLED` and `FILLS_SKIPPED` (`BOT-189`) are INFO in the `ROUTINE` group,
+so by N4's defaults they are sent without a sound. `AlertSettings` holds disabled channels, route cells,
 per-bot modes and quiet hours, and **no secret** (`alerting/domain/alert_settings.py` →
 `AlertSettings`).
 
@@ -42,6 +43,9 @@ at each send and never written by the app on a headless host (ADR 036 of 2026-10
 desktop the only writer is the Options page, through `DiscordWebhookSetup`, to the keyring entry of
 that name (`discord_webhook_setup.py` → `DiscordWebhookSetup.save`, `DiscordWebhookSetup.remove`);
 the page keeps nothing of the URL but the last four characters of its token, read back each time
-(`DiscordWebhookSetup.state`), and the line edit is cleared once the webhook is saved. The per-bot
+(`DiscordWebhookSetup.state`), and the line edit is cleared once the webhook is saved. The fill messages add no
+column and no table: a fill is an ordinary alert row whose `dedup_key` ends with the order's id. No
+setting mutes them yet beyond a per-bot mode in the code (`AlertSettings.bot_modes`); the Options
+page has no control for it, so every bot's fills are sent (limit, see `Tasks/proposal/PRO-015.md`). The per-bot
 last-seen state of `BotAlertSource` is in memory and is seeded from the bots' report at boot,
 without alerting (`bot_alert_source.py` → `BotAlertSource.seed`).

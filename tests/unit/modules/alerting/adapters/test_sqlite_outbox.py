@@ -169,6 +169,34 @@ def test_shedding_removes_the_oldest_of_the_lowest_severity_below_the_incoming(
     assert not any(key.endswith("first") for key in keys)
 
 
+def test_shedding_a_surplus_keeps_the_newest_of_one_kind_on_one_channel(
+    tmp_path: Path,
+) -> None:
+    """`BOT-189`: only the oldest fill messages past the bound go; other kinds and other channels
+    are untouched."""
+    outbox = _outbox(tmp_path)
+    phone = (DeliveryTarget("phone", Loudness.SILENT),)
+    backup = (DeliveryTarget("backup", Loudness.SILENT),)
+    for number in range(4):
+        outbox.enqueue(
+            an_alert(AlertKind.ORDER_FILLED, reason=f"o-{number}"), phone, NOW
+        )
+    outbox.enqueue(an_alert(AlertKind.ORDER_FILLED, reason="elsewhere"), backup, NOW)
+    outbox.enqueue(an_alert(AlertKind.RATE_LIMITED), phone, NOW)
+
+    dropped = outbox.shed_surplus("phone", AlertKind.ORDER_FILLED, 2)
+
+    assert dropped == 2
+    kept = sorted(d.alert.dedup_key for d in outbox.due("phone", NOW, 10))
+    assert [key.rsplit(":", 1)[1] for key in kept if "ORDER_FILLED" in key] == [
+        "o-2",
+        "o-3",
+    ]
+    assert any("RATE_LIMITED" in key for key in kept)
+    assert outbox.pending_count("backup") == 1
+    assert outbox.shed_surplus("phone", AlertKind.ORDER_FILLED, 2) == 0
+
+
 def test_the_backlog_counts_open_deliveries_and_ages_the_oldest(tmp_path: Path) -> None:
     outbox = _outbox(tmp_path)
     assert outbox.backlog(NOW).depth == 0

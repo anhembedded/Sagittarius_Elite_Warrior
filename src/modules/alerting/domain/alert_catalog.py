@@ -73,6 +73,10 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.CHANNEL_FAILING: KindProfile(
             AlertGroup.NOTICES, _WARNING, "Alert channel failing"
         ),
+        AlertKind.ORDER_FILLED: KindProfile(AlertGroup.ROUTINE, _INFO, "Order filled"),
+        AlertKind.FILLS_SKIPPED: KindProfile(
+            AlertGroup.ROUTINE, _INFO, "Fill messages skipped"
+        ),
         AlertKind.HEARTBEAT: KindProfile(AlertGroup.ROUTINE, _INFO, "Heartbeat"),
         AlertKind.DAILY_SUMMARY: KindProfile(AlertGroup.ROUTINE, _INFO, "Summary"),
         AlertKind.TEST: KindProfile(AlertGroup.ROUTINE, _INFO, "Test message"),

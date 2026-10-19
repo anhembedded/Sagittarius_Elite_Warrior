@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_order_filled_event import (
+    BotOrderFilledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -85,3 +88,33 @@ def test_a_filled_order_in_the_way_parks_the_counter_until_its_own_fill() -> Non
     assert world.state() is S.RUNNING
     assert {D(110), D(120)} <= _resting_sells(world)
     assert world.runtime().reason is None
+
+
+def _announced_prices(world: GridWorld) -> list[Decimal]:
+    return [
+        event.price
+        for event in world.events.events
+        if isinstance(event, BotOrderFilledEvent)
+    ]
+
+
+def test_a_parked_fill_is_announced_when_it_is_applied_not_when_it_is_parked() -> None:
+    """`BOT-189`: the fill whose counter waits is a real fill and is told once, with its own."""
+    world = running()
+    _exchange_says(world, D(110), OrderStatus.FILLED)
+
+    _fill_whole(world, D(100))
+    assert _announced_prices(world) == [], "parked: nothing is applied yet"
+
+    _fill_whole(world, D(110))
+
+    assert sorted(_announced_prices(world)) == [D(100), D(110)]
+
+
+def test_a_real_fill_whose_counter_halts_the_bot_is_still_announced_once() -> None:
+    world = running()
+
+    _fill_whole(world, D(100))
+
+    assert world.state() is S.HALTED
+    assert _announced_prices(world) == [D(100)]

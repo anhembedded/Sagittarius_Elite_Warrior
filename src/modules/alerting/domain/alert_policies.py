@@ -39,6 +39,10 @@ class DeliveryPolicy:
     expiry: timedelta = timedelta(hours=24)
     #: Per channel; CRITICAL is admitted beyond it, never dropped.
     capacity: int = 200
+    #: `BOT-189`: how many fill messages (`ORDER_FILLED`) may wait on one channel. Past it the
+    #: oldest are dropped and one "N fill messages skipped" line says so, so a CRITICAL is not
+    #: sent behind a day of fills. A chosen bound, not a measured rate.
+    fill_backlog: int = 25
     #: Finished alerts older than this leave the history.
     retention: timedelta = timedelta(days=30)
 

@@ -42,6 +42,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fee_netting import (
     sellable_after_buy,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_filled_order import (
+    FilledOrder,
+    filled_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelEvent,
     LevelState,
@@ -100,6 +104,8 @@ class Reaction:
 
     runtime: GridRuntime
     actions: tuple[GridAction, ...] = ()
+    #: The orders this fact filled whole (`BOT-189`): what the executor announces.
+    filled: tuple[FilledOrder, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,12 +184,14 @@ def on_fill(
         return Reaction(after.with_level(level.moved(LevelEvent.PARTIAL_FILL, order)))
     filled = level.moved(LevelEvent.FULL_FILL, order)
     after = after.with_level(filled.moved(LevelEvent.SETTLED, None))
+    booked = after
     if runtime.completes_a_cycle(order):
-        after = book_cycle(after, order, fill.price)
-    counter = _counter(after, level.index, order, step_size)
+        booked = book_cycle(after, order, fill.price)
+    told = (filled_order(level.index, order, after, booked),)
+    counter = _counter(booked, level.index, order, step_size)
     if counter is None:
-        return Reaction(after)
-    return _emit(after, counter, hold)
+        return Reaction(booked, filled=told)
+    return replace(_emit(booked, counter, hold), filled=told)
 
 
 def on_end(

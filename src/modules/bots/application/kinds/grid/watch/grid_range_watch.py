@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_chang
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
+    RangeExit,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
     RangePosition,
@@ -80,5 +81,6 @@ class GridRangeWatch:
                 price=tick.last,
                 lower=params.lower,
                 upper=params.upper,
+                closes=params.on_range_exit is RangeExit.CLOSE,
             )
         )

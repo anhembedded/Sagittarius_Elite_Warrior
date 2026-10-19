@@ -62,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_con
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_fill_alert_source import (
+    BotFillAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
@@ -181,6 +184,14 @@ def bind_alerting(container: IContainer) -> None:
     container.singleton(
         BotAlertSource,
         lambda resolver: BotAlertSource(
+            resolver.resolve(ICommandDispatcher),
+            resolver.resolve(IAlertPublisher),
+            resolver.resolve(IAlertClock),
+        ),
+    )
+    container.singleton(
+        BotFillAlertSource,
+        lambda resolver: BotFillAlertSource(
             resolver.resolve(ICommandDispatcher),
             resolver.resolve(IAlertPublisher),
             resolver.resolve(IAlertClock),
