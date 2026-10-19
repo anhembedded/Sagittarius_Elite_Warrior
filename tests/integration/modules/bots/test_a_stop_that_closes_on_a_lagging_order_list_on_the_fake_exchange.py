@@ -1,4 +1,4 @@
-"""`BUG-nnn` - a Futures bot's stop that closes its position, while the exchange's open-orders
+"""`BUG-228`, `BUG-229` - a Futures bot's stop that closes its position, while the exchange's open-orders
 list still shows the orders the stop just cancelled, on the fake exchange.
 
 @details The owner's desktop: a BTC grid and an ETH grid on one Futures venue and account. The
