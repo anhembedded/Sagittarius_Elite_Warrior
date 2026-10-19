@@ -15,6 +15,9 @@ from typing import Any
 from unittest.mock import Mock
 
 from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import ISecretStore
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_cha
     DISCORD_CHANNEL_ID,
     DISCORD_WEBHOOK_SECRET,
     DiscordWebhookChannel,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
+    JsonAlertSettings,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_catalog import (
     RegisteredChannelCatalog,
@@ -41,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_con
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
+    IBotAlertModes,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
@@ -58,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_v
     AlertsSettingsView,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
+from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.application.sources.bot_source_world import (
+    Bots,
+)
 from sagittarius_engine.interfaces.i_logger import ILogger
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -135,6 +147,7 @@ class AlertsPage:
     transport: FakeWebhookTransport
     notifier: RecordingNotifier
     threads: InlineThreads
+    modes: JsonAlertSettings
     asked: list[Any] = field(default_factory=list)
     answers: list[bool] = field(default_factory=list)
 
@@ -179,6 +192,8 @@ def build_page(
     store: ISecretStore | None = None,
     running: bool = False,
     transport: FakeWebhookTransport | None = None,
+    bots: Bots | None = None,
+    modes: JsonAlertSettings | None = None,
 ) -> AlertsPage:
     store = store if store is not None else InMemorySecretStore()
     transport = transport if transport is not None else FakeWebhookTransport()
@@ -198,7 +213,12 @@ def build_page(
     )
     notifier = RecordingNotifier()
     threads = InlineThreads()
+    modes = modes or JsonAlertSettings(
+        request.getfixturevalue("tmp_path") / "state" / "alert_settings.json"
+    )
     services = {
+        IBotAlertModes: modes,
+        ICommandDispatcher: bots if bots is not None else Bots(),
         INotifier: notifier,
         ILogger: ForwardingLogger(),
         IThreadManager: threads,
@@ -217,6 +237,7 @@ def build_page(
         transport=transport,
         notifier=notifier,
         threads=threads,
+        modes=modes,
     )
 
     def answer(_parent: Any, question: Any) -> bool:

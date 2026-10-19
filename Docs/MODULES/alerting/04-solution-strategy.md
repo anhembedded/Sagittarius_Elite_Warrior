@@ -32,7 +32,8 @@ from a systemd credential file. The journey, drawn: [`06-runtime.md`](06-runtime
 | `ISecretStore` for the webhook | **Real**: the systemd-credential store on the VPS, the keyring on a desktop | Lifted out of `trading` into `src/support/secrets/` (D3) |
 | `IAlertingStatus` and the `operations` adapter | **Real, new** | `True` only when the Discord channel is configured (its webhook stored) and not disabled, so `run` stops warning only then |
 | `alert test` | **Real, new** | The headless Send test; calls the channel once with an INFO test alert, prints the sanitised outcome |
-| `InMemoryAlertSettings` | **Stand-in** (built) | N4's defaults route a CRITICAL loud to every channel; persisted settings are `EPIC-036D` |
+| `JsonAlertSettings` | **Real, partly** (`BOT-191`) | Each bot's mode survives a restart in `<data root>/state/alert_settings.json`; routes, disabled channels and quiet hours are not editable yet and stay N4's defaults (`EPIC-036D`). `InMemoryAlertSettings` remains the tests' stand-in |
+| The Options page's per-bot choice (All messages, Critical only, None) | **Real, new** (`BOT-191`) | Applies to the next alert without a restart; a bot set to Critical only sends no fill message and still sends its halts |
 | The Options page's Discord webhook, Save, Remove and Send test | **Real, new** (`EPIC-036D1`) | The one place a desktop owner configures the channel; a first save or a removal takes effect after a restart ([`06-runtime.md`](06-runtime.md)) |
 | Telegram, stream and system sources, the rest of the UI, the heartbeat, the dead man's switch, remote control | **Absent** | `EPIC-036C`, `036B`, `036D`, `036E`, `036F` |
 

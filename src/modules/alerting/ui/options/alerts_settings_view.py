@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
@@ -10,6 +12,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
     VerbQuestion,
@@ -45,6 +48,7 @@ class AlertsSettingsView(BaseView):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._mode_boxes: list[QComboBox] = []
         self._build_ui()
 
     def set_view_model(self, view_model: AlertsSettingsViewModel) -> None:
@@ -58,6 +62,8 @@ class AlertsSettingsView(BaseView):
         view_model.working_changed.connect(lambda: self._apply_working(view_model))
         view_model.statusChanged.connect(lambda: self._apply_status(view_model))
         view_model.webhook_kept.connect(self._webhook_field.clear)
+        view_model.bots_changed.connect(lambda: self._apply_bots(view_model))
+        self._apply_bots(view_model)
         self._apply_channel(view_model)
         self._apply_working(view_model)
         self._apply_status(view_model)
@@ -78,6 +84,30 @@ class AlertsSettingsView(BaseView):
         self._save_button.setEnabled(idle)
         self._remove_button.setEnabled(idle and view_model.can_remove_webhook)
         self._test_button.setEnabled(idle and view_model.can_send_test)
+        for box in self._mode_boxes:
+            box.setEnabled(idle)
+
+    def _apply_bots(self, view_model: AlertsSettingsViewModel) -> None:
+        """Rebuilds the rows: one bot, one choice of what it may tell (`BOT-191`)."""
+        while self._bots_form.rowCount():
+            self._bots_form.removeRow(0)
+        self._mode_boxes = []
+        for row in view_model.bot_rows:
+            box = QComboBox()
+            box.setObjectName(f"cmbBotMode_{row.bot_id}")
+            for mode, label in alerts_words.BOT_MODE_LABELS.items():
+                box.addItem(label, mode.value)
+            box.setCurrentIndex(box.findData(row.mode))
+            box.setEnabled(not view_model.is_working)
+            box.activated.connect(
+                lambda _index, b=box, bot_id=row.bot_id: view_model.request_bot_mode(
+                    bot_id, str(b.currentData())
+                )
+            )
+            self._mode_boxes.append(box)
+            self._bots_form.addRow(plain_label(row.name), box)
+        self._bots_note.setText(view_model.bots_note)
+        self._bots_note.setVisible(bool(view_model.bots_note))
 
     def _apply_status(self, view_model: AlertsSettingsViewModel) -> None:
         message = view_model.statusMessage
@@ -127,6 +157,20 @@ class AlertsSettingsView(BaseView):
         buttons.addStretch(1)
         box_layout.addLayout(buttons)
         layout.addWidget(box)
+
+        bots_box = QGroupBox("Bots")
+        bots_layout = QVBoxLayout(bots_box)
+        bots_intro = plain_label(alerts_words.BOTS_INTRO)
+        bots_intro.setObjectName("lblAlertsBotsIntro")
+        bots_intro.setWordWrap(True)
+        bots_layout.addWidget(bots_intro)
+        self._bots_form = QFormLayout()
+        bots_layout.addLayout(self._bots_form)
+        self._bots_note = plain_label()
+        self._bots_note.setObjectName("lblAlertsBotsNote")
+        self._bots_note.setWordWrap(True)
+        bots_layout.addWidget(self._bots_note)
+        layout.addWidget(bots_box)
 
         self._working_label = plain_label()
         self._working_label.setObjectName("lblAlertsWorking")

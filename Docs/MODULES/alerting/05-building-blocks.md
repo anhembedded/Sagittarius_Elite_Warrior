@@ -42,8 +42,11 @@ Five pictures, drawn by hand at a high level, one question each:
   (`alerting/composition/channel_bindings.py` → `CHANNEL_DESCRIPTORS`), is the one list a channel is
   added to. The test double is `FakeAlertChannel`
   (`alerting/contracts/testing/fake_alert_channel.py` → `FakeAlertChannel`).
-- **`InMemoryAlertSettings`** (`alerting/adapters/memory_alert_settings.py` →
-  `InMemoryAlertSettings`) holds N4's defaults behind `IAlertSettingsSource`; `NullAlertPublisher`
+- **`JsonAlertSettings`** (`alerting/adapters/json_alert_settings.py` → `JsonAlertSettings`) serves
+  `IAlertSettingsSource` for the hub and `IBotAlertModes` (`alerting/contracts/i_bot_alert_modes.py` →
+  `IBotAlertModes`) for the Options page, over one file ([`08-concepts.md`](08-concepts.md));
+  `InMemoryAlertSettings` (`alerting/adapters/memory_alert_settings.py` → `InMemoryAlertSettings`)
+  holds N4's defaults for tests; `NullAlertPublisher`
   stands in on a read-only copy (`alerting/composition/alerting_bindings.py` → `bind_alerting`);
   `AlertingHealthContributor` (`alerting/application/alerting_health_contributor.py` →
   `AlertingHealthContributor`) reports the backlog.
@@ -134,6 +137,6 @@ among them.
 | :--- | :--- | :--- |
 | `StreamAlertSource`, `SystemAlertSource` (replaces `NotificationEventHandler`) | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
-| The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; a persisted `IAlertSettingsSource` | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `HeartbeatService`, the dead man's switch pinger | `alerting/application/`, `alerting/adapters/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

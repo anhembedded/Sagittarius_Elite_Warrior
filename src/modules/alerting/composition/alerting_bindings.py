@@ -22,8 +22,8 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_cha
     DISCORD_CHANNEL_ID,
     DISCORD_WEBHOOK_SECRET,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.memory_alert_settings import (
-    InMemoryAlertSettings,
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
+    JsonAlertSettings,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.null_alert_publisher import (
     NullAlertPublisher,
@@ -85,6 +85,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_s
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alerting_status import (
     IAlertingStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
+    IBotAlertModes,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_catalog_builder import (
     IChannelCatalogBuilder,
 )
@@ -116,9 +119,26 @@ def outbox_path() -> Path:
     return data_root() / "state" / "alerts.sqlite3"
 
 
+def alert_settings_path() -> Path:
+    return data_root() / "state" / "alert_settings.json"
+
+
 def bind_alerting(container: IContainer) -> None:
     container.singleton(IAlertClock, SystemAlertClock())
-    container.singleton(IAlertSettingsSource, InMemoryAlertSettings())
+    # `BOT-191`: what the owner set per bot survives a restart; a missing or unreadable file
+    # is every default. One object serves the hub's reads and the Options page's edits.
+    container.singleton(
+        JsonAlertSettings,
+        lambda resolver: JsonAlertSettings(
+            alert_settings_path(), read_only=resolver.resolve(IInstanceAccess).read_only
+        ),
+    )
+    container.singleton(
+        IAlertSettingsSource, lambda resolver: resolver.resolve(JsonAlertSettings)
+    )
+    container.singleton(
+        IBotAlertModes, lambda resolver: resolver.resolve(JsonAlertSettings)
+    )
     container.singleton(WakeSignal, WakeSignal())
     container.singleton(IDeliveryWakeup, lambda resolver: resolver.resolve(WakeSignal))
     # `EPIC-036G` (D3): the channels' secrets come from the stores the mainnet keys

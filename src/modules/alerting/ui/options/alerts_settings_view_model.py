@@ -9,10 +9,21 @@ read back into it: the saved line carries the last characters of the token, whic
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class BotModeRow:
+    """One bot on the page and what it may tell (`BOT-191`): `mode` is a `BotAlertMode` value."""
+
+    bot_id: str
+    name: str
+    mode: str
 
 
 class AlertsSettingsViewModel(StatusMessageViewModel):
@@ -23,7 +34,11 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
     #: The webhook was kept: the view clears its field.
     webhook_kept = Signal()
 
+    #: The bots listed under "Bots" changed, or one's mode did.
+    bots_changed = Signal()
+
     save_requested = Signal(str)
+    bot_mode_requested = Signal(str, str)
     remove_requested = Signal()
     send_test_requested = Signal()
 
@@ -34,6 +49,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
         self._can_remove = False
         self._can_test = False
         self._working_text = ""
+        self._bot_rows: tuple[BotModeRow, ...] = ()
+        self._bots_note = ""
 
     @property
     def channel_text(self) -> str:
@@ -61,6 +78,20 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
     @property
     def is_working(self) -> bool:
         return bool(self._working_text)
+
+    @property
+    def bot_rows(self) -> tuple[BotModeRow, ...]:
+        return self._bot_rows
+
+    @property
+    def bots_note(self) -> str:
+        """Said under the list when it cannot be shown or is empty; "" otherwise."""
+        return self._bots_note
+
+    def set_bot_rows(self, rows: tuple[BotModeRow, ...], note: str = "") -> None:
+        self._bot_rows = rows
+        self._bots_note = note
+        self.bots_changed.emit()
 
     def set_channel(
         self, channel_line: str, saved_line: str, *, can_remove: bool, can_test: bool
@@ -90,3 +121,7 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
     @Slot()
     def request_send_test(self) -> None:
         self.send_test_requested.emit()
+
+    @Slot(str, str)
+    def request_bot_mode(self, bot_id: str, mode: str) -> None:
+        self.bot_mode_requested.emit(bot_id, mode)
