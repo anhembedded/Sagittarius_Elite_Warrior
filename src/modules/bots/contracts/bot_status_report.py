@@ -9,7 +9,9 @@ those.
 
 Plain, frozen and JSON-ready: a script's `--json` is `payload()` of this report,
 so a field here is a field in the contract with scripts. It holds no account
-balance, no profit and no credential (`test_the_status_payloads_hold_no_secret`).
+balance and no credential (`test_the_status_payloads_hold_no_secret`); the run's
+own earnings (`BOT-192`, `RunEarnings`) are the bot's file's account, never a
+safety input, and are `null` where the file gives none.
 
 @par `state` is a record, not a measurement
 Bot states come from the bots' files. While a copy of the app is running they are
@@ -30,6 +32,9 @@ from datetime import UTC, datetime
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    RunEarnings,
+)
 
 #: The `state` of a bot whose file this build cannot read. Not a lifecycle
 #: state: the bot may well be running, and the file is the only record of it.
@@ -127,6 +132,9 @@ class BotStatusEntry:
     #: `EPIC-038L` - every parameter the bot stores, exactly as stored (text); filled for the one-bot
     #: read (`bot show`), `None` in a listing. These are the keys `bot edit` changes.
     parameters: Mapping[str, str] | None = None
+    #: `BOT-192` - what the run has earned, read from the bot's file like the Bots tab reads it;
+    #: `None` when the file holds no readable run account (never shown as zero).
+    earnings: RunEarnings | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))
@@ -159,6 +167,7 @@ class BotStatusEntry:
                 if self.parameters is None
                 else dict(sorted(self.parameters.items()))
             ),
+            "earnings": _earnings_payload(self.earnings),
         }
 
 
@@ -211,6 +220,18 @@ class BotStatusReport:
             "bots": [bot.payload() for bot in self.bots],
             "unreadable": [bot.payload() for bot in self.unreadable],
         }
+
+
+def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | None:
+    """Exact decimals as text (never a float); `total_pnl` is `null` while it waits for a price."""
+    if earnings is None:
+        return None
+    return {
+        "grid_profit": str(earnings.grid_profit),
+        "completed_cycles": earnings.completed_cycles,
+        "total_pnl": None if earnings.total_pnl is None else str(earnings.total_pnl),
+        "unpriced_fees": earnings.unpriced_fees,
+    }
 
 
 def _utc(moment: datetime | None) -> str | None:

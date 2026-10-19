@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     RefusedBotFile,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    RunEarnings,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     restarts_into_recovering,
 )
@@ -152,4 +155,5 @@ def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
         resting_orders=bot.progress.open_orders if bot.progress is not None else None,
         recovers_on_restart=restarts_into_recovering(bot.state),
         reason_detail=bot.progress.reason_detail if bot.progress is not None else "",
+        earnings=RunEarnings.of(bot.progress),
     )
