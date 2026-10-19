@@ -11,6 +11,9 @@ The three kinds are three different truths about the exchange:
 - `NOT_PLACED` (`OrderNotPlacedError`): the exchange holds no such order.
 - `SHORT_NOT_SUPPORTED` (`ManualShortNotSupportedOnMarketError`): the domain
   refused before anything was sent; nothing is live.
+- `PAUSED` / `BANNED` (`ExchangeRateLimitedError`, `BOT-181`): the exchange asked
+  for a pause (or banned the address) and nothing was sent; the wording says so
+  and until when, in the machine's local time.
 - `FAILED`: anything else raised before an answer; check before retrying.
 
 A command failure, so every one is a message box (`ui-presentation-rule.md`
@@ -20,13 +23,18 @@ the other's.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, tzinfo
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureKind,
     FailureNotice,
     failure_detail,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
     failure_cause,
@@ -47,6 +55,8 @@ class SubmitFailureKind(Enum):
     OUTCOME_UNKNOWN = "outcome_unknown"
     NOT_PLACED = "not_placed"
     SHORT_NOT_SUPPORTED = "short_not_supported"
+    PAUSED = "paused"
+    BANNED = "banned"
     FAILED = "failed"
 
 
@@ -57,10 +67,22 @@ class SubmitFailure:
     kind: SubmitFailureKind
     #: `failure_detail` of what was raised; for Details… and the log.
     detail: str
+    #: When the exchange's pause or ban ends; set for `PAUSED` and `BANNED`.
+    resume_at: datetime | None = None
 
 
-def submit_failure_of(exc: Exception) -> SubmitFailure:
-    """Classifies `exc` by type, at the worker boundary."""
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def submit_failure_of(
+    exc: Exception, now: Callable[[], datetime] = _utc_now
+) -> SubmitFailure:
+    """Classifies `exc` by type, at the worker boundary. `now` dates the end
+    of a pause: the error carries how long it lasts, not when it began."""
+    if isinstance(exc, ExchangeRateLimitedError):
+        kind = SubmitFailureKind.BANNED if exc.banned else SubmitFailureKind.PAUSED
+        return SubmitFailure(kind, failure_detail(exc), now() + exc.retry_after)
     if isinstance(exc, OrderOutcomeUnknownError):
         kind = SubmitFailureKind.OUTCOME_UNKNOWN
     elif isinstance(exc, OrderNotPlacedError):
@@ -72,8 +94,11 @@ def submit_failure_of(exc: Exception) -> SubmitFailure:
     return SubmitFailure(kind, failure_detail(exc))
 
 
-def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
-    """The sentence for `what` ("order", "close order", "take-profit order")."""
+def submit_failure_headline(
+    failure: SubmitFailure, what: str, zone: tzinfo | None = None
+) -> str:
+    """The sentence for `what` ("order", "close order", "take-profit order").
+    @param zone The zone a pause's end is written in; `None` is the machine's."""
     if failure.kind is SubmitFailureKind.OUTCOME_UNKNOWN:
         return (
             f"The {what} may be live on the exchange: its outcome could not "
@@ -89,10 +114,33 @@ def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
             f"The {what} was not sent: Spot has no short, and there is no "
             "sellable holding of this asset to sell instead."
         )
+    if failure.kind in (SubmitFailureKind.PAUSED, SubmitFailureKind.BANNED):
+        return _pause_headline(failure, what, zone)
     return (
         f"The {what} could not be sent. Check Open orders and Positions, "
         "then try again."
     )
+
+
+def _pause_headline(refused: SubmitFailure, what: str, zone: tzinfo | None) -> str:
+    if refused.kind is SubmitFailureKind.BANNED:
+        opening = "The exchange has banned this machine's requests"
+    else:
+        opening = "The exchange asked for a pause"
+    if refused.resume_at is None:
+        return f"{opening}: the {what} was not sent. Try again in a while."
+    return (
+        f"{opening}: the {what} was not sent, and nothing can be sent until "
+        f"{_local_time(refused.resume_at, zone)}. Try again then."
+    )
+
+
+def _local_time(moment: datetime, zone: tzinfo | None) -> str:
+    """@param zone `None`: the machine's own zone, whatever the platform calls it.
+    The offset is written, so the sentence never claims a zone it cannot name
+    (`display_timezone_service` cannot resolve the system zone from its
+    abbreviation)."""
+    return moment.astimezone(zone).isoformat(sep=" ", timespec="seconds")
 
 
 def submit_failure_notice(

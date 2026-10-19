@@ -8,7 +8,8 @@ outcome is unknown is never worded as rejected.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+import re
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
@@ -30,6 +31,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
     SubmitFailure,
     SubmitFailureKind,
+    submit_failure_headline,
+    submit_failure_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
@@ -81,11 +84,67 @@ def test_an_order_the_exchanges_pause_refused_is_shown_to_the_user_and_logged_at
 
     notice = panel.notifier.last
     assert notice.kind is FailureKind.COMMAND
-    assert "could not be sent" in notice.headline
-    assert "could not be sent" in panel.vm.message
+    assert "asked for a pause" in notice.headline
+    assert "order was not sent" in notice.headline
+    assert re.search(
+        r"until \d{4}-\d\d-\d\d \d\d:\d\d:\d\d[+-]\d\d:\d\d\. Try", notice.headline
+    )
+    assert panel.vm.message == notice.headline
+    assert notice.cause == f"trading.{_VENUE}.order.paused"
     assert EXCHANGE_PAUSE_TAG in notice.detail
     warned = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("order failed" in message for message in warned), warned
+
+
+def _pause(*, banned: bool) -> ExchangeRateLimitedError:
+    return ExchangeRateLimitedError(
+        timedelta(seconds=90), banned=banned, raw_message=EXCHANGE_PAUSE_TAG
+    )
+
+
+def test_a_pause_says_when_it_ends_in_the_machines_zone_with_its_offset() -> None:
+    """`BOT-181`: the error carries how long the pause lasts; the failure dates its end.
+    A fixed non-UTC zone is injected, so a conversion that fell back to UTC goes red
+    on a UTC runner too."""
+    began = datetime(2026, 10, 19, 12, 0, 0, tzinfo=UTC)
+    vietnam = timezone(timedelta(hours=7))
+
+    failure = submit_failure_of(_pause(banned=False), now=lambda: began)
+
+    assert failure.kind is SubmitFailureKind.PAUSED
+    assert failure.resume_at == began + timedelta(seconds=90)
+    assert submit_failure_headline(failure, "order", zone=vietnam) == (
+        "The exchange asked for a pause: the order was not sent, and nothing can be "
+        "sent until 2026-10-19 19:01:30+07:00. Try again then."
+    )
+
+
+def test_a_pause_with_no_known_end_does_not_name_a_time() -> None:
+    failure = SubmitFailure(SubmitFailureKind.PAUSED, "paused")
+
+    assert submit_failure_headline(failure, "order") == (
+        "The exchange asked for a pause: the order was not sent. Try again in a while."
+    )
+
+
+def test_a_ban_says_it_is_a_ban_and_names_the_action_it_refused() -> None:
+    failure = submit_failure_of(_pause(banned=True))
+
+    assert failure.kind is SubmitFailureKind.BANNED
+    headline = submit_failure_headline(failure, "close order")
+    assert headline.startswith("The exchange has banned this machine's requests")
+    assert "the close order was not sent" in headline
+    assert "asked for a pause" not in headline
+
+
+def test_a_failure_that_is_not_a_pause_keeps_its_words_and_has_no_end() -> None:
+    failure = submit_failure_of(RuntimeError("connection reset"))
+
+    assert failure.kind is SubmitFailureKind.FAILED
+    assert failure.resume_at is None
+    assert submit_failure_headline(failure, "order") == (
+        "The order could not be sent. Check Open orders and Positions, then try again."
+    )
 
 
 def test_an_order_whose_outcome_is_unknown_says_it_may_be_live() -> None:
