@@ -259,7 +259,7 @@
         {
           "name": "--resume-recovering",
           "action": "store_true",
-          "help": "Open the order session of each venue holding a RECOVERING bot, which reconciles it with the exchange. Refused (exit 5) unless an alert channel carries bot events or --i-accept-silent-failures is given"
+          "help": "Resume every RECOVERING bot, as the Bots tab's Resume does for one: each opens its venue's order session and reconciles with the exchange. Refused (exit 5) unless an alert channel carries bot events or --i-accept-silent-failures is given"
         },
         {
           "name": "--resume-halted",
@@ -510,7 +510,7 @@
                   "spot_mainnet",
                   "futures_mainnet"
                 ],
-                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money, the other RECOVERING bots on that venue keep waiting for their own resume). Not needed when the session is already open or the bot is on a testnet"
+                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money; the other RECOVERING bots on that venue keep waiting for their own resume). Not needed when the session is already open or the bot is on a testnet"
               },
               {
                 "name": "--close-position",

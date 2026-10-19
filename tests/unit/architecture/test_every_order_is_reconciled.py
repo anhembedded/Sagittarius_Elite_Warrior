@@ -52,12 +52,8 @@ _EXECUTE_ORDER = "src/modules/trading/application/orders/execute_order/handler.p
 _BOT_SESSION_OPENERS = {
     "src/modules/bots/application/kinds/grid/start/grid_start_preconditions.py": (
         "Start bot, and Resume from HALTED or RECOVERING (`open_session_for_resume`, "
-        "asked by `BotRunner.resume` behind the read-only guard; `BUG-204`)"
-    ),
-    "src/modules/bots/application/use_cases/resume_recovering_for_host/handler.py": (
-        "`run --resume-recovering` (`EPIC-038D`, decision O2(b)): the operator's flag, "
-        "once at process start; refused without an alert channel or the typed "
-        "acknowledgement, and for a mainnet venue without `--confirm-venue`"
+        "asked by `BotRunner.resume` behind the read-only guard; `BUG-204`); the host's "
+        "`run --resume-recovering` sends each RECOVERING bot this same Resume (`BOT-183`)"
     ),
     "src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py": (
         "`bot stop` on the running host (`EPIC-038J`, the owner's answer \"B\"): a person's "
