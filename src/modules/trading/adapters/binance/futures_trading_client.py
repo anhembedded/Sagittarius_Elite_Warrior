@@ -39,6 +39,9 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.accepted_order import (
     as_accepted,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_error_translator import (
+    translate_binance_error,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
     is_algo_routed,
     map_futures_algo_payload_to_order,
@@ -62,7 +65,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited
     RateLimitedApiException,
     contract_error_of,
     pause_behind,
-    rate_limited_error_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -77,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectionReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
@@ -308,10 +313,16 @@ class FuturesTradingClient(ITradingClient):
                 symbol=symbol, clientAlgoId=client_order_id
             )
         except BinanceAPIException as algo_refusal:
-            if rate_limited_error_of(algo_refusal) is not None:
-                raise_rejection(algo_refusal)
-            # Neither kind holds this id: the regular refusal is the answer.
-            raise_rejection(regular_refusal)
+            if (
+                translate_binance_error(algo_refusal)
+                is OrderRejectionReason.UNKNOWN_ORDER
+            ):
+                # Neither kind holds this id: the regular refusal is the answer.
+                raise_rejection(regular_refusal)
+            # Any other answer (a rate-limit pause, a timeout whose outcome is unknown) says
+            # nothing about whether the order is still there: it is the answer, not "gone"
+            # (`BUG-226`).
+            raise_rejection(algo_refusal)
         try:
             payload = client.futures_get_algo_order(
                 symbol=symbol, clientAlgoId=client_order_id

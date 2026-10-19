@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
+    OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
@@ -235,6 +236,24 @@ def test_an_id_neither_kind_knows_is_the_regular_refusal() -> None:
 
     assert raised.value.__cause__ is regular
     raw.futures_get_algo_order.assert_not_called()
+
+
+@pytest.mark.parametrize("code", [-1007, -1001])
+def test_an_algo_cancel_that_failed_for_another_reason_is_its_own_refusal_not_a_gone_order(
+    code: int,
+) -> None:
+    """`BUG-226` review: a timeout whose outcome is unknown says nothing about whether the stop is
+    still there; turning it into the regular `-2011` would tell the desk a live stop is gone."""
+    raw = _raw()
+    raw.futures_cancel_order.side_effect = _api_error(-2011)
+    algo = _api_error(code)
+    raw.futures_cancel_algo_order.side_effect = algo
+
+    with pytest.raises(OrderRejectedByExchangeError) as raised:
+        _client(raw).cancel_order("BTCUSDT", _ID)
+
+    assert raised.value.__cause__ is algo
+    assert raised.value.reason is not OrderRejectionReason.UNKNOWN_ORDER
 
 
 def test_another_cancel_refusal_is_not_retried_as_an_algo_order() -> None:

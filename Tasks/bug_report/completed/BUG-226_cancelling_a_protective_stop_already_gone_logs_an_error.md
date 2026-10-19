@@ -5,7 +5,7 @@
 - **Status:** ✅ Fixed (2026-10-19)
 - **Board:** After a halt closed the position, cancelling the bot's protective stop (already gone) logged an ERROR. Cause: `BotOrderGateway.cancel`'s `logger.exception` was half of it (fixed by #579, which reads the unknown-order refusal as GONE); the other half was the command dispatcher logging `CancelOrderCommand failed: unknown_order` at ERROR because the handler let the refusal propagate. Fix: the cancel handler answers it as `CancelOrderResult.already_gone`, a value.
 - **Context:** Halt of a Futures Grid → `bots` → `application/services/orders/bot_order_gateway.py` (`BotOrderGateway.cancel`), `application/kinds/grid/protection/protection_futures.py` (`_cancel_cancelling`)
-- **Environment:** VPS, Futures Testnet. The exception text was not in the paste. Not reproduced.
+- **Environment:** VPS, Futures Testnet (the exception text was not in the paste, so the incident itself is not reproduced). Reproduced on the Futures fake at `a344b25`.
 
 ## Reproduction
 Not yet reproduced. Expected: a stop the exchange no longer holds is treated as done quietly. Actual (journal): `ERROR ... cancel SEW-sj9rno-42338a6e20 raised`, then `-> dropped`, then STOPPING -> STOPPED.
