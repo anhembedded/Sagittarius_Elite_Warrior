@@ -45,4 +45,4 @@ The [UI review](https://claude.ai/artifact/Np92LCSrk2t2e8NQxLEkaE) ran the real 
 | D4 | EPIC-033C, EPIC-033E | Not started | Not yet verified |
 | D5 | EPIC-033G | Not started | Not yet verified |
 | D6 | EPIC-033C (application font), EPIC-033N (fixed-pitch font where digits align) | Application font done | Conformance `system_font` check (`_apply_font` deleted); the fixed-pitch half is open in EPIC-033N |
-| D8 | EPIC-033M | Not started | Not yet verified |
+| D8 | EPIC-033M, EPIC-033U | Done for what carries meaning | No theme code (EPIC-033M deleted the kit, the palette and the bootstrap; `test_no_global_stylesheet.py`). The Bots tab's profit, loss and state colours come from the palette-aware meaning table and are tested on a light base, a dark base and with High Contrast on (`test_meaning_colours.py`, `test_bots_tables_colour_by_meaning.py`). Not verified: a real Windows High Contrast session; colour in labels (the connection strip) stays words, awaiting the owner |
