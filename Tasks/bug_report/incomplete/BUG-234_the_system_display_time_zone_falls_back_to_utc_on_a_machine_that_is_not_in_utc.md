@@ -1,4 +1,4 @@
-# BUG-232 — The "System" display time zone shows UTC on a machine whose zone is not UTC
+# BUG-234 — The "System" display time zone shows UTC on a machine whose zone is not UTC
 
 - **Reported:** 2026-10-19 (review of PR #586, `BOT-181`, by the independent reviewer session; confirmed by probe)
 - **Severity:** 🟡 P2 — a screen that is told to show the machine's local time shows UTC, labelled as the system zone; a Vietnamese owner reads times seven hours off. No order or stored data is affected.
