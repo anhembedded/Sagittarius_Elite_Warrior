@@ -319,6 +319,9 @@ def test_a_burst_of_starts_stops_at_the_gate_before_the_exchange_limit(
     exchange's own limit, which is what a ban would need."""
     monkeypatch.setattr(other_active_bot, "MAX_ACTIVE_BOTS_PER_VENUE", 1_000)
     meter = both_venues.urls.weights
+    # The eight starts are "inside a minute" by construction, not by the wall clock's luck: on a
+    # slow runner they used to cross a calendar minute, which reset the weight (`BUG-232`).
+    meter.use_clock(lambda: 0.0)
     with booted_two_venues(both_venues) as app:
         mark = meter.mark()
         accepted = 0
