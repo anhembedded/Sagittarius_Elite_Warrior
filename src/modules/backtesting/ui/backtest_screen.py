@@ -9,28 +9,22 @@ and `PresenterManager.navigate_to()` calls `view_factory()` with zero
 arguments. `BacktestingModule.boot()` stashes `context.container` for this
 call.
 
-Both factories below check the concrete type they get, the same real check
-`dashboard_screen()` and the other screen factories make and the
-legacy `BacktestScreenModule.create_view()`/`create_presenter()` this
-replaces never did: `build_backtest_view()` returns `IBacktestView` (a
-`Protocol`, unrelated to `BaseView` by inheritance) and `BackTestPresenter`
-needs `BackTestView` specifically, not the generic `BaseView` every
-`ScreenContribution` factory is typed over. The legacy module's own
-`create_view()`/`create_presenter()` carried the identical mismatch, silent
-only because `module.py` sat in `pyproject.toml`'s per-file `mypy` exclude
-list; this file is not excluded, so the check that was always missing here
-now runs for real.
+Both factories are `Deferred` import paths into `screen_factories.py` (`BOT-148`), so nothing
+here imports Qt until the route is first opened; that file keeps the concrete-type check each
+makes: `build_backtest_view()` returns `IBacktestView` (a `Protocol`, unrelated to `BaseView`
+by inheritance) and `BackTestPresenter` needs `BackTestView` specifically, not the generic
+`BaseView` every `ScreenContribution` factory is typed over.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadata
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
@@ -47,50 +41,23 @@ _NAV = NavMetadata(
 )
 
 
-def _build_backtest_presenter(view: BaseView, container: IContainer) -> BasePresenter:
-    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
-        BackTestPresenter,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
-        BackTestView,
-    )
-
-    if not isinstance(view, BackTestView):
-        raise TypeError(
-            f"the Backtest screen's presenter was handed a {type(view).__name__}, "
-            "not a BackTestView"
-        )
-    return BackTestPresenter(view, container)
+_PACKAGE = "Sagittarius_Elite_Warrior.src.modules.backtesting.ui"
+_VIEW: Deferred[BaseView] = Deferred(
+    f"{_PACKAGE}.screen_factories:build_backtest_screen_view"
+)
+_PRESENTER: Deferred[BasePresenter] = Deferred(
+    f"{_PACKAGE}.screen_factories:build_backtest_screen_presenter"
+)
 
 
 def backtest_screen(container: IContainer) -> ScreenContribution:
     """`backtesting`'s Backtest Engine screen. Takes `container` for the
     reason this module's own docstring explains."""
 
-    def _build_backtest_view() -> BaseView:
-        # `build_backtest_view`, not `BackTestView()` (`EPIC-013F`): a View
-        # is never swapped while the app runs, so the config-driven choice
-        # is read once, here.
-        from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
-            BackTestView,
-        )
-        from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.view_factory import (
-            build_backtest_view,
-        )
-
-        config = container.resolve(IConfig)
-        view = build_backtest_view(config)
-        if not isinstance(view, BackTestView):
-            raise TypeError(
-                f"build_backtest_view() returned a {type(view).__name__}, "
-                "not a BackTestView"
-            )
-        return view
-
     return ScreenContribution(
         contributor_id="backtesting",
         route=BACKTEST_ROUTE,
-        view_factory=_build_backtest_view,
-        presenter_factory=_build_backtest_presenter,
+        view_factory=_VIEW.bind(container),
+        presenter_factory=_PRESENTER,
         nav=_NAV,
     )

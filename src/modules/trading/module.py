@@ -115,7 +115,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen impor
     market_screen,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
-    build_trading_session_probe,
+    TRADING_SESSION_PROBE,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
     trade_commands,
@@ -230,7 +230,7 @@ class TradingModule(BoundedContextModule):
         the registry drops this contribution with one log line and the app
         boots — the normal user run, not an error (`shell/surfaces.py`).
 
-        The factory is `ui/probes.py`'s, which imports no widget module until
+        The factory is `ui/probes.py`'s, a `Deferred` that imports no widget module until
         it is called. That is the rule and the reason: `contribute()` runs at
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
@@ -247,7 +247,7 @@ class TradingModule(BoundedContextModule):
                 place=Place.DEV_PROBE,
                 order=10,
                 size_hint=SizeHint.REGULAR,
-                factory=build_trading_session_probe,
+                factory=TRADING_SESSION_PROBE,
                 title="Trading session",
             )
         )

@@ -46,6 +46,7 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnSpec,
     ReadoutForm,
 )
+from sagittarius_engine.interfaces.i_container import IContainer
 
 _NO_SYMBOLS = "—"
 
@@ -101,3 +102,9 @@ class TradingSessionProbe(QWidget):  # base-exempt: a container, not a surface
     def value_text(self, key: str) -> str:
         """What the field `key` shows."""
         return self._fields.value_text(key)
+
+
+def build_trading_session_probe(container: IContainer) -> QWidget:
+    """The `DEV_PROBE` panel showing the live trading session's own state. Named by
+    `Deferred` in `TradingModule`, so this module is imported only when a surface renders it."""
+    return TradingSessionProbe(container.resolve(ITradingSession))

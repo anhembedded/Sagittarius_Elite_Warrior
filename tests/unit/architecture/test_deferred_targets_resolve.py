@@ -4,7 +4,8 @@
 factory by its import path so `contribute()` imports no widget module, without
 a function-local import per factory. A path is a string: mypy cannot see a
 typo, and the import guards cannot see where it points. This file is what can.
-It walks the contributions every module in `MODULES` makes and, for each
+It walks the contributions every module in `MODULES` makes, and the shell's own screen
+(`developer_screen()`), and, for each
 `Deferred` factory, checks two things:
 
 1. the target imports and names something callable. Without this, a typo
@@ -35,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution impo
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
+from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
+    developer_screen,
+)
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 
 
@@ -64,6 +68,7 @@ class _RecordingRegistry(IContributionRegistry):
 
 
 def _contributed() -> list[tuple[str, Deferred[object]]]:
+    """Every module's contributions, then the shell's own."""
     registry = _RecordingRegistry()
     for entry in MODULES:
         module_cls = entry.load()
@@ -72,6 +77,15 @@ def _contributed() -> list[tuple[str, Deferred[object]]]:
             module._container = object()  # type: ignore[attr-defined]
         registry.package = module_cls.__module__.rpartition(".")[0]
         module.contribute(registry)
+    return [*registry.deferred, *_shell_contributed()]
+
+
+def _shell_contributed() -> list[tuple[str, Deferred[object]]]:
+    """The shell's own screens (`BOT-148`): only `developer_screen()` since the Welcome and Settings
+    screens left (`EPIC-033C`, `EPIC-033E`). Each target must stay inside `src/shell/`."""
+    registry = _RecordingRegistry()
+    registry.package = "Sagittarius_Elite_Warrior.src.shell"
+    registry.contribute_screen(developer_screen())
     return registry.deferred
 
 
@@ -110,3 +124,17 @@ def test_a_target_without_module_and_attribute_is_refused() -> None:
         except ValueError:
             continue
         raise AssertionError(f"Deferred accepted {bad!r}")
+
+
+def test_a_bound_deferred_passes_its_leading_arguments_first_and_keeps_its_target() -> (
+    None
+):
+    """`BOT-148`: a factory that needs the container at contribution time stays a `Deferred`,
+    so the guard above still resolves it."""
+    bound: Deferred[int] = Deferred("operator:sub").bind(10)
+
+    assert bound.target == "operator:sub"
+    assert bound(3) == 7
+    assert bound.bind(1)() == 9  # sub(10, 1)
+    assert Deferred("operator:sub")(10, 3) == 7  # the unbound one is unchanged
+    assert repr(bound) == "Deferred('operator:sub', 10)"  # a bound one says so
