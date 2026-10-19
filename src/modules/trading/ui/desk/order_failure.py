@@ -11,6 +11,9 @@ The three kinds are three different truths about the exchange:
 - `NOT_PLACED` (`OrderNotPlacedError`): the exchange holds no such order.
 - `SHORT_NOT_SUPPORTED` (`ManualShortNotSupportedOnMarketError`): the domain
   refused before anything was sent; nothing is live.
+- `PAUSED` / `BANNED` (`ExchangeRateLimitedError`, `BOT-181`): the exchange asked
+  for a pause (or banned the address) and nothing was sent; the wording says so
+  and until when, in the machine's local time.
 - `FAILED`: anything else raised before an answer; check before retrying.
 
 A command failure, so every one is a message box (`ui-presentation-rule.md`
@@ -20,13 +23,18 @@ the other's.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureKind,
     FailureNotice,
     failure_detail,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
     failure_cause,
@@ -41,12 +49,24 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    SYSTEM_TIMEZONE_KEY,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    AppValueFormatter,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    FormatContext,
+)
 
 
 class SubmitFailureKind(Enum):
     OUTCOME_UNKNOWN = "outcome_unknown"
     NOT_PLACED = "not_placed"
     SHORT_NOT_SUPPORTED = "short_not_supported"
+    PAUSED = "paused"
+    BANNED = "banned"
     FAILED = "failed"
 
 
@@ -57,10 +77,22 @@ class SubmitFailure:
     kind: SubmitFailureKind
     #: `failure_detail` of what was raised; for Details… and the log.
     detail: str
+    #: When the exchange's pause or ban ends; set for `PAUSED` and `BANNED`.
+    resume_at: datetime | None = None
 
 
-def submit_failure_of(exc: Exception) -> SubmitFailure:
-    """Classifies `exc` by type, at the worker boundary."""
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def submit_failure_of(
+    exc: Exception, now: Callable[[], datetime] = _utc_now
+) -> SubmitFailure:
+    """Classifies `exc` by type, at the worker boundary. `now` dates the end
+    of a pause: the error carries how long it lasts, not when it began."""
+    if isinstance(exc, ExchangeRateLimitedError):
+        kind = SubmitFailureKind.BANNED if exc.banned else SubmitFailureKind.PAUSED
+        return SubmitFailure(kind, failure_detail(exc), now() + exc.retry_after)
     if isinstance(exc, OrderOutcomeUnknownError):
         kind = SubmitFailureKind.OUTCOME_UNKNOWN
     elif isinstance(exc, OrderNotPlacedError):
@@ -89,9 +121,31 @@ def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
             f"The {what} was not sent: Spot has no short, and there is no "
             "sellable holding of this asset to sell instead."
         )
+    if failure.kind in (SubmitFailureKind.PAUSED, SubmitFailureKind.BANNED):
+        return _pause_headline(failure, what)
     return (
         f"The {what} could not be sent. Check Open orders and Positions, "
         "then try again."
+    )
+
+
+def _pause_headline(refused: SubmitFailure, what: str) -> str:
+    until = (
+        "" if refused.resume_at is None else f" until {_local_time(refused.resume_at)}"
+    )
+    if refused.kind is SubmitFailureKind.BANNED:
+        opening = "The exchange has banned this machine's requests"
+    else:
+        opening = "The exchange asked for a pause"
+    return (
+        f"{opening}: the {what} was not sent, and nothing can be sent{until} "
+        "(local time). Try again then."
+    )
+
+
+def _local_time(moment: datetime) -> str:
+    return AppValueFormatter(SYSTEM_TIMEZONE_KEY).format(
+        ColumnKind.TIMESTAMP, moment, FormatContext(ColumnKind.TIMESTAMP.value)
     )
 
 
