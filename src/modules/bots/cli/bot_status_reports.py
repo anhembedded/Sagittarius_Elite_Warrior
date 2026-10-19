@@ -29,7 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     cycles_text,
     grid_profit_text,
     plain_money,
+    plain_price,
     total_pnl_text,
+    unrealised_text,
 )
 
 LIST_COMMAND = "bot-list"
@@ -191,6 +193,10 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
             _field("Grid profit", grid_profit_text(bot.earnings, plain_money)),
             _field("Cycles", cycles_text(bot.earnings)),
             _field("Total PnL", total_pnl_text(bot.earnings, plain_money)),
+            _field(
+                "Unrealised",
+                unrealised_text(bot.earnings, plain_money, plain_price),
+            ),
             *_recovery_rows(bot.recovery),
         ),
     )

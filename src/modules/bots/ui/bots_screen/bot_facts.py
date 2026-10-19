@@ -22,8 +22,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     NO_VALUE,
     RunEarnings,
+    cycles_text,
     grid_profit_text,
     total_pnl_text,
+    unrealised_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     venue_profile_of,
@@ -108,6 +110,8 @@ class BotFacts:
     commissions: str = NO_VALUE
     funding: str = NO_VALUE
     shows_costs: bool = False
+    #: `BOT-192` - completed buy/sell cycles, beside the profit they booked.
+    cycles: str = NO_VALUE
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -129,6 +133,7 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         commissions=_cost(bot, "commissions"),
         funding=_cost(bot, "funding"),
         shows_costs=_has_funding(bot),
+        cycles=cycles_text(RunEarnings.of(progress)),
     )
 
 
@@ -149,13 +154,7 @@ def _state_line(bot: BotSnapshot) -> str:
 
 
 def _unrealised(bot: BotSnapshot) -> str:
-    progress = bot.progress
-    if progress is None or progress.inventory <= 0 or progress.average_cost is None:
-        return NO_VALUE
-    pnl = progress.pnl
-    if pnl is None or pnl.unrealised is None or progress.mark_price is None:
-        return "no price yet"
-    return f"{_money(pnl.unrealised)} at {_price(progress.mark_price)}"
+    return unrealised_text(RunEarnings.of(bot.progress), _write_money, _price)
 
 
 def _total(bot: BotSnapshot) -> str:

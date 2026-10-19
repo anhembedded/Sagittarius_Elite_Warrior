@@ -106,6 +106,9 @@ def test_bot_show_prints_the_figures_the_bots_tab_shows(
     assert f"Grid profit  {tab.grid_profit}" in out
     assert f"Total PnL    {tab.total_pnl}" in out
     assert "Cycles       7" in out
+    assert f"Unrealised   {tab.unrealised}" in out
+    assert out.index("Grid profit") < out.index("Cycles") < out.index("Total PnL")
+    assert out.index("Total PnL") < out.index("Unrealised")
 
 
 def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
@@ -116,11 +119,15 @@ def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
 
     assert _tab("bbbbbb").total_pnl == "no price yet"
     assert "Total PnL    no price yet" in out
+    assert "Unrealised   no price yet" in out
+    assert _tab("bbbbbb").unrealised == "no price yet"
     assert bot["earnings"] == {
         "grid_profit": "5.74",
         "completed_cycles": 1,
         "total_pnl": None,
         "unpriced_fees": 0,
+        "unrealised": None,
+        "mark_price": None,
     }
 
 
@@ -151,4 +158,6 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
         "completed_cycles": 7,
         "total_pnl": "1230.25",
         "unpriced_fees": 0,
+        "unrealised": "0",
+        "mark_price": None,
     }

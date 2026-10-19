@@ -26,6 +26,7 @@ NO_VALUE = "—"
 NO_PRICE_YET = "no price yet"
 
 type MoneyWriter = Callable[[Decimal], str]
+type PriceWriter = Callable[[Decimal], str]
 
 
 def plain_money(value: Decimal) -> str:
@@ -33,6 +34,24 @@ def plain_money(value: Decimal) -> str:
     money rule without its Qt import."""
     text = f"{float(value):,.2f}"
     return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
+
+
+def plain_price(value: Decimal) -> str:
+    """The formatter's price rule without its Qt import: two decimals from 1 000, four from 1,
+    else up to eight with trailing zeros dropped."""
+    number = float(value)
+    if abs(round(number, 4)) >= _LARGE_PRICE:
+        text = f"{number:,.2f}"
+    elif abs(round(number, _MAX_DECIMALS)) >= 1:
+        text = f"{number:,.4f}"
+    else:
+        text = f"{number:,.{_MAX_DECIMALS}f}"
+        text = text.rstrip("0").rstrip(".") if "." in text else text
+    return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
+
+
+_LARGE_PRICE = 1_000
+_MAX_DECIMALS = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +67,12 @@ class RunEarnings:
     judged: bool
     #: Fills whose fee could not be priced, so the total is short by them.
     unpriced_fees: int = 0
+    #: What is held, at the bot's own last price; `None` without a price.
+    unrealised: Decimal | None = None
+    #: Whether the run holds base with a known cost (otherwise there is nothing to judge).
+    holds_base: bool = False
+    #: The last price the bot heard.
+    mark_price: Decimal | None = None
 
     @classmethod
     def of(cls, progress: BotProgress | None) -> RunEarnings | None:
@@ -61,6 +86,9 @@ class RunEarnings:
             total_pnl=pnl.total if pnl is not None else None,
             judged=pnl is not None,
             unpriced_fees=pnl.unpriced_fees if pnl is not None else 0,
+            unrealised=pnl.unrealised if pnl is not None else None,
+            holds_base=progress.inventory > 0 and progress.average_cost is not None,
+            mark_price=progress.mark_price,
         )
 
 
@@ -86,3 +114,14 @@ def total_pnl_text(earnings: RunEarnings | None, money: MoneyWriter) -> str:
         else ""
     )
     return f"{money(earnings.total_pnl)}{note}"
+
+
+def unrealised_text(
+    earnings: RunEarnings | None, money: MoneyWriter, price: PriceWriter
+) -> str:
+    """What is held, judged at the price the bot itself heard; kept apart from the profit."""
+    if earnings is None or not earnings.holds_base:
+        return NO_VALUE
+    if earnings.unrealised is None or earnings.mark_price is None:
+        return NO_PRICE_YET
+    return f"{money(earnings.unrealised)} at {price(earnings.mark_price)}"

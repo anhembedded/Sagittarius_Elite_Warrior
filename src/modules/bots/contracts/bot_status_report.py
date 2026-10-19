@@ -231,6 +231,12 @@ def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | No
         "completed_cycles": earnings.completed_cycles,
         "total_pnl": None if earnings.total_pnl is None else str(earnings.total_pnl),
         "unpriced_fees": earnings.unpriced_fees,
+        "unrealised": (
+            None if earnings.unrealised is None else str(earnings.unrealised)
+        ),
+        "mark_price": (
+            None if earnings.mark_price is None else str(earnings.mark_price)
+        ),
     }
 
 
