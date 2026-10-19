@@ -16,7 +16,8 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import ClassVar
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtGui import QColor, QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
 )
@@ -35,6 +36,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     kind_title,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -51,6 +56,35 @@ _ATTENTION_STATES = frozenset(
         BotLifecycleState.ERROR,
     }
 )
+
+
+#: `EPIC-033U`: what a state means. Its word is in the cell; the tone only adds to it.
+_STATE_TONES = {
+    BotLifecycleState.RUNNING: Tone.POSITIVE,
+    BotLifecycleState.PAUSED: Tone.CAUTION,
+    BotLifecycleState.RECOVERING: Tone.CAUTION,
+    BotLifecycleState.AWAITING_RECOVERY: Tone.CAUTION,
+    BotLifecycleState.HALTED: Tone.NEGATIVE,
+    BotLifecycleState.ERROR: Tone.NEGATIVE,
+}
+
+
+def state_tone(state: BotLifecycleState) -> Tone:
+    return _STATE_TONES.get(state, Tone.NEUTRAL)
+
+
+def sign_tone(amount: Decimal | None) -> Tone:
+    """Profit, loss, or no verdict for zero and for a figure not known; the
+    figure's own digits and minus sign stay in the cell."""
+    if amount is None or amount == 0:
+        return Tone.NEUTRAL
+    return Tone.POSITIVE if amount > 0 else Tone.NEGATIVE
+
+
+def _foreground(tone: Tone) -> QColor | None:
+    """The tone's colour on the application's current palette (read at each
+    paint, so a change of the OS scheme is followed)."""
+    return tone_colour(tone, QGuiApplication.palette())
 
 
 def state_text(state: BotLifecycleState) -> str:
@@ -92,6 +126,20 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
 
     def _is_emphasised(self, row: BotSnapshot, column: int) -> bool:
         return column == self.column("state") and row.state in _ATTENTION_STATES
+
+    def _role_data(self, row: BotSnapshot, column: int, role: int) -> object:
+        if role != Qt.ItemDataRole.ForegroundRole:
+            return None
+        if column == self.column("state"):
+            return _foreground(state_tone(row.state))
+        if column == self.column("grid_profit"):
+            progress = row.progress
+            return _foreground(
+                sign_tone(progress.realised_profit if progress else None)
+            )
+        if column == self.column("profit"):
+            return _foreground(sign_tone(_total_pnl(row)))
+        return None
 
 
 def _total_pnl(row: BotSnapshot) -> Decimal | None:
@@ -211,3 +259,8 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
             _money_or_none(row.net_quote),
         )
         return values[column]
+
+    def _role_data(self, row: LadderRow, column: int, role: int) -> object:
+        if role != Qt.ItemDataRole.ForegroundRole or column != self.column("net_quote"):
+            return None
+        return _foreground(sign_tone(row.net_quote))

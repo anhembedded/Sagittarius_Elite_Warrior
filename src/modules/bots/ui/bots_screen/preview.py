@@ -203,7 +203,9 @@ def _bot(index: int, state: BotLifecycleState) -> BotSnapshot:
 
 def _progress(index: int) -> BotProgress:
     return BotProgress(
-        realised_profit=Decimal("12.5") * index,
+        # Odd rows win and even rows lose, so the preview shows both colours of the
+        # meaning table (`EPIC-033U`).
+        realised_profit=Decimal("12.5") * index * (1 if index % 2 else -1),
         completed_cycles=index,
         open_orders=2,
         inventory=Decimal("0.0031"),
