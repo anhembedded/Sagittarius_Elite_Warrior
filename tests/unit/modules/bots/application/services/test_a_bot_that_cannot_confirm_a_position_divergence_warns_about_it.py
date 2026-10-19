@@ -80,12 +80,16 @@ def test_a_divergence_reported_to_a_halted_bot_is_warned_about_once_the_delay_pa
     mismatch = _divergence(PositionDivergenceKind.POSITION_MISMATCH)
 
     soon = _warned_by(lambda: rig.world.executor.facts.on_position_divergence(mismatch))
+    inside_the_delay = _warned_by(rig.beat)
     rig.world.monotonic.advance(5)
     later = _warned_by(rig.beat)
     again = _warned_by(rig.beat)
 
     assert not _says_cannot_confirm(soon), (
         "inside the delay it may be the close's own fill"
+    )
+    assert not _says_cannot_confirm(inside_the_delay), (
+        "a beat inside the delay is silent"
     )
     assert _says_cannot_confirm(later)
     assert not _says_cannot_confirm(again), "said once"
