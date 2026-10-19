@@ -149,6 +149,9 @@ class GridRiskWatch:
         `MAX_RECHECK_DELAYS` delays after the first, instead of adding a re-read and a line to
         the log for each. The re-read is the only thing here that costs weight: it registers the
         budget again."""
+        if self._context.state.state not in PRICE_STALENESS_HALTS:
+            self._warn_unconfirmed(divergence)
+            return
         pending = self._pending
         if pending is not None and pending.divergence.cause == divergence.cause:
             return
@@ -175,6 +178,8 @@ class GridRiskWatch:
         """One beat: confirm a pending divergence, then judge the liquidation distance."""
         if self._context.state.state not in PRICE_STALENESS_HALTS:
             self._level = RiskLevel.SAFE
+            if self._pending is not None:
+                self._warn_unconfirmed(self._pending.divergence)
             self._pending = None
             self._blind_since = None
             return
@@ -183,6 +188,20 @@ class GridRiskWatch:
             self._judge_distance()
 
     # --- the divergence ---
+
+    def _warn_unconfirmed(self, divergence: PositionDivergence) -> None:
+        """A divergence the bot is in no state to confirm (HALTED, ERROR, STOPPING: its owner
+        book can outlive the halt, and a halt may leave the position open): trading no longer
+        warns about it (`BUG-203`), so this is where it is said (`BUG-203` review)."""
+        logger.warning(
+            "Bot %s is %s and cannot confirm a position divergence: the exchange holds %s, the "
+            "bot's own fills add up to %s (%s) [position-divergence]",
+            self._context.state.bot_id,
+            self._context.state.state.value,
+            divergence.exchange,
+            divergence.derived,
+            divergence.kind.value,
+        )
 
     def _confirm_divergence(self) -> None:
         pending = self._pending

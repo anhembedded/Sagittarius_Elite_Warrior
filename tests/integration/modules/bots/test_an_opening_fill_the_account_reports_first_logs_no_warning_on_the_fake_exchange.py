@@ -70,3 +70,6 @@ def test_a_position_nobody_here_opened_still_warns(futures: FakeExchange) -> Non
         assert any("[halt-closes-position]" in line for line in warned.lines), (
             "a confirmed foreign position is still warned about"
         )
+        assert any("[position-divergence]" in line for line in warned.lines), (
+            "the divergence itself is still warned about, not only the close it caused"
+        )

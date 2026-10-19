@@ -44,10 +44,13 @@ Two WARNINGs, both on a snapshot rather than a confirmed fact:
 ## Fix
 - `cross_check_owner_positions` logs the unconfirmed divergence at DEBUG (one line per fill of a burst). The event, the cross-check, the once-per-cause rule and the tolerance are unchanged; a confirmed divergence is still warned about by the registration's re-read (`App.Trading.OwnerPosition`) and by the watch's halt.
 - `reconcile_position_state` logs a correction on a symbol a budgeted owner trades (`OwnerBooks.has_owner_on`, new) at DEBUG; on any other symbol it still warns.
+- The bot that cannot confirm a divergence (HALTED, ERROR, STOPPING: its owner book outlives a halt that leaves the position open) said nothing once trading stopped warning (review of #580, finding 1): `GridRiskWatch` now warns when a divergence reaches it, or is dropped, in a state it does not watch (`_warn_unconfirmed`).
+- `OwnerBooks` now has 16 public methods against the guideline's 15 (review finding 2). Accepted: splitting the class is a refactor of its read side that does not belong to a log-level fix, and `TradingSessionState` beside it already has 18. Recorded here for the next change to either class.
 - Neither the owner-budget, the exposure nor the reduce-only checks are touched.
 
 ## Regression test
 - `tests/integration/modules/bots/test_an_opening_fill_the_account_reports_first_logs_no_warning_on_the_fake_exchange.py`: a Futures Grid opening whose fills the account reports first writes no WARNING; a position opened by hand still produces the `[halt-closes-position]` WARNING and halts the bot. Red before the fix (two extra WARNINGs: the divergence and "app believed flat"), green after.
+- `tests/unit/modules/bots/application/services/test_a_bot_that_cannot_confirm_a_position_divergence_warns_about_it.py`: a divergence reported to a halted bot, and a pending one dropped because the bot halted, are warned about. Red without the watch change.
 - `tests/unit/modules/trading/application/test_position_state_reconciler.py`: a budgeted owner's symbol learns its position silently; another symbol still warns.
 
 ## Verification
