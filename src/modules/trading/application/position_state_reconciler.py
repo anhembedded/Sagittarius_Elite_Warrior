@@ -34,7 +34,16 @@ def reconcile_position_state(
     never touch `known_open_symbols` directly.
     """
     disagreed = session_state.reconcile_position(symbol, has_position=has_position)
-    if disagreed:
+    if disagreed and session_state.owner_books.has_owner_on(symbol):
+        # `BUG-203` - a budgeted owner's order never marks the symbol open (`ExecuteOrderHandler`),
+        # so the exchange's first report of the owner's own position is how the session learns
+        # it: a fact being learned, not a belief that was wrong.
+        logger.debug(
+            "Position state for %s learned from the exchange: %s (a budgeted owner trades it)",
+            symbol,
+            "open" if has_position else "flat",
+        )
+    elif disagreed:
         logger.warning(
             "Position state mismatch for %s: app believed %s, exchange "
             "reports %s — exchange wins.",
@@ -49,7 +58,7 @@ def cross_check_owner_positions(
 ) -> tuple[PositionDivergence, ...]:
     """@brief `EPIC-039D` - compares every Futures owner's derived position on
     `symbol` with `exchange_quantity` (`positionRisk`'s signed amount, zero
-    when flat), logging `WARNING` once per cause.
+    when flat), logging once per cause at `DEBUG` (a snapshot, until the owner's re-read confirms it).
 
     @details The exchange wins and the disagreement is reported, never
     "fixed" by trusting the bot's record and never written over the book: the
@@ -59,7 +68,10 @@ def cross_check_owner_positions(
     """
     divergences = session_state.owner_books.cross_check(symbol, exchange_quantity)
     for divergence in divergences:
-        logger.warning(
+        # `BUG-203` - DEBUG, not WARNING: the report can outrun the fill that explains it, so
+        # this is a snapshot nobody has confirmed yet, one line per fill of a burst. The owner's
+        # watch re-reads and warns itself (`GridRiskWatch`, the registration) when it persists.
+        logger.debug(
             "Position %s for %s on %s: derived %s, exchange reports %s — "
             "exchange wins [position-divergence]",
             divergence.kind.value,
