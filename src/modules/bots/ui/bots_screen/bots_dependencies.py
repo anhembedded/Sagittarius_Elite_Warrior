@@ -30,6 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     plan_market_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
+    BotChartPorts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestPorts,
 )
@@ -59,6 +63,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+    find_display_timezone_preference,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -100,6 +108,14 @@ class BotsDependencies:
     consent: IRealMoneyConsent
     #: Whether this copy writes the bots' files or only reads them (`BUG-227`).
     instance: IInstanceAccess
+    #: The display time zone every screen follows (`BOT-205`).
+    display_timezone: DisplayTimezonePreference
+
+    def chart_ports(self, ticks: BotTickFeed) -> BotChartPorts:
+        """What every bot chart is built from."""
+        return BotChartPorts(
+            self.threads, self.feeds, ticks, self.notifier, self.display_timezone
+        )
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -131,6 +147,8 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
         instance=container.resolve(IInstanceAccess),
+        display_timezone=find_display_timezone_preference(container)
+        or DisplayTimezonePreference(),
     )
 
 

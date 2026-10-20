@@ -25,7 +25,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    ZonedValueFormatter,
+)
 
 NO_ORDERS_TEXT = "The selected bot has no resting orders."
 NO_FILLS_TEXT = "The selected bot has no fills since its run started."
@@ -85,13 +91,24 @@ class BotFillsPanel(QWidget):
         self.note = plain_label()
         self.note.setObjectName("lblBotFillsNote")
         self.note.setWordWrap(True)
+        #: The zone the Time column reads in; the screen hands over the shared one (`BOT-205`).
+        self._timezone = DisplayTimezonePreference()
         self._table = SpecTable(
-            self.fills, object_name="tblBotFills", empty_text=NO_FILLS_TEXT
+            self.fills,
+            object_name="tblBotFills",
+            empty_text=NO_FILLS_TEXT,
+            formatter=ZonedValueFormatter(lambda: self._timezone.zone),
         )
         layout = QVBoxLayout(self)
         layout.addWidget(self.note)
         layout.addWidget(self._table.body, 1)
         model.fills_changed.connect(self._show_fills)
+        self._show_fills()
+
+    def use_display_timezone(self, timezone: DisplayTimezonePreference) -> None:
+        """Writes the Time column in the shared display zone, and again when it changes."""
+        self._timezone = timezone
+        timezone.subscribe(lambda _zone: self._show_fills())
         self._show_fills()
 
     def use_precisions(self, precisions: ISymbolPrecisions) -> None:
