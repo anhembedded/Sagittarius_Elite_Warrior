@@ -30,7 +30,7 @@ gantt
 ## 2. Sub-tasks & PR Matrix
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-043A | Verify the dark scheme | not yet | 🟢 | 🔵 Planned | — |
+| EPIC-043A | Verify the dark scheme | `claude/epic-043a-verify-dark-scheme` | 🟢 | 🟡 Pull request open | 2026-10-20 |
 | EPIC-043B | Options colour scheme | not yet | 🟡 | 🔵 Planned | — |
 | EPIC-043C | PnL tones and state badges | not yet | 🟡 | 🔵 Planned | — |
 | EPIC-043D | Headline figures and tick flash | not yet | 🟡 | 🔵 Planned | — |
@@ -42,6 +42,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-20 | Spec | PRO-009 accepted by the owner; epic scaffolded. |
+| 2026-10-20 | 043A | Every mode verified in dark; `setColorScheme` not effective off Windows or macOS. |
 
 ---
 

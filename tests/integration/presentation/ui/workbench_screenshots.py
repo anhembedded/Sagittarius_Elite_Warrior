@@ -10,8 +10,16 @@ centre) is judged by looking. These are the same window the suite measures
 
 Extension cases, each a local change here: a mode with one of its menus
 open (`QMenu.grab()` beside the window); a dialog a command opens; a mode
-in a second state (a result drawn, a run going), named `route~state@WxH`;
-a dark palette, once the app follows one.
+in a second state (a result drawn, a run going), named `route~state@WxH`.
+
+The dark scheme is a second state of every mode, named `route~dark@WxH` (`EPIC-043A`):
+`apply_scheme` asks Qt for it with `QStyleHints.setColorScheme`, the call Tools →
+Options makes; where the platform theme ignores the request (Qt's offscreen and Linux
+platforms do, measured under PySide6 6.11.1), the picture is drawn with a standard dark
+`QPalette` laid on the application; the test asserts the window colour is dark, so a
+frame is never silently light. The stand-in sets the bevel roles too, but it is not the
+platform's own dark palette: bevels and stock icons are not judged from these frames. A test lays
+that palette; the app itself never writes one.
 """
 
 from __future__ import annotations
@@ -21,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QGuiApplication, QImage, QPalette
 from PySide6.QtWidgets import QApplication, QMainWindow
 
 #: The environment variable that names where the pictures go; unset, a test
@@ -48,8 +56,72 @@ class Screenshot:
     centre: QImage
 
 
-def screenshot_name(route: str, size: QSize) -> str:
-    return f"{route}@{size.width()}x{size.height()}.png"
+#: The two schemes a frame is drawn in; "light" is whatever the platform draws by default.
+SCHEMES = ("light", "dark")
+
+_DARK_ROLES = {
+    QPalette.ColorRole.Window: "#2b2b2b",
+    QPalette.ColorRole.WindowText: "#e8e8e8",
+    QPalette.ColorRole.Base: "#1e1e1e",
+    QPalette.ColorRole.AlternateBase: "#272727",
+    QPalette.ColorRole.Text: "#e8e8e8",
+    QPalette.ColorRole.Button: "#353535",
+    QPalette.ColorRole.ButtonText: "#e8e8e8",
+    QPalette.ColorRole.ToolTipBase: "#353535",
+    QPalette.ColorRole.ToolTipText: "#e8e8e8",
+    QPalette.ColorRole.PlaceholderText: "#8a8a8a",
+    QPalette.ColorRole.Highlight: "#2a6fc4",
+    QPalette.ColorRole.HighlightedText: "#ffffff",
+    QPalette.ColorRole.Link: "#5aa0f0",
+    QPalette.ColorRole.BrightText: "#ffffff",
+    # The bevel roles Fusion draws frames, indicator borders and handles from: left at
+    # their light defaults, a check box and a toolbar's overflow chevron fade out.
+    QPalette.ColorRole.Light: "#4a4a4a",
+    QPalette.ColorRole.Midlight: "#3e3e3e",
+    QPalette.ColorRole.Mid: "#5c5c5c",
+    QPalette.ColorRole.Dark: "#1a1a1a",
+    QPalette.ColorRole.Shadow: "#000000",
+}
+
+
+def _dark_palette() -> QPalette:
+    palette = QPalette()
+    for role, name in _DARK_ROLES.items():
+        palette.setColor(role, QColor(name))
+    for role in (
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.ButtonText,
+    ):
+        palette.setColor(QPalette.ColorGroup.Disabled, role, QColor("#7a7a7a"))
+    return palette
+
+
+def apply_scheme(app: QApplication, scheme: str) -> None:
+    """Switches the running application to `scheme` the way Options → Apply will:
+    Qt is asked first, and where the platform ignores the request the stand-in
+    palette is laid. Whether the frame really is dark is the caller's to assert
+    (`test_workbench_screenshots.py` reads the window colour)."""
+    hints = app.styleHints()
+    if scheme == "light":
+        hints.unsetColorScheme()
+        app.setPalette(app.style().standardPalette())
+        return
+    hints.setColorScheme(Qt.ColorScheme.Dark)
+    app.processEvents()
+    if hints.colorScheme() != Qt.ColorScheme.Dark:
+        QGuiApplication.setPalette(_dark_palette())
+    app.processEvents()
+
+
+def restore_scheme(app: QApplication) -> None:
+    """Back to what the platform draws, for the next test."""
+    apply_scheme(app, "light")
+
+
+def screenshot_name(route: str, size: QSize, scheme: str = "light") -> str:
+    state = "" if scheme == "light" else f"~{scheme}"
+    return f"{route}{state}@{size.width()}x{size.height()}.png"
 
 
 def capture_modes(
@@ -57,6 +129,7 @@ def capture_modes(
     navigate: Callable[[str], object],
     size: QSize,
     out_dir: Path,
+    scheme: str = "light",
 ) -> list[Screenshot]:
     """Shows each navigable mode at `size` and saves the whole window."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -67,7 +140,7 @@ def capture_modes(
         navigate(route)
         for _ in range(3):
             QApplication.processEvents()
-        path = out_dir / screenshot_name(route, size)
+        path = out_dir / screenshot_name(route, size, scheme)
         if not window.grab().save(str(path)):
             raise OSError(f"could not write {path}")
         centre = window.hosts[route].centralWidget()
