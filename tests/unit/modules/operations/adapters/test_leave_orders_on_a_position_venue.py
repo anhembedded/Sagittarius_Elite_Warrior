@@ -43,6 +43,7 @@ def _futures(
         stop_refusal=stop_refusal,
         after_stop=list(after_stop),
         venue=_FUTURES,
+        may_hold_position=True,
         coverage=coverage,
         coverage_words=words,
     )
@@ -153,6 +154,7 @@ def test_a_bot_already_stopping_is_waited_for_and_not_read_or_asked_again() -> N
                 "aaaaaa",
                 ["STOPPING", "STOPPED"],
                 venue=_FUTURES,
+                may_hold_position=True,
                 coverage=S.UNCOVERED,
             )
         ]
@@ -241,3 +243,76 @@ def test_a_bot_not_looked_at_because_the_host_stopped_waiting_stays_in_the_ledge
     assert world.stops() == [] and world.coverage_asked() == []
     (left,) = ledger.left()
     assert left.bot_id == "aaaaaa" and "host stopped waiting" in left.note
+
+
+def test_a_spot_bot_is_never_closed_when_the_read_budget_runs_out_before_it() -> None:
+    """Review of #626, finding 1: closing a Spot bot at market sells its base, which O1 leaves."""
+    now = [0.0]
+    world = BotsWorld(
+        [
+            _futures("aaaaaa", S.COVERED),
+            ScriptedBot("ssssss", ["RUNNING"], resting_orders=3),
+        ],
+        on_coverage=lambda _bot: now.__setitem__(0, now[0] + 100 * _TIMEOUT_S),
+    )
+
+    _policy(world, now).apply(StopLedger(), threading.Event())
+
+    assert world.stops() == [] and world.closes() == []
+    assert world.coverage_asked() == ["aaaaaa"]
+
+
+def test_a_spot_bot_is_left_even_when_its_coverage_cannot_be_asked() -> None:
+    world = BotsWorld(
+        [ScriptedBot("ssssss", ["RUNNING"], coverage_error=ConnectionError("down"))]
+    )
+
+    _policy(world).apply(StopLedger(), threading.Event())
+
+    assert world.stops() == [] and world.coverage_asked() == []
+
+
+def test_a_futures_bot_whose_coverage_cannot_be_asked_is_closed() -> None:
+    bot = _futures("aaaaaa", S.COVERED)
+    bot.coverage_error = ConnectionError("down")
+    world = BotsWorld([bot])
+
+    _policy(world).apply(StopLedger(), threading.Event())
+
+    assert world.closes() == ["aaaaaa"]
+
+
+def test_the_ledger_names_the_bots_not_yet_read_while_the_first_is_being_read() -> None:
+    """Review of #626, finding 2: a read can outlast the timeout; the host then names what was left."""
+    ledger = StopLedger()
+    seen: list[list[str]] = []
+    world = BotsWorld(
+        [_futures("aaaaaa", S.COVERED), _futures("bbbbbb", S.COVERED)],
+        on_coverage=lambda _bot: seen.append([b.bot_id for b in ledger.left()]),
+    )
+
+    _policy(world).apply(ledger, threading.Event())
+
+    assert seen[0] == ["aaaaaa", "bbbbbb"]
+    assert ledger.left() == () and ledger.finished() == ()
+
+
+def test_the_summary_counts_only_the_closes_that_were_accepted(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Review of #626, finding 4: a refused close left the bot as it was."""
+    world = BotsWorld(
+        [
+            _futures(
+                "aaaaaa",
+                S.UNCOVERED,
+                "no protective stop stands over it",
+                stop_refusal=BotRefusal.INVALID_TRANSITION,
+            )
+        ]
+    )
+    caplog.set_level(logging.INFO, logger=_LOGGER)
+
+    _policy(world).apply(StopLedger(), threading.Event())
+
+    assert "0 closed before exit" in _text(caplog, logging.INFO)

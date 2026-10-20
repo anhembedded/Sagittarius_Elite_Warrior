@@ -62,6 +62,12 @@ class StopLedger:
                     bot_id, state, held.resting_orders, note or held.note
                 )
 
+    def forget(self, bot_id: str) -> None:
+        """The policy has decided to leave `bot_id` as it is: it is no longer counted as left
+        behind, and it is not a finished stop either."""
+        with self._lock:
+            self._open.pop(bot_id, None)
+
     def finish(self, bot_id: str) -> None:
         with self._lock:
             if self._open.pop(bot_id, None) is not None:

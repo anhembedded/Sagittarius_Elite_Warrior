@@ -48,9 +48,13 @@ class ScriptedBot:
     #: The state the bot shows from the read after its stop was accepted.
     after_stop: list[str] | None = None
     venue: str = "spot_testnet"
+    #: Whether the bot's venue holds a signed position (the read model says it, from the venue profile).
+    may_hold_position: bool = False
     #: What "is its position under a stop?" answers (`EPIC-038M`); Spot has none to cover.
     coverage: StopCoverage = StopCoverage.NOT_APPLICABLE
     coverage_words: str = ""
+    #: When set, asking for the coverage raises it (an exchange that cannot be reached).
+    coverage_error: Exception | None = None
 
 
 class BotsWorld(ICommandDispatcher):
@@ -97,6 +101,8 @@ class BotsWorld(ICommandDispatcher):
         if self._on_coverage is not None:
             self._on_coverage(bot_id)
         bot = self._bots[bot_id]
+        if bot.coverage_error is not None:
+            raise bot.coverage_error
         return BotStopCoverage(bot_id, bot.coverage, bot.coverage_words)
 
     def _report(self) -> BotStatusReport:
@@ -115,6 +121,7 @@ class BotsWorld(ICommandDispatcher):
                     reason="",
                     run_started_at=None,
                     resting_orders=bot.resting_orders,
+                    may_hold_position=bot.may_hold_position,
                 )
                 for bot in self._bots.values()
             ),

@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
     GridRunContext,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protective_stop_plan import (
+    NEUTRAL_BOTH_SIDES_VERIFIED,
     covers,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.stop_words import (
@@ -31,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protectio
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
     StopCoverage,
     StopCoverageReading,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop import (
     ProtectiveStop,
@@ -73,12 +77,9 @@ class StopCoverageReader:
         if position == 0:
             return self._flat()
         finding = self._finding(open_stops, position)
-        coverage = (
-            StopCoverage.COVERED
-            if finding is StopFinding.STANDS
-            else StopCoverage.UNCOVERED
-        )
-        return StopCoverageReading(coverage, words_of(finding))
+        if finding is not StopFinding.STANDS:
+            return StopCoverageReading(StopCoverage.UNCOVERED, words_of(finding))
+        return self._covered_unless_it_can_flip()
 
     def _finding(self, open_stops: dict[str, Order], position: Decimal) -> StopFinding:
         recorded = self._recorded()
@@ -90,15 +91,8 @@ class StopCoverageReader:
         return judge_stop(recorded, set(open_stops), covering)
 
     def _flat(self) -> StopCoverageReading:
-        try:
-            ladder = self._context.gateway.account_reads.ladder_orders()
-        except (
-            Exception
-        ):  # converted at this seam: an unread ladder is `UNREAD`, never "none"
-            logger.exception(
-                "Bot %s: the ladder on the exchange could not be read [protective-stop]",
-                self._context.state.bot_id,
-            )
+        ladder = self._ladder()
+        if ladder is None:
             return _UNREAD
         if ladder:
             return StopCoverageReading(
@@ -109,3 +103,41 @@ class StopCoverageReader:
         return StopCoverageReading(
             StopCoverage.NOTHING_EXPOSED, "it holds no position and rests no ladder"
         )
+
+    def _covered_unless_it_can_flip(self) -> StopCoverageReading:
+        """A stop covers the position as it is now. A NEUTRAL grid stands only that side's stop
+        (`NEUTRAL_BOTH_SIDES_VERIFIED`), so its resting ladder can still fill through zero and
+        open the position of the side no stop covers: the same hazard as a flat bot's ladder."""
+        covered = StopCoverageReading(
+            StopCoverage.COVERED, words_of(StopFinding.STANDS)
+        )
+        params = self._context.params
+        if (
+            params.direction is not TradeDirection.NEUTRAL
+            or NEUTRAL_BOTH_SIDES_VERIFIED
+        ):
+            return covered
+        ladder = self._ladder()
+        if ladder is None:
+            return _UNREAD
+        if ladder:
+            return StopCoverageReading(
+                StopCoverage.UNCOVERED,
+                "its protective stop covers the position as it is, but a NEUTRAL grid has a stop "
+                f"on one side only and {len(ladder)} ladder order(s) rest that can flip the "
+                "position to the side no stop covers",
+            )
+        return covered
+
+    def _ladder(self) -> tuple[Order, ...] | None:
+        """The bot's resting ladder orders; `None` when they could not be read, which is not "none"."""
+        try:
+            return self._context.gateway.account_reads.ladder_orders()
+        except (
+            Exception
+        ):  # converted at this seam: an unread ladder is `None`, never empty
+            logger.exception(
+                "Bot %s: the ladder on the exchange could not be read [protective-stop]",
+                self._context.state.bot_id,
+            )
+            return None

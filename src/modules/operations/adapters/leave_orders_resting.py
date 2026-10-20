@@ -97,12 +97,19 @@ class LeaveOrdersResting(IShutdownPolicy):
             )
             return
         read_until = self._clock() + self._timeout_s * READ_SHARE
+        # Until a bot's stop is read it is not known to be safe: if the host gives up first (one read
+        # can outlast the timeout), the ledger names the bots the policy never reached.
+        for bot in active:
+            if bot.may_hold_position and bot.state != "STOPPING":
+                ledger.begin(bot.bot_id, bot.state, bot.resting_orders, _NOT_READ_YET)
         left: list[BotStatusEntry] = []
         waiting: list[str] = []
+        closed = 0
         for bot in active:
             decision = self._decide(bot, read_until, give_up)
             if decision.action is _Action.LEAVE:
                 left.append(bot)
+                ledger.forget(bot.bot_id)
                 logger.info(
                     "[stop-policy] %s: leaves %s%s",
                     NAME,
@@ -121,12 +128,13 @@ class LeaveOrdersResting(IShutdownPolicy):
                     bot, ledger, f"closing before exit: {decision.words}"
                 ):
                     waiting.append(bot.bot_id)
+                    closed += 1
             elif decision.action is _Action.AWAIT:
                 if self._stopper.begin(bot, ledger):
                     waiting.append(bot.bot_id)
             else:
                 ledger.begin(bot.bot_id, bot.state, bot.resting_orders, decision.words)
-        self._say_what_is_left(left, len(active) - len(left))
+        self._say_what_is_left(left, closed)
         self._stopper.wait(waiting, ledger, give_up)
 
     def _decide(
@@ -134,6 +142,10 @@ class LeaveOrdersResting(IShutdownPolicy):
     ) -> _Decision:
         if bot.state == "STOPPING":
             return _Decision(_Action.AWAIT)
+        if not bot.may_hold_position:
+            # Decided before the budget or a failed read can matter: an inventory venue's bot is
+            # never closed here, because closing it at market would sell what it holds.
+            return _Decision(_Action.LEAVE)
         if give_up.is_set():
             return _Decision(_Action.SKIP, "not looked at: the host stopped waiting")
         reading = self._read(bot, read_until)
@@ -185,6 +197,9 @@ class LeaveOrdersResting(IShutdownPolicy):
             len(left) - len(known),
             closed,
         )
+
+
+_NOT_READ_YET = "its stop was not read before the host stopped waiting"
 
 
 class _Action(Enum):

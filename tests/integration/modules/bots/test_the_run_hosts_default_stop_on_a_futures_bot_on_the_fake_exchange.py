@@ -18,6 +18,7 @@ import logging
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -40,11 +41,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 )
 
 from .futures_bots_world import BootedFuturesBots, booted_futures_bots
+from .futures_direction_scenarios import NEUTRAL
 from .futures_fake_exchange import SYMBOL
 from .futures_stop_helpers import started, stops
 from .grid_fake_exchange import FakeExchange
 
 S = BotLifecycleState
+D = Decimal
 _LOGGER = "App.Operations.StopPolicy"
 _PLACING_OR_CANCELLING = ("POST", "PUT", "DELETE")
 
@@ -209,6 +212,30 @@ def test_a_flat_bot_with_nothing_resting_is_left(futures: FakeExchange) -> None:
         assert app.bot(bot_id).state is S.RUNNING and ledger.left() == ()
         assert not [text for level, text in lines if level >= logging.WARNING]
         assert any("rests no ladder" in text for _, text in lines)
+
+
+def test_a_neutral_bot_long_under_its_one_stop_is_closed_because_its_ladder_can_flip_it(
+    futures: FakeExchange,
+) -> None:
+    """Review of #626, finding 3: a NEUTRAL grid stands the stop of the covering side only, and the
+    SELL ladder above can fill through zero and open a short that no stop covers."""
+    with booted_futures_bots(futures) as app:
+        bot_id = started(app, NEUTRAL.config)
+        app.move_price(D(62900))
+        assert app.position() > 0, "a BUY filled: the bot is long"
+        app.ticker.fire()  # the price watch's beat places the stop over the new position
+        (stop,) = stops(app)
+        assert stop["side"] == "SELL", "the one stop that covers a long"
+        assert app.resting(), "the SELL ladder above still rests"
+        ledger = StopLedger()
+
+        with _heard() as lines:
+            _host_stops(app, ledger)
+
+        assert app.bot(bot_id).state is S.STOPPED
+        assert app.position() == 0 and app.resting() == {}
+        warnings = [text for level, text in lines if level >= logging.WARNING]
+        assert any(bot_id in text and "NEUTRAL" in text for text in warnings)
 
 
 class _Released(threading.Event):

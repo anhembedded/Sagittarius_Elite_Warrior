@@ -253,10 +253,10 @@ bot's open protective orders, its position and its open ladder orders
 `stop_words.py` → `judge_stop`, the judgement the halt's words use). The read is not queued behind the bot's worker: one racing a
 placement finds the stop missing and errs toward closing.
 
-A bot is **left** when its position stands under a recorded stop that stands on the exchange on the side that closes it
+A Spot bot (`BotStatusEntry.may_hold_position` false, set from the venue profile by `GetBotStatusReportQueryHandler`) is decided first and is always left: it is never read and never closed, whatever the budget says. A bot is **left** when its position stands under a recorded stop that stands on the exchange on the side that closes it
 (`COVERED`), or when it holds no position and rests no ladder (`NOTHING_EXPOSED`): its position, orders and stop stay and it
 returns RECOVERING. It is **closed** otherwise (`UNCOVERED`: no stop, a recorded stop the exchange does not list, a stop on the
-wrong side, or a flat account whose ladder still rests, because a fill would open a position no stop covers; `UNREAD`: the
+wrong side, or a flat account whose ladder still rests, because a fill would open a position no stop covers, or a NEUTRAL grid whose ladder rests, because it stands the stop of one side only and a fill through zero would open the other (`StopCoverageReader._covered_unless_it_can_flip`); `UNREAD`: the
 exchange could not be read, which is not covered): the policy dispatches `StopBotForHostCommand` with `ExposureHandling.CLOSE_AT_MARKET`
 (`src/modules/operations/adapters/host_bot_stopper.py` → `HostBotStopper.begin`), the Stop the Bots tab's "Close the position at market"
 reaches through `StopBotCommand`, names the bot at WARNING and keeps it in the `StopLedger` until it reads STOPPED. Reading takes

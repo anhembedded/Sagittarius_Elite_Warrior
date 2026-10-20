@@ -146,6 +146,11 @@ class BotStatusEntry:
     #: like the Bots tab reads it; a listing carries its summary and price position without the
     #: rows (`rows` is empty), the one-bot read carries every grid.
     ladder: GridLadder | LadderUnavailable | None = None
+    #: `EPIC-038M` - whether the bot's venue holds a signed position (a leveraged exposure a stop on
+    #: the exchange must cover), from the venue profile in `bots`; `True` for a venue with no
+    #: profile and for an entry built without it, the side that asks. Not in `payload()`: it is
+    #: what the host's stop reads, not part of the contract with scripts.
+    may_hold_position: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))

@@ -56,8 +56,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     RunEarnings,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     restarts_into_recovering,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 _FILE_SUFFIX = ".json"
@@ -172,4 +179,11 @@ def _entry_at(bot: BotSnapshot, now: datetime) -> BotStatusEntry:
         reason_detail=bot.progress.reason_detail if bot.progress is not None else "",
         earnings=RunEarnings.of(bot.progress),
         ladder=grid_ladder_of(bot, now),
+        may_hold_position=_may_hold_position(bot.venue),
     )
+
+
+def _may_hold_position(venue: TradingVenue) -> bool:
+    """False only for an inventory venue (Spot); a venue with no profile may hold a position."""
+    profile = venue_profile_of(venue)
+    return profile is None or profile.exposure_kind is ExposureKind.POSITION
