@@ -79,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_sett
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
     BRACKETS,
     position_config,
@@ -139,6 +142,7 @@ class WorkbenchWorld:
     dispatcher: RoutingDispatcher
     sync: FakeMarketDataSync
     notifier: RecordingNotifier
+    timezone: DisplayTimezonePreference
 
 
 def selection(
@@ -198,6 +202,7 @@ def build_workbench(
     pool = HeldPool()
     sync = StoringSync(repository) if storing_sync else FakeMarketDataSync()
     notifier = RecordingNotifier()
+    preference = DisplayTimezonePreference()
     feed = MarketDataCandleFeed(
         sync, StoredKlinesReader(repository), FakeMarketStream(), MarketType.SPOT
     )
@@ -208,6 +213,7 @@ def build_workbench(
             sync,
             feed,
             notifier,
+            display_timezone=preference,
             kinds=catalog.kind,
             editors=editors,
         )
@@ -218,4 +224,6 @@ def build_workbench(
         QDateTime.fromSecsSinceEpoch(int(PERIOD[0].timestamp()), utc)
     )
     view.end.setDateTime(QDateTime.fromSecsSinceEpoch(int(PERIOD[1].timestamp()), utc))
-    return WorkbenchWorld(workbench, pool, repository, dispatcher, sync, notifier)
+    return WorkbenchWorld(
+        workbench, pool, repository, dispatcher, sync, notifier, preference
+    )

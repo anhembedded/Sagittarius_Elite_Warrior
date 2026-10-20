@@ -62,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
     Readout,
     ReadoutSlot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
 #: The intervals a backtest offers; the result chart draws in the same one.
@@ -216,6 +219,10 @@ class BacktestWorkbenchView(QWidget):
         self.summary.show_readout(shown.readout)
         self.notes.setText("\n".join(shown.notes))
         self.fills_model.set_rows(list(shown.fills))
+
+    def use_display_timezone(self, preference: DisplayTimezonePreference) -> None:
+        """The replay chart reads in the shared display time zone and offers its drop-down."""
+        self.chart.use_display_timezone(preference)
 
     def clear_result(self) -> None:
         self.chart.draw_history(())

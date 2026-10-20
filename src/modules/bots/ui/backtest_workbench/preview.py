@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports 
     LiveChartPorts,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 
 #: This file's parent directory is `backtest_workbench`; the key is explicit so no other package's
@@ -70,6 +73,7 @@ def build_preview() -> QWidget:
             live_commands=False,
         )
     )
+    view.use_display_timezone(DisplayTimezonePreference())
     candles = [
         sample_candle(_SYMBOL, _INTERVAL, _START, index) for index in range(_BARS)
     ]

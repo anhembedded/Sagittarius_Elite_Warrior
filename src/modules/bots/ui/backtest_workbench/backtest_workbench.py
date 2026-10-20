@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed impo
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 #: The result chart only draws what the backtest replayed; it never streams, so this owner never
@@ -74,6 +77,9 @@ class WorkbenchPorts:
     #: A kind by its id (the catalog's), and a new instance of its parameter editor.
     kinds: Callable[[str], IBotKind]
     editors: Callable[[str], BotKindPanel]
+    #: The application's display time zone, which the replay chart's axis and crosshair follow
+    #: (`BOT-205`), so it reads like the Live chart beside it.
+    display_timezone: DisplayTimezonePreference
     market: MarketType = BOT_MARKET
 
 
@@ -93,6 +99,7 @@ class BacktestWorkbench:
                 live_commands=False,
             )
         )
+        self._view.use_display_timezone(ports.display_timezone)
         coordinator = BacktestRunCoordinator(
             ports.thread_manager, ports.run_query, ports.sync
         )

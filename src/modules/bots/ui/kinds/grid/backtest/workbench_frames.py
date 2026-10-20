@@ -110,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_sett
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 
 type _Answer = object | Callable[[RunBacktestQuery], object]
 
@@ -176,6 +179,7 @@ class _Frame:
                 FakeMarketDataSync(),
                 SampleCandleFeed(START, INTERVAL),
                 RecordingNotifier(),
+                display_timezone=DisplayTimezonePreference(),
                 kinds=catalog.kind,
                 editors=panel_for,
             )
