@@ -118,3 +118,10 @@ def test_the_plan_file_section_names_the_applied_record_and_the_exit_a_missing_p
         "--confirm-venue",
     ):
         assert verb in section, verb
+
+
+def test_the_upgrade_note_checks_that_no_drop_in_resets_the_credentials_line() -> None:
+    """A bare `LoadCredential=` in a drop-in empties the unit's list, directory line
+    included, and the service starts with no credential and no error."""
+    assert "systemctl cat sew-run | grep LoadCredential" in _TEXT
+    assert "LoadCredential=sew:/etc/sew/credentials" in _TEXT

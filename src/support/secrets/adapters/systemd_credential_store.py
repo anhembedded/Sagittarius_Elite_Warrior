@@ -1,7 +1,7 @@
 """`EPIC-038E` (O3) — `ISecretStore` over systemd credentials.
 
 @details The unit has one line, `LoadCredential=sew:/etc/sew/credentials`. Given a
-directory, systemd loads every regular file in it as a credential named
+directory, systemd loads every regular file in it (recursively) as a credential named
 `<ID>_<file name>` (systemd.exec(5), `LoadCredential=`, since systemd 251), so the file
 `/etc/sew/credentials/spot_mainnet_api_key` is found at
 `$CREDENTIALS_DIRECTORY/sew_spot_mainnet_api_key`. A file that does not exist is simply not

@@ -112,7 +112,7 @@ BINANCE_SPOT_TESTNET_API_SECRET=<your spot testnet secret>
 
 A venue you do not use can be left out. The unit reads this file if it exists (`EnvironmentFile=-`).
 
-**A secret whose file you have not created is a secret that is not set; the service still starts.** The unit has one line, `LoadCredential=sew:/etc/sew/credentials`. Given a directory, systemd loads every regular file in it as the credential `sew_<file name>` (symlinks are ignored; `systemd.exec(5)`), so `/etc/sew/credentials/spot_mainnet_api_key` reaches the service as `$CREDENTIALS_DIRECTORY/sew_spot_mainnet_api_key`, and a file that is not there is simply not loaded. A testnet-only server, or one without a webhook, therefore needs no placeholder files. (Until 2026-10-20 the unit had one `LoadCredential=` line per file and systemd refused to start, `status=243/CREDENTIALS`, when one was missing; observed on the first VPS install, 2026-10-14, systemd 255.) What stays true: the **directory** `/etc/sew/credentials` must exist (§2 creates it, and so does a server that ran the old unit), and an **empty file** still reads as "no key".
+**A secret whose file you have not created is a secret that is not set; the service still starts.** The unit has one line, `LoadCredential=sew:/etc/sew/credentials`. Given a directory, systemd loads every regular file in it, subdirectories included, as the credential `sew_<file name>` (symlinks are ignored; `systemd.exec(5)`; keep the directory flat), so `/etc/sew/credentials/spot_mainnet_api_key` reaches the service as `$CREDENTIALS_DIRECTORY/sew_spot_mainnet_api_key`, and a file that is not there is simply not loaded. A testnet-only server, or one without a webhook, therefore needs no placeholder files. (Until 2026-10-20 the unit had one `LoadCredential=` line per file and systemd refused to start, `status=243/CREDENTIALS`, when one was missing; observed on the first VPS install, 2026-10-14, systemd 255.) What stays true: the **directory** `/etc/sew/credentials` must exist (§2 creates it, and so does a server that ran the old unit), and an **empty file** still reads as "no key".
 
 **Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands the directory to the service, so a value is not in the service's environment and not inherited by a child process. Create the file for each venue or alert you use and no other. `sew-key add` does it; by hand, for a venue you use, type the value without echoing it. `read -s` is bash (the shell you are logged in to; dash, which is `sh` on Debian and Ubuntu, has no `read -s`), and `printf` is a builtin, so the value is in no process's argument list and not in your history:
 
@@ -136,7 +136,13 @@ sudo systemd-run --wait --pipe --quiet --uid=sew --gid=sew -p LoadCredential=sew
   /usr/bin/bash -c 'ls -1 "$CREDENTIALS_DIRECTORY"'
 ```
 
-4. `sudo systemctl start sew-run`, then read the credential lines: `journalctl -u sew-run -o cat | grep -E "preflight|alert-channel|dead-mans-switch"`. A mainnet venue in use must still answer `credentials-present` from `systemd-credential`; a webhook or check-in URL must still say `on`.
+4. **Check that no drop-in resets the line.** A bare `LoadCredential=` (no value) in a drop-in empties the unit's whole list, the directory line included, and the service then starts with **no** credential at all: no key, no webhook, no check-in URL, and no error. Older versions of this runbook told a testnet-only server to add one. The command must print the unit's line and nothing else; if a drop-in line shows, delete it from the file under `/etc/systemd/system/sew-run.service.d/` and run `sudo systemctl daemon-reload` again:
+
+```bash
+systemctl cat sew-run | grep LoadCredential   # exactly: LoadCredential=sew:/etc/sew/credentials
+```
+
+5. `sudo systemctl start sew-run`, then read the credential lines: `journalctl -u sew-run -o cat | grep -E "preflight|alert-channel|dead-mans-switch"`. A mainnet venue in use must still answer `credentials-present` from `systemd-credential`; a webhook or check-in URL must still say `on`.
 
 You may now delete the empty placeholder files you created only to satisfy the old unit; leaving them does no harm. **Rollback** to a release whose unit has one line per file needs those files again: for each name above that is missing, `[ -e F ] || sudo install -m 0600 -o root -g root /dev/null F`, before you install the old unit.
 

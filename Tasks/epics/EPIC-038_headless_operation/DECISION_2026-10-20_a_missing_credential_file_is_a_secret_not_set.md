@@ -27,10 +27,10 @@ Read in the systemd 255 manual (`systemd.exec(5)`) and its release notes:
 | D3 | **`sew-key` writes the same directory and nothing else changes in it** (a test fixes its default to the unit's directory). `remove` still empties the two files rather than deleting them; only its messages stop calling a missing file a failure. | Accepted | 🤖 Agent decision, delegated by the owner | An emptied file reads as "no key" under both units, so a rollback to the per-file unit still starts. |
 | D4 | **The unit is still generated** (`scripts/render_service_files.py`); the credential names remain read from the code, now for the header comment and the tests. | Accepted | 🤖 Agent decision, delegated by the owner | `test_service_files.py` fails on a hand edit and on a unit that names a single file again. |
 | D5 | **The systemd floor in the runbook rises from 247 to 251.** | Accepted | 🤖 Agent decision, delegated by the owner | Ubuntu 22.04 ships 249 and can no longer run the unit; the owner's server (Ubuntu, 255) and 24.04 can. `ImportCredential=` would have raised it to 254. |
-| D6 | **Upgrade order: stop, new code, new unit, check, start.** | Accepted | 🤖 Agent decision, delegated by the owner | The new unit with the old code would find no key, because the old code asks for the bare name. Runbook §3 gives the commands and a check that lists the credential names the service would see. |
+| D6 | **Upgrade order: stop, new code, new unit, check, check for a resetting drop-in, start.** | Accepted | 🤖 Agent decision, delegated by the owner | The new unit with the old code would find no key, because the old code asks for the bare name. A bare `LoadCredential=` left in a drop-in by the old runbook's testnet-only advice would empty the list, directory line included, and start the service with no credential and no error. Runbook §3 gives the commands, a check that lists the credential names the service would see, and `systemctl cat sew-run \| grep LoadCredential`. |
 
 ## 2a. Constitution check
-Not a "default, owner may veto" decision (it touches secrets handling, so the owner's approval is the authority); the check is recorded because it handles real-money keys.
+Not a "🤖 Default, owner may veto" row of ONBOARDING §7 (it touches secrets handling, which that row excludes). It is an agent decision under the owner's explicit delegation of 2026-10-20, and he may still veto it; the check is recorded because it handles real-money keys.
 
 | Invariant | Passes? | Evidence |
 | :--- | :--- | :--- |

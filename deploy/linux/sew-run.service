@@ -38,7 +38,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
 # Optional testnet keys (BINANCE_*_TESTNET_API_KEY / _SECRET), root:sew mode 0640.
 EnvironmentFile=-/etc/sew/sew.env
-# Secrets: every file in /etc/sew/credentials/ becomes a credential named sew_<file>, read as
+# Secrets: every file in /etc/sew/credentials/ (subdirectories too) becomes a credential named sew_<file>, read as
 # $CREDENTIALS_DIRECTORY/sew_<file>. One line for the directory, not one per file: systemd refuses
 # to start a unit whose LoadCredential= names a file that is missing (243/CREDENTIALS), and a
 # directory loads whatever it holds. A file you have not created is a secret that is not set:

@@ -176,7 +176,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
 # Optional testnet keys (BINANCE_*_TESTNET_API_KEY / _SECRET), root:{paths.user} mode 0640.
 EnvironmentFile=-{paths.config_dir}/sew.env
-# Secrets: every file in {paths.config_dir}/credentials/ becomes a credential named {UNIT_CREDENTIAL_ID}_<file>, read as
+# Secrets: every file in {paths.config_dir}/credentials/ (subdirectories too) becomes a credential named {UNIT_CREDENTIAL_ID}_<file>, read as
 # $CREDENTIALS_DIRECTORY/{UNIT_CREDENTIAL_ID}_<file>. One line for the directory, not one per file: systemd refuses
 # to start a unit whose LoadCredential= names a file that is missing (243/CREDENTIALS), and a
 # directory loads whatever it holds. A file you have not created is a secret that is not set:
