@@ -49,4 +49,6 @@ tripped, the trip `{reason, at, day, loss, figure, detail}` (`bots/adapters/file
 outlives the day: the owner's acknowledgement is what ends it. A record this build cannot read is
 refused by name with none of its content.
 
-**Planned.** `EPIC-040C` adds the sandbox copy of a plan; `EPIC-040G` the strategy bot's config.
+**Built (`EPIC-040C`).** A backtest's parameters are a copy of a bot's *saved* plan, never the bot's own: `bots/domain/backtest/sandbox_plan.py` → `SandboxPlan` (the kind, venue and symbol; the config being tried; the saved config it was copied from; the source bot). It names what differs (`changed_fields`) and is reset to its source (`reset`); an edit returns a new plan. `bots/ui/backtest/sandbox_session.py` → `SandboxSession` copies a selected bot's saved plan unless the sandbox has edits, and then asks before discarding them. `bots/ui/backtest/sandbox_judge.py` → `judge_sandbox` judges it by the kind's own `IBotKind.validate` with no account and no view of the account's open orders, so the symbol's rules and the venue's limits still refuse a bad plan; `sandbox_line` says of the two checks that need the account that they were "Not checked in a simulation". Nothing in these files can send a command, open an order session or read an account (`tests/unit/architecture/test_sandbox_sends_no_command.py`). No screen shows a sandbox until `EPIC-040D`.
+
+**Planned.** `EPIC-040G` the strategy bot's config.

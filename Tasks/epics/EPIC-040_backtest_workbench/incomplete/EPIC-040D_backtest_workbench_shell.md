@@ -65,6 +65,8 @@ Today they live under `ui/kinds/grid/backtest/` (`grid_backtest_view.py`, `grid_
 
 **From `040B` (review of PR #627).** The outcome's `figures` carry a `FigureTone` that the workbench maps to the meaning colours (`Tone`); the Grid sets none. The neutral dispatching query (`RunBacktestQuery`: kind id and request in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) is written here, where its first caller is. The trades pane pairs the labelled `fills`, since the outcome has no trade record.
 
+**From `040C` (review of the design, 2026-10-20).** The sandbox model exists: `SandboxPlan`, `SandboxSession` (`ui/backtest/`), `judge_sandbox` and `sandbox_line`. The workbench binds its question ("discard your edits?") to `SandboxSession.confirm_switch` / `keep_current`. A second `BotKindPanel` for the sandbox must not be bound to the Bots menu's kind commands (`kind_command_binding.py` acts on the selected bot's panel), and takes `set_plan_facts(None, risk)`. The planner market read the sandbox reuses also reads the account's fee tier and the open orders on the symbol (not the balance); a terms-only read is the narrower option. The workbench says whose fees a run charges.
+
 ## 3a. Reuse
 - **Charts:** used `BotChart`, `IBotKind.overlay` and the equity chart, moved from `grid/backtest/equity_chart.py`.
 - **Read-out:** used `ReadoutForm` (`EPIC-033N`).

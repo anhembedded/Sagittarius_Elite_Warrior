@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress. Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -50,7 +50,7 @@
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-040A](completed/EPIC-040A_pin_grid_backtest_behaviour.md) | The Grid's backtest page is pinned by tests and preview frames before anything moves | Elite | None | 🟢 | ✅ Done (2026-10-20) |
 | [EPIC-040B](completed/EPIC-040B_kind_neutral_backtest_contract.md) | One kind-neutral backtest result and simulator port; the Grid's replay answers through it | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
-| [EPIC-040C](incomplete/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | Planned |
+| [EPIC-040C](completed/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040D](incomplete/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | Planned |
 | [EPIC-040E](incomplete/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | Planned |
 | [EPIC-040F](incomplete/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | Planned |
@@ -72,6 +72,7 @@
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
 ## Notes (newest first)
+- **2026-10-20** — `040C` done, and with it phase 1 (`040A`–`040C`): the frozen `SandboxPlan`, the session rule (copy the saved plan; ask before discarding edits), judging by the kind's `validate` with no account, and a guard plus an execution test that the sandbox sends no command. Nothing shows a sandbox on screen until `040D`; the coupling to settle there is recorded in the child.
 - **2026-10-20** — `040B` done: the kind-neutral `BacktestOutcome`, the `IKindBacktester` port found through `IBotKind.backtester()`, and the Grid's adapter. The neutral types are new records mapped from the Grid's, not moved, so the 039B oracle and 039K tests keep their imports; `FundingRequirement` moved to the domain. Nothing draws the outcome until `040D`.
 - **2026-10-20** — `040A` done: thirteen preview frames and one test per state, no behaviour changed. It found three status-line gaps (one cause) the Grid page has today; they are recorded in the child for `040F`.
 - **2026-10-20** — Un-parked by the owner. `040A`, then `040B` and `040C` one after the other, each from master once the last is merged; `040D`–`040G` wait for a later phase.
