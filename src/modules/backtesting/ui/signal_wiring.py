@@ -27,9 +27,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_gener
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+    find_display_timezone_preference,
+)
 
 from .backtest_state_fields import BACKTEST_STATE_FIELDS, read_notifier
 from .chart_display_commands import ChartDisplayCommands, front_chart
+from .logic.shared_display_timezone import follow_shared_display_timezone
 
 
 def connect_ui_signals(presenter) -> None:
@@ -157,6 +162,13 @@ def connect_ui_signals(presenter) -> None:
         presenter.view.bottom_widget.selectedTradeChanged.connect(
             presenter._on_trade_row_selected
         )
+    # `BOT-205` - the display time zone is the application's, shared with the Bots chart; a
+    # container that holds none leaves this screen its own, unremembered one.
+    follow_shared_display_timezone(
+        presenter._view_model.time_range,
+        find_display_timezone_preference(presenter.container)
+        or DisplayTimezonePreference(),
+    )
 
 
 def connect_engine_events(presenter) -> None:

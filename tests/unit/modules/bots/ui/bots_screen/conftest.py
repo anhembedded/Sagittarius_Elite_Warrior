@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 
 from .bots_screen_fixtures import Answers, BotsScreen, open_screen
 
@@ -28,8 +31,11 @@ def open_bots_screen(tmp_path: Path, qtbot: Any) -> Iterator[OpenBotsScreen]:
         answers: Answers | None = None,
         venue_enabled: bool = True,
         instance: IInstanceAccess | None = None,
+        display_timezone: DisplayTimezonePreference | None = None,
     ) -> BotsScreen:
-        screen = open_screen(tmp_path, qtbot, bots, answers, venue_enabled, instance)
+        screen = open_screen(
+            tmp_path, qtbot, bots, answers, venue_enabled, instance, display_timezone
+        )
         opened.append(screen)
         return screen
 

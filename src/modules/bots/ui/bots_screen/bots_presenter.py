@@ -53,7 +53,7 @@ from ..strategies.strategies_wiring import strategies_for
 from .bot_action_rules import BotAction
 from .bot_actions_coordinator import BotActionsCoordinator
 from .bot_changes_feed import BotChangesFeed
-from .bot_chart_host import BotChartHost, BotChartPorts
+from .bot_chart_host import BotChartHost
 from .bot_commands import PendingAction, command_for
 from .bot_log_feed import BotLogFeed
 from .bot_venues import BotVenues
@@ -110,6 +110,7 @@ class BotsPresenter(CommandPresenter):
         threads, commands = deps.threads, deps.commands
         self._model = view.model
         view.use_venue_filters(deps.filters)
+        view.use_display_timezone(deps.display_timezone)
         self._dialogs = dialogs or dialogs_for(
             view,
             new_bot_symbols(deps.symbols, threads, container, deps.notifier),
@@ -118,9 +119,7 @@ class BotsPresenter(CommandPresenter):
         self._now = now
         self._catalog = deps.kinds
         self._ticks = BotTickFeed(self.event_bus, BOT_MARKET, parent=self)
-        self._charts = BotChartHost(
-            BotChartPorts(threads, deps.feeds, self._ticks, deps.notifier)
-        )
+        self._charts = BotChartHost(deps.chart_ports(self._ticks))
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
         )

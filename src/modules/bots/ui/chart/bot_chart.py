@@ -14,12 +14,13 @@ candles but the same drawer for the overlay:
   module's one listener to market ticks.
 
 Loading and live candles are `LiveCandleChart`'s, the code a desk's chart
-runs; the overlay is drawn by `BotOverlayDrawer`, the one drawer.
+runs; the overlay is drawn by `BotOverlayDrawer`, the one drawer. The time axis and the crosshair
+label read in the application's display time zone (`use_display_timezone`, `BOT-205`).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
@@ -47,6 +48,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_ma
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.display_timezone_combo import (
+    DisplayTimezoneCombo,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 
 #: Room above the highest and below the lowest level, as a fraction of the span.
 _FIT_PADDING = 0.05
@@ -65,6 +72,7 @@ class BotChart(LiveCandleChart):
         self._ticks: BotTickFeed | None = None
         self._overlay = BotOverlay()
         self._notice = EmptyChartNotice(chart)
+        self._stop_following_zone: Callable[[], None] | None = None
 
     def _on_history_drawn(self, klines: Sequence[MarketData]) -> None:
         if klines:
@@ -75,6 +83,18 @@ class BotChart(LiveCandleChart):
                 f"{self.shown_interval}. Pick another timeframe, or sync this "
                 "symbol's history first."
             )
+
+    def use_display_timezone(self, preference: DisplayTimezonePreference) -> None:
+        """@brief The chart's time axis and crosshair read in the shared display time zone
+        (`BOT-205`), and its header offers the drop-down that chooses it. Once per chart;
+        `shutdown` stops following."""
+        if self._stop_following_zone is not None:
+            return
+        self._chart.set_display_timezone(preference.zone)
+        self._chart.add_to_header(DisplayTimezoneCombo(preference))
+        self._stop_following_zone = preference.subscribe(
+            self._chart.set_display_timezone
+        )
 
     def show_overlay(self, overlay: BotOverlay) -> OverlayItems:
         """@brief Draws the bot's overlay, replacing the previous one.
@@ -126,6 +146,9 @@ class BotChart(LiveCandleChart):
         reader of its own owner's subscription. A later `follow` connects
         once more, so no candle is drawn twice (the PR 321 re-review)."""
         super().shutdown()
+        if self._stop_following_zone is not None:
+            self._stop_following_zone()
+            self._stop_following_zone = None
         if self._ticks is not None:
             self._ticks.candle.disconnect(self.apply_candle)
             self._ticks = None
