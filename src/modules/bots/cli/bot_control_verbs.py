@@ -148,7 +148,7 @@ class EditBotVerb(_ControlVerb):
 
 
 class AcknowledgeLossCapVerb(_ControlVerb):
-    """`bot loss-cap-ack`: the owner accepts the day's loss and lets bots start again (`EPIC-026L`).
+    """`bot loss-cap-ack`: the owner clears the latched loss cap so bots may start again (`EPIC-026L`).
 
     It names no bot; the request's `bot_id` is the fixed subject word. It starts nothing: each bot
     is started or resumed afterwards by the owner, through the commands that always ask.

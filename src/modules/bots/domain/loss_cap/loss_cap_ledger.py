@@ -79,10 +79,6 @@ class BotDayFigure:
             self.day_pnl,
         )
 
-    def rebased(self) -> BotDayFigure:
-        """The day's result taken as accepted: counting starts again from `last`."""
-        return BotDayFigure(self.run_started_at, self.last, self.last, _ZERO)
-
 
 def _baseline_of(
     run_started_at: datetime | None, pnl: Decimal, day_start: datetime
@@ -128,10 +124,3 @@ class LossCapLedger:
                 )
             )
         return LossCapLedger(self.day, figures)
-
-    def rebased(self) -> LossCapLedger:
-        """Every bot's day result accepted: the count starts again from the latest sample."""
-        return LossCapLedger(
-            self.day,
-            {bot_id: figure.rebased() for bot_id, figure in self.figures.items()},
-        )

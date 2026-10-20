@@ -172,7 +172,7 @@ class ResumeHaltedResult:
 
 @dataclass(frozen=True, slots=True)
 class AcknowledgeLossCapForHostCommand:
-    """The owner's `bot loss-cap-ack` (`EPIC-026L`): accept the account-level loss and let bots
-    start again. It clears a tripped cap and nothing else - no bot is started or resumed by it -
-    and counts the day's loss again from this moment, so the next trip needs a further loss of the
-    whole figure."""
+    """The owner's `bot loss-cap-ack` (`EPIC-026L`): clear the latched account-level loss cap so
+    bots may start again. It clears the trip and nothing else - no bot is started or resumed by
+    it - and the day's count is not reset, so it is refused while today's loss is still at or
+    above the figure, and the cap trips again at the figure unless the owner raised it."""

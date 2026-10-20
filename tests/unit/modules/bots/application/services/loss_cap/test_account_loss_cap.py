@@ -12,6 +12,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_acknowledgement import (
+    LossCapAcknowledgement,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.loss_cap.loss_cap_policy import (
     LossCapTripReason,
 )
@@ -189,42 +192,76 @@ def test_removing_the_figure_is_not_an_acknowledgement() -> None:
 
 # --- the acknowledgement ---
 
+RAISED = "800 USDT"
+
+
+def _tripped_then_raised() -> CapWorld:
+    """Tripped at 500 of a 500 figure, then the owner raises the figure to 800 and restarts."""
+    return _tripped().restart(figure=RAISED)
+
+
+def test_an_acknowledgement_is_refused_while_the_days_loss_is_still_at_the_figure() -> (
+    None
+):
+    world = _tripped()
+    writes = len(world.store.writes)
+
+    assert world.cap.acknowledge() is LossCapAcknowledgement.STILL_AT_FIGURE
+    assert world.cap.restart_refusal() is not None
+    assert len(world.store.writes) == writes
+
 
 def test_an_acknowledgement_lets_bots_start_again_and_starts_none() -> None:
-    world = _tripped()
+    world = _tripped_then_raised()
     stops = len(world.bots.stops)
-    assert world.cap.acknowledge() is True
+
+    assert world.cap.acknowledge() is LossCapAcknowledgement.ACKNOWLEDGED
     assert world.cap.restart_refusal() is None
     assert len(world.bots.stops) == stops
 
 
 def test_acknowledging_a_cap_that_is_not_tripped_changes_nothing() -> None:
     world = build(_two_bots())
-    assert world.cap.acknowledge() is False
+    assert world.cap.acknowledge() is LossCapAcknowledgement.NOT_TRIPPED
 
 
-def test_the_acknowledged_loss_is_not_counted_again_but_the_next_figure_s_worth_trips() -> (
+def test_the_day_keeps_counting_after_an_acknowledgement_so_the_figure_trips_it_again() -> (
     None
 ):
-    world = _tripped()
+    world = _tripped_then_raised()
     world.cap.acknowledge()
     world.bots.set(bot("aaa111", "-300"))
     world.bots.set(bot("bbb222", "-200"))
     world.sample()
-    assert world.cap.restart_refusal() is None  # the 500 already lost is accepted
-    world.bots.set(bot("aaa111", "-300"))
-    world.bots.set(bot("bbb222", "-700"))
+    assert world.cap.restart_refusal() is None  # 500 of the day's 800 so far
+    assert world.cap.status().day_pnl == Decimal(-500)  # not reset to zero
+    world.bots.set(
+        bot("bbb222", "-500")
+    )  # 800 in all: the day's total reaches the figure
     world.sample()
     assert world.cap.restart_refusal() is not None
-    assert len(world.events.trips) == 2
+    assert len(world.events.trips) == 1  # the first trip was told by the first process
+
+
+def test_the_next_utc_day_starts_from_zero_so_the_acknowledgement_is_allowed() -> None:
+    world = _tripped()
+    world.clock.advance(timedelta(days=1))
+
+    assert world.cap.acknowledge() is LossCapAcknowledgement.ACKNOWLEDGED
+
+
+def test_with_no_figure_set_an_acknowledgement_is_allowed() -> None:
+    assert _tripped().restart(figure=None).cap.acknowledge() is (
+        LossCapAcknowledgement.ACKNOWLEDGED
+    )
 
 
 def test_the_acknowledgement_is_recorded_so_a_restart_does_not_bring_the_trip_back() -> (
     None
 ):
-    world = _tripped()
+    world = _tripped_then_raised()
     world.cap.acknowledge()
-    assert world.restart().cap.restart_refusal() is None
+    assert world.restart(figure=RAISED).cap.restart_refusal() is None
 
 
 # --- the day ---
@@ -272,7 +309,7 @@ def test_an_acknowledgement_that_arrives_during_a_sample_s_write_is_not_overtake
 ):
     """The file and the memory must agree: the write is inside the lock, so the acknowledgement
     waits for the sample's write instead of landing before it and being overwritten."""
-    world = _tripped()
+    world = _tripped_then_raised()
     world.bots.set(
         bot("aaa111", "-310")
     )  # the next sample changes the ledger, so it writes

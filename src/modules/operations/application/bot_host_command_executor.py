@@ -54,8 +54,8 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     HostControlAction.START: "the bot is STARTING (see `bot show`)",
     HostControlAction.EDIT: "the bot's parameters were changed and it is DRAFT (see `bot show`)",
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: (
-        "the loss cap is acknowledged: bots may start again, and the day's loss is counted "
-        "again from now"
+        "the loss cap is acknowledged: bots may start again, and the day's loss keeps counting "
+        "from 00:00 UTC (it trips again at the figure unless you raised it)"
     ),
 }
 

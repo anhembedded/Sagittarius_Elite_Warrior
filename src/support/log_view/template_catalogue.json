@@ -675,7 +675,7 @@
 ["sss", "[loss-cap] ", " (", ") was not stopped: ", ""],
 ["s", "[loss-cap] ", "; the cap starts TRIPPED until you acknowledge it"],
 ["ssd", "[loss-cap] TRIPPED (", "): ", "; ", " bot(s) stopping; no bot starts until acknowledged"],
-["", "[loss-cap] acknowledged by the owner: bots may start again; the day's loss so far is accepted and counting starts again from now"],
+["", "[loss-cap] acknowledged by the owner: bots may start again; the day's count goes on"],
 ["s", "[loss-cap] restored TRIPPED (", "): no bot starts until you acknowledge it"],
 ["sss", "[loss-cap] stop requested for ", " (", " on ", ")"],
 ["sss", "[loss-cap] the Stop of ", " (", ") raised ", "; the next sample asks again"],

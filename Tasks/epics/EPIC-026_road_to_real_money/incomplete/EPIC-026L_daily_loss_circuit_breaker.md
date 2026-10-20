@@ -68,7 +68,7 @@ this task does not invent: unset = off, and the pre-flight says so (a WARN when 
       `..._survives_a_day_roll_over`, `test_removing_the_figure_is_not_an_acknowledgement`, and the composed
       restart test.
 - [x] **The owner acknowledges with `main.py bot loss-cap-ack`**, through the host's command directory; refused when
-      not tripped; it starts nothing; the loss so far is accepted and counting starts again. Evidence:
+      not tripped or while today's loss is still at the figure; it starts nothing; the day's count is not reset. Evidence:
       `test_the_owner_acknowledges_through_the_command_directory_and_only_then_may_a_bot_start`, the codec,
       executor and verb tests.
 - [x] **It fails closed.** Unable to judge for two minutes (bots unreadable, a refused bot file, a running bot with
@@ -102,12 +102,17 @@ Choices the review left to the author, taken here and open to the owner's veto (
 3. **Fail closed.** A read failure of the PnL must not silently disable the cap (`code/errors.md` §6-7): the grace
    is two minutes (a duration, not an amount of money), then it trips with `NOT_JUDGEABLE`. The alternative, "carry
    on with the last figure", would hide exactly the failure the cap exists for.
-4. **Acknowledging accepts the loss.** After an acknowledgement the count starts again from that moment, so one
-   figure's worth of further loss trips it again; otherwise the same loss would trip it at once. The owner who wants
-   a different figure edits the config and restarts.
+4. **Acknowledging does not reset the day** (owner decision, below). The acknowledgement clears the latched trip and nothing else; the day's total keeps counting from 00:00 UTC, so a second start the same day trips again unless the owner raised the figure, and the acknowledgement is **refused** while today's loss is still at or above the figure. The next UTC day starts from zero. (The first build rebased the count at each acknowledgement; the review and the coordinator found that lets one day lose the figure once per acknowledgement.)
 5. **The figure is the bots' own account**, at the price each bot last saved (at most 30 s old), sampled every 15 s.
    It is not the exchange's equity. That limit is written in `06-runtime.md` and the runbook; reading the exchange
    instead would add a second source of truth and a new network path on the money path.
+
+### Owner decisions (pre-approved recommendations, 2026-10-20; a veto reverts them)
+
+Recorded under *"co gi can confirm thi cu lam theo de xuat cua ban"*, as the coordinator's recommendations on review round 1 of PR #606 (checks A4, N1):
+
+- **Choice 1, kept:** on a trip a Futures bot's position is closed through its existing Stop at market, a Spot bot keeps its coin.
+- **Choice 4, changed to the N3 reading:** an acknowledgement does **not** reset the day's count; it only clears the latch, and is refused while the day's loss is at or above the figure. Rationale: N3 says "the day's total"; a reset lets one UTC day lose the figure once per acknowledgement, which defeats the one control that does not depend on any bot's logic.
 
 ## 3a. Reuse
 

@@ -5,7 +5,7 @@ host's bots, adds up what they made or lost since 00:00 UTC (`LossCapLedger`) an
 reaches the figure, **trips**: the trip is recorded first, every bot is stopped through the Bots
 tab's own Stop (`LossCapStopper`), and the owner is told (`AccountLossCapTrippedEvent`, CRITICAL).
 A tripped cap stays tripped across a restart and a day roll-over until the owner acknowledges it
-(`acknowledge`); while it is, no bot starts or resumes (`restart_refusal`, asked by the runner),
+(`acknowledge`, refused while the day's loss is still at the figure); while it is, no bot starts or resumes (`restart_refusal`, asked by the runner),
 and a bot that gets going by a path that does not ask is stopped again by the next sample.
 
 @par Failing closed
@@ -52,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_ca
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_acknowledgement import (
     ILossCapAcknowledgement,
+    LossCapAcknowledgement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_hold import (
     ILossCapHold,
@@ -149,24 +150,33 @@ class AccountLossCap(ILossCapHold, ILossCapStatus, ILossCapAcknowledgement):
 
     # --- the owner's acknowledgement ---
 
-    def acknowledge(self) -> bool:
-        """Clear a tripped cap; the day's loss so far is accepted and counting starts again from
-        now. `False` when the cap was not tripped. Starts and resumes nothing."""
+    def acknowledge(self) -> LossCapAcknowledgement:
+        """Clear a tripped cap; the day's count goes on from 00:00 UTC (decision N3: "the day's
+        total"), so a further loss to the figure trips it again unless the owner raised the
+        figure. Refused while today's loss is at or above the figure. Starts nothing."""
         with self._lock:
-            if self._record.trip is None:
-                return False
-            ledger = self._record.ledger.rebased()
-            self._record = LossCapRecord(ledger)
+            record = self._record
+            if record.trip is None:
+                return LossCapAcknowledgement.NOT_TRIPPED
+            if self._loss_is_at_the_figure(record.ledger):
+                return LossCapAcknowledgement.STILL_AT_FIGURE
+            self._record = LossCapRecord(record.ledger)
             self._unjudged_since = None
             self._unannounced = False
             # Under the lock: a sample's write must not land after this one (or the reverse),
             # or the file would disagree with the memory a restart reads it back into.
             self._persist(self._record)
         logger.warning(
-            "[loss-cap] acknowledged by the owner: bots may start again; the day's loss "
-            "so far is accepted and counting starts again from now"
+            "[loss-cap] acknowledged by the owner: bots may start again; the day's count goes on"
         )
-        return True
+        return LossCapAcknowledgement.ACKNOWLEDGED
+
+    def _loss_is_at_the_figure(self, ledger: LossCapLedger) -> bool:
+        """Today's loss against the figure; a ledger of an earlier day counts for nothing, and
+        with no figure set there is nothing to be at."""
+        if self._figure is None or ledger.day != self._parts.clock.now().date():
+            return False
+        return loss_reached(ledger.day_pnl, self._figure.amount)
 
     # --- the sample ---
 

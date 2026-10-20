@@ -72,13 +72,6 @@ def test_a_bot_first_seen_with_no_readable_account_is_not_counted_as_zero_or_inv
     assert dict(ledger.figures) == {}
 
 
-def test_rebasing_accepts_the_loss_and_counts_from_the_latest_sample() -> None:
-    ledger = LossCapLedger.empty(DAY).observe([_seen("a", "-300", TODAY_RUN)])
-    rebased = ledger.rebased()
-    assert rebased.day_pnl == 0
-    assert rebased.observe([_seen("a", "-310", TODAY_RUN)]).day_pnl == Decimal(-10)
-
-
 def test_a_new_day_starts_a_new_ledger_whose_first_sample_is_its_baseline() -> None:
     today = LossCapLedger.empty(DAY).observe([_seen("a", "-300", TODAY_RUN)])
     tomorrow = LossCapLedger.empty(DAY + timedelta(days=1)).observe(

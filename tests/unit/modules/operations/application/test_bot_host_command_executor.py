@@ -145,7 +145,7 @@ def test_only_an_edit_speaks_the_hosts_own_sentence_every_other_action_keeps_its
     assert outcome.message == "the bot is STARTING (see `bot show`)"
 
 
-def test_an_accepted_acknowledgement_says_bots_may_start_again_and_the_loss_is_counted_from_now() -> (
+def test_an_accepted_acknowledgement_says_bots_may_start_again_and_the_day_keeps_counting() -> (
     None
 ):
     executor = BotHostCommandExecutor(
@@ -157,7 +157,7 @@ def test_an_accepted_acknowledgement_says_bots_may_start_again_and_the_loss_is_c
     )
 
     assert outcome.accepted
-    assert "start again" in outcome.message and "from now" in outcome.message
+    assert "start again" in outcome.message and "00:00 UTC" in outcome.message
 
 
 def test_an_acknowledgement_of_a_cap_that_is_not_tripped_is_refused_in_the_caps_words() -> (

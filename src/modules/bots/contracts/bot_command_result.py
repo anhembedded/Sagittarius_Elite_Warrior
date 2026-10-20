@@ -55,6 +55,8 @@ class BotRefusal(str, Enum):
     LOSS_CAP_TRIPPED = "LOSS_CAP_TRIPPED"
     #: `EPIC-026L` — an acknowledgement of a cap that is not tripped.
     LOSS_CAP_NOT_TRIPPED = "LOSS_CAP_NOT_TRIPPED"
+    #: `EPIC-026L` — an acknowledgement while the day's loss is still at or above the figure.
+    LOSS_CAP_STILL_AT_FIGURE = "LOSS_CAP_STILL_AT_FIGURE"
 
 
 @dataclass(frozen=True, slots=True)

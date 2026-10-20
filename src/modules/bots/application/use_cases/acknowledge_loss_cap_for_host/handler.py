@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_acknowledgement import (
     ILossCapAcknowledgement,
+    LossCapAcknowledgement,
 )
 
 
@@ -31,8 +32,17 @@ class AcknowledgeLossCapForHostCommandHandler(
         self._cap = cap
 
     def execute(self, command: AcknowledgeLossCapForHostCommand) -> BotCommandResult:
-        if self._cap.acknowledge():
+        answer = self._cap.acknowledge()
+        if answer is LossCapAcknowledgement.ACKNOWLEDGED:
             return BotCommandResult.done(LOSS_CAP_SUBJECT)
+        if answer is LossCapAcknowledgement.STILL_AT_FIGURE:
+            return BotCommandResult.refused(
+                BotRefusal.LOSS_CAP_STILL_AT_FIGURE,
+                "today's loss is still at or above the account-level loss cap, so clearing it "
+                "would trip it again: raise bots.account_loss_cap and restart the host, or "
+                "acknowledge after 00:00 UTC",
+                LOSS_CAP_SUBJECT,
+            )
         return BotCommandResult.refused(
             BotRefusal.LOSS_CAP_NOT_TRIPPED,
             "the account-level loss cap is not tripped; nothing to acknowledge",

@@ -91,6 +91,8 @@ S = BotLifecycleState
 #: The two bots' losses at the prices below, measured on the fake exchange: about 56 USDT at the
 #: first fall and about 145 USDT at the second. 120 sits between them.
 FIGURE = "120 USDT"
+#: The owner raises it above the day's 145 and restarts.
+RAISED = "200 USDT"
 _AT = datetime(2026, 10, 20, 9, tzinfo=UTC)
 
 
@@ -245,29 +247,38 @@ def test_a_tripped_cap_refuses_every_start_in_the_owners_words_and_survives_a_re
         assert again.bot(spot).state is S.STOPPED
 
 
-def test_the_owner_acknowledges_through_the_command_directory_and_only_then_may_a_bot_start(
+def test_the_owner_acknowledges_through_the_command_directory_after_raising_the_figure(
     both_venues: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(DATA_ROOT_ENV, str(both_venues.tmp_path))
     with booted_two_venues(both_venues, loss_cap=FIGURE) as app:
         spot, _futures = _trip_the_cap(app)
+    directory = control_directory_of(both_venues.tmp_path / "state")
+    ack = HostControlRequest(HostControlAction.ACKNOWLEDGE_LOSS_CAP, LOSS_CAP_SUBJECT)
+
+    # The loss is still at the figure: clearing the trip would only trip it again.
     with booted_two_venues(both_venues, loss_cap=FIGURE, open_sessions=False) as app:
-        directory = control_directory_of(both_venues.tmp_path / "state")
         assert prepare_private_directory(directory) == ""
-        ack = HostControlRequest(
-            HostControlAction.ACKNOWLEDGE_LOSS_CAP, LOSS_CAP_SUBJECT
-        )
+        refused = _operator(app, directory, "a" * 32).send(ack, 15.0)
+        assert refused.status is HostControlStatus.REFUSED
+        assert "raise bots.account_loss_cap" in refused.message
+        assert app.engine.container.resolve(AccountLossCap).status().tripped
+        assert _start(app, spot).refusal is BotRefusal.LOSS_CAP_TRIPPED
 
-        reply = _operator(app, directory, "a" * 32).send(ack, 15.0)
-
+    # The owner raises the figure and restarts: now the acknowledgement clears the latch only.
+    with booted_two_venues(both_venues, loss_cap=RAISED, open_sessions=False) as app:
+        assert prepare_private_directory(directory) == ""
+        reply = _operator(app, directory, "b" * 32).send(ack, 15.0)
         assert reply.status is HostControlStatus.DONE, reply.message
         assert not app.engine.container.resolve(AccountLossCap).status().tripped
         assert app.bot(spot).state is S.STOPPED  # acknowledging starts nothing
-        again = _operator(app, directory, "b" * 32).send(ack, 15.0)
-        assert again.status is HostControlStatus.REFUSED
+        again = _operator(app, directory, "c" * 32).send(ack, 15.0)
+        assert again.status is HostControlStatus.REFUSED  # no longer tripped
         assert _start(app, spot).accepted
         assert app.bot(spot).state in (S.STARTING, S.RUNNING)
-    with booted_two_venues(both_venues, loss_cap=FIGURE, open_sessions=False) as app:
+        status = app.engine.container.resolve(AccountLossCap).status()
+        assert status.day_pnl < Decimal(-100)  # the day's count was not reset
+    with booted_two_venues(both_venues, loss_cap=RAISED, open_sessions=False) as app:
         assert not app.engine.container.resolve(AccountLossCap).status().tripped
 
 

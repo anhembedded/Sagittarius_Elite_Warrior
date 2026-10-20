@@ -143,9 +143,11 @@ decision N3.) The parts are in [`05-building-blocks.md`](05-building-blocks.md).
    runner (a halt recovery, for one) and asks again for a stop that was refused. A restart reads the
    record and stays tripped; so does a day roll-over; so does an unset figure.
 6. **Acknowledge.** The owner runs `main.py bot loss-cap-ack`; the running host's command directory
-   carries it to `AcknowledgeLossCapForHostCommandHandler`, which asks `AccountLossCap.acknowledge`. The
-   cap clears, the day's loss so far is accepted (`LossCapLedger.rebased`) so the next trip needs a
-   further loss of the whole figure, and no bot is started: the owner starts each one.
+   carries it to `AcknowledgeLossCapForHostCommandHandler`, which asks `AccountLossCap.acknowledge`. It is
+   refused while today's loss is still at or above the figure (clearing the trip would only trip it again:
+   the owner raises `bots.account_loss_cap` and restarts, or waits for 00:00 UTC), and when the cap is not
+   tripped. Otherwise the trip clears and **the day's count goes on** from 00:00 UTC, so a further loss to
+   the figure trips it again; no bot is started: the owner starts each one.
 
 **What the figure is not.** It is the sum of the bots' own accounts at the prices they last saved,
 not the exchange's equity: it sees what a bot has recorded, within about

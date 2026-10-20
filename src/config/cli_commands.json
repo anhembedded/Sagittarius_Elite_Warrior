@@ -563,7 +563,7 @@
           },
           "loss-cap-ack": {
             "modules": ["bots", "operations"],
-            "help": "Acknowledge a tripped account-level loss cap on the running host (main.py run): bots may start again, and the day's loss so far is accepted, so the next trip needs a further loss of the whole figure. It starts no bot. Refused when the cap is not tripped. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Acknowledge a tripped account-level loss cap on the running host (main.py run): bots may start again, and the day's loss keeps counting from 00:00 UTC, so it trips again at the figure unless you raised bots.account_loss_cap. Refused while today's loss is still at or above the figure, and when the cap is not tripped. It starts no bot. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
