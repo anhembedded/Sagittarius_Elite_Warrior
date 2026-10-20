@@ -108,14 +108,10 @@ def register_remembered_state(
 
     # `EPIC-043B` - the colour scheme, ONE choice for the whole window: System, Light or Dark,
     # chosen in Tools -> Options -> Appearance and drawn by Qt itself. Applied here, before
-    # the first window is built, and again on every change; the applier is registered so it
-    # lives as long as the container (it subscribes to the preference).
+    # the first window is built, and again on every change. The applier is kept alive by its
+    # subscription to the preference, which the container holds; nothing resolves it.
     colour_scheme = ColourSchemePreference()
     state_coordinator.restore_into(colour_scheme)
     colour_scheme.set_on_changed(lambda: state_coordinator.mark_dirty(colour_scheme))
     container.singleton(ColourSchemePreference, colour_scheme)
-    colour_scheme_applier = ColourSchemeApplier(
-        colour_scheme, QGuiApplication.styleHints()
-    )
-    colour_scheme_applier.apply_now()
-    container.singleton(ColourSchemeApplier, colour_scheme_applier)
+    ColourSchemeApplier(colour_scheme, QGuiApplication.styleHints()).apply_now()

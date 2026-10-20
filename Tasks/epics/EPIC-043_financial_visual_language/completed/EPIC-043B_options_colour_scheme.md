@@ -42,7 +42,8 @@ Tools → Options gets System (default), Light, Dark, applied with `QStyleHints.
 
 ## 5. Testing
 - New: `test_colour_scheme_preference.py`, `test_colour_scheme_applier.py`, `test_appearance_options_page.py`, `test_colour_scheme_is_applied_at_start.py`, `test_series_colours_contrast.py` (all green). Updated to follow the table: `test_series_colours.py`, `test_script_series_colours.py`, `test_options_pages.py`.
-- Mutation (testing-rule): removing `apply_now()`, the `set_on_changed` line, the container registration, or the Options page each turns a test red; restoring an old failing yellow turns the contrast guard red.
+- Mutation (testing-rule): removing `apply_now()`, the `set_on_changed` line, the `ColourSchemePreference` container registration, the `restore_into` line, or the Options page each turns a test red; restoring an old failing yellow turns the contrast guard red. Review round 1 found that the applier needed no container registration of its own (its subscription to the preference keeps it alive), so that line was removed rather than tested.
+- Not verified: the dark chart `Base` on a real Windows or macOS dark session. The contrast guard stands on white, `#1e1e1e` and `#202020`; the margins are thin (most moved colours 3.10–3.16:1), and the RSI purple `#984bb8` would fall to 2.72:1 on `#2b2b2b`. When the owner checks a dark host, the measured `QPalette.Base` is to be recorded here; a base lighter than `#202020` means that colour needs another tone.
 - Frames: `dialog~options-appearance[~dark].png` and the 36 mode frames, in the pull request.
 - Not run: a real Windows or macOS dark session, Windows High Contrast.
 

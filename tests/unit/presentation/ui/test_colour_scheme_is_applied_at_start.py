@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 from types import SimpleNamespace
 
 import pytest
@@ -86,3 +87,15 @@ def test_a_choice_made_later_is_asked_of_qt_and_remembered(hints: _Hints, qapp) 
 
     assert hints.calls == ["Light"]
     assert store.read(_SCOPE) == {"choice": "light"}
+
+
+def test_the_applier_outlives_the_wiring_that_built_it(hints: _Hints, qapp) -> None:
+    """Nothing holds the applier but its subscription to the preference: a choice made after
+    a garbage collection must still reach Qt."""
+    preference, _ = _start(InMemoryStateStore())
+    hints.calls.clear()
+    gc.collect()
+
+    preference.set_choice(ColourSchemeChoice.DARK)
+
+    assert hints.calls == ["Dark"]
