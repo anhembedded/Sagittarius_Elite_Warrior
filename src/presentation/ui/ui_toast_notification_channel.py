@@ -8,9 +8,8 @@ already sits inside one `MainWindow`, so a message shows regardless of
 which screen the user is on.
 
 **A `QObject`, on purpose (`architecture-rule.md` §2.1 reason (a)).**
-`NotificationEventHandler` dispatches every channel's `send()` off the main
-thread via `ITaskManager` (never blocking whatever thread published the
-triggering event), and one of the three events it fans out —
+`SystemFailureRelay` (`EPIC-036B`; `BOT-018`'s handler before it) calls `send()` on whatever
+thread published the failure, and one of the events it relays —
 `TaskFailed` (`runtime.tasks.failed`) — is itself always published from a
 background worker (`base_feed.py` names this exact event as the reason its
 own bus wrapper exists). Touching `QMainWindow.statusBar()` from that

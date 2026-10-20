@@ -1,13 +1,14 @@
 # EPIC-036B — Alert sources: bots, streams and the system become typed alerts
 
-**Status:** 🔵 Planned — `SystemAlertSource` and the retirement of `NotificationEventHandler` remain; split off and done: [`EPIC-036B1`](../completed/EPIC-036B1_early_warnings_liquidation_and_user_stream.md) (the liquidation warning, `USER_STREAM_DOWN`, 2026-10-20) and [`EPIC-036B2`](../completed/EPIC-036B2_reason_alerts_rate_limit_key_storage_price_feed.md) (`RATE_LIMITED`, `KEY_REJECTED`, `STORAGE_FAILURE`, `PRICE_FEED_STALE` and the reason-table completeness test, 2026-10-20)
+**Status:** ✅ Done (2026-10-20) — `SystemAlertSource` and the retirement of `NotificationEventHandler`; with the slices split off and done earlier: [`EPIC-036B1`](EPIC-036B1_early_warnings_liquidation_and_user_stream.md) (the liquidation warning, `USER_STREAM_DOWN`, 2026-10-20) and [`EPIC-036B2`](EPIC-036B2_reason_alerts_rate_limit_key_storage_price_feed.md) (`RATE_LIMITED`, `KEY_REJECTED`, `STORAGE_FAILURE`, `PRICE_FEED_STALE` and the reason-table completeness test, 2026-10-20)
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N1), relayed by the coordinator session; supersedes the source half of [`EPIC-035K`](../../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md).
+**Board:** The app's own failures (a dead task, a failed sync, a UI slot that raised) are one `APP_FAILURE` alert through the hub; `NotificationEventHandler` and its Telegram wiring are gone, the toast is the relay's second consumer.
 **Risk:** 🟢 — reads events that exist; the one removal is a handler with a known set of triggers
 **Complexity:** M
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task for the alerts a running bot raises.
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §8, §9.
-**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (`Alert`, `AlertHub`), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md) (the walking skeleton: `BotAlertSource` with its first three mappings).
+**Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md) (`Alert`, `AlertHub`), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md) (the walking skeleton: `BotAlertSource` with its first three mappings).
 
 > **Note, 2026-10-15 — re-sequenced behind the walking skeleton** ([decision D2](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). `EPIC-036G` delivers `BotAlertSource` with three mappings (`HALTED` → `BOT_HALTED`, `ERROR` → `BOT_ERROR`, a stop that gave up → `STOP_FAILED`, the last from a typed `bots` event, D4), the recovery on a return to `RUNNING`, and `bots` in `AlertingModule.dependencies`. This task starts from that source and widens it to the full (state, reason) table with its completeness test; the criteria below that the skeleton meets are checked against its tests, not rebuilt.
 
@@ -20,11 +21,11 @@ Today only `NotificationEventHandler` (`src/shell/notification_event_handler.py`
 - [x] **`BotAlertSource`** (done by `036G`, `BOT-189`, `036B2`) listens to the bots' published events and snapshot query in `bots/contracts` and turns a state change plus its reason into an `Alert`: HALT → `BOT_HALTED`, ERROR → `BOT_ERROR`, a stop-loss or take-profit trigger → `STOP_LOSS_HIT` / `TAKE_PROFIT_HIT`, a Stop or stop-loss that does not complete, or leaves orders or balance, → **`STOP_FAILED`** (CRITICAL), the storage pause → `STORAGE_FAILURE`, a revoked key → `KEY_REJECTED`, a rate-limit pause → `RATE_LIMITED`, a price leaving the range → `RANGE_EXIT` (once per exit, re-armed on return; the source is `BotRangeChangedEvent` in `bots/contracts/events/`, published by `EPIC-035L` once per change of place, `INSIDE` being the return). A bot's return to RUNNING raises the **recovery** alert.
 - [x] (`036B2`: `test_a_reason_the_table_does_not_know_is_a_generic_halt`) A kind of bot that adds a reason of its own needs no change in `alerting`: the generic state and reason map to a kind; the kind-specific reason goes in `detail`.
 - [x] (`036B1`, `036B2`: `USER_STREAM_DOWN` from `StreamAlertSource`; `PRICE_FEED_STALE` from `BotAlertSource` with a BOT subject, because the bot already measures the silence — decision D3 of `DECISION_2026-10-20_reason_alerts.md`) **`StreamAlertSource`** turns `UserStreamHealthEvent` (`src/modules/trading/contracts/events/user_stream_health_event.py`) and a lost price feed into `USER_STREAM_DOWN` / `PRICE_FEED_STALE` with a VENUE or BOT subject and a stable dedup key (kind + venue), so the hub can coalesce and inhibit.
-- [ ] **`SystemAlertSource`** replaces `NotificationEventHandler`: `UiActionFailedEvent`, `TaskFailed` and a failed bulk sync become `APP_FAILURE` alerts (text from `system_error_report.py`'s normalisers, not re-derived); the old handler, its one-message debounce and its direct Telegram wiring at `composition_root.py:262-270` are deleted.
-- [ ] The in-app toast channel (`UiToastNotificationChannel`) keeps working for the same system failures; the way it is fed (a second subscriber of the same events, or an `IAlertChannel` adapter) is decided and recorded in the task.
+- [x] **`SystemAlertSource`** replaces `NotificationEventHandler`: `UiActionFailedEvent`, `TaskFailed` and a failed bulk sync become `APP_FAILURE` alerts (text from `system_error_report.py`'s normalisers, not re-derived); the old handler, its one-message debounce and its direct Telegram wiring at `composition_root.py:262-270` are deleted.
+- [x] The in-app toast channel (`UiToastNotificationChannel`) keeps working for the same system failures; the way it is fed (a second subscriber of the same events, or an `IAlertChannel` adapter) is decided and recorded in the task.
 - [x] `bots` and `trading` import nothing from `alerting`; a source depends on their `contracts/` only.
 - [x] (`036G` `STOP_FAILED`; `036B2` `KEY_REJECTED`) The two alerts the earlier tasks deferred are delivered here: `EPIC-035F`'s revoked key and `EPIC-035C`'s STOPPING that stays stuck after its retries.
-- [ ] A source that fails to convert an event logs it and never breaks the publisher of the event.
+- [x] A source that fails to convert an event logs it and never breaks the publisher of the event.
 
 ## 3. Design
 Anti-corruption layer: each source translates a foreign event into the alerting vocabulary at the module's edge (DDD); the same subscribe-and-forget style as `UserStreamWatch`. The map from (state, reason) to kind lives in one table with a test that every reason code of `bots` is mapped or deliberately ignored, so a new reason cannot silently produce no alert. Event handlers follow the engine standards in `ONBOARDING.md` §12 (`BaseEvent`, `report_handler_failure`).
@@ -57,7 +58,16 @@ Tier per `ci-rule.md` §2: unit with a fake bus and a `FakeChannel`, plus one in
 Not run yet.
 
 ## Implementation notes (written when done)
-Not started.
+2026-10-20. Branch `claude/epic-036b-system-alert-source`.
+
+- **Where the source sits.** The failures are no module's contract event and their text is normalised in the shell (`system_error_report.py`), which `alerting` may not import. So the split is a port: `ISystemFailureReporter` (`alerting/contracts/i_system_failure_reporter.py`) is implemented by `SystemAlertSource` (`alerting/application/sources/system_alert_source.py`), and the shell's `SystemFailureRelay` (`shell/system_failure_relay.py`) hears `TaskFailed` and `BulkSyncProgressEvent`, normalises once and calls the port. `UiActionFailureSubscriber` calls `relay()` for the GUI's one event. The traceback is not sent in the alert (it stays in the run log): no alert carries text a request could have shaped.
+- **One condition per failing source.** `APP_FAILURE`, CRITICAL, subject `app`, dedup key from the source name (`reason=source`): a task that fails in a loop is one record with a counter (the hub's dedup) instead of the old "drop an identical repeat of the last message". A second task failing meanwhile is its own condition.
+- **Decision recorded (criterion 5): the toast is a second consumer of the relay**, not an `IAlertChannel`. It is a notice inside the app; an outbox with a 24 h expiry is the wrong home for a message that is meaningless once the window closes.
+- **The old handler is deleted** with its debounce, its `ITaskManager` delivery thread (it existed because Telegram's `send` blocked; nothing in the relay blocks) and its test file; the cases moved to `test_system_failure_relay.py` and `test_ui_action_failure.py`.
+- **A gap to know about: Telegram.** The composition root no longer builds `TelegramNotificationChannel`, so a Telegram token in the config now delivers nothing until `EPIC-036C` moves Telegram into `alerting` and migrates the token. The channel's file and the two config keys stay for that task. Discord (the VPS channel) carries these alerts now.
+- **Resolved per failure.** The relay is built before the bounded contexts register, and a command that did not need `alerting` never binds the port, so the relay resolves `ISystemFailureReporter` when a failure arrives and skips it when unbound (`test_a_process_without_the_alert_module_still_toasts`).
+
+Verified: the new tests (`test_system_alert_source.py`, `test_system_failure_relay.py`) and `tests/unit` (17307 passed; `test_ci_local_checkout_name_guard.py` is excluded here only because this container's checkout path is not the CI one). The `-Full` run on the PR head is the full gate. Not run: a real failure delivered to the owner's Discord from the VPS.
 
 ## Resume
-Not started. First action: `test_a_halt_sends_one_alert_with_its_reason`, run red.
+Done. The owner's check on the VPS: make a background task fail and see one "Application failure" message in Discord.

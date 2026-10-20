@@ -44,13 +44,13 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capabil
     EngineCapabilityValidatorExtension,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
-from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
-    NotificationEventHandler,
-)
 from Sagittarius_Elite_Warrior.src.shell.qt_package_check import (
     QtPackageCheckExtension,
 )
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import (
+    SystemFailureRelay,
+)
 from Sagittarius_Elite_Warrior.src.shell.ui_action_failure import (
     UiActionFailureSubscriber,
 )
@@ -73,7 +73,7 @@ def add_gui_wiring(app: App) -> None:
         UiActionFailureSubscriber(
             app.context.event_bus,
             container.resolve(SystemFailureLog),
-            container.resolve(NotificationEventHandler),
+            container.resolve(SystemFailureRelay),
         ),
     )
     app.use(QtPackageCheckExtension())

@@ -4,7 +4,7 @@
 **Source:** the coordinator session `session_016sGQHsRy729Fp4cY1cTXfu`, 2026-10-20: the rest of `EPIC-036B` after `EPIC-036B1`, highest value first — the owner runs bots unattended on a VPS, a rejected key and a storage pause are the two conditions that leave orders resting that the app cannot manage, and a rate limit or a quiet feed arrived as an undifferentiated bot halt (or, for the storage pause, not at all).
 **Risk:** 🟢 — reads the status report and an event that exist; no order, stop or close path, no new setting, dependency, timer or event
 **Complexity:** S
-**Epic:** [EPIC-036](../README.md); split from [EPIC-036B](../incomplete/EPIC-036B_alert_sources.md), which keeps `SystemAlertSource` and the retirement of `NotificationEventHandler`
+**Epic:** [EPIC-036](../README.md); split from [EPIC-036B](../completed/EPIC-036B_alert_sources.md), which keeps `SystemAlertSource` and the retirement of `NotificationEventHandler`
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (the journey row for the four kinds)
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md); the decision is [`DECISION_2026-10-20_reason_alerts.md`](../DECISION_2026-10-20_reason_alerts.md) (an agent decision the owner may veto)
 **Depends on:** [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md), [EPIC-036B1](EPIC-036B1_early_warnings_liquidation_and_user_stream.md); reads `BotChangedEvent`, `BotRecoveryStalledEvent` (`EPIC-042C`) and the bots' status report

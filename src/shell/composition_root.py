@@ -89,14 +89,14 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health_extension import (
     OrderedHealthExtension,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notification_channel import (
-    TelegramNotificationChannel,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
     FileLockInstanceProbe,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_system_failure_reporter import (
+    ISystemFailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_log_routing import CliLogRouting
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
@@ -109,12 +109,10 @@ from Sagittarius_Elite_Warrior.src.shell.logging_notifier import LoggingNotifier
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.module_selection import select_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
-from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
-    NotificationEventHandler,
-)
 from Sagittarius_Elite_Warrior.src.shell.operations_registry import OperationsRegistry
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import SystemFailureRelay
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
     TerminalAwareTextRenderer,
 )
@@ -284,21 +282,25 @@ def create_app(
         ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
     )
 
-    # `BOT-018` — the same "one place both entry points pass through" reasoning
-    # as `SystemFailureLog` above, but after `boot()` would still be started:
-    # unlike that subscriber, nothing here needs to see a boot-time failure,
-    # and constructing it needs `IConfigReader` bound just above. The GUI
-    # channel is added later, once a `MainWindow` exists to own it
-    # (`app_bootstrapper.py`); the headless entry point never adds one, so it
-    # gets Telegram delivery only, exactly as the task's own risk note expects
-    # ("hỗ trợ gửi qua kênh ngoài khi app chạy headless/CLI").
-    notification_handler = NotificationEventHandler(
-        event_bus, app_logger, app.context.tasks
+    # `EPIC-036B` (it replaced `BOT-018`'s notification handler) — the same "one place both
+    # entry points pass through" reasoning as `SystemFailureLog` above, but after `boot()`
+    # would still be started: nothing here needs to see a boot-time failure. The failures go
+    # to the alerting module (Discord on a headless host) through `ISystemFailureReporter`,
+    # resolved per failure because the bounded contexts register further down and a command
+    # that did not need `alerting` never binds it. The toast is added once a `MainWindow`
+    # exists (`app_bootstrapper.py`).
+    container.singleton(
+        SystemFailureRelay,
+        SystemFailureRelay(
+            event_bus,
+            lambda: (
+                container.resolve(ISystemFailureReporter)
+                if ISystemFailureReporter in container.registrations()
+                else None
+            ),
+            app_logger,
+        ),
     )
-    notification_handler.add_channel(
-        TelegramNotificationChannel(container.resolve(IConfigReader), app_logger)
-    )
-    container.singleton(NotificationEventHandler, notification_handler)
 
     # `PRO-014`: the registry is built when a chart first asks, not at every boot.
     container.singleton(IndicatorScriptRegistry, lambda _: _INDICATOR_SCRIPTS())
