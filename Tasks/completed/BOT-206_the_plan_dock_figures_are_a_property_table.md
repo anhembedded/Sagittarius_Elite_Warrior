@@ -1,8 +1,7 @@
 # BOT-206 — The Plan dock's figures are a grouped property table, not one long label/value list
 
-**Status:** 🟡 In progress
-**Priority:** P2
-**Board:** The Bots screen's Plan dock shows the bot's readiness steps and figures as a two-column property tree (Readiness, Plan, Results, Holdings; headings collapse, values right-aligned and copyable); the blocking reason stays above it as text; no figure or word changed.
+**Status:** ✅ Done (2026-10-20)
+**Board:** The Plan dock's readiness steps and figures are one grouped property tree (stock `QTreeView`, Engine `configure_item_view`; words unchanged, a word left and a figure right by the kind of its row) instead of a 22-row label/value form; Margin mode and Liquidation (est.) stay in the Grid editor.
 **Source:** the owner, 2026-10-20: "Phần đó, UI nên đưa vào table đi chứ nhỉ?" (shouldn't that part be a table?), about the Plan dock's long label/value list; handed down by the delivery coordinator (session_016sGQHsRy729Fp4cY1cTXfu).
 **Risk:** 🟢 — presentation only: the words are still built in `run_earnings.py`, `bot_facts.py`, `bot_ladder_facts.py` and `readiness_words.py`; tests that read the old labels change to read the table.
 **Complexity:** M — one new widget over a stock `QTreeView`, the panel rewired to it, four tests rewritten, three preview frames.
@@ -69,7 +68,7 @@ Unit tier, QtWidgets offscreen; the conformance suite is the integration proof.
 `Docs/MODULES/bots/05-building-blocks.md` (the Plan panel's figures are a property tree); `Docs/HLD/11_desktop_workbench.md` §11.2.1 (Plan row).
 
 ## Implementation notes (written when done)
-**Evidence at the author's first head** (the `-Full` run on GitHub is the gate authority and is recorded on the PR, not here):
+**Evidence at the author's first head (later heads: the PR's review comments and `-Full` runs)** (the `-Full` run on GitHub is the gate authority and is recorded on the PR, not here):
 - Commit tier: `ci-local.ps1 -SkipTests` PASS (ruff, format, mypy over 1968 files, reference check); `tests/unit/architecture` 984 passed.
 - Bots unit and integration tier plus `tests/unit/support/ui_kit` and `tests/integration/presentation/ui`: 5768 passed, 3 skipped, 1 failed. The failure, `test_workbench_conformance[True-1024x700]` ("backtest@1024x700/fits_the_window: needs 719x706"), is the Backtest mode and reproduces identically on the untouched base (`03e5dc5`) in this container, so it is not this change; the Bots mode passes the same suite at 1024×700, 1366×768 and 1920×1080, including the column, alignment and digit-font checks the table is held to.
 - Mutation checks on the table (each turns exactly one test red, then restored): drop the `sectionResized` wiring (row heights), drop the Ctrl+C connection, stop hiding an empty group, keep the vertical scroll bar, Value column kind `TEXT`, re-expand every group on each refresh.
@@ -84,7 +83,4 @@ Unit tier, QtWidgets offscreen; the conformance suite is the integration proof.
 7. `readiness_words.step_lines` (numbered "1. Connect: done") became `step_rows` (step and words); the numbers were redundant with the row order.
 8. Two member names the duplicate-members guard counts (`value_text`, `_lay_out`) are named `shown_value` and `_set_up_view` in the grid, so the baseline did not move.
 
-**Frames** (`plan_table_frames.py`; `python -m Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_table_frames <frame> [--png path]`): `Tasks/backlog/BOT-206_assets/draft_blocked.png`, `futures_running.png`, `spot_running.png`, rendered offscreen on Linux; on Windows the same command without `--png` opens each in the platform's own look.
-
-## Resume (optional; while unfinished)
-Author work complete locally; the PR's GitHub `ci-local.ps1 -Full` run on the head and the reviewer's verdict are what remain, then merge master (EPIC-040) before READY.
+**Frames** (`plan_table_frames.py`; `python -m Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_table_frames <frame> [--png path]`): `Tasks/completed/BOT-206_assets/draft_blocked.png`, `futures_running.png`, `spot_running.png`, rendered offscreen on Linux; on Windows the same command without `--png` opens each in the platform's own look.
