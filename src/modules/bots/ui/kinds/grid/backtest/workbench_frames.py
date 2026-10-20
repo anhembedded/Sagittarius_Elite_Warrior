@@ -81,18 +81,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
     HeldPool,
     SampleCandleFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview import (
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.sample_replays import (
+    BRACKETS,
     CONFIG,
     INTERVAL,
     START,
     SYMBOL,
     TERMS,
-    sample_result,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview_frames import (
-    BRACKETS,
     funding_refusal,
     futures_result,
+    sample_result,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import panel_for
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (

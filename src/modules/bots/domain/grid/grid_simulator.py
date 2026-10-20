@@ -23,6 +23,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome import (
+    BacktestProvenance,
+    DataWindow,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
@@ -31,8 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
     NoFineKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
-    BacktestProvenance,
-    DataWindow,
     EquityPoint,
     GridBacktestCancelled,
     GridBacktestResult,

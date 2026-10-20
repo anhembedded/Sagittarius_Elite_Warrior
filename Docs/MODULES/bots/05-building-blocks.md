@@ -66,8 +66,9 @@ the missing funding first) and `detail`, the kind's own rich result. The Grid's 
 `bots/application/kinds/grid/grid_kind_backtester.py` → `GridKindBacktester`: it runs the existing
 `RunGridBacktestQuery` handler and maps the answer (`outcome_of`), keeping `GridBacktestResult`
 whole as `detail`; its figures and notes are written once, in
-`bots/domain/grid/grid_figures.py` → `grid_figures`, `grid_notes`, which the Grid page's summary
-reads too until `EPIC-040F`. `GridKind` is given its adapter where it is built
+`bots/domain/grid/grid_figures.py` → `grid_figures`, `grid_notes`, which the workbench draws: the Grid
+has no page of its own (`EPIC-040F`). Its provenance and the period asked for are the neutral
+`BacktestProvenance` and `DataWindow`, not a copy. `GridKind` is given its adapter where it is built
 (`bots/composition/executor_bindings.py` → `_build_kind_catalog`). No file of the outcome, the port
 or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_kind_neutral.py`).
 **The workbench that draws it (`EPIC-040D`).** `bots/ui/backtest_workbench/backtest_workbench.py` →
@@ -87,7 +88,7 @@ dispatcher, so no command is in reach by type); `sandbox_editing.py` → `Sandbo
 verdicts; what the page says is one value, `workbench_state.py` → `WorkbenchState`, which the view
 applies (`controls_of`). The run's lifecycle is `backtest_run_fsm_matrix.py` → `RunActivity`,
 `RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The Bots screen shows it in
-the centre's Backtest tab (`EPIC-040E`, below), and `EPIC-040F` retires the Grid's own page. Nothing in the
+the centre's Backtest tab (`EPIC-040E`, below), as it does for the Grid, whose own page `EPIC-040F` deleted. Nothing in the
 package imports a kind (`test_backtest_outcome_is_kind_neutral.py`) or a command, an order or an
 account reader (`test_backtest_workbench_reaches_no_order_or_account.py`). The picture is
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) in [`06-runtime.md`](06-runtime.md).
@@ -257,7 +258,6 @@ the constants in [`10-quality.md`](10-quality.md).
 
 | Change | Where | Task |
 | :--- | :--- | :--- |
-| The Grid page is retired and the Grid reads the outcome through the workbench instead of `GridBacktestResult` | `bots/ui/` | `EPIC-040F` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |

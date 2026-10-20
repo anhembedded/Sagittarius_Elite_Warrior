@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D` and `040E` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D`, `040E` and `040F` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -40,7 +40,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-14 at `64e5510`) | When the epic is done |
 | :--- | :-: | :-: |
-| Lines of kind-neutral backtest UI living under `ui/kinds/grid/backtest/` (period, run state, equity, summary, trades) | about 1,190 lines in 8 files, all Grid-owned | the Grid keeps only its simulator adapter and extra figures; the rest sits once in the workbench |
+| Lines of kind-neutral backtest UI living under `ui/kinds/grid/backtest/` (period, run state, equity, summary, trades) | about 1,190 lines in 8 files, all Grid-owned | the Grid keeps only its simulator adapter and extra figures; the rest sits once in the workbench. **Measured at `040F` (2026-10-20): 0 lines of page code; the folder holds 552 lines in 3 files, all offline fixtures (frames and sample replays); production source net −1,429 lines** |
 | Where a backtest's parameters come from | the bot's on-screen plan (`kind_backtests.py:100`, `selected.edited or bot.config`) | the workbench's own copy; editing it never changes the bot |
 | Lines a second kind (e.g. DCA) must add for a backtest UI | a full copy of the Grid page | one simulator adapter and one registration line |
 | Where the backtest is shown | a bottom dock tab sharing height with Orders, Fills and Log | a centre tab the full width of the screen |
@@ -54,7 +54,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | [EPIC-040C](completed/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040D](completed/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040E](completed/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | ✅ Done (2026-10-20) |
-| [EPIC-040F](incomplete/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | Planned |
+| [EPIC-040F](completed/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | ✅ Done (2026-10-20) |
 | [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
 
 ## 4. Phase exit criteria
@@ -62,7 +62,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | :--- | :--- | :--- |
 | 1. Pinned and contracted (040A–040C) | The Grid page's behaviour is pinned. The kind-neutral result and port exist with the Grid behind them. Sandbox parameters exist and are judged without the account | Characterisation tests and preview frames green on master. The 039B oracle unchanged. A test that editing the sandbox never touches the bot. Not run |
 | 2. Workbench on screen (040D–040E) | The Backtest centre tab hosts the workbench for the selected bot's kind. Live keeps the chart, Plan and Orders/Fills/Log | Conformance suite at 1024×700, 1366×768 and 1920×1080. Preview frames for both tabs. The owner's look on Windows. Not run |
-| 3. One copy (040F) | The Grid's page uses the workbench. The duplicate UI under `ui/kinds/grid/backtest/` is deleted | The 040A tests pass unchanged against the new page. Line count recorded against §2. Not run |
+| 3. One copy (040F) | The Grid's page uses the workbench. The duplicate UI under `ui/kinds/grid/backtest/` is deleted | Every 040A test's behaviour is pinned by a workbench test; they could not pass *unchanged*, because the page they drove is deleted, so each was ported or matched (`040F`'s implementation notes list them), and the `039B` oracle and `039K` tests are untouched. Line count recorded against §2. Owner's look at the before/after frames: not yet |
 | 4. Second kind (040G) | A strategy bot runs on Testnet with the shell's lifecycle and is backtested on the workbench, with no change to kind-neutral code beyond registration | Backtest and live give the same signals on the same candles (parity test). Restart recovery after warm-up. Testnet run. Not run |
 
 ## 5. Out of scope
@@ -81,8 +81,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 **Where `040D` starts.** Read, in order: §1 here; [`040D`](completed/EPIC-040D_backtest_workbench_shell.md); the *Implementation notes* of the three completed children (their "Findings" paragraphs are the hand-over); `Docs/MODULES/bots/05-building-blocks.md` ("The kind's backtest") and `08-concepts.md` (the sandbox plan). The code to build on:
 - `bots/domain/backtest/` — `BacktestOutcome` and its records, `StopCause`, `BacktestAnswer`, `SandboxPlan`; `bots/contracts/i_kind_backtester.py` — `IKindBacktester`, `KindBacktestRequest`; `IBotKind.backtester()` finds a kind's backtest through the catalog.
 - `bots/ui/backtest/` — `SandboxSession` (copy the saved plan, ask before discarding edits), `judge_sandbox`, `sandbox_line`.
-- The safety net: `tests/unit/modules/bots/ui/kinds/test_grid_backtest_states.py` and `ui/kinds/grid/backtest/preview_frames.py` (thirteen frames). `040F` must pass them unchanged against the workbench.
-- What `040F` deletes: `ui/kinds/grid/backtest/` (about 1,190 lines) and its hosting in `ui/bots_screen/kind_backtests.py`.
+- The safety net was `test_grid_backtest_states.py` and `preview_frames.py` (thirteen frames); `040F` carried every state to the workbench (`test_workbench_frames.py`) and deleted both, with the Grid page (about 1,190 lines) and its hosting; `040E` replaced `kind_backtests.py`.
 
 **What each child left for a later one** (also written in that child's file):
 
@@ -91,8 +90,8 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | `040D` | 040B | The neutral dispatching query (kind id and `KindBacktestRequest` in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) and its coordinator. Map `FigureTone` to the meaning colours (`Tone`; the Grid sets none). Build the trades pane by pairing the labelled `fills` (the outcome has no trade record). Mark `StopCause` on the chart. |
 | `040D` | 040C | The sandbox editor is a second `BotKindPanel`; it must **not** be bound to the Bots menu's kind commands (`kind_command_binding.py` acts on the selected bot's panel) and takes `set_plan_facts(None, risk)`. Bind the "discard your edits?" question to `SandboxSession.confirm_switch` / `keep_current`. Say whose fees a run charges (the account's tier). |
 | `040E` | 040A | The tabbed centre. The Engine's workbench shell takes any central widget (`sagittarius_engine/extensions/pyside_mvc/workbench/workbench_shell.py`), and `bots_view.py` already uses a stock `QTabWidget`, so a stock `QTabWidget` in the centre needs no Engine change; confirm it when `040E` starts. |
-| `040F` | 040A | The status line: `GridBacktestView.show_idle("")` writes no status, so "Backtest done." stays after another bot is selected, "Backtesting…" stays after a mid-run switch (Run on, Cancel off), and "Select a bot…" stays once the page is ready. One cause; fix and pin it (the tests leave those states unasserted on purpose). Also "No candles are stored for  at 15m." before the first run (an empty symbol), and a frame for a late *refusal* after a mid-run switch. |
-| `040F` | 040B | Drop the Grid's duplicate records (`PriceBar`, `EquityPoint`, `BacktestFill`, `BacktestProvenance`, `DataWindow`; `BacktestBar` repeats `PriceBar`) once the 039B oracle's imports are retargeted. |
+| `040F` | 040A | The status line: `GridBacktestView.show_idle("")` writes no status, so "Backtest done." stays after another bot is selected, "Backtesting…" stays after a mid-run switch (Run on, Cancel off), and "Select a bot…" stays once the page is ready. One cause; fix and pin it (the tests leave those states unasserted on purpose). Also "No candles are stored for  at 15m." before the first run (an empty symbol), and a frame for a late *refusal* after a mid-run switch. | **Done in `040F`:** pinned on the workbench by `test_a_ready_page_says_nothing_stale` and the late-refusal test; the page they were fixed on is deleted. |
+| `040F` | 040B | Drop the Grid's duplicate records (`PriceBar`, `EquityPoint`, `BacktestFill`, `BacktestProvenance`, `DataWindow`; `BacktestBar` repeats `PriceBar`) once the 039B oracle's imports are retargeted. | **Done in `040F`:** `DataWindow` and `BacktestProvenance` were copies and are dropped; `BacktestFill`, `EquityPoint` and `PriceBar` differ in shape and stay (the oracle asserts on them). |
 | `040G` | 040B | A trade record beside `fills`, or the workbench pairs entries and exits; the assertion that nothing before `start` is reported (the stub test cannot make it); a `StopCause` member such as a signal exit. |
 
 **Open questions, with a recommendation.**
