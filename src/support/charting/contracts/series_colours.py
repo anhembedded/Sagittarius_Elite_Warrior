@@ -6,6 +6,14 @@ single exemption from the colour-literal ban. A reader asks for a series by
 name (`series_colour(ChartSeries.EMA_20)`); a strategy in a module's `domain/`
 names the series it draws and never a colour (`contracts/chart_series.py`).
 
+Every colour reads against the chart's background in both colour schemes
+(`EPIC-043B`): at least 3:1 (WCAG 2.x 1.4.11, graphical objects) on a white base
+and on the usual dark bases, `#1e1e1e` and `#202020`, checked by
+`tests/unit/support/charting/test_series_colours_contrast.py`. One value serves
+both schemes: these are read once, when a series is built, so a second table
+keyed by scheme would never reach a line already drawn. Nine colours moved to the
+nearest tone of the same hue that passes; the rest were already inside.
+
 Chart chrome is not here: it follows the operating system's palette
 (`chart_card/chart_chrome.py`). What is here encodes data — a candle is green
 because it closed up, an EMA is red because it is the 20-bar one.
@@ -24,27 +32,27 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series impor
 )
 
 _SERIES_COLOURS: dict[ChartSeries, str] = {
-    ChartSeries.BULL: "#26a69a",
+    ChartSeries.BULL: "#25a296",
     ChartSeries.BEAR: "#ef5350",
     ChartSeries.EMA_20: "#e74c3c",
-    ChartSeries.EMA_50: "#e67e22",
-    ChartSeries.EMA_100: "#00bcd4",
+    ChartSeries.EMA_50: "#df7619",
+    ChartSeries.EMA_100: "#00a1b5",
     ChartSeries.EMA_200: "#3498db",
-    ChartSeries.RSI_14: "#8e44ad",
+    ChartSeries.RSI_14: "#984bb8",
     ChartSeries.MACD_LINE: "#2980b9",
-    ChartSeries.MACD_SIGNAL: "#e67e22",
+    ChartSeries.MACD_SIGNAL: "#df7619",
     ChartSeries.MACD_HISTOGRAM: "#848E9C",
-    ChartSeries.TREND_UP_LINE: "#0ECB81",
+    ChartSeries.TREND_UP_LINE: "#0ca76a",
     ChartSeries.TREND_DOWN_LINE: "#F6465D",
     ChartSeries.NEUTRAL_LINE: "#848E9C",
-    ChartSeries.HIGHLIGHT_LINE: "#F3BA2F",
+    ChartSeries.HIGHLIGHT_LINE: "#bb880b",
     ChartSeries.LONG_TREND_EMA: "#f6465d",
     ChartSeries.ENTRY_EMA: "#2962ff",
     ChartSeries.LONG_TERM_TREND_EMA: "#9b59b6",
-    ChartSeries.FALLBACK_GREEN: "#2ecc71",
+    ChartSeries.FALLBACK_GREEN: "#26a75c",
     ChartSeries.FALLBACK_PURPLE: "#9b59b6",
-    ChartSeries.FALLBACK_YELLOW: "#f1c40f",
-    ChartSeries.FALLBACK_GREY: "#95a5a6",
+    ChartSeries.FALLBACK_YELLOW: "#ae8e0a",
+    ChartSeries.FALLBACK_GREY: "#829596",
 }
 
 #: What a strategy's lines cycle through when it names no series for them. The
