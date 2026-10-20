@@ -9,7 +9,7 @@ without the app noticing.
 **Complexity:** S — one new check on the account reader, one CLI output line, one human run.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-003` (the check runs on mainnet; permissions are part of "usable").
-**Depends on:** [`EPIC-026P`](EPIC-026P_mainnet_venue_member_and_factory_parameter.md)
+**Depends on:** [`EPIC-026P`](../completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md)
 
 ---
 

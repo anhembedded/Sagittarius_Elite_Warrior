@@ -91,15 +91,15 @@ complexity; every task is one pull request unless its file says otherwise.
 | **Stage 2 — operations survive without a human** | | | | | |
 | [EPIC-026G](incomplete/EPIC-026G_trade_journal.md) | Trade journal: orders, fills, positions and breaker state in SQLite | Elite | None | 🔴 | Partly — per-bot JSON store; decision journal is `EPIC-035X` |
 | [EPIC-026I](incomplete/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | Partly — unknown outcome resolved, rate-limit pause built; explicit `recvWindow` not |
-| [EPIC-026H](incomplete/EPIC-026H_crash_recovery_adopt_journaled_positions.md) | Crash recovery: a position the journal recorded as ours is adopted on enable (ADR O2) | Elite | G | 🔴 | Done differently — adopt by tag on the owner's Resume; `BOT-197` open |
-| [EPIC-026J](incomplete/EPIC-026J_leverage_and_margin_type_set_on_exchange.md) | Leverage and margin type set on the exchange on arm, and read back | Elite | I | 🟡 | Done (Futures) — `FuturesSettingsGate` |
+| [EPIC-026H](completed/EPIC-026H_crash_recovery_adopt_journaled_positions.md) | Crash recovery: a position the journal recorded as ours is adopted on enable (ADR O2) | Elite | G | 🔴 | Done differently — adopt by tag on the owner's Resume; `BOT-197` open |
+| [EPIC-026J](completed/EPIC-026J_leverage_and_margin_type_set_on_exchange.md) | Leverage and margin type set on the exchange on arm, and read back | Elite | I | 🟡 | Done (Futures) — `FuturesSettingsGate` |
 | [EPIC-026K](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Exchange-side protective stop: reduce-only `STOP_MARKET` after each entry fill | Elite | G, I | 🔴 | Partly — Futures Grid Long/Short built (`EPIC-039L`); Neutral waits for T3; Spot none by design |
 | [EPIC-026L](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Account-level loss cap: one figure per host, every bot stopped through the existing Stop, none restarts until the owner acknowledges (re-scoped 2026-10-20: no drawdown, no Emergency Stop, no journal) | Elite | None | 🔴 | 🟡 Built 2026-10-20, pull request open; the owner's Testnet drill and the desktop acknowledge are open |
 | [EPIC-026M](incomplete/EPIC-026M_out_of_band_alerting.md) | Out-of-band alerting for trading events (delivers `BOT-018`; ADR O4) | Elite | None | 🟡 | Done for bot halts (Discord); heartbeat is `EPIC-036E` |
-| [EPIC-026N](incomplete/EPIC-026N_user_data_stream_watchdog.md) | User-data-stream watchdog: silence alerts, an exhausted reconnect budget disables trading | Elite | M | 🔴 | Done — `UserStreamWatch`; its own alert is `EPIC-036B` |
+| [EPIC-026N](completed/EPIC-026N_user_data_stream_watchdog.md) | User-data-stream watchdog: silence alerts, an exhausted reconnect budget disables trading | Elite | M | 🔴 | Done — `UserStreamWatch`; its own alert is `EPIC-036B` |
 | [EPIC-026O](cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) | Journal-versus-exchange reconciliation script, and the 14-day Testnet soak report | Elite | G–N | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | **Stage 3 — mainnet exists and is locked** | | | | | |
-| [EPIC-026P](incomplete/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | `TradingVenue.FUTURES_MAINNET`, the factory parameter, separate credentials, the fourth alignment state (ADR D3, D4) | Elite | O, ADR accepted | 🔴 | Done — by `EPIC-034E` |
+| [EPIC-026P](completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | `TradingVenue.FUTURES_MAINNET`, the factory parameter, separate credentials, the fourth alignment state (ADR D3, D4) | Elite | O, ADR accepted | 🔴 | Done — by `EPIC-034E` |
 | [EPIC-026Q](cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Mainnet caps with a hard ceiling, and a typed acknowledgement on enable (ADR D5, O3) | Elite | P | 🔴 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | [EPIC-026R](incomplete/EPIC-026R_mainnet_read_only_first_contact.md) | Mainnet read-only first contact with a restricted key: `exchange-status`, permissions checked | Elite | P | 🟡 | Done in code; the owner's own-key check is `EPIC-034E`'s last box |
 | **Stage 4 — capital is earned** | | | | | |
@@ -123,6 +123,13 @@ break-even stops (`BOT-105`); backtest report persistence (`BOT-115`); the chart
 (`BOT-011`). None of them shortens the path to a first real fill.
 
 ## Notes (newest first)
+
+- **2026-10-20** — Must-have 8 of the [2026-10-20 review](REVIEW_2026-10-20_what_is_still_missing.md) written into
+  [`headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md): §3c (rotating an API key, planned and after a leak,
+  the Discord webhook and the dead man's switch URL), §8b (what `/var/lib/sew` holds, the `sew-backup` script and its daily
+  timer, the pull off the VPS, the restore) and checklist row 13 ("one backup taken before the first real-money run").
+  The row is the owner's to sign: no backup has been taken on a real server, and the procedure has been run by its author
+  against stand-in directories only, not under a real systemd.
 
 - **2026-10-20** — Re-checked against `master-warrior` `01d188a` at the owner's request, with the code read
   rather than the task files: [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md).

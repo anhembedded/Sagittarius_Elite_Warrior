@@ -97,7 +97,7 @@ The review's new decisions are recorded the same way: N1 as `BOT-197` built it (
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1, D2 | [`README.md`](README.md) §3–§4, [`TRACKING.md`](TRACKING.md) | Not started | Not yet verified |
-| D3, D4 | [`EPIC-026P`](incomplete/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | Not started | Not yet verified |
+| D3, D4 | [`EPIC-026P`](completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | Not started | Not yet verified |
 | D5 | [`EPIC-026Q`](cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Not started | Not yet verified |
 | D6 | [`EPIC-026O`](cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) | Not applicable: D6 rejected by the owner on 2026-10-07 | — |
 | D7 | [`EPIC-026G`](incomplete/EPIC-026G_trade_journal.md) | Not started | Not yet verified |

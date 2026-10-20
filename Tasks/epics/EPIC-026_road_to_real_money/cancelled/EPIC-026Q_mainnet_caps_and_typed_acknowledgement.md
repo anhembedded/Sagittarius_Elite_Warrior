@@ -12,7 +12,7 @@ configuration is a cap of 500 USDT on Testnet applied to real money.
 one dialog.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-004` §3 step 1 and §5, `SPEC-005` §3 step 6.
-**Depends on:** [`EPIC-026P`](EPIC-026P_mainnet_venue_member_and_factory_parameter.md); `O3`
+**Depends on:** [`EPIC-026P`](../completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md); `O3`
 answered (the values are the user's).
 
 ---
