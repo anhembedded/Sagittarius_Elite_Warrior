@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D`, `040E` and `040F` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟢 `040A`–`040F` done 2026-10-20; `040G` parked by the owner 2026-10-20 (*"Epic này để đó, chưa cần làm"*, on the Proposed design record). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -55,7 +55,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | [EPIC-040D](completed/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040E](completed/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040F](completed/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | ✅ Done (2026-10-20) |
-| [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
+| [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | ⏸ Parked by the owner (2026-10-20); design is a Proposed record |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |

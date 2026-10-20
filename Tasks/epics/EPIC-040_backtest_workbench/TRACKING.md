@@ -1,7 +1,7 @@
 # EPIC-040 — Tracking
 
 - **Epic:** [EPIC-040](README.md)
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, and `040D`, `040E`, `040F` done; un-parked 2026-10-20)
+- **Status:** 🟢 `040A`–`040F` done; `040G` parked by the owner 2026-10-20
 - **Target Completion:** not scheduled
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -49,7 +49,7 @@ gantt
 | EPIC-040D | [Backtest workbench shell](completed/EPIC-040D_backtest_workbench_shell.md) | `claude/epic-040d-backtest-workbench` | 🟡 | ✅ Done | 2026-10-20 |
 | EPIC-040E | [Live and Backtest centre tabs](completed/EPIC-040E_live_and_backtest_tabs.md) | `claude/epic-040e-live-and-backtest-tabs` | 🟡 | ✅ Done | 2026-10-20 |
 | EPIC-040F | [Grid on the workbench, duplicate deleted](completed/EPIC-040F_grid_on_the_workbench.md) | `claude/epic-040f-grid-on-the-workbench` | 🔴 | ✅ Done | 2026-10-20 |
-| EPIC-040G | [Strategy bot kind](incomplete/EPIC-040G_strategy_bot_kind.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-040G | [Strategy bot kind](incomplete/EPIC-040G_strategy_bot_kind.md) | — | 🔴 | ⏸ Parked (owner, 2026-10-20) | — |
 
 ---
 
@@ -60,7 +60,7 @@ gantt
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
 | 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
 | 2026-10-20 | Start | Un-parked by the owner; phase 1 (`040A`–`040C`) first. |
-| 2026-10-20 | 040G | Design written as a Proposed decision record (five slices, backtest first, Testnet only); waits for the owner's answers O1–O4. |
+| 2026-10-20 | 040G | Design written as a Proposed decision record (five slices, backtest first, Testnet only); parked by the owner (*"Epic này để đó, chưa cần làm"*); no code until it is taken up again. |
 | 2026-10-20 | 040F | The Grid's own backtest page, presenter and coordinator are deleted; the Grid runs on the workbench alone (net −1,429 source lines). |
 | 2026-10-20 | 040E | The Bots centre's Live and Backtest tabs; one workbench per venue; the bottom Backtest dock is gone. |
 | 2026-10-20 | 040D | The workbench page for any kind, run through `RunBacktestQuery`; a stub second kind renders through it. Not on screen until `040E`. |

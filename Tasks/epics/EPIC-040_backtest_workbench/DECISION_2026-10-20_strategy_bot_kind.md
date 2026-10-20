@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-040](README.md) · child [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md)
 **Date:** 2026-10-20
-**Status:** Proposed
-**Decided by:** Pending the owner. Nothing here is a default under `ONBOARDING.md` §7: the kind places real orders, so every decision below waits for the owner (the coordinator relays it).
+**Status:** Proposed — parked by the owner 2026-10-20
+**Decided by:** Pending the owner, who parked the epic on 2026-10-20 (*"Epic này để đó, chưa cần làm"*, leave it, no need to do it yet) without answering O1–O4; they stay open for when it is taken up. Nothing here is a default under `ONBOARDING.md` §7: the kind places real orders, so every decision below waits for the owner (the coordinator relays it).
 
 | Label | Meaning |
 | :--- | :--- |
