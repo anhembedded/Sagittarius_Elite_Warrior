@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
-    resolve_zone_info,
+    display_zone_name,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     AppValueFormatter,
@@ -32,7 +32,7 @@ def money_text(amount: float) -> str:
 def zone_name(time_zone: str) -> str:
     """The zone `time_zone` really resolves to, by name ("UTC" when the setting cannot be
     resolved): a text that names its zone must name the one it was written in."""
-    return resolve_zone_info(time_zone).key
+    return display_zone_name(time_zone)
 
 
 def moment_in_zone(moment: datetime, time_zone: str = DEFAULT_TIMEZONE) -> str:

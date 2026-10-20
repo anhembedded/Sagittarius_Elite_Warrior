@@ -137,9 +137,7 @@ def _pause_headline(refused: SubmitFailure, what: str, zone: tzinfo | None) -> s
 
 def _local_time(moment: datetime, zone: tzinfo | None) -> str:
     """@param zone `None`: the machine's own zone, whatever the platform calls it.
-    The offset is written, so the sentence never claims a zone it cannot name
-    (`display_timezone_service` cannot resolve the system zone from its
-    abbreviation)."""
+    The offset is written, so the sentence never claims a zone it cannot name."""
     return moment.astimezone(zone).isoformat(sep=" ", timespec="seconds")
 
 

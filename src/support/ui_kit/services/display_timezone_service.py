@@ -2,7 +2,7 @@
 
 Capability: Show a time in the user's display timezone
     Also: timezone, utc offset, local time, datetime format
-    Use: get_display_timezone_label, get_supported_timezones, format_display_datetime, get_utc_offset_seconds
+    Use: get_display_timezone_label, get_supported_timezones, format_display_datetime, get_utc_offset_seconds, to_display_time, display_zone_name
     User: src/modules/backtesting/ui/view_models/time_range_view_model.py
     Status: stable
 """
@@ -10,54 +10,90 @@ Capability: Show a time in the user's display timezone
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 
 logger = logging.getLogger("App.DisplayTimezone")
 
 DEFAULT_TIMEZONE = "UTC"
 SYSTEM_TIMEZONE_KEY = "SYSTEM"
 
-
-def get_system_timezone_name() -> str:
-    """Detects the local system timezone name, defaulting to UTC if unavailable."""
-    try:
-        local_tz = datetime.now().astimezone().tzinfo
-        if local_tz is not None:
-            tz_str = str(local_tz)
-            if tz_str:
-                return tz_str
-    except (AttributeError, ValueError, OSError) as e:
-        logger.warning(f"Could not detect system timezone: {e}")
-    return DEFAULT_TIMEZONE
+#: Reasons already logged, so a column of timestamps is one warning and not one per cell.
+_reported_fallbacks: set[tuple[str, str]] = set()
 
 
-def resolve_zone_info(tz_name: str) -> ZoneInfo:
-    """
-    Resolves a timezone identifier into a concrete ZoneInfo instance.
-    Supports "UTC", "SYSTEM", and standard IANA timezone identifiers.
-    Falls back to UTC with a warning if the name cannot be resolved.
-    """
+def _fall_back_to_utc(subject: str, reason: str) -> None:
+    """One WARNING per distinct `subject` and `reason`."""
+    if (subject, reason) not in _reported_fallbacks:
+        _reported_fallbacks.add((subject, reason))
+        logger.warning("%s (%s); falling back to UTC.", subject, reason)
+
+
+def machine_local_time(moment: datetime) -> datetime:
+    """`moment` as the machine's own clock shows it, by the OS's rules for that instant (daylight
+    saving included). The one place the service asks the OS: the result's zone is a fixed offset
+    named by the platform's abbreviation (`+07`, `EDT`, a Windows display name), which is not an
+    IANA key, so it is never looked up as one (`BUG-234`). Tests replace this function."""
+    return moment.astimezone()
+
+
+def _named_zone(tz_name: str) -> ZoneInfo:
+    """An IANA zone; UTC, logged, for a name `ZoneInfo` cannot read."""
     if not tz_name or tz_name == DEFAULT_TIMEZONE:
         return ZoneInfo("UTC")
-
-    if tz_name == SYSTEM_TIMEZONE_KEY:
-        sys_name = get_system_timezone_name()
-        try:
-            return ZoneInfo(sys_name)
-        except (ZoneInfoNotFoundError, ValueError):
-            logger.warning(
-                f"Failed to resolve system timezone {sys_name!r}; falling back to UTC."
-            )
-            return ZoneInfo("UTC")
-
     try:
         return ZoneInfo(tz_name)
     except (ZoneInfoNotFoundError, ValueError):
-        logger.warning(
-            f"Invalid or unknown timezone identifier: {tz_name!r}; falling back to UTC."
-        )
+        _fall_back_to_utc("Invalid or unknown timezone identifier", repr(tz_name))
         return ZoneInfo("UTC")
+
+
+def to_display_time(moment: datetime, tz_name: str = DEFAULT_TIMEZONE) -> datetime:
+    """The aware `moment` as it reads in the display zone `tz_name` ("UTC", "SYSTEM" or an IANA key).
+
+    "SYSTEM" is the machine's own time, converted instant by instant, never a zone looked up by
+    name: the machine's zone has no IANA key we can read with the standard library."""
+    if tz_name != SYSTEM_TIMEZONE_KEY:
+        return moment.astimezone(_named_zone(tz_name))
+    try:
+        return machine_local_time(moment)
+    except (OSError, OverflowError, ValueError) as error:
+        _fall_back_to_utc(
+            "The machine's time zone is unavailable", failure_detail(error)
+        )
+        return moment.astimezone(UTC)
+
+
+def _offset_text(offset: timedelta) -> str:
+    minutes = int(offset.total_seconds() // 60)
+    sign = "-" if minutes < 0 else "+"
+    hours, rest = divmod(abs(minutes), 60)
+    return f"UTC{sign}{hours:02d}:{rest:02d}"
+
+
+def get_system_timezone_name() -> str:
+    """The machine's zone as it is now, for a label: the platform's name and the UTC offset
+    (`EDT, UTC-04:00`; `UTC+07:00` when the platform's name is the offset itself)."""
+    local = to_display_time(datetime.now(UTC), SYSTEM_TIMEZONE_KEY)
+    offset = local.utcoffset()
+    if offset is None:
+        return DEFAULT_TIMEZONE
+    abbreviation = local.tzname() or ""
+    if offset == timedelta(0) and abbreviation in {"", "UTC"}:
+        return DEFAULT_TIMEZONE
+    if not abbreviation or abbreviation[0] in "+-":
+        return _offset_text(offset)
+    return f"{abbreviation}, {_offset_text(offset)}"
+
+
+def display_zone_name(tz_name: str) -> str:
+    """The zone `tz_name` really shows times in, by name ("UTC" when it cannot be resolved): a
+    text that names its zone must name the one it was written in."""
+    if tz_name == SYSTEM_TIMEZONE_KEY:
+        return get_system_timezone_name()
+    return _named_zone(tz_name).key
 
 
 def get_display_timezone_label(tz_name: str) -> str:
@@ -114,9 +150,7 @@ def format_display_datetime(
     """
     dt_utc = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
 
-    target_tz = resolve_zone_info(tz_name)
-    converted = dt_utc.astimezone(target_tz)
-    return converted.strftime(fmt)
+    return to_display_time(dt_utc, tz_name).strftime(fmt)
 
 
 def format_display_timestamp(
@@ -144,7 +178,5 @@ def get_utc_offset_seconds(
         dt_utc = datetime.fromtimestamp(timestamp, tz=UTC)
     except (OSError, ValueError, OverflowError):
         return 0.0
-    target_tz = resolve_zone_info(tz_name)
-    converted = dt_utc.astimezone(target_tz)
-    offset = converted.utcoffset()
+    offset = to_display_time(dt_utc, tz_name).utcoffset()
     return offset.total_seconds() if offset is not None else 0.0
