@@ -24,7 +24,7 @@ class FollowTiming:
 
 def read_lines(path: Path, timing: FollowTiming | None) -> Iterator[str]:
     """Every line of `path`, terminators kept; with `timing`, waits for more."""
-    handle = path.open("r", encoding="utf-8", errors="replace", newline="")
+    handle = path.open("r", encoding="utf-8", errors="surrogateescape", newline="")
     held = ""
     try:
         identity = os.fstat(handle.fileno()).st_ino
@@ -42,8 +42,12 @@ def read_lines(path: Path, timing: FollowTiming | None) -> Iterator[str]:
                 return
             timing.sleep(timing.poll_seconds)
             if _was_rotated(path, handle, identity):
+                if held:
+                    yield held
                 handle.close()
-                handle = path.open("r", encoding="utf-8", errors="replace", newline="")
+                handle = path.open(
+                    "r", encoding="utf-8", errors="surrogateescape", newline=""
+                )
                 identity = os.fstat(handle.fileno()).st_ino
                 held = ""
     finally:

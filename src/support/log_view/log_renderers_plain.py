@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import TextIO
 
 from Sagittarius_Elite_Warrior.src.support.log_view.log_line import LogHead
+from Sagittarius_Elite_Warrior.src.support.log_view.log_viewer import LineRenderer
 from Sagittarius_Elite_Warrior.src.support.log_view.param_span import Span
 
 
-class PlainRenderer:
+class PlainRenderer(LineRenderer):
     """Every line as it came; spans are not even computed."""
 
     wants_spans = False
@@ -20,6 +21,9 @@ class PlainRenderer:
         self._stream.write(line.body + end)
         self._stream.flush()
 
-    def other(self, body: str, in_traceback: bool, end: str) -> None:
+    def other(self, body: str, end: str) -> None:
         self._stream.write(body + end)
         self._stream.flush()
+
+    def traceback_line(self, body: str, end: str) -> None:
+        self.other(body, end)

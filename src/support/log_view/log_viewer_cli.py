@@ -105,15 +105,16 @@ def system_environment() -> LogsEnvironment:
         _tolerant(sys.stdin),
         _tolerant(sys.stdout),
         os.environ,
-        datetime.now,
+        local_now,
         time.sleep,
     )
 
 
 def _tolerant(stream: TextIO) -> TextIO:
-    """A byte that is not UTF-8 is shown as a replacement mark, not a crash."""
+    """Bytes in, the same bytes out: no newline translation, and a byte that is not UTF-8
+    travels as a surrogate escape instead of becoming a replacement mark or a crash."""
     if isinstance(stream, io.TextIOWrapper):
-        stream.reconfigure(errors="replace")
+        stream.reconfigure(errors="surrogateescape", newline="")
     return stream
 
 

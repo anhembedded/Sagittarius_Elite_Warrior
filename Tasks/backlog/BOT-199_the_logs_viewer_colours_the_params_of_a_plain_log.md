@@ -14,7 +14,7 @@
 
 On the VPS the owner follows `journalctl -u sew-run -o cat -f`; a WARNING, a tag and a `qty=… price=…` look alike. A viewer that sees only the final line cannot know which words the code substituted (Python keeps `msg` and `args` apart only until a handler formats the record, `logging` docs). `PRO-019` compares four ways under the fixed constraints (stored bytes, the CI scan, the journal and the Engine unchanged) and the owner chose C: a catalogue of every log call's template, read from the source by `ast`, matched to a plain line.
 
-Measured at `5477ce6b` (2026-10-20): 808 log calls; 615 `%`-style with arguments, 94 f-strings, 66 without params, 33 with a variable message.
+Measured at `5477ce6b` (2026-10-20): 811 log calls (the extractor first missed 3 on receivers such as `_decision_log`; `.log(level, msg)` is read too); 618 `%`-style with arguments, 94 f-strings, 66 without params, 33 with a variable message.
 
 ## 2. Acceptance criteria
 - [x] `main.py logs` reads standard input or `--file` and writes each line; with colour off the output is the input, byte for byte (pipe, `NO_COLOR` non-empty, `TERM=dumb|unknown`, `--no-color`, `--color never`, `rich` missing).
@@ -44,7 +44,7 @@ Option C of `PRO-019`, built as in its section 5.
 | File | Change |
 | :--- | :--- |
 | `src/support/log_view/*.py` | The viewer package (see Design). |
-| `src/support/log_view/template_catalogue.json` | Generated: one template per line (756 templates at this revision). |
+| `src/support/log_view/template_catalogue.json` | Generated: one template per line (765 templates at this revision). |
 | `scripts/render_log_templates.py` | Writes or checks the catalogue. |
 | `src/support/cli_host/launcher_verb.py` | `LauncherVerb.configure`: options of a verb's own. |
 | `src/main.py` | The `logs` verb and its branch before the application is built. |
@@ -74,15 +74,15 @@ Also: the architecture guards, `scripts/check_skill_prompt_references.py`, ruff,
 
 ## Survey: log calls the viewer cannot read exactly (follow-up list, nothing edited)
 
-Read at `5477ce6b` (base of this branch, 2026-10-20) by the same `ast` pass as the catalogue; `file:line` is a point-in-time citation at that sha (`commit-rule.md` §1). 808 calls in all.
+Read at `5477ce6b` (base of this branch, 2026-10-20) by the same `ast` pass as the catalogue; `file:line` is a point-in-time citation at that sha (`commit-rule.md` §1). 811 calls in all.
 
 | Shape | Calls | Effect in the viewer | Proposed follow-up |
 | :--- | :--- | :--- | :--- |
 | Variable message (`logger.warning(message, *args)`, a name or a call) | 33 | guessed (`GUESS` style) | give each a literal `%`-template, or keep the variable in one helper that the catalogue can name |
 | f-string | 94 | holes are exact; a constant in a hole (`{_TAG}`) is shown as a tag only if it looks like `[tag]` | convert to `%`-style and add Ruff `G004` as a ratchet that only falls (`code/quality.md` §1 style), not a mass edit now |
-| Tag last, not first (`... [halt-closes-position]`) | 137 | the tag is found and coloured; `logging-rule.md` §8 says "tag first" | decide: move to first, or amend the rule to allow a trailing tag |
-| Tag first / after `Bot %s:` | 207 / 2 | exact | none |
-| No tag at all (string literals) | 329 | exact params; `--tag` cannot select them | tag the ones an operator greps for |
+| Tag last, not first (`... [halt-closes-position]`) | 138 | the tag is found and coloured; `logging-rule.md` §8 says "tag first" | decide: move to first, or amend the rule to allow a trailing tag |
+| Tag first (or after `Bot %s:`) | 213 | exact | none |
+| No tag at all (string literals) | 333 | exact params; `--tag` cannot select them | tag the ones an operator greps for |
 | More than one bracket tag in one message | 2 | both coloured | none |
 
 **Variable-message calls (all):**
@@ -124,7 +124,7 @@ Read at `5477ce6b` (base of this branch, 2026-10-20) by the same `ast` pass as t
 **f-string calls by file (top 10 of 35 files):** `src/modules/market_data/adapters/binance/client.py` (9), `src/modules/market_data/adapters/persistence/database_manager.py` (8), `src/modules/backtesting/domain/policies/position_lifecycle_policy.py` (7), `src/modules/market_data/application/sync/sync_market_data/handler.py` (7), `src/modules/backtesting/application/run_historical_tick_backtest/handler.py` (4), `src/modules/market_data/adapters/binance/binance_websocket_service.py` (4), `src/modules/market_data/ui/coordinators/scan_coordinator.py` (4), `src/modules/trading/ui/settings/trading_settings_presenter.py` (4), `src/modules/backtesting/domain/paper_exchange.py` (3), `src/modules/market_data/adapters/persistence/sqlalchemy_repository.py` (3)
 
 
-The 94 f-string and 33 variable calls are the whole of the viewer's inexactness; the other 681 calls (615 `%`-style with arguments, 66 with no params) are exact. One more known limit: a template two calls share is ambiguous only when their params differ in position, and `test_the_log_template_catalogue_is_current.py` counts those (at most 1 today).
+The 94 f-string and 33 variable calls are the whole of the viewer's inexactness; the other 684 calls (618 `%`-style with arguments, 66 with no params) are exact. One more known limit: a template two calls share is ambiguous only when their params differ in position, and `test_the_log_template_catalogue_is_current.py` counts those (at most 1 today).
 
 ## Implementation notes (written when done)
 Filled when the pull request is ready.

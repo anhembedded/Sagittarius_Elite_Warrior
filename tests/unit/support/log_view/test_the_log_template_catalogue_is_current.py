@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.support.log_view.template_catalogue_file impo
     parse_catalogue_text,
 )
 from Sagittarius_Elite_Warrior.src.support.log_view.template_extractor import (
+    _templates_of,
     extract_catalogue,
     fstring_template,
     percent_template,
@@ -82,3 +83,19 @@ def test_every_template_finds_its_own_params_exactly() -> None:
             unclear += 1
 
     assert unclear <= _AMBIGUOUS_TEMPLATES_CEILING
+
+
+def test_a_log_call_with_a_level_argument_and_a_receiver_ending_in_log_is_read() -> (
+    None
+):
+    source = (
+        "import logging\n"
+        "_decision_log = logging.getLogger('App.X')\n"
+        "def f(level, bot):\n"
+        "    _decision_log.info('[x-tag] Bot %s: first', bot)\n"
+        "    logger.log(level, 'Bot %s: second', bot)\n"
+        "    self.info('a pane message, not a record')\n"
+    )
+    found = {t.pieces for t in _templates_of(ast.parse(source)) if t is not None}
+
+    assert found == {("[x-tag] Bot ", ": first"), ("Bot ", ": second")}

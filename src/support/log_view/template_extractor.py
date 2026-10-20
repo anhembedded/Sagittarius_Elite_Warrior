@@ -6,7 +6,9 @@ viewer matches a plain line against; `scripts/render_log_templates.py` writes it
 call cannot reach a viewer that does not know it.
 
 A call is recognised by the name its receiver ends in (`logger`, `_logger`,
-`self._log`, `log`, ...) and by a level method. Messages it reads:
+`self._log`, `_decision_log`, `log`, ...) and by a level method or `.log(level, ...)`.
+`BacktestEventLogger.info` and an indicator script's `self.info` write to a pane,
+not to `logging`, so they are not records and are not read. Messages it reads:
 
 * a string literal with arguments: a `%`-template, each conversion a hole;
 * a string literal with none: all fixed text (it has no params, and a line that
@@ -30,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.support.log_view.template_model import LogTem
 _LEVEL_METHODS = frozenset(
     {"trace", "debug", "info", "warning", "warn", "error", "critical", "exception"}
 )
-_RECEIVER = re.compile(r"(^|\.)_*(log|logger)\w*$", re.IGNORECASE)
+_RECEIVER = re.compile(r"(^|\.)_*(\w*_)?(log|logger)\w*$", re.IGNORECASE)
 _CONVERSION = re.compile(
     r"%(?:\([^)]*\))?[#0\- +]*(?:\*|\d+)?(?:\.(?:\*|\d+))?[hlL]?([diouxXeEfFgGcrsa%])"
 )
@@ -90,14 +92,20 @@ def fstring_template(node: ast.JoinedStr) -> LogTemplate:
 
 
 def _message_node(call: ast.Call) -> tuple[ast.expr | None, bool]:
-    """The message argument of a log call and whether `%` arguments follow it."""
-    if not isinstance(call.func, ast.Attribute) or call.func.attr not in _LEVEL_METHODS:
+    """The message argument of a log call and whether `%` arguments follow it.
+
+    `logger.log(level, message, ...)` carries its message second."""
+    if not isinstance(call.func, ast.Attribute):
+        return None, False
+    method = call.func.attr
+    if method not in _LEVEL_METHODS and method != "log":
         return None, False
     if not _RECEIVER.search(ast.unparse(call.func.value)):
         return None, False
-    if not call.args:
+    position = 1 if method == "log" else 0
+    if len(call.args) <= position:
         return None, False
-    return call.args[0], len(call.args) > 1
+    return call.args[position], len(call.args) > position + 1
 
 
 def _templates_of(tree: ast.AST) -> Iterator[LogTemplate | None]:

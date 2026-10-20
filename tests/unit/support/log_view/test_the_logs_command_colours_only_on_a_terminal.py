@@ -162,3 +162,73 @@ def test_a_missing_file_is_a_usage_error(tmp_path: Path) -> None:
 
 def _strip(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def _wrapped(data: bytes) -> io.TextIOWrapper:
+    return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        samples.EXIT_SLICE.encode() + b"\r\n" + samples.ERROR_HEAD.encode() + b"\r\n",
+        samples.EXIT_SLICE.encode() + b"\n" + samples.ERROR_HEAD.encode(),
+        b"a lone \r in the middle\nand bytes \xff\xfe that are not UTF-8\n",
+        samples.EXIT_SLICE.encode() + b" \xff\n",
+    ],
+    ids=[
+        "crlf",
+        "no-final-newline",
+        "carriage-return-and-binary",
+        "binary-in-a-record",
+    ],
+)
+def test_the_plain_path_writes_the_bytes_it_read(data: bytes) -> None:
+    source, sink = _wrapped(data), _wrapped(b"")
+    env = LogsEnvironment(
+        log_viewer_cli._tolerant(source),
+        log_viewer_cli._tolerant(sink),
+        {},
+        _NOW,
+        lambda _s: None,
+    )
+
+    assert run_logs(_args(), env) is None
+
+    sink.flush()
+    assert sink.buffer.getvalue() == data  # type: ignore[attr-defined]
+
+
+def test_a_file_is_written_back_byte_for_byte_too(tmp_path: Path) -> None:
+    data = (
+        b"first\r\n"
+        + samples.EXIT_SLICE.encode()
+        + b" \xff\xfe\r\nlast without newline"
+    )
+    path = tmp_path / "a.log"
+    path.write_bytes(data)
+    sink = _wrapped(b"")
+    env = LogsEnvironment(
+        io.StringIO(), log_viewer_cli._tolerant(sink), {}, _NOW, lambda _s: None
+    )
+
+    assert run_logs(_args("--file", str(path)), env) is None
+
+    sink.flush()
+    assert sink.buffer.getvalue() == data  # type: ignore[attr-defined]
+
+
+def test_the_real_clock_is_aware_so_a_relative_since_works() -> None:
+    now = log_viewer_cli.system_environment().now()
+
+    assert now.tzinfo is not None
+    out = io.StringIO()
+    env = LogsEnvironment(
+        io.StringIO(samples.EXIT_SLICE + "\n"),
+        out,
+        {},
+        log_viewer_cli.local_now,
+        lambda _s: None,
+    )
+    for since in ("2h", "today", "yesterday", "2026-10-20T01:00"):
+        assert run_logs(_args("--since", since), env) is None

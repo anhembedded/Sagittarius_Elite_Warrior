@@ -85,3 +85,20 @@ def test_a_replaced_file_is_read_from_its_start(tmp_path: Path) -> None:
         "first\n",
         "second file, longer than the first one\n",
     ]
+
+
+def test_a_last_line_without_its_newline_is_not_lost_when_the_file_is_rotated(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "a.log"
+    path.write_text("a\npartial-no-newline", encoding="utf-8")
+
+    def rotate() -> None:
+        path.rename(tmp_path / "a.log.1")
+        path.write_text("new file, longer than the old one\n", encoding="utf-8")
+
+    assert _follow(path, [rotate]) == [
+        "a\n",
+        "partial-no-newline",
+        "new file, longer than the old one\n",
+    ]

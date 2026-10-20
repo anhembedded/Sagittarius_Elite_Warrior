@@ -9,8 +9,8 @@ moment it is read, so `journalctl -f | $M logs` is live.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Protocol
 
 from Sagittarius_Elite_Warrior.src.support.log_view.log_filter import LogFilter
 from Sagittarius_Elite_Warrior.src.support.log_view.log_line import LogHead, parse_head
@@ -23,12 +23,23 @@ from Sagittarius_Elite_Warrior.src.support.log_view.template_matcher import (
 _TRACEBACK_START = "Traceback (most recent call last):"
 
 
-class LineRenderer(Protocol):
+class LineRenderer(ABC):
+    """Where the lines of a viewed log go: `PlainRenderer` unchanged, `RichRenderer` coloured."""
+
+    #: Whether the renderer needs the spans; the plain one does not, so they are not computed.
     wants_spans: bool
 
-    def head(self, line: LogHead, spans: tuple[Span, ...], end: str) -> None: ...
+    @abstractmethod
+    def head(self, line: LogHead, spans: tuple[Span, ...], end: str) -> None:
+        """A record's first line, with the spans of its params and tags."""
 
-    def other(self, body: str, in_traceback: bool, end: str) -> None: ...
+    @abstractmethod
+    def other(self, body: str, end: str) -> None:
+        """A line that is not a record head: a continuation, or a stray line."""
+
+    @abstractmethod
+    def traceback_line(self, body: str, end: str) -> None:
+        """A line inside an exception's traceback block."""
 
 
 class LogViewer:
@@ -58,9 +69,15 @@ class LogViewer:
             if body.startswith(_TRACEBACK_START):
                 self._in_traceback = True
             if self._shown:
-                self._renderer.other(body, self._in_traceback, end)
+                self._write_continuation(body, end)
         elif self._filter.is_empty:
-            self._renderer.other(body, False, end)
+            self._renderer.other(body, end)
+
+    def _write_continuation(self, body: str, end: str) -> None:
+        if self._in_traceback:
+            self._renderer.traceback_line(body, end)
+        else:
+            self._renderer.other(body, end)
 
     def feed_all(self, lines: Iterable[str]) -> None:
         for line in lines:

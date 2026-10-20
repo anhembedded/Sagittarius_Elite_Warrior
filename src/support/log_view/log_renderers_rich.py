@@ -11,10 +11,11 @@ from rich.console import Console
 from rich.text import Text
 from Sagittarius_Elite_Warrior.src.support.log_view import log_meaning_table as table
 from Sagittarius_Elite_Warrior.src.support.log_view.log_line import LogHead
+from Sagittarius_Elite_Warrior.src.support.log_view.log_viewer import LineRenderer
 from Sagittarius_Elite_Warrior.src.support.log_view.param_span import Span
 
 
-class RichRenderer:
+class RichRenderer(LineRenderer):
     """ANSI colour for a person at a terminal."""
 
     wants_spans = True
@@ -49,6 +50,9 @@ class RichRenderer:
         text.append(line.message[cursor:], base)
         self._console.print(text, end=end, soft_wrap=True)
 
-    def other(self, body: str, in_traceback: bool, end: str) -> None:
-        style = table.TRACEBACK_STYLE if in_traceback else ""
-        self._console.print(Text(body, style, no_wrap=True), end=end, soft_wrap=True)
+    def other(self, body: str, end: str) -> None:
+        self._console.print(Text(body, no_wrap=True), end=end, soft_wrap=True)
+
+    def traceback_line(self, body: str, end: str) -> None:
+        text = Text(body, table.TRACEBACK_STYLE, no_wrap=True)
+        self._console.print(text, end=end, soft_wrap=True)
