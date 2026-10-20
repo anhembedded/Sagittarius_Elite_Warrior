@@ -16,7 +16,8 @@
 | # | Decision | Status | Decided by | Consequence |
 | :-- | :--- | :--- | :--- | :--- |
 | D1 | A Resume, `--resume-halted` or an operator stop of bot X does not put a `RECOVERING` bot Y of the same venue back to work; Y waits for its own Resume or for `--resume-recovering`. | Accepted | 🤖 Agent decision (owner delegated) | The opening is announced as opened *for* X (`TradingSwitchChangedEvent.opened_for`); Y acts only on its own opening or on an opening for no bot. The operator who stops X on a mainnet venue is told Y keeps waiting. |
-| D2 | The host's `--resume-recovering` sends each `RECOVERING` bot its own Resume (`ResumeBotCommand`), and does not depend on the switch-on event. An opener that is no bot's (a manual order, a strategy arm) names no bot (`None`) and still wakes every `RECOVERING` bot of the venue. | Accepted | 🤖 Agent decision | `--resume-recovering` keeps its purpose and also works when an earlier Resume already opened the session (an open session publishes no event; found in review). A manual order or a strategy opening the session still wakes them: a limit this decision leaves, §4 O1. |
+| D2 | The host's `--resume-recovering` sends each `RECOVERING` bot its own Resume (`ResumeBotCommand`), and does not depend on the switch-on event. An opener that is no bot's (a manual order, a strategy arm) named no bot (`None`) and still woke every `RECOVERING` bot of the venue; `BOT-197` closed that (D3). | Accepted | 🤖 Agent decision | `--resume-recovering` keeps its purpose and also works when an earlier Resume already opened the session (an open session publishes no event; found in review). A manual order or a strategy opening the session woke them: a limit this decision left, closed by D3. |
+| D3 | A manual order or a strategy arm that opens a closed session does not put a `RECOVERING` bot of the venue back to work either; it waits for its own Resume or `--resume-recovering`. | Accepted | Owner decision of 2026-10-20, relayed by the coordinator session (answer to O1, the recommended option: no) | Both openers pass the typed `OpenedByPerson.PERSON` (`SessionOpener` = bot id, `OpenedByPerson` or `None`); `GridFacts._apply_switch` wakes a waiting bot only for its own id or `None`. A `STOPPING` bot and a cut-short start's owed cancel still act on any opening. Delivered by [BOT-197](../../completed/BOT-197_a_manual_order_or_strategy_arm_opening_the_session_wakes_recovering_bots.md). |
 
 ## 2a. Constitution check
 | Invariant | Passes? | Evidence |
@@ -42,9 +43,12 @@
 ## 4. Open questions
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | A manual order or a strategy arm that opens a closed session (`opened_for=None`) still reconciles every `RECOVERING` bot of the venue. Should those openers also leave them waiting? Follow-up task: [BOT-197](../../backlog/BOT-197_a_manual_order_or_strategy_arm_opening_the_session_wakes_recovering_bots.md). | Nothing in this change | 2026-10-19 |
+| O1 | A manual order or a strategy arm that opens a closed session (`opened_for=None`) still reconciles every `RECOVERING` bot of the venue. Should those openers also leave them waiting? | Nothing in this change | 2026-10-19 |
+
+**O1 answered 2026-10-20:** no, they must not wake them, the same rule as D1 (the owner's decision, relayed by the coordinator session); recorded as D3 and delivered by [BOT-197](../../completed/BOT-197_a_manual_order_or_strategy_arm_opening_the_session_wakes_recovering_bots.md).
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
+| D3 | [BOT-197](../../completed/BOT-197_a_manual_order_or_strategy_arm_opening_the_session_wakes_recovering_bots.md) | Verified | `test_a_manual_order_opening_the_session_wakes_no_recovering_bot_on_the_fake_exchange.py` and the unit tests for the router facts, the event and both openers, red under mutation. |
 | D1, D2 | [BOT-183](../../completed/BOT-183_a_session_opened_for_one_bot_does_not_resume_the_recovering_bots_beside_it.md) | Verified, owner to confirm at merge | Tests above, red under mutation (`_apply_switch` reconciling regardless). |

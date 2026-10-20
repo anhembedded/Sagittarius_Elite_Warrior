@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionReadyResult,
 )
@@ -122,7 +125,7 @@ class ITradingSession(ABC):
         after it returns."""
 
     @abstractmethod
-    def ensure_ready(self, opened_for: str | None = None) -> SessionReadyResult:
+    def ensure_ready(self, opened_for: SessionOpener = None) -> SessionReadyResult:
         """Open the venue's order session if it is not open: reconcile against
         the exchange and, if that succeeds, allow live submission (`EPIC-034C`,
         decision D3 — there is no switch to turn it on).

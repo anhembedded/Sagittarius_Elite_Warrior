@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     PositionDivergence,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 
 
 class IBotFacts(ABC):
@@ -60,7 +63,7 @@ class IBotFacts(ABC):
         self,
         enabled: bool,
         cause: TradingSwitchCause,
-        opened_for: str | None = None,
+        opened_for: SessionOpener = None,
     ) -> None:
         """Trading on the bot's venue was enabled, disabled or Emergency-Stopped.
 

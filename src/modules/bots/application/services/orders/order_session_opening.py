@@ -29,12 +29,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
     refusal_words,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 
 logger = logging.getLogger("App.Bots.OrderSession")
 
 
 def order_session_refusal_words(
-    session: ITradingSession, subject: str, opened_for: str | None = None
+    session: ITradingSession, subject: str, opened_for: SessionOpener = None
 ) -> str | None:
     """Open the venue's order session if it is closed; `None` when it is open,
     else the refusal in the session's own words. `subject` names who asked, for

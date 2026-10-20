@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -20,4 +23,4 @@ class EnsureSessionReadyCommand:
     venue: TradingVenue = field(kw_only=True)
     #: `BOT-183` - the bot this opening is for, carried on the event it publishes; `None`
     #: when the opener is no bot's.
-    opened_for: str | None = field(default=None, kw_only=True)
+    opened_for: SessionOpener = field(default=None, kw_only=True)
