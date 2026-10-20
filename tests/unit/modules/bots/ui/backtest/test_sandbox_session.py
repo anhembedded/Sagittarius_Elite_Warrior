@@ -168,3 +168,86 @@ def test_the_sandbox_copies_the_saved_plan_not_the_plan_panels_unsaved_edits(
     assert session.plan.config["upper"] == SAVED["upper"]
     assert dict(selected.edited or {}) == {**SAVED, "upper": "99999"}
     assert dict(selected.bot.config) == SAVED  # type: ignore[union-attr]
+
+
+def test_keeping_the_edits_is_remembered_for_the_next_refresh_of_the_same_selection() -> (
+    None
+):
+    """The screen re-follows on its clock; a declined question is not asked again."""
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+    session.follow(bot("b7e2d4"))
+    session.keep_current()
+
+    assert session.follow(bot("b7e2d4")) is SandboxFollow.UNCHANGED
+    assert session.follow(bot("b7e2d4")) is SandboxFollow.UNCHANGED
+    assert session.pending_copy is None
+
+
+def test_the_question_is_asked_once_while_it_is_open() -> None:
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+
+    assert session.follow(bot("b7e2d4")) is SandboxFollow.NEEDS_CONFIRMATION
+    assert session.follow(bot("b7e2d4")) is SandboxFollow.UNCHANGED
+    assert session.pending_copy is not None
+
+
+def test_a_declined_bot_saved_with_a_new_plan_is_asked_about_again() -> None:
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+    session.follow(bot("b7e2d4"))
+    session.keep_current()
+
+    changed = bot("b7e2d4", {**SAVED, "upper": "75000"})
+
+    assert session.follow(changed) is SandboxFollow.NEEDS_CONFIRMATION
+
+
+def test_the_source_saved_anew_while_edited_asks_once() -> None:
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+    saved_anew = bot("a3f9c1", {**SAVED, "upper": "75000"})
+
+    assert session.follow(saved_anew) is SandboxFollow.NEEDS_CONFIRMATION
+    assert session.follow(saved_anew) is SandboxFollow.UNCHANGED
+
+
+def test_going_back_to_the_source_while_asking_closes_the_question() -> None:
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+    session.follow(bot("b7e2d4"))
+
+    assert session.follow(bot("a3f9c1")) is SandboxFollow.UNCHANGED
+
+    assert session.pending_copy is None
+    assert session.plan is not None and session.plan.source_bot_id == "a3f9c1"
+
+
+def test_a_reset_while_a_question_is_open_lets_the_next_selection_copy() -> None:
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+    _edited(session)
+    session.follow(bot("b7e2d4"))
+    session.keep_current()
+
+    session.reset()
+
+    assert session.follow(bot("b7e2d4")) is SandboxFollow.COPIED
+    assert session.plan is not None and session.plan.source_bot_id == "b7e2d4"
+
+
+def test_a_bot_moved_to_another_venue_is_a_new_source() -> None:
+    """`change_bot_venue` keeps the bot's id and config."""
+    session = SandboxSession()
+    session.follow(bot("a3f9c1"))
+
+    moved = bot("a3f9c1", venue=TradingVenue.SPOT_MAINNET)
+
+    assert session.follow(moved) is SandboxFollow.COPIED
+    assert session.plan is not None and session.plan.venue is TradingVenue.SPOT_MAINNET

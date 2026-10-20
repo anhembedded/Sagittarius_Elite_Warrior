@@ -7,9 +7,13 @@ account says it was not checked in a simulation. The domain verdicts themselves 
 from __future__ import annotations
 
 from dataclasses import replace
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.sandbox_plan import (
     SandboxPlan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
@@ -19,6 +23,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import any_refuse
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest.sandbox_judge import (
     judge_sandbox,
     sandbox_line,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
+    BRACKETS,
+    position_config,
 )
 
 from .sandbox_fixtures import SAVED, bot, market
@@ -90,3 +107,52 @@ def test_a_plan_without_market_numbers_has_no_verdicts() -> None:
 
     assert judged.verdicts == ()
     assert replace(judged).overlay is None
+
+
+def _futures_plan(direction: str = "SHORT", leverage: int = 3) -> SandboxPlan:
+    config = position_config(direction, leverage, stop_loss="percent:5")
+    return SandboxPlan.from_bot(bot(config=config, venue=TradingVenue.FUTURES_TESTNET))
+
+
+def test_the_venues_limits_decide_what_a_sandbox_may_try() -> None:
+    """A short at leverage 3 is the venue's to allow: Spot refuses it, a Futures venue does not."""
+    config = position_config("SHORT", 3, stop_loss="percent:5")
+    on_spot = SandboxPlan.from_bot(bot(config=config, venue=TradingVenue.SPOT_TESTNET))
+
+    on_futures = _futures_plan()
+
+    spot_codes = {v.code for v in judge_sandbox(_KIND, on_spot, market()).verdicts}
+    futures_codes = {
+        v.code for v in judge_sandbox(_KIND, on_futures, market()).verdicts
+    }
+    assert "DIRECTION_NOT_ALLOWED" in spot_codes
+    assert "DIRECTION_NOT_ALLOWED" not in futures_codes
+    assert "LEVERAGE_NOT_ALLOWED" not in futures_codes
+
+
+def test_the_symbols_risk_facts_reach_the_liquidation_verdicts() -> None:
+    risk = PlanRiskFacts(
+        FuturesSymbolSetting("BTCUSDT", 3, MarginType.ISOLATED, Decimal(10**9)),
+        BRACKETS,
+    )
+
+    judged = judge_sandbox(_KIND, _futures_plan(), market(), risk)
+
+    codes = {v.code for v in judged.verdicts}
+    assert "LIQUIDATION_ESTIMATE" in codes
+    assert "LIQUIDATION_FACTS_NOT_READ" not in codes
+
+
+def test_a_position_venue_without_risk_facts_says_liquidation_was_not_judged() -> None:
+    judged = judge_sandbox(_KIND, _futures_plan(), market(), None)
+
+    codes = {v.code: v for v in judged.verdicts}
+    assert "LIQUIDATION_ESTIMATE" not in codes
+    assert not codes["LIQUIDATION_FACTS_NOT_READ"].refuses
+    assert "not judged" in codes["LIQUIDATION_FACTS_NOT_READ"].reason
+
+
+def test_spot_has_no_liquidation_to_judge_and_says_nothing_about_it() -> None:
+    judged = judge_sandbox(_KIND, SandboxPlan.from_bot(bot()), market())
+
+    assert "LIQUIDATION_FACTS_NOT_READ" not in {v.code for v in judged.verdicts}

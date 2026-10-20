@@ -2,13 +2,16 @@
 
 The sandbox is a simulation: a copy of a bot's saved plan, judged by the symbol's rules and replayed
 over stored candles. If its code could reach a command, the bot store or runner, the venue's order
-ports or the account's reads, a "what if" could become a real action. So the files of the sandbox
-(the plan value and the `ui/backtest/` package) import none of them: not a command or its handler
-(`bots.application.use_cases`), not the command dispatcher, not the bot store or runner, not the
-venue's trading ports, accounts or facts, not the exposure book. The sandbox's only collaborators are
-the kind's `validate` and `IKindBacktester`, and the planner's read-only terms.
+ports or the account's reads, a "what if" could become a real action. So this is an **allow-list**:
+the files of the sandbox (the plan value and the `ui/backtest/` package) may import only the modules
+named in `ALLOWED_PROJECT_MODULES`, which are values, the kind's `validate` and the planner's
+read-only terms. A new import of a project module fails the scan until someone names it here, which
+is how a boundary on real money should fail: a deny-list passes every port nobody thought of
+(`i_order_submission`, `i_account_activity`, a new reader). Imports are read from the syntax tree,
+each alias and each `from package import module` form included. A relative import fails (the
+project writes absolute ones).
 
-There is no baseline: the sandbox imports none today, and a new import is a failure.
+There is no baseline: the sandbox imports nothing else today.
 
 Retire when: never; the ban stays as long as the sandbox is a simulation.
 """
@@ -23,23 +26,22 @@ from .test_bots_services_stay_grouped import _REPO_ROOT
 _BOTS = _REPO_ROOT / "src" / "modules" / "bots"
 _SANDBOX_FILES = (_BOTS / "domain" / "backtest" / "sandbox_plan.py",)
 _SANDBOX_PACKAGES = (_BOTS / "ui" / "backtest",)
-_PREFIX = "Sagittarius_Elite_Warrior.src."
+_ROOT = "Sagittarius_Elite_Warrior."
+_PREFIX = _ROOT + "src."
 
-#: What the sandbox may never import: a module (by prefix) that holds a command or a real-money port.
-FORBIDDEN_MODULES = (
-    "modules.bots.application.use_cases",
-    "modules.bots.contracts.host_bot_requests",
-    "modules.bots.contracts.i_bot_store",
-    "modules.bots.contracts.i_bot_runner",
-    "modules.bots.contracts.i_venue_facts",
-    "modules.bots.contracts.i_exposure_book",
-    "modules.bots.contracts.i_exposure_closer",
-    "modules.bots.contracts.i_risk_guard",
-    "modules.bots.contracts.i_order_pacer",
-    "core.contracts.i_command_dispatcher",
-    "modules.trading.contracts.i_venue_trading_ports",
-    "modules.trading.contracts.i_venue_accounts",
-    "modules.trading.contracts.i_order_entry_terms",
+#: The only project modules the sandbox may import (paths below `src.`).
+ALLOWED_PROJECT_MODULES = frozenset(
+    {
+        "modules.bots.application.queries.get_planner_market",
+        "modules.bots.contracts.bot_snapshot",
+        "modules.bots.contracts.i_bot_kind",
+        "modules.bots.contracts.venue_profile",
+        "modules.bots.domain.backtest.sandbox_plan",
+        "modules.bots.domain.bot_kind_inputs",
+        "modules.bots.domain.verdict",
+        "modules.bots.ui.bots_screen.bot_plan_judge",
+        "support.binance_gateway.contracts.trading_venue",
+    }
 )
 
 
@@ -48,31 +50,64 @@ def _sandbox_files() -> list[Path]:
     return sorted([*_SANDBOX_FILES, *files])
 
 
-def forbidden_imports(path: Path) -> list[str]:
-    """The forbidden modules `path` imports, from its syntax tree."""
-    found = []
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            module = node.module.removeprefix(_PREFIX)
+def _imported_modules(tree: ast.AST) -> list[str]:
+    """Every module a file imports, as written: for `from m import n` both `m` and `m.n`, since `n`
+    may itself be a module; `.` marks a relative import."""
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                found.append(".")
+            elif node.module:
+                found.append(node.module)
+                found += [f"{node.module}.{alias.name}" for alias in node.names]
         elif isinstance(node, ast.Import):
-            module = " ".join(alias.name.removeprefix(_PREFIX) for alias in node.names)
-        else:
-            continue
-        found += [m for m in FORBIDDEN_MODULES if module.startswith(m)]
+            found += [alias.name for alias in node.names]
     return found
 
 
-def test_the_sandbox_imports_no_command_and_no_real_money_port() -> None:
+def unlisted_imports(path: Path) -> list[str]:
+    """The project modules `path` imports that the allow-list does not name."""
+    unlisted = []
+    for module in _imported_modules(ast.parse(path.read_text(encoding="utf-8"))):
+        if module == ".":
+            unlisted.append(module)
+        elif module.startswith(_ROOT):
+            name = module.removeprefix(_PREFIX)
+            # `from allowed import symbol` also yields `allowed.symbol`: not a module.
+            if name not in ALLOWED_PROJECT_MODULES and not any(
+                name.startswith(f"{allowed}.") for allowed in ALLOWED_PROJECT_MODULES
+            ):
+                unlisted.append(name)
+    return unlisted
+
+
+def test_the_sandbox_imports_only_what_the_allow_list_names() -> None:
     found = {
         path.relative_to(_REPO_ROOT).as_posix(): hits
         for path in _sandbox_files()
-        if (hits := forbidden_imports(path))
+        if (hits := unlisted_imports(path))
     }
 
     assert found == {}, (
-        f"the sandbox reaches a command or a real-money port: {found}. A simulation sends "
-        "no command, opens no order session and reads no account (`EPIC-040C`)."
+        f"the sandbox imports a project module the allow-list does not name: {found}. A "
+        "simulation sends no command, opens no order session and reads no account "
+        "(`EPIC-040C`); if the new import is a value or a read-only term, name it in "
+        "ALLOWED_PROJECT_MODULES with the reason."
     )
+
+
+def test_every_allowed_module_exists() -> None:
+    missing = [
+        name
+        for name in sorted(ALLOWED_PROJECT_MODULES)
+        if not (_REPO_ROOT / "src" / Path(*name.split(".")))
+        .with_suffix(".py")
+        .is_file()
+        and not (_REPO_ROOT / "src" / Path(*name.split(".")) / "__init__.py").is_file()
+    ]
+
+    assert missing == [], f"the allow-list names a module that is gone: {missing}"
 
 
 def test_the_guard_has_a_subject() -> None:
@@ -82,20 +117,24 @@ def test_the_guard_has_a_subject() -> None:
     assert all(path.is_file() for path in files), [p for p in files if not p.is_file()]
 
 
-def test_a_probe_importing_a_command_or_a_port_turns_the_scan_red(
-    tmp_path: Path,
-) -> None:
+def test_a_probe_turns_the_scan_red_for_every_form_of_import(tmp_path: Path) -> None:
+    allowed = f"from {_PREFIX}modules.bots.domain.verdict import Verdict\n"
     clean = tmp_path / "clean.py"
-    clean.write_text("from decimal import Decimal\n", encoding="utf-8")
-    for name, source in {
+    clean.write_text(
+        "from decimal import Decimal\nimport dataclasses\n" + allowed, encoding="utf-8"
+    )
+    assert unlisted_imports(clean) == []
+    probes = {
         "command.py": f"from {_PREFIX}modules.bots.application.use_cases.start_bot.command import StartBotCommand\n",
         "dispatcher.py": f"from {_PREFIX}core.contracts.i_command_dispatcher import ICommandDispatcher\n",
-        "store.py": f"from {_PREFIX}modules.bots.contracts.i_bot_store import IBotStore\n",
-        "accounts.py": f"from {_PREFIX}modules.trading.contracts.i_venue_accounts import IVenueAccounts\n",
-        "plain.py": f"import {_PREFIX}modules.trading.contracts.i_venue_trading_ports\n",
-    }.items():
+        "package_then_name.py": f"from {_PREFIX}modules.trading.contracts import i_venue_accounts\n",
+        "second_alias.py": f"import decimal, {_PREFIX}modules.trading.contracts.i_venue_trading_ports\n",
+        "a_port_nobody_listed.py": f"from {_PREFIX}modules.trading.contracts.i_order_submission import IOrderSubmission\n",
+        "account_activity.py": f"from {_PREFIX}modules.trading.contracts.i_account_activity import IAccountActivity\n",
+        "relative.py": "from . import sandbox_plan\n",
+    }
+    for name, source in probes.items():
         probe = tmp_path / name
         probe.write_text(source, encoding="utf-8")
 
-        assert forbidden_imports(clean) == []
-        assert forbidden_imports(probe), name
+        assert unlisted_imports(probe), name

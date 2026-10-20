@@ -32,11 +32,13 @@ class SandboxFollow(Enum):
 
 
 class SandboxSession:
-    """@brief Holds the sandbox and the selection waiting on the person's answer."""
+    """@brief Holds the sandbox, the selection waiting on the person's answer, and the one they
+    declined."""
 
     def __init__(self) -> None:
         self._plan: SandboxPlan | None = None
         self._pending_copy: SandboxPlan | None = None
+        self._declined: SandboxPlan | None = None
 
     @property
     def plan(self) -> SandboxPlan | None:
@@ -48,18 +50,27 @@ class SandboxSession:
         return self._pending_copy
 
     def follow(self, bot: BotSnapshot | None) -> SandboxFollow:
-        """The Bots selection is now `bot` (`None`: nothing selected, which keeps the sandbox)."""
+        """The Bots selection is now `bot` (`None`: nothing selected, which keeps the sandbox).
+
+        The screen calls this on every refresh, so an answer that was already given or asked
+        is not asked again: the copy of a selection the question is open for, or that the
+        person declined, answers `UNCHANGED` for as long as the sandbox is edited and the
+        selection offers that same copy."""
         if bot is None:
             return SandboxFollow.UNCHANGED
         copy = SandboxPlan.from_bot(bot)
         current = self._plan
         if current is not None and _same_source(current, copy):
-            self._pending_copy = None
+            self._pending_copy = self._declined = None
             return SandboxFollow.UNCHANGED
         if current is not None and current.edited:
-            self._pending_copy = copy
+            if _same_source(self._pending_copy, copy) or _same_source(
+                self._declined, copy
+            ):
+                return SandboxFollow.UNCHANGED
+            self._pending_copy, self._declined = copy, None
             return SandboxFollow.NEEDS_CONFIRMATION
-        self._plan, self._pending_copy = copy, None
+        self._plan, self._pending_copy, self._declined = copy, None, None
         return SandboxFollow.COPIED
 
     def edit(self, plan: SandboxPlan) -> None:
@@ -73,15 +84,27 @@ class SandboxSession:
     def confirm_switch(self) -> None:
         """The person agreed to discard the edits: the pending copy becomes the sandbox."""
         if self._pending_copy is not None:
-            self._plan, self._pending_copy = self._pending_copy, None
+            self._plan, self._pending_copy, self._declined = (
+                self._pending_copy,
+                None,
+                None,
+            )
 
     def keep_current(self) -> None:
-        """The person kept the edits: the selected bot's copy is dropped."""
-        self._pending_copy = None
+        """The person kept the edits: the selected bot's copy is remembered as declined, so the
+        next refresh of the same selection does not ask again."""
+        self._declined, self._pending_copy = self._pending_copy, None
 
 
-def _same_source(a: SandboxPlan, b: SandboxPlan) -> bool:
-    return (a.source_bot_id, dict(a.source_config)) == (
+def _same_source(a: SandboxPlan | None, b: SandboxPlan | None) -> bool:
+    """Whether two sandboxes were copied from the same saved plan: the same bot, kind, venue and
+    symbol (a bot moved to another venue keeps its id and config) and the same saved parameters."""
+    if a is None or b is None:
+        return False
+    return (a.source_bot_id, a.kind_id, a.venue, a.symbol, dict(a.source_config)) == (
         b.source_bot_id,
+        b.kind_id,
+        b.venue,
+        b.symbol,
         dict(b.source_config),
     )

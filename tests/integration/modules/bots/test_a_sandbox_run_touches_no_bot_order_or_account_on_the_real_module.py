@@ -1,7 +1,9 @@
 """`EPIC-040C` — a sandbox copied, edited, judged, run and reset on the real module's graph sends no
 command, opens no order session, reads no account and writes no bot.
 
-@details The kind catalog is the one `BotsModule.register` builds, so the backtester is the real
+@details What is *not* on this path: the planner market read (`GetPlannerMarketQuery`), which does
+touch the account's open orders and fee tier; the test hands the judge a built market, as a screen
+would after that read. The kind catalog is the one `BotsModule.register` builds, so the backtester is the real
 `GridKindBacktester` over the real query handler; the market data is the module's own fake. The
 command dispatcher, the account reads, the venue's trading ports and the bot store are the
 registered singletons, each watched for any call. The proof that the *guard* holds by construction is
