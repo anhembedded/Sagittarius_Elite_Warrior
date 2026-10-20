@@ -16,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.memory_alert_settin
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.paced_channel import (
     PacedChannel,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting_status import (
     ChannelAlertingStatus,
 )
@@ -74,6 +78,23 @@ def test_a_stored_webhook_puts_discord_in_the_catalog(
     assert isinstance(catalog.channel("discord"), PacedChannel)
     assert "discord is on" in caplog.text
     assert "t0ken-value" not in caplog.text
+
+
+def test_stored_telegram_credentials_put_telegram_in_the_catalog_kept_under_its_limit() -> (
+    None
+):
+    """`EPIC-036C2`: Telegram asks bots for one message per second in a chat."""
+    store = InMemorySecretStore(
+        **{
+            TELEGRAM_TOKEN_SECRET: "123456789:AAH-abcdefghijklmnopqrstuvwxyz012345",
+            TELEGRAM_CHAT_SECRET: "5550123",
+        }
+    )
+
+    catalog = build_channel_catalog(_Resolver(store))
+
+    assert "telegram" in catalog.channel_ids()
+    assert isinstance(catalog.channel("telegram"), PacedChannel)
 
 
 @pytest.mark.parametrize(

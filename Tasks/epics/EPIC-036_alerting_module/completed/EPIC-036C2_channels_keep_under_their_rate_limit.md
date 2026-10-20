@@ -20,7 +20,7 @@ Until now a channel found a platform's rate limit by being answered 429 (`discor
 - [x] **A failed try still counts** against the window; the platform's own answer is passed on unchanged. (`test_a_try_the_platform_answered_with_a_failure_still_counts_against_the_limit`, `test_the_answer_of_the_platform_is_passed_on_unchanged`)
 - [x] **The lane does not stretch a short wait to its poll interval**: it sleeps `min(poll, pause_remaining)` (at least 50 ms). (`test_a_lane_sleeps_until_its_channel_may_send_again_not_a_whole_poll` over a real lane, four cases; mutation: the lane back to `poll_seconds` turns two red. `test_the_lane_is_told_how_long_the_channel_still_waits` proves `pause_remaining`.)
 - [x] **Wired, Discord**: the Discord channel the descriptor builds is paced (`test_a_stored_webhook_puts_discord_in_the_catalog`).
-- [ ] **Wired, Telegram**: `TELEGRAM_PACING` is defined and used by nothing yet. `TelegramChannel` is on `EPIC-036C1` (#654), which this branch does not contain; the one line `PacedChannel(..., TELEGRAM_PACING)` in the Telegram descriptor, with a test, lands on the merge of #654 into this branch.
+- [x] **Wired, Telegram**: `TelegramChannel` (merged from `EPIC-036C1`, #654) is built wrapped in `PacedChannel(..., TELEGRAM_PACING)` (`test_stored_telegram_credentials_put_telegram_in_the_catalog_kept_under_its_limit`).
 - [x] **A wall clock stepped back is not a pause**: `SendWindow` forgets a send stamped after `now`, so the wait it names never exceeds the period (`test_a_wall_clock_stepped_back_never_makes_the_wait_longer_than_the_period`, `test_after_a_step_back_the_window_still_limits_the_sends_made_since`); the price, up to `max_sends` extra sends once at the step, is in the class docstring.
 - [x] **Rotation is proven**: Save over a stored webhook replaces it, the state shows only the new token's last four characters, no log line holds either URL, and a rotation to a value that is not a webhook keeps the old one. (`test_rotating_the_webhook_replaces_the_stored_secret_and_shows_nothing`, `test_a_rotation_to_something_that_is_not_a_webhook_keeps_the_old_one`)
 - [ ] **A real burst on the VPS** (a grid with many fills): not run.
@@ -51,7 +51,7 @@ Until now a channel found a platform's rate limit by being answered 429 (`discor
 2026-10-20. Branch `claude/epic-036c2-pacing-and-embed`, from `master-warrior` after `036B`.
 
 - The window counts every try that reached the platform, whatever its answer; a refused try (pacing) is not counted.
-- Branched before `036C1` (#654) merged, so the Telegram descriptor is not touched here; its wrap is one line to add on merge (`PacedChannel(..., TELEGRAM_PACING)`).
+- Branched before `036C1` (#654) merged; after it merged, master was merged in and the Telegram descriptor wrapped (`PacedChannel(..., TELEGRAM_PACING)`, one line and its test).
 
 Not run: a real burst on Discord.
 

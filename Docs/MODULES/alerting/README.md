@@ -35,8 +35,9 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Early warnings: a Futures bot near liquidation, a user-data stream down past a grace | **Built** | `EPIC-036B1` |
 | A bot's reason chooses its alert: rate limit, rejected key, storage pause, a price feed that stays quiet; the reason table and its completeness test | **Built** | `EPIC-036B2` |
 | The app's own failures (`APP_FAILURE`: a task that died, a failed sync, a UI slot that raised) replacing the old notification handler and its direct Telegram wiring | **Built** | `EPIC-036B` |
-| Telegram moved in, embeds, pacing, secret rotation | Planned | `EPIC-036C` |
+| Telegram as an alert channel, its token and chat id in the secret store, the one-time move out of the config file | **Built** | `EPIC-036C1` |
 | Each channel paced under its platform's rate limit; the worker's lane sleeps no longer than the channel's wait | **Built** | `EPIC-036C2` |
+| Secret rotation and Send test on the Options page, Telegram fields on the page (in 036D's channels table); no Discord embed (decided, owner may veto) | Planned | `EPIC-036C`, `EPIC-036D` |
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
