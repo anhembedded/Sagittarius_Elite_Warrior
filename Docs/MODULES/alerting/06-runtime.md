@@ -64,7 +64,7 @@ last price: neither the exit's fill price nor its fee. The message that tells th
 not come from the state change. The sequence is: the stop sends the exit slices and confirms STOPPED
 (the stop loss message went out at the entry into STOPPING); each slice's fill is booked on the bot's
 queue; the booking that leaves the run holding dust makes `GridExitReport` publish one
-`BotExitClosedEvent` (`bots/application/kinds/grid/grid_exit_report.py`); `BotExitAlertSource.on_exit_closed`
+`BotExitClosedEvent` (`bots/application/kinds/grid/grid_exit_report.py` → `GridExitReport.after_exit_fill`); `BotExitAlertSource.on_exit_closed`
 words the INFO `EXIT_CLOSED` ("Position closed") with the total of the run's books after that booking,
 fee included. The proof is the composed test on the fake exchange
 (`tests/integration/modules/bots/test_an_exit_tells_discord_its_result_once_the_last_slice_is_booked_on_the_fake_exchange.py`):

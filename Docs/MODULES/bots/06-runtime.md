@@ -68,14 +68,14 @@ the `alerting` module words the rest.
 **The exit's result (`BOT-190`).** An exit's market slices are sent inside the stop, which then confirms
 STOPPED; each slice fills later, as a fact on the bot's queue, and is booked by `_apply_fill` with
 `book_exit_fill`. So the run's result is final only after the last of them. Right after it books an exit
-slice's fill, `GridFacts` asks `GridExitReport.after_exit_fill` (`bots/application/kinds/grid/grid_exit_report.py`)
+slice's fill, `GridFacts` asks (`bots/application/kinds/grid/grid_exit_report.py` → `GridExitReport.after_exit_fill`)
 whether what the run still holds is dust, as the stop treats it (`bots/domain/grid/exit_dust.py` →
 `is_exit_dust`: under one market step; on Spot also worth less than the minimum notional). If it is, it
 publishes one `BotExitClosedEvent` with the run id, the stop's reason and the books' figures, fee
 included; the slices sent are counted (`OffLadderOrders.exits_sent`), so the last slice's further trades
 publish nothing. It is a notification after the booking: it orders, cancels, sizes and confirms nothing,
 and `GridStopSequence` is unchanged. Spot's base sale and the Futures reduce-only close are both exit
-slices, so one path covers both. An exit that sold nothing (a base kept as dust) books no fill and
+slices, so one path covers both. Nothing is published before a stop has begun (`runtime.reason` is unset): the exchange-side protective stop is registered as an exit slice, and its fill is booked while the bot is still RUNNING, so the call comes after `_supervise_protection` and waits for the stop to give the exit its reason. An exit that sold nothing (a base kept as dust) books no fill and
 publishes nothing, and a restart in the middle of an exit forgets the slices it sent, so that exit is not
 told.
 
