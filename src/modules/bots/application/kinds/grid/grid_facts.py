@@ -112,6 +112,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     PositionDivergence,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+    SessionOpener,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -213,7 +217,7 @@ class GridFacts(IBotFacts):
         self,
         enabled: bool,
         cause: TradingSwitchCause,
-        opened_for: str | None = None,
+        opened_for: SessionOpener = None,
     ) -> None:
         self._post(
             "trading switch", lambda: self._apply_switch(enabled, cause, opened_for)
@@ -298,7 +302,7 @@ class GridFacts(IBotFacts):
         self._parts.placer.act(reaction.actions)
 
     def _apply_switch(
-        self, enabled: bool, cause: TradingSwitchCause, opened_for: str | None
+        self, enabled: bool, cause: TradingSwitchCause, opened_for: SessionOpener
     ) -> None:
         state = self._context.state
         if not enabled:
@@ -315,13 +319,16 @@ class GridFacts(IBotFacts):
             if opened_for is None or opened_for == state.bot_id:
                 self.reconcile_recovering()
             else:
-                # `BOT-183` (ADR 038 O2): a restart's RECOVERING bot goes back to work on its own
-                # Resume, never because another bot's command opened the venue's session.
+                # `BOT-183`, `BOT-197` (ADR 038 O2): a restart's RECOVERING bot goes back to work
+                # on its own Resume, never because another bot's command or a person's manual
+                # order or strategy arm opened the venue's session.
                 logger.info(
-                    "Bot %s: the order session was opened for bot %s; waiting for its own "
+                    "Bot %s: the order session was opened for %s; waiting for its own "
                     "resume [recovering-waits]",
                     state.bot_id,
-                    opened_for,
+                    opened_for.value
+                    if isinstance(opened_for, OpenedByPerson)
+                    else f"bot {opened_for}",
                 )
         elif state.state is _S.STOPPING:
             self._parts.stop.after_switch_on()

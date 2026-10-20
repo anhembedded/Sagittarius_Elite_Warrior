@@ -16,9 +16,15 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
@@ -26,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_resul
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.orders.execute_order_builders import (
     make_handler,
     order_request,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 
 
@@ -67,6 +76,24 @@ def test_a_manual_live_order_opens_a_closed_session_and_is_sent() -> None:
     assert result.submitted_order is not None
     assert state.enabled is True
     raw_client.futures_create_order.assert_called_once()
+
+
+def test_a_manual_order_announces_the_opening_as_a_persons() -> None:
+    """`BOT-197`: the venue's RECOVERING bots wait for their own Resume, so the opening says it
+    belongs to no bot."""
+    publisher = RecordingPublisher()
+    handler, _ = make_handler(
+        enabled=False, raw_client=_raw_client(), publisher=publisher
+    )
+
+    handler.execute(
+        ExecuteOrderCommand(
+            order_request=order_request(), live=True, opens_session=True
+        )
+    )
+
+    (event,) = publisher.of_type(TradingSwitchChangedEvent)
+    assert event.opened_for is OpenedByPerson.PERSON
 
 
 def test_a_foreign_position_refuses_the_manual_order_and_sends_nothing() -> None:
