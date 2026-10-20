@@ -9,10 +9,16 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import ISecretStore
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
     DISCORD_WEBHOOK_SECRET,
-    DiscordWebhookChannel,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.memory_alert_settings import (
     InMemoryAlertSettings,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.paced_channel import (
+    PacedChannel,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting_status import (
     ChannelAlertingStatus,
@@ -22,8 +28,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
     DescriptorChannelCatalogBuilder,
     build_channel_catalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
+    IAlertClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
+    FakeAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
@@ -40,12 +52,13 @@ WEBHOOK = "https://discord.com/api/webhooks/42/t0ken-value"
 
 
 class _Resolver:
-    """The two ports a channel factory asks for."""
+    """The ports a channel factory asks for."""
 
     def __init__(self, store: ISecretStore) -> None:
         self._ports: dict[type, object] = {
             ChannelSecrets: ChannelSecrets(store),
             IWebhookTransport: FakeWebhookTransport(),
+            IAlertClock: FakeAlertClock(),
         }
 
     def resolve[T](self, abstract: type[T]) -> T:
@@ -61,9 +74,27 @@ def test_a_stored_webhook_puts_discord_in_the_catalog(
         catalog = build_channel_catalog(_Resolver(store))
 
     assert catalog.channel_ids() == ("discord",)
-    assert isinstance(catalog.channel("discord"), DiscordWebhookChannel)
+    # the Discord channel, kept under the platform's rate limit (`EPIC-036C2`)
+    assert isinstance(catalog.channel("discord"), PacedChannel)
     assert "discord is on" in caplog.text
     assert "t0ken-value" not in caplog.text
+
+
+def test_stored_telegram_credentials_put_telegram_in_the_catalog_kept_under_its_limit() -> (
+    None
+):
+    """`EPIC-036C2`: Telegram asks bots for one message per second in a chat."""
+    store = InMemorySecretStore(
+        **{
+            TELEGRAM_TOKEN_SECRET: "123456789:AAH-abcdefghijklmnopqrstuvwxyz012345",
+            TELEGRAM_CHAT_SECRET: "5550123",
+        }
+    )
+
+    catalog = build_channel_catalog(_Resolver(store))
+
+    assert "telegram" in catalog.channel_ids()
+    assert isinstance(catalog.channel("telegram"), PacedChannel)
 
 
 @pytest.mark.parametrize(
