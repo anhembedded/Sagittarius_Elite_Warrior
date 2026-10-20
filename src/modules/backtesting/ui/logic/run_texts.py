@@ -89,10 +89,10 @@ def time_range_diff_text(
     each_bound_named = len(suffixes) > 1
 
     def bound(moment: datetime | None, open_end: str) -> str:
-        if moment is None:
-            return open_end
-        text = moment_in_zone(moment, time_zone)
-        return text + zone_suffix(time_zone, moment) if each_bound_named else text
+        text = moment_text(moment, open_end, time_zone)
+        if moment is None or not each_bound_named:
+            return text
+        return text + zone_suffix(time_zone, moment)
 
     def written(config: BacktestRunConfig) -> str:
         start = bound(config.start_time, "Start")
