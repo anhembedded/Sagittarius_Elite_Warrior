@@ -29,7 +29,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
     CONFIG,
 )
 
-#: More levels than the 60 orders a minute the default caps allow, fewer than the 100 open orders.
+#: More levels than the 60 orders a minute the default caps allow, fewer than the 150 open orders.
 LEVELS_PAST_THE_RATE = 70
 
 
@@ -61,3 +61,13 @@ def test_a_ladder_that_could_never_fit_the_open_order_cap_is_still_refused() -> 
 
     assert f"{cap + 1} orders" in problem
     assert f"at most {cap}" in problem
+
+
+def test_a_ladder_of_140_levels_passes_the_design_check_and_160_is_refused() -> None:
+    fits = {**CONFIG, "grid_count": "139"}
+    too_long = {**CONFIG, "grid_count": "159"}
+
+    assert grid_budget_problem(fits, DEFAULT_OWNER_BUDGET_CAPS) == ""
+    problem = grid_budget_problem(too_long, DEFAULT_OWNER_BUDGET_CAPS)
+    assert "160 orders" in problem
+    assert "at most 150" in problem
