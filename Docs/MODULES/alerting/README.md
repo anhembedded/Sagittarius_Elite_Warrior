@@ -39,5 +39,5 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
-| The heartbeat message and the daily summary | Planned | `EPIC-036E` |
+| The heartbeat message (every 6 h) and the daily summary (once a day), from the bots' status report | **Built** | `EPIC-036E` (the per-bot health in the heartbeat waits for `EPIC-035W`) |
 | Remote control from Discord | Planned | `EPIC-036F` |

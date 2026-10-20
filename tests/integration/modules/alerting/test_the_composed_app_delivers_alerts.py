@@ -42,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import Ale
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
     AlertSubject,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
     FileHealthSnapshotSource,
 )
@@ -82,6 +83,37 @@ def _declare(monkeypatch: pytest.MonkeyPatch, channel: FakeAlertChannel) -> None
     )
 
 
+class _KindChannel(FakeAlertChannel):
+    """A fake channel that also says when an alert of a given kind has been delivered, so a
+    test waits for the alert it published and not for whichever one arrives first: the booted
+    app sends a heartbeat of its own on its first housekeeping pass (`EPIC-036E`)."""
+
+    def __init__(self, default: DeliveryResult | None = None) -> None:
+        super().__init__(default=default)
+        self._lock = threading.Lock()
+        self._delivered: dict[AlertKind, threading.Event] = {}
+
+    def delivered(self, kind: AlertKind) -> threading.Event:
+        with self._lock:
+            return self._delivered.setdefault(kind, threading.Event())
+
+    def deliver(self, alert: Alert, loudness: Loudness) -> DeliveryResult:
+        try:
+            return super().deliver(alert, loudness)
+        finally:
+            self.delivered(alert.kind).set()
+
+
+def _kinds(channel: FakeAlertChannel) -> list[AlertKind]:
+    """What the channel received, without the heartbeat the booted app sends on its own
+    schedule (`EPIC-036E`): these tests are about the alert they publish."""
+    return [
+        r.alert.kind
+        for r in channel.received
+        if r.alert.kind is not AlertKind.HEARTBEAT
+    ]
+
+
 def _alerting_threads() -> frozenset[threading.Thread]:
     return frozenset(t for t in threading.enumerate() if t.name.startswith("alerting-"))
 
@@ -97,8 +129,8 @@ def threads_before() -> frozenset[threading.Thread]:
 @pytest.fixture
 def booted(
     monkeypatch: pytest.MonkeyPatch, threads_before: frozenset[threading.Thread]
-) -> Iterator[tuple[App, FakeAlertChannel]]:
-    channel = FakeAlertChannel()
+) -> Iterator[tuple[App, _KindChannel]]:
+    channel = _KindChannel()
     _declare(monkeypatch, channel)
     app = create_app(ConfigManager())
     app.boot()
@@ -109,44 +141,44 @@ def booted(
 
 
 def test_a_published_alert_reaches_a_declared_channel(
-    booted: tuple[App, FakeAlertChannel],
+    booted: tuple[App, _KindChannel],
 ) -> None:
     app, channel = booted
 
     app.container.resolve(IAlertPublisher).publish(_alert())  # type: ignore[type-abstract]
 
-    assert channel.done.wait(WAIT_S)
-    assert [r.alert.kind for r in channel.received] == [AlertKind.APP_FAILURE]
+    assert channel.delivered(AlertKind.APP_FAILURE).wait(WAIT_S)
+    assert _kinds(channel) == [AlertKind.APP_FAILURE]
 
 
 def test_an_undelivered_alert_is_sent_after_a_restart(
     monkeypatch: pytest.MonkeyPatch, _data_root: Path
 ) -> None:
-    down = FakeAlertChannel(default=DeliveryResult.failed("network down"))
+    down = _KindChannel(default=DeliveryResult.failed("network down"))
     _declare(monkeypatch, down)
     first = create_app(ConfigManager())
     first.boot()
     try:
         first.container.resolve(IAlertPublisher).publish(_alert())  # type: ignore[type-abstract]
-        assert down.done.wait(WAIT_S)
+        assert down.delivered(AlertKind.APP_FAILURE).wait(WAIT_S)
     finally:
         first.stop()
     assert (_data_root / "state" / "alerts.sqlite3").is_file()
 
-    back = FakeAlertChannel()
+    back = _KindChannel()
     _declare(monkeypatch, back)
     second = create_app(ConfigManager())
     second.boot()
     try:
-        assert back.done.wait(WAIT_S)
+        assert back.delivered(AlertKind.APP_FAILURE).wait(WAIT_S)
     finally:
         second.stop()
 
-    assert [r.alert.kind for r in back.received] == [AlertKind.APP_FAILURE]
+    assert _kinds(back) == [AlertKind.APP_FAILURE]
 
 
 def test_stopping_the_app_leaves_no_alerting_thread(
-    booted: tuple[App, FakeAlertChannel],
+    booted: tuple[App, _KindChannel],
     threads_before: frozenset[threading.Thread],
 ) -> None:
     app, _channel = booted
@@ -158,7 +190,7 @@ def test_stopping_the_app_leaves_no_alerting_thread(
 
 
 def test_the_snapshot_carries_an_alerting_section(
-    booted: tuple[App, FakeAlertChannel], _data_root: Path
+    booted: tuple[App, _KindChannel], _data_root: Path
 ) -> None:
     snapshot = FileHealthSnapshotSource(_data_root / "state" / "health.json").read()
 

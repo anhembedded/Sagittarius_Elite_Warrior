@@ -383,7 +383,7 @@ The bot's context menu in the Bots list gains **Alerts: On / Critical only / Off
 | N1 | A module `src/modules/alerting`; Telegram moves into it; the in-app `INotifier` stays | [036A](completed/EPIC-036A_alerting_core.md), [036B](completed/EPIC-036B_alert_sources.md) |
 | N2 | A persistent outbox (SQLite in `data_root/state`); alerts older than 24 h expire | 036A |
 | N3 | The Telegram token moves to the keyring (migrated once from config); the Discord webhook in the keyring only | [036A](completed/EPIC-036A_alerting_core.md), [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) |
-| N4 | Defaults: CRITICAL loud, WARNING silent, heartbeat 6 h, no quiet-hours preset | 036A, [036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
+| N4 | Defaults: CRITICAL loud, WARNING silent, heartbeat 6 h, no quiet-hours preset | 036A, [036E](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
 | N5 | Per-bot alerts: On / Critical only / Off; Off needs a confirmation | 036A, [036D](incomplete/EPIC-036D_alerts_ui.md) |
 | N6 | Remote control from Discord is a separate Phase-4 task after `EPIC-035X`; allowlist; library decided at start | [036F](incomplete/EPIC-036F_remote_control_from_discord.md) |
 | N7 | A dead man's switch adapter (healthchecks.io or the owner's URL); off by default | 036E |
@@ -395,7 +395,7 @@ Each task is one pull request, in dependency order:
 2. [036B](completed/EPIC-036B_alert_sources.md) — the sources; `SystemAlertSource` replaces `NotificationEventHandler`.
 3. [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) — Discord, Telegram moved, token to the keyring, no secret in any log.
 4. [036D](incomplete/EPIC-036D_alerts_ui.md) — Options page, dock, indicator, per-bot mute, previews.
-5. [036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) — heartbeat, dead man's switch, summary; with or after `EPIC-035W`.
+5. [036E](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) — heartbeat, dead man's switch, summary; with or after `EPIC-035W`.
 6. [036F](incomplete/EPIC-036F_remote_control_from_discord.md) — Phase 4 remote control, after `EPIC-035X`.
 
 The "existing seams" this design was read from: `src/core/contracts/i_notification_channel.py`, `src/infrastructure/notifications/telegram_notification_channel.py`, `src/shell/notification_event_handler.py`, `src/core/contracts/i_options_section.py`, `src/support/binance_gateway/contracts/i_secret_store.py`.

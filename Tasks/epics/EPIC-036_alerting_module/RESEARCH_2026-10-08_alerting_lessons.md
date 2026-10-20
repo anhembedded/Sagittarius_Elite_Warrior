@@ -52,5 +52,5 @@
 
 ## 10. A dead monitor is silent
 - The fix is a watchdog / dead man's switch: an external service expects a periodic ping and alerts when it stops.
-- **Design consequence:** N7, a ping adapter to healthchecks.io or a URL the owner picks, every 5 minutes, off by default, the URL in the keyring. → [036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md)
+- **Design consequence:** N7, a ping adapter to healthchecks.io or a URL the owner picks, every 5 minutes, off by default, the URL in the keyring. → [036E](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md)
 - Source: the sources of §9.

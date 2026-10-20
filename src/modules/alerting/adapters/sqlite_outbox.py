@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -307,6 +307,28 @@ class SqliteOutbox(IOutbox):
                     )
                 )
         return tuple(entries)
+
+    def latest_alert_at(self, kind: AlertKind) -> datetime | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT MAX(at) FROM alerts WHERE kind = ?", (kind.value,)
+            ).fetchone()
+        return None if row[0] is None else unstamp(str(row[0]))
+
+    def has_alert_keyed(self, dedup_key: str) -> bool:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT 1 FROM alerts WHERE dedup_key = ? LIMIT 1", (dedup_key,)
+            ).fetchone()
+        return row is not None
+
+    def alert_counts_since(self, since: datetime) -> Mapping[AlertKind, int]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT kind, SUM(count) FROM alerts WHERE last_at >= ? GROUP BY kind",
+                (stamp(since),),
+            ).fetchall()
+        return {AlertKind(str(kind)): int(total) for kind, total in rows}
 
     def backlog(self, now: datetime) -> OutboxBacklog:
         with self._lock:
