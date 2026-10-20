@@ -6,7 +6,6 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
-from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotProgress,
 )
@@ -28,7 +27,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import 
     bot_facts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_panel import (
-    FACT_SPECS,
     BotPlanPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
@@ -36,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    PROPERTY_KEYS,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -93,8 +94,7 @@ def test_grid_profit_comes_first_with_the_total_and_the_unrealised_kept_apart() 
 
     assert facts.total_pnl == "30.00"
     assert facts.grid_profit == "12.50"
-    shown = [spec.key for spec in FACT_SPECS]
-    assert [key for key in shown if key in _EARNINGS] == [
+    assert [key for key in PROPERTY_KEYS if key in _EARNINGS] == [
         "grid_profit",
         "cycles",
         "total_pnl",
@@ -238,7 +238,7 @@ def _panel_showing(qtbot, venue: TradingVenue):  # type: ignore[no-untyped-def]
 
 
 def _row_shown(panel: BotPlanPanel, key: str) -> bool:
-    return panel.facts.findChild(QLabel, f"readout::{key}").isVisibleTo(panel.facts)
+    return panel.properties.row_is_shown(key)
 
 
 def test_the_cost_rows_are_on_screen_for_futures_and_not_for_spot(qtbot) -> None:
@@ -246,7 +246,7 @@ def test_the_cost_rows_are_on_screen_for_futures_and_not_for_spot(qtbot) -> None
     spot = _panel_showing(qtbot, TradingVenue.SPOT_TESTNET)
 
     assert _row_shown(futures, "commissions") and _row_shown(futures, "funding")
-    assert futures.facts.value_text("funding") == "-0.0317"
+    assert futures.properties.shown_value("funding") == "-0.0317"
     assert not _row_shown(spot, "commissions") and not _row_shown(spot, "funding")
     assert _row_shown(spot, "grid_profit") and _row_shown(futures, "grid_profit")
 

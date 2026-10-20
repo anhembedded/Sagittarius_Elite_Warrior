@@ -1,31 +1,35 @@
 """`EPIC-033K` — the Bots mode's Plan panel: the selected bot's plan.
 
-The bot's name and state in words, how far it is on its three steps and what
-is left before Start (`EPIC-034H`), its figures as a read-out, the kind's
-parameter editor and what the kind says about those parameters (HLD §11.2.1,
-"right: Plan (the kind's panel: parameters and verdicts)"). The panel names
-no kind: the editor arrives from the presenter. With no bot selected it holds
-the instruction to pick or create one.
+The bot's name and state in words, what is left before Start (`EPIC-034H`)
+as text, its readiness steps and figures as a property table (`BOT-206`,
+`plan_property_grid.py`), the kind's parameter editor and what the kind says
+about those parameters (HLD §11.2.1, "right: Plan (the kind's panel:
+parameters and verdicts)"). The panel names no kind: the editor arrives from
+the presenter. With no bot selected it holds the instruction to pick or
+create one.
 
 The plan scrolls once, at the panel (`ui-presentation-rule.md` §3): the
-read-out, a Grid's editor and its verdicts stand over 500 px, and without the
+table, a Grid's editor and its verdicts stand over 500 px, and without the
 scroll they set the whole mode's minimum height (the PR #361 review measured
 703 px). So the verdicts are word-wrapped text inside that one scroll area,
-not a list scrolling inside it.
+not a list scrolling inside it, and the table is as tall as its rows.
 """
 
 from __future__ import annotations
 
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QHBoxLayout,
     QScrollArea,
     QStackedWidget,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
-    TOTAL_PNL_BASIS,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    ReadinessStep,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     title_word_of,
@@ -41,70 +45,38 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_ladder_facts 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_grid import (
+    PlanPropertyGrid,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    COST_KEYS,
+    LIQUIDATION_KEY,
+    PROPERTY_GROUPS,
+    PROPERTY_KEYS,
+    READINESS_GROUP,
+    step_key,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words import (
     advisory_lines,
     header,
     item_lines,
-    step_lines,
+    step_rows,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     add_venue_choice,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    APP_VALUE_FORMATTER,
-)
-from sagittarius_engine.extensions.pyside_mvc.workbench import (
-    ColumnKind,
-    ColumnSpec,
-    ReadoutForm,
-)
 
 from .widget_slot import replace_in
 
 EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
-#: The bot's figures as a read-out (`EPIC-033N`). Most values are a
-#: sentence `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
-#: application's formatter, so those rows are text; the running time is a
-#: duration the formatter writes itself.
-#: The rows only a venue with funding shows (`EPIC-039J`): costs apart from the profit.
-COST_KEYS = ("commissions", "funding")
-#: The row only a position venue shows (`BOT-193`): its liquidation price is the exchange's, not the record's.
-LIQUIDATION_KEY = "liquidation"
 #: The rows that come from the bot's ladder (`bot_ladder_facts.LADDER_ROWS`), not from `BotFacts`.
 _LADDER_KEYS = frozenset(LADDER_ROWS)
-FACT_SPECS = (
-    *(
-        ColumnSpec(key, title, ColumnKind.TEXT)
-        for key, title in (
-            ("venue", "Venue"),
-            ("symbol", "Symbol"),
-            ("capital", "Capital"),
-            ("grid_profit", "Profit from completed cycles"),
-            ("cycles", "Completed cycles"),
-            ("cycle_average", "Average per cycle (net of fees)"),
-            ("total_pnl", f"Total PnL ({TOTAL_PNL_BASIS})"),
-            ("unrealised", "of which unrealised"),
-            ("hodl", "HODL benchmark"),
-            ("inventory", "Held"),
-            ("earlier_runs", "Left from earlier runs"),
-            ("commissions", "Commissions paid"),
-            ("funding", "Funding (earned +, paid −)"),
-            # `BOT-193`: the ladder the saved parameters make (designed), what a cycle there
-            # earns (estimate) and where the last price the bot heard stands (recorded).
-            ("grid_step", "Saved grid step, top to bottom"),
-            ("cycle_profit", "Profit per cycle (estimate)"),
-            ("last_price", "Last price heard"),
-            ("lower_edge", "Lower edge"),
-            ("upper_edge", "Upper edge"),
-            ("stop_loss", "Stop loss"),
-            ("take_profit", "Take profit"),
-            ("liquidation", "Liquidation price"),
-        )
-    ),
-    ColumnSpec("running_time", "Running time", ColumnKind.DURATION),
-)
+#: The rows that say where a readiness step stands, written from the readiness and not from `BotFacts`.
+_STEP_KEYS = frozenset(step_key(step) for step in ReadinessStep)
+#: The rows `BotFacts` writes, by the name of the field.
+_FACT_KEYS = tuple(key for key in PROPERTY_KEYS if key not in _LADDER_KEYS | _STEP_KEYS)
 
 
 class BotPlanPanel(QStackedWidget):
@@ -121,10 +93,12 @@ class BotPlanPanel(QStackedWidget):
         self.state.setWordWrap(True)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbBotVenue")
+        #: The platform's stop sign while something blocks Start: the reason stands in text above the
+        #: table, with a sign beside it, never in a cell (`BOT-206`).
+        self.readiness_marker = plain_label()
+        self.readiness_marker.setObjectName("lblBotReadinessMarker")
         self.readiness_header = plain_label()
         self.readiness_header.setObjectName("lblBotReadinessHeader")
-        self.readiness_steps = plain_label()
-        self.readiness_steps.setObjectName("lblBotReadinessSteps")
         self.readiness_items = plain_label()
         self.readiness_items.setObjectName("lblBotReadinessItems")
         self.readiness_items.setWordWrap(True)
@@ -132,8 +106,7 @@ class BotPlanPanel(QStackedWidget):
         #: What the Venue field shows now, so a tick that changes nothing does not
         #: close a drop-down the user has open.
         self._venue_shown: tuple[object, ...] = ()
-        self.facts = ReadoutForm(FACT_SPECS, APP_VALUE_FORMATTER)
-        self.facts.setObjectName("roBotFacts")
+        self.properties = PlanPropertyGrid(PROPERTY_GROUPS)
         self.verdicts = plain_label()
         self.verdicts.setObjectName("lblBotVerdicts")
         self.verdicts.setWordWrap(True)
@@ -142,6 +115,7 @@ class BotPlanPanel(QStackedWidget):
         self._connect()
         self._show_costs(False)
         self._show_ladder()
+        self._show_readiness()
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
@@ -158,10 +132,14 @@ class BotPlanPanel(QStackedWidget):
         venue = QFormLayout()
         venue.addRow("Venue", self.venue)
         column.addLayout(venue)
-        column.addWidget(self.readiness_header)
-        column.addWidget(self.readiness_steps)
+        self._readiness_line = QHBoxLayout()
+        self._readiness_line.addWidget(
+            self.readiness_marker, 0, Qt.AlignmentFlag.AlignTop
+        )
+        self._readiness_line.addWidget(self.readiness_header, 1)
+        column.addLayout(self._readiness_line)
         column.addWidget(self.readiness_items)
-        column.addWidget(self.facts)
+        column.addWidget(self.properties.body)
         column.addLayout(self._panel_slot)
         column.addWidget(plain_label("What the kind says about these parameters:"))
         column.addWidget(self.verdicts)
@@ -193,7 +171,7 @@ class BotPlanPanel(QStackedWidget):
 
     def index_of_figures(self) -> int:
         """Where the bot's figures sit, top to bottom."""
-        return self._column.indexOf(self.facts)
+        return self._column.indexOf(self.properties.body)
 
     def _arrange(self) -> None:
         """A bot at rest is being designed: its parameters come right after the
@@ -207,15 +185,11 @@ class BotPlanPanel(QStackedWidget):
             return
         self._parameters_first = parameters_first
         column = self._column
-        movable: tuple[QWidget, ...] = (
-            self.readiness_steps,
-            self.readiness_items,
-            self.facts,
-        )
+        movable: tuple[QWidget, ...] = (self.readiness_items, self.properties.body)
         for widget in movable:
             column.removeWidget(widget)
         column.removeItem(self._panel_slot)
-        at = column.indexOf(self.readiness_header) + 1
+        at = column.indexOf(self._readiness_line) + 1
         if parameters_first:
             column.insertLayout(at, self._panel_slot)
             for offset, widget in enumerate(movable, start=1):
@@ -223,7 +197,7 @@ class BotPlanPanel(QStackedWidget):
         else:
             for offset, widget in enumerate(movable):
                 column.insertWidget(at + offset, widget)
-            column.insertLayout(at + 3, self._panel_slot)
+            column.insertLayout(at + len(movable), self._panel_slot)
 
     def _show_selection(self) -> None:
         bot = self._model.selected
@@ -277,55 +251,59 @@ class BotPlanPanel(QStackedWidget):
         self._arrange()
         facts = self._model.facts
         self.state.setText(facts.state if facts else "")
-        self.facts.set_values(
-            {
-                spec.key: getattr(facts, spec.key) if facts else ""
-                for spec in FACT_SPECS
-                if spec.key not in _LADDER_KEYS
-            }
+        self.properties.set_values(
+            {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS}
         )
         self._show_costs(facts is not None and facts.shows_costs)
 
     def _show_ladder(self) -> None:
         """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
         ladder = ladder_facts(self._model.ladder)
-        self.facts.set_values(dict(ladder.rows))
-        self._show_rows((LIQUIDATION_KEY,), ladder.shows_liquidation)
+        self.properties.set_values(dict(ladder.rows))
+        self.properties.set_rows_shown((LIQUIDATION_KEY,), ladder.shows_liquidation)
 
     def _show_costs(self, shown: bool) -> None:
         """The cost rows belong to a venue with funding; Spot's figures keep their rows."""
-        self._show_rows(COST_KEYS, shown)
-
-    def _show_rows(self, keys: tuple[str, ...], shown: bool) -> None:
-        form = self.facts.layout()
-        if not isinstance(form, QFormLayout):
-            raise TypeError(f"the figures lay out as a form, not {type(form).__name__}")
-        for spec_index, spec in enumerate(FACT_SPECS):
-            if spec.key in keys:
-                form.setRowVisible(spec_index, shown)
+        self.properties.set_rows_shown(COST_KEYS, shown)
 
     def _show_readiness(self) -> None:
         """How far the bot is and what is left before Start (`EPIC-034H`): the
-        count, the three steps, and each item with its reason and its fix. Only
-        a bot at rest has a Start to wait for."""
+        count and each item with its reason and its fix as text, the three
+        steps as the table's first group. Only a bot at rest has a Start to
+        wait for."""
         readiness = self._model.readiness
         shown = readiness is not None
-        for label in (
-            self.readiness_header,
-            self.readiness_steps,
-            self.readiness_items,
-        ):
+        for label in (self.readiness_header, self.readiness_items):
             label.setVisible(shown)
+        self.properties.set_group_shown(READINESS_GROUP, shown)
         if readiness is None:
+            self.readiness_marker.setVisible(False)
             return
         label_of = getattr(self._kind_panel, "field_label", lambda _code: None)
         self.readiness_header.setText(
             f"Start: {header(readiness, self._model.readiness_state)}"
         )
-        self.readiness_steps.setText("\n".join(step_lines(readiness)))
+        self.properties.set_values(
+            {step_key(step): words for step, words in step_rows(readiness)}
+        )
         lines = (*item_lines(readiness, label_of), *advisory_lines(readiness))
         self.readiness_items.setText("\n".join(lines))
         self.readiness_items.setVisible(bool(lines))
+        self._mark_blocking(bool(readiness.items))
+
+    def _mark_blocking(self, blocking: bool) -> None:
+        """A sign beside the sentence, from the platform's own icons, and its words for a screen
+        reader: colour is never the only signal."""
+        marker = self.readiness_marker
+        marker.setVisible(blocking)
+        if not blocking:
+            marker.clear()
+            marker.setAccessibleName("")
+            return
+        size = marker.fontMetrics().height()
+        icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)
+        marker.setPixmap(icon.pixmap(QSize(size, size), marker.devicePixelRatioF()))
+        marker.setAccessibleName("Blocks Start")
 
     def _show_judgement(self) -> None:
         self.verdicts.setText("\n".join(self._model.verdict_lines))

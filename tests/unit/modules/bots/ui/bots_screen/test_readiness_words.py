@@ -20,7 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words i
     header,
     item_lines,
     next_fix,
-    step_lines,
+    step_rows,
 )
 
 
@@ -61,7 +61,7 @@ def test_a_connecting_or_unselected_bot_is_said_by_its_state_not_by_its_count() 
     assert header(left, ReadinessState.NOT_CONNECTED) == "Not connected"
 
 
-def test_each_step_is_numbered_and_names_what_it_waits_for() -> None:
+def test_each_step_names_what_it_waits_for() -> None:
     readiness = BotReadiness(
         (
             StepReadiness(
@@ -74,10 +74,10 @@ def test_each_step_is_numbered_and_names_what_it_waits_for() -> None:
         )
     )
 
-    assert step_lines(readiness) == (
-        "1. Connect: 1 thing left",
-        "2. Design: waits for Connect",
-        "3. Run: waits for Connect",
+    assert step_rows(readiness) == (
+        (ReadinessStep.CONNECT, "1 thing left"),
+        (ReadinessStep.DESIGN, "waits for Connect"),
+        (ReadinessStep.RUN, "waits for Connect"),
     )
 
 

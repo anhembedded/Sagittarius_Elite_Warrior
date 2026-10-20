@@ -52,11 +52,19 @@ def displayed_text(view: QAbstractItemView, row: int, column: int) -> str:
     """The text the view paints in a cell — asked of its own delegate, so it
     is what the user reads, formatter and all."""
     model = view.model()
+    if model is None:
+        raise TypeError("the view has no model")
+    return displayed_text_at(view, model.index(row, column))
+
+
+def displayed_text_at(view: QAbstractItemView, index: AnyIndex) -> str:
+    """`displayed_text` for any index of the view's model, a row under a tree's
+    heading included."""
     delegate = view.itemDelegate()
-    if model is None or not isinstance(delegate, QStyledItemDelegate):
-        raise TypeError("the view has no model or no styled delegate")
+    if not isinstance(delegate, QStyledItemDelegate):
+        raise TypeError("the view has no styled delegate")
     option = QStyleOptionViewItem()
-    delegate.initStyleOption(option, model.index(row, column))
+    delegate.initStyleOption(option, index)
     return str(option.text)  # type: ignore[attr-defined]
 
 
