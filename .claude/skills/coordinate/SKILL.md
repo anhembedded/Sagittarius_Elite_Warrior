@@ -36,7 +36,7 @@ flowchart TD
    - The author runs on the cheaper general model by default, and on the strongest permitted model for design-heavy work.
    - The reviewer runs on a different model from the author, and on the strongest permitted model for real-money changes. A model the owner excluded (`ONBOARDING.md` §7, "Excluded model") is never permitted, and every spawn prompt says so in one line.
    - Documentation-only PRs and bug fixes get no reviewer unless the owner asks.
-   - One author session covers one epic or phase. Start a new one rather than letting one grow past about 500k tokens.
+   - One author session covers one epic or phase and keeps it to the end; start a new one only when it is archived, failed or stuck (no context-size cap; user decision).
    - The author's prompt names the task file, the hard limits (no mainnet orders, no secrets, no dependency or settings change) and asks the author to report its PR URL, head sha, reviewer verdict and gate results.
 4. **Verify before merging.** Never merge from a report alone. Check each of these on the PR's current head:
    - **Gates.** `get_check_runs` must show `ci-local.ps1 -Full`, `gate (Unit)` and `gate (Rest)` as success. Then grep both gate job logs for `RESULT:`, `FAILED_STEPS:` and `Merge <head> into <base>`.
