@@ -71,8 +71,8 @@ reads too until `EPIC-040F`. `GridKind` is given its adapter where it is built
 (`bots/composition/executor_bindings.py` → `_build_kind_catalog`). No file of the outcome, the port
 or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_kind_neutral.py`).
 **The workbench that draws it (`EPIC-040D`).** `bots/ui/backtest_workbench/backtest_workbench.py` →
-`BacktestWorkbench`, built from `WorkbenchPorts`, is one page for every kind: the interval and
-period, Run, Cancel (Stop while a sync runs), Sync candles and Run without funding, the sandbox's
+`BacktestWorkbench`, built from `WorkbenchPorts`, is one page for every kind: the interval (the charts' own `ChartToolbar`, limited to the intervals a
+backtest replays by its `offered_codes`) and the period, Run, Cancel (Stop while a sync runs), Sync candles and Run without funding, the sandbox's
 editor, the replay chart (`BotChart` with the kind's `IBotKind.overlay` plus the outcome's fills,
 `outcome_view.py` → `result_overlay`), the equity against buy and hold (`equity_pane.py` →
 `EquityPane`), the figures read-out and the fills table. The replay chart reads in the application's display time zone and offers its drop-down (`BOT-205`; `WorkbenchPorts.display_timezone`), like the Live chart it will sit beside. It names no kind: it asks the catalog for the

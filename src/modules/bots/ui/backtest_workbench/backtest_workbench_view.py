@@ -23,7 +23,6 @@ from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import QDateTime, Qt, QTimeZone, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
     QDateTimeEdit,
     QHBoxLayout,
     QLabel,
@@ -59,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar import (
+    ChartToolbar,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
@@ -115,11 +117,7 @@ class BacktestWorkbenchView(QWidget):
         self, chart_ports: LiveChartPorts, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
-        self.interval = QComboBox()
-        self.interval.setObjectName("cmbBacktestInterval")
-        for interval in INTERVALS:
-            self.interval.addItem(interval.value, interval.value)
-        self.interval.setCurrentIndex(INTERVALS.index(DEFAULT_INTERVAL))
+        self.interval = _interval_toolbar()
         now = datetime.now(UTC).replace(second=0, microsecond=0)
         self.start = _datetime_edit(
             "dtBacktestStart", now - timedelta(days=_DEFAULT_DAYS)
@@ -171,7 +169,7 @@ class BacktestWorkbenchView(QWidget):
     # -- what the presenter reads ----------------------------------------- #
 
     def chosen_interval(self) -> TimeFrame:
-        return TimeFrame(str(self.interval.currentData()))
+        return TimeFrame(self.interval.active_timeframe or DEFAULT_INTERVAL.value)
 
     def chosen_period(self) -> tuple[datetime, datetime]:
         return _utc(self.start), _utc(self.end)
@@ -313,6 +311,20 @@ class BacktestWorkbenchView(QWidget):
         pane.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         pane.setWidget(content)
         return pane
+
+
+def _interval_toolbar() -> ChartToolbar:
+    """The interval, chosen the way every chart's timeframe is: the pinned intervals as actions and
+    "More timeframes…", offering only what a backtest replays (`INTERVALS`)."""
+    codes = [interval.value for interval in INTERVALS]
+    toolbar = ChartToolbar(
+        timeframes=codes, active=DEFAULT_INTERVAL.value, offered_codes=codes
+    )
+    toolbar.setObjectName("tbBacktestInterval")
+    toolbar.setWindowTitle("Interval")
+    toolbar.setMovable(False)
+    toolbar.setFloatable(False)
+    return toolbar
 
 
 def _button(text: str, name: str) -> QPushButton:
