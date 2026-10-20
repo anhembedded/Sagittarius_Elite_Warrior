@@ -35,7 +35,7 @@ The data root is outside the checkout so an update of the code never touches the
 
 ## 2. Install on Linux
 
-Needs systemd 247 or newer (`LoadCredential=` arrived in 247), Python 3.12 or newer (the floor; `preflight` checks it), `git`, and outbound HTTPS to the exchange. **No Qt and no display are needed**: the headless requirements install none of Qt's system libraries.
+Needs systemd 251 or newer (`LoadCredential=` took a directory in 251; Ubuntu 24.04 ships 255, Ubuntu 22.04 ships 249 and is too old), Python 3.12 or newer (the floor; `preflight` checks it), `git`, and outbound HTTPS to the exchange. **No Qt and no display are needed**: the headless requirements install none of Qt's system libraries.
 
 ```bash
 sudo useradd --system --home-dir /var/lib/sew --shell /usr/sbin/nologin --user-group sew
@@ -112,38 +112,38 @@ BINANCE_SPOT_TESTNET_API_SECRET=<your spot testnet secret>
 
 A venue you do not use can be left out. The unit reads this file if it exists (`EnvironmentFile=-`).
 
-**The unit loads the four mainnet credential files and the Discord webhook's file even on a testnet-only server.** Its `LoadCredential=` lines name them, and systemd refuses to start the service when one is missing, with `status=243/CREDENTIALS` ("Failed to set up credentials"). This was observed on the first VPS install, on 2026-10-14 (systemd 255). A testnet-only server does one of two things:
+**A secret whose file you have not created is a secret that is not set; the service still starts.** The unit has one line, `LoadCredential=sew:/etc/sew/credentials`. Given a directory, systemd loads every regular file in it as the credential `sew_<file name>` (symlinks are ignored; `systemd.exec(5)`), so `/etc/sew/credentials/spot_mainnet_api_key` reaches the service as `$CREDENTIALS_DIRECTORY/sew_spot_mainnet_api_key`, and a file that is not there is simply not loaded. A testnet-only server, or one without a webhook, therefore needs no placeholder files. (Until 2026-10-20 the unit had one `LoadCredential=` line per file and systemd refused to start, `status=243/CREDENTIALS`, when one was missing; observed on the first VPS install, 2026-10-14, systemd 255.) What stays true: the **directory** `/etc/sew/credentials` must exist (§2 creates it, and so does a server that ran the old unit), and an **empty file** still reads as "no key".
 
-- **Create the five files empty**, the same command as for mainnet below (and fill in the webhook, below, to get alerts). An empty credential reads as "no key". Use this when the server will later go to mainnet, because nothing changes then except filling the files in.
-- **Clear the list with a drop-in.** A `LoadCredential=` line with no value resets the unit's list, so the service starts without the files. Put it in the same drop-in as `--start-planned` (§8), and remove it before any mainnet venue.
-
-**Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands it to the service through `LoadCredential=`, so it is not in the service's environment and not inherited by a child process. The unit names four files; create all four, **empty for a venue you do not use** (an empty credential reads as "no key"; a missing file would stop the unit from starting):
+**Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands the directory to the service, so a value is not in the service's environment and not inherited by a child process. Create the file for each venue or alert you use and no other. `sew-key add` does it; by hand, for a venue you use, type the value without echoing it. `read -s` is bash (the shell you are logged in to; dash, which is `sh` on Debian and Ubuntu, has no `read -s`), and `printf` is a builtin, so the value is in no process's argument list and not in your history:
 
 ```bash
-for name in futures_mainnet_api_key futures_mainnet_api_secret spot_mainnet_api_key spot_mainnet_api_secret alerting_discord_webhook alerting_deadman_ping_url; do
-  sudo install -m 0600 -o root -g root /dev/null "/etc/sew/credentials/$name"
-done
-# For a venue you use, type the value without echoing it. `read -s` is bash (the shell you
-# are logged in to; dash, which is `sh` on Debian and Ubuntu, has no `read -s`), and `printf` is
-# a builtin, so the value is in no process's argument list and not in your history:
 read -rsp "futures mainnet key: " v; echo
+[ -e /etc/sew/credentials/futures_mainnet_api_key ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/futures_mainnet_api_key
 printf '%s' "$v" | sudo tee /etc/sew/credentials/futures_mainnet_api_key > /dev/null; unset v
 ```
 
-Mainnet bots are never started by the host without you typing the venue (`--confirm-venue`, decision O8); the unit passes none.
+The names are `futures_mainnet_api_key`, `futures_mainnet_api_secret`, `spot_mainnet_api_key`, `spot_mainnet_api_secret`, `alerting_discord_webhook` and `alerting_deadman_ping_url`; any other file in the directory is loaded and ignored. Mainnet bots are never started by the host without you typing the venue (`--confirm-venue`, decision O8); the unit passes none.
 
-**Upgrading an existing install** to a version whose unit names `alerting_discord_webhook` or `alerting_deadman_ping_url`: create each file you do not have yet (empty is fine) **before** you install the regenerated unit and restart, or systemd refuses to start the service with `status=243/CREDENTIALS`. The guard `[ -e ... ] ||` keeps a file that already holds a value, which a bare `install` would empty:
+**Upgrading an existing install to the directory form (once, 2026-10-20).** Your files stay where they are, with the names they have: nothing is moved, renamed or recreated. The new code reads the credential under both names (`sew_<file>` first, then the bare name the old unit handed it), so the order below is safe at every step; do it in this order, because the **new unit with the old code** would find no key (the old code asks for the bare name):
+
+1. `sudo systemctl stop sew-run`, and read that it drained (§8 steps 1 and 2).
+2. Upgrade the code (§8 steps 3 and 4: copy the state aside, `git checkout`, `pip install`, `engine_pin.py install`, `compileall`).
+3. Install the regenerated unit, then ask systemd what the service would see. The second command lists credential **names** only, never a value; expect one `sew_<file>` per file you created:
 
 ```bash
-for name in alerting_discord_webhook alerting_deadman_ping_url; do
-  [ -e "/etc/sew/credentials/$name" ] || sudo install -m 0600 -o root -g root /dev/null "/etc/sew/credentials/$name"
-done
+sudo cp /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-run.service /etc/systemd/system/ && sudo systemctl daemon-reload
+sudo systemd-run --wait --pipe --quiet --uid=sew --gid=sew -p LoadCredential=sew:/etc/sew/credentials \
+  /usr/bin/bash -c 'ls -1 "$CREDENTIALS_DIRECTORY"'
 ```
+
+4. `sudo systemctl start sew-run`, then read the credential lines: `journalctl -u sew-run -o cat | grep -E "preflight|alert-channel|dead-mans-switch"`. A mainnet venue in use must still answer `credentials-present` from `systemd-credential`; a webhook or check-in URL must still say `on`.
+
+You may now delete the empty placeholder files you created only to satisfy the old unit; leaving them does no harm. **Rollback** to a release whose unit has one line per file needs those files again: for each name above that is missing, `[ -e F ] || sudo install -m 0600 -o root -g root /dev/null F`, before you install the old unit.
 
 **Alerts to Discord** (`EPIC-036G`, decision D3 of the [2026-10-15 alerting record](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). The webhook is a secret like a key: whoever holds its URL can post to your channel. It is the systemd credential `alerting_discord_webhook`, read only by the service, never in an environment variable, a config file or a log line. In Discord: the channel's **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL** (a channel only you read is best). Then write it to its file and restart the service (`sudo systemctl restart sew-run`):
 
 ```bash
-sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
+[ -e /etc/sew/credentials/alerting_discord_webhook ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
 # Paste the URL without echoing it, as for a key above.
 read -rsp "Discord webhook URL: " v; echo
 printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_discord_webhook > /dev/null; unset v
@@ -221,11 +221,11 @@ echo "exit $?"
 
 `status` opens no connection and takes no lock: it reads `state/health.json` and the lock. Exit `0` the host is running and healthy, `10` no host is running, `11` running but unhealthy (the snapshot is stale or a section is unavailable or degraded).
 
-**Send a test message to Discord.** `main.py alert test` sends one message to every configured channel and prints what each answered; it writes nothing and takes no lock, so it runs beside the running host. The webhook exists only inside the unit, so run it with the unit's credential:
+**Send a test message to Discord.** `main.py alert test` sends one message to every configured channel and prints what each answered; it writes nothing and takes no lock, so it runs beside the running host. The webhook exists only inside the unit, so run it with the unit's credentials directory:
 
 ```bash
 sudo systemd-run --wait --pipe --quiet --uid=sew --gid=sew \
-  -p LoadCredential=alerting_discord_webhook:/etc/sew/credentials/alerting_discord_webhook \
+  -p LoadCredential=sew:/etc/sew/credentials \
   -E PYTHONPATH=/opt/sew -E SEW_DATA_ROOT=/var/lib/sew \
   /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py alert test
 ```
@@ -410,7 +410,6 @@ sudo systemctl start sew-run
   systemctl cat sew-run | grep -E "LoadCredential|ExecStart"   # the drop-in's lines come last and win
   ```
 
-  On a testnet-only server without the four credential files (§3), add the line `LoadCredential=` under `[Service]` in the same file.
 - A bot on a **mainnet** venue is started only with `--confirm-venue <venue>` in the same line; without it the host exits `2` and starts nothing. One `--confirm-venue` names one venue.
 - **`--resume-halted`** (`EPIC-042E`) is a person's Resume and Confirm answered in advance, for every bot that is `HALTED` or `AWAITING_RECOVERY` (no other state): the exchange is read, the order session is opened and the ladder the bot proposes is laid, with the price re-read and its tolerance applied. Read the `[resume-halted]` lines after the start: one INFO per bot resumed, one WARNING per bot that stays as it was, with the reason in the words the Resume gave (a session that would not open, a readiness check, a missing `--confirm-venue`). With both flags the halted bots are resumed first, so only a halt that existed before this start is re-planned, never one the recovering reconcile makes in the same start. Unlike `--resume-recovering`, a mainnet bot whose venue was not typed is **skipped and named**, not a reason to refuse the run. The host refuses (exit `5`) without an alert channel or `--i-accept-silent-failures`, as `--resume-recovering` does. The owner does not read the proposal on a headless host; use the flag for a halt you have judged transient (a bot halted for `price_feed_stale` whose bot-halt alert you read), and keep the Bots tab for any other.
 
@@ -494,9 +493,9 @@ Signed: ____________________ date: ____________ machine: ____________________
 
 ## 12. What is proven mechanically, and what is not
 
-Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the credential names are the ones the store reads; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
+Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the unit has one `LoadCredential=` line, for the credentials directory, and none that names a file a missing file could break; every credential name is found under the name systemd gives its file, and the same directory is the one `sew-key` writes; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
 
-**Not proven**: `alert test` through `systemd-run` and a message reaching a real Discord channel (the owner's run, recorded in `EPIC-036G`), the unit under a running systemd (no systemd was PID 1 where it was written), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
+**Not proven**: `alert test` through `systemd-run` and a message reaching a real Discord channel (the owner's run, recorded in `EPIC-036G`), the unit under a running systemd (no systemd was PID 1 where it was written; in particular that systemd 255 loads `/etc/sew/credentials` as `sew_<file>` and starts with a file absent is read from `systemd.exec(5)` and the 251 release notes, and is proven by step 3 of the §3 upgrade note on the first server that runs it), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
 
 ## 13. Containers
 

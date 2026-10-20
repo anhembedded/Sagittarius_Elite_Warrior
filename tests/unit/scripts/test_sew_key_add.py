@@ -248,7 +248,9 @@ def test_remove_mainnet_truncates_the_files_and_never_deletes_them(
     assert run.code == 0, run.err
     for suffix in ("key", "secret"):
         path = world.mainnet("futures_mainnet", suffix)
-        assert path.exists(), "a missing file would stop the unit with 243/CREDENTIALS"
+        assert path.exists(), (
+            "remove empties the file; a unit from before the directory form needs it"
+        )
         assert path.read_bytes() == b""
         assert mode_of(path) == 0o600
     assert "restart sew-run" in run.out

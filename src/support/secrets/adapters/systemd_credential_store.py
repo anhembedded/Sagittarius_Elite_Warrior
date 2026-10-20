@@ -1,11 +1,20 @@
 """`EPIC-038E` (O3) — `ISecretStore` over systemd credentials.
 
-@details A unit with `LoadCredential=spot_mainnet_api_key:/etc/sew/spot_key` finds
-the file at `$CREDENTIALS_DIRECTORY/spot_mainnet_api_key`. Unlike an environment
-variable the value is not inherited by child processes, and the kernel checks
-access on each read (`systemd.io/CREDENTIALS`). The secret's name is the
-credential's name, so the unit file lists the names `<venue>_api_key` and
-`<venue>_api_secret`.
+@details The unit has one line, `LoadCredential=sew:/etc/sew/credentials`. Given a
+directory, systemd loads every regular file in it as a credential named
+`<ID>_<file name>` (systemd.exec(5), `LoadCredential=`, since systemd 251), so the file
+`/etc/sew/credentials/spot_mainnet_api_key` is found at
+`$CREDENTIALS_DIRECTORY/sew_spot_mainnet_api_key`. A file that does not exist is simply not
+a credential: a venue or feature without its file is off and the host still starts, where
+a `LoadCredential=` line per file made systemd refuse the start (`243/CREDENTIALS`).
+Unlike an environment variable the value is not inherited by child processes, and the
+kernel checks access on each read (`systemd.io/CREDENTIALS`). The secret's name is the
+file's name: `<venue>_api_key` and `<venue>_api_secret`, and each alert channel's own name.
+
+A credential named without the prefix, `$CREDENTIALS_DIRECTORY/spot_mainnet_api_key`, is read
+too, when the prefixed one is absent: that is what a unit with one `LoadCredential=` line
+per file (the layout before this one) hands the process, so an install that has the new
+code and not yet the new unit keeps its keys.
 
 The app reads and never writes: a credential is provisioned by the unit file, so
 `write` and `delete` refuse and say so. A machine without systemd, or a process not
@@ -37,6 +46,16 @@ logger = logging.getLogger("App.Credentials")
 
 CREDENTIALS_DIRECTORY_ENV = "CREDENTIALS_DIRECTORY"
 
+#: The ID of the unit's `LoadCredential=<ID>:<directory>`; systemd names each file `<ID>_<file>`.
+#: `scripts/render_service_files.py` writes the unit from this, so the two cannot differ.
+UNIT_CREDENTIAL_ID = "sew"
+
+
+def unit_credential_name(secret_name: str) -> str:
+    """The name systemd gives the credential it loads from the file `secret_name`."""
+    return f"{UNIT_CREDENTIAL_ID}_{secret_name}"
+
+
 _PROVISIONED_BY_THE_UNIT = (
     "systemd credentials are provisioned by the service's unit file "
     "(LoadCredential=), not by the app"
@@ -50,11 +69,11 @@ class SystemdCredentialStore(ISecretStore):
 
     def read(self, name: str) -> str | None:
         directory = self._environ.get(CREDENTIALS_DIRECTORY_ENV, "")
-        path = file_in(Path(directory), name) if directory else None
-        if path is None:
+        if not directory:
             return None
         try:
-            if not path.is_file():
+            path = self._credential_file(Path(directory), name)
+            if path is None:
                 return None
             raw = path.read_bytes()
             if len(raw) > MAX_SECRET_BYTES:
@@ -65,6 +84,19 @@ class SystemdCredentialStore(ISecretStore):
             self._log_unreadable(name, "it is not text")  # the error would quote bytes
         except OSError as exc:
             self._log_unreadable(name, type(exc).__name__)
+        return None
+
+    @staticmethod
+    def _credential_file(directory: Path, name: str) -> Path | None:
+        """The file holding `name`: the unit's prefixed credential first, then the bare name."""
+        if (
+            file_in(directory, name) is None
+        ):  # not a plain file name: the prefix would hide it
+            return None
+        for file_name in (unit_credential_name(name), name):
+            path = directory / file_name
+            if path.is_file():
+                return path
         return None
 
     def write(self, name: str, value: str) -> None:

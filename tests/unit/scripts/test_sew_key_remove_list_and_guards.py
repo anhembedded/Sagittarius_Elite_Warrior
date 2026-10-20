@@ -93,14 +93,14 @@ def test_list_says_who_has_a_key_and_prints_no_value_no_length_and_no_prefix(
         assert fragment not in run.out
 
 
-def test_list_names_a_missing_credential_file_as_what_stops_the_unit(
+def test_list_names_a_missing_credential_file_as_not_set_and_not_as_a_failed_start(
     world: World,
 ) -> None:
     run = world.run("list")
 
     assert run.code == 0, run.err
-    assert "missing" in run.out
-    assert "243/CREDENTIALS" in run.out
+    assert "missing (not set; the host still starts)" in run.out
+    assert "243/CREDENTIALS" not in run.out
 
 
 def test_a_second_site_that_sets_the_variable_shadows_the_file_and_add_refuses(

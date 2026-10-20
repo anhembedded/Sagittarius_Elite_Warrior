@@ -12,6 +12,10 @@
 # futures_testnet (four names in sew.env). The runbook, Docs/OPERATIONS/headless_runbook.md
 # section 3, is the manual way this script replaces; BOT-200 is the design.
 #
+# The credential files live in /etc/sew/credentials, the directory the unit's one
+# `LoadCredential=sew:/etc/sew/credentials` line loads (scripts/render_service_files.py): a file
+# that does not exist is a key that is not set, never a reason the service cannot start.
+#
 # A key is read with `read -s` and travels only through shell builtins and pipes: it is never
 # an argument of any process (so not in `ps`), never in the environment of a child, never in a
 # log, never in your shell history. `key check` runs as the service user and reads it from its
@@ -392,7 +396,7 @@ cmd_remove() {
   local KEY="" SECRET=""
   if is_mainnet "$venue"; then
     write_mainnet_files "$venue" 0
-    printf '%s: the two credential files are now empty (a missing file would stop the unit: 243/CREDENTIALS)\n' "$venue"
+    printf '%s: the two credential files are now empty (an empty or a missing file both mean no key)\n' "$venue"
   else
     if [[ ! -f "$ENV_FILE" ]]; then
       printf '%s: %s does not exist; nothing to remove\n' "$venue" "$ENV_FILE"
@@ -406,7 +410,7 @@ cmd_remove() {
 
 describe_file() { # path; mode and owner, never content
   if [[ ! -e "$1" ]]; then
-    printf 'missing (the unit will not start: 243/CREDENTIALS)'
+    printf 'missing (not set; the host still starts)'
   else
     stat -c 'mode %a, owner %U:%G' -- "$1"
   fi
