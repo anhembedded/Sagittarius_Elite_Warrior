@@ -2,7 +2,7 @@
 
 It reads the history through `IAlertHistory` on the thread pool and hands the report to the
 view on the UI thread: the read opens the outbox's database, which must not block a paint.
-A `QTimer` asks again every `REFRESH_INTERVAL_MS`, and Refresh asks now; one read is in
+It reads when its mode is shown and then, a `QTimer` asks again every `REFRESH_INTERVAL_MS` while it is visible; Refresh asks now; one read is in
 flight at a time, so a slow disk is never queued behind itself. An answer for a read that
 is no longer the current one is dropped, and none arrives after `shutdown()`
 (`async-ui-action-rule.md`).
@@ -16,6 +16,9 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QTimer, Slot
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
 )
@@ -63,14 +66,24 @@ class AlertsPresenter(BasePresenter):
         view.refresh_button.clicked.connect(self.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(REFRESH_INTERVAL_MS)
-        self._timer.timeout.connect(self.refresh)
-        self._timer.start()
+        self._timer.timeout.connect(self._refresh_if_visible)
         logger.info(
-            "Alerts screen: reading up to %d alert(s), again every %d ms.",
+            "Alerts screen: reads up to %d alert(s) when shown, again every %d ms while shown.",
             HISTORY_LIMIT,
             REFRESH_INTERVAL_MS,
         )
+
+    def on_mode_shown(self, source: NavigationSource) -> None:
+        """The mode is built at start with every other, so nothing is read until the owner can
+        see it: it reads now and then every `REFRESH_INTERVAL_MS` while it stays shown."""
+        self._timer.start()
         self.refresh()
+
+    def _refresh_if_visible(self) -> None:
+        """Another mode may have taken the window since: nothing reads while the list cannot be
+        seen."""
+        if self._view.isVisible():
+            self.refresh()
 
     @Slot()
     @safe_ui_action

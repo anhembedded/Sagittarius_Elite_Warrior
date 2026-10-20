@@ -171,6 +171,7 @@ _EVERY_MODE = (
     "trade",
     "bots",
     "data_management",
+    "alerts",
     "backtest",
 )
 

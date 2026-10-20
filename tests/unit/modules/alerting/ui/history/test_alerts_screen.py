@@ -11,6 +11,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
     AlertHistoryReport,
 )
@@ -171,3 +174,31 @@ def test_an_answer_for_a_read_that_is_no_longer_current_is_dropped(
 
     assert screen.view.shown_count == 0
     assert screen.view.history_note == history_words.READING
+
+
+class _Counting(IAlertHistory):
+    def __init__(self) -> None:
+        self.reads = 0
+
+    def read(self, limit: int) -> AlertHistoryReport:
+        self.reads += 1
+        return AlertHistoryReport((), ())
+
+
+def test_nothing_is_read_until_the_mode_is_shown_and_nothing_while_it_is_hidden(
+    qapp, request, tmp_path: Path
+) -> None:
+    """Every mode is built at start; a hidden Alerts mode must not query the outbox."""
+    history = _Counting()
+    screen = build_screen(request, tmp_path, history=history)
+    assert history.reads == 0
+
+    screen.presenter.on_mode_shown(NavigationSource.USER_INTENT)
+    assert history.reads == 1
+    assert screen.presenter._timer.isActive()
+
+    screen.presenter._refresh_if_visible()
+    assert history.reads == 1, "a tick reads nothing while the view is not visible"
+    screen.view.show()
+    screen.presenter._refresh_if_visible()
+    assert history.reads == 2
