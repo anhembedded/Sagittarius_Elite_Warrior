@@ -1,6 +1,9 @@
 # EPIC-026F — The candidate report: one strategy, one symbol, one timeframe, judged against the fixed thresholds
 
-**Status:** 🔵 Backlog
+> **Cancelled 2026-10-20** (decision N4 in [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md), owner pre-approved the coordinator's recommendation): the EMA candidate report is not needed for Grid bots (O1 b).
+
+
+**Status:** ❌ Cancelled (2026-10-20)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §2 success criterion 2; the user
 (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"*.
 **Risk:** 🟡 — a report; the risk is a wrong verdict, which the gate then trusts.

@@ -1,6 +1,9 @@
 # EPIC-026D — The acceptance thresholds for a live candidate are fixed before any run
 
-**Status:** 🔵 Backlog
+> **Cancelled 2026-10-20** (decision N4 in [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md), owner pre-approved the coordinator's recommendation): the edge gate for an EMA candidate is replaced by O1 (b), a checklist the owner signs per Grid bot design.
+
+
+**Status:** ❌ Cancelled (2026-10-20)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §4 and the ADR's `❓ O1`; the user
 (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"* ("give a roadmap to be able to trade
 for real") — the roadmap's first gate is a number the user has to choose.
