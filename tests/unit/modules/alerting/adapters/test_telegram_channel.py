@@ -71,6 +71,8 @@ _EVERY_OUTCOME: tuple[WebhookResponse | WebhookUnreachableError, ...] = (
         403, {}, b'{"description": "Forbidden: bot was blocked by the user"}'
     ),
     WebhookResponse(502, {}, f"upstream {SEND_URL} down".encode()),
+    WebhookResponse(429, {}, b'{"parameters": {"retry_after": 1e14}}'),
+    WebhookResponse(429, {"Retry-After": "1e20"}),
     WebhookUnreachableError("timed out"),
 )
 
@@ -206,9 +208,10 @@ def test_no_part_of_the_token_reaches_a_log_an_error_a_reason_or_the_outbox(
     delivery = ChannelDelivery(outbox, catalog, clock, hub, policy)
     with caplog.at_level(logging.DEBUG):
         for number in range(len(_EVERY_OUTCOME)):
-            hub.publish(an_alert(reason=str(number)))
+            hub.publish(an_alert(reason=str(number), at=clock.now()))
             delivery.run_due("telegram")
-            clock.advance(timedelta(minutes=10))
+            # past the longest wait a 429 can pause the channel for (`MAX_RETRY_AFTER`)
+            clock.advance(timedelta(hours=25))
     rows = outbox.history(100)
     stored = b"".join(path.read_bytes() for path in tmp_path.glob("alerts.sqlite3*"))
     outbox.close()

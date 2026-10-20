@@ -201,7 +201,9 @@ The Options page (`EPIC-036D1`) added:
   Telegram refuse the whole message); a silent cell sets `disable_notification`. Its answers map to
   `DeliveryResult` in `telegram_answer.py` → `result_of`: a 429 waits the `parameters.retry_after`
   Telegram names, "chat not found", a blocked bot and a rejected token are permanent refusals whose
-  reason says what to do. `TelegramConfigMigration`
+  reason says what to do. A platform's wait, Discord's and Telegram's alike, is capped at the alert's
+  24 h life (`adapters/retry_wait.py` → `wait_of`, `MAX_RETRY_AFTER`), so a huge number cannot raise out of a
+  channel; the text is measured in UTF-16 units against Telegram's 4096. `TelegramConfigMigration`
   (`alerting/application/telegram_config_migration.py` → `TelegramConfigMigration.run`) runs at
   `AlertingModule.boot` before the channels are built: it writes each of the old config keys to the
   store and clears the key only after the store reads the value back equal. The words shared with

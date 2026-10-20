@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_answer impo
     DEFAULT_RETRY_AFTER,
     result_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.retry_wait import (
+    MAX_RETRY_AFTER,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     WebhookResponse,
 )
@@ -83,3 +86,27 @@ def test_a_server_error_is_a_failure_that_may_pass(status: int) -> None:
     result = result_of(WebhookResponse(status))
 
     assert not result.ok and not result.permanent and result.retry_after is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b'{"retry_after": 1e14}', b'{"retry_after": 3e11}'],
+    ids=["1e14", "3e11"],
+)
+def test_a_wait_no_alert_outlives_is_capped_not_an_overflow(body: bytes) -> None:
+    result = result_of(WebhookResponse(429, {}, body))
+
+    assert result.retry_after == MAX_RETRY_AFTER
+
+
+def test_a_huge_retry_after_header_is_capped_too() -> None:
+    assert (
+        result_of(WebhookResponse(429, {"Retry-After": "1e20"})).retry_after
+        == MAX_RETRY_AFTER
+    )
+
+
+def test_an_integer_too_large_for_a_float_is_capped_not_an_overflow() -> None:
+    body = b'{"retry_after": 1' + b"0" * 400 + b"}"
+
+    assert result_of(WebhookResponse(429, {}, body)).retry_after == MAX_RETRY_AFTER

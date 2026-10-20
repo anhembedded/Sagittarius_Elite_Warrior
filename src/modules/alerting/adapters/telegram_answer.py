@@ -21,9 +21,12 @@ body or Telegram's own description text.
 from __future__ import annotations
 
 import json
-import math
 from datetime import timedelta
 
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.retry_wait import (
+    seconds_of,
+    wait_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
     DeliveryResult,
 )
@@ -83,9 +86,8 @@ def _wait_named_in(response: WebhookResponse) -> timedelta:
     seconds = _seconds_in_body(response.body)
     if seconds is None:
         seconds = _seconds(response.headers.get("retry-after", ""))
-    if seconds is None:
-        return DEFAULT_RETRY_AFTER
-    return timedelta(milliseconds=max(1, math.ceil(seconds * 1000)))
+    wait = wait_of(seconds)
+    return DEFAULT_RETRY_AFTER if wait is None else wait
 
 
 def _seconds_in_body(body: bytes) -> float | None:
@@ -96,7 +98,7 @@ def _seconds_in_body(body: bytes) -> float | None:
     value = parameters.get("retry_after")
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
-    return _positive(float(value))
+    return seconds_of(value)
 
 
 def _object_in(body: bytes) -> dict[str, object] | None:
@@ -109,10 +111,6 @@ def _object_in(body: bytes) -> dict[str, object] | None:
 
 def _seconds(text: str) -> float | None:
     try:
-        return _positive(float(text))
+        return seconds_of(float(text))
     except ValueError:  # absent or an HTTP date: Telegram sends seconds
         return None
-
-
-def _positive(seconds: float) -> float | None:
-    return seconds if math.isfinite(seconds) and seconds > 0 else None

@@ -25,9 +25,15 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.alert_text import (
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
 
-#: Telegram refuses a message longer than this, counted after parsing; the escaped text is
-#: never longer than the count that matters, so it is the safe bound to keep under.
+#: Telegram refuses a message longer than this. The text is measured in UTF-16 code units, the
+#: unit Telegram counts entity offsets in and an upper bound on its count of characters either
+#: way: an emoji is two units, so a text of 4096 code points can be 8000 units.
 MAX_TEXT = 4096
+
+#: The head and the subject line are cut to this many characters before anything else, so a
+#: pathological bot name cannot leave no room for the detail (it is bounded upstream, but the
+#: message must not depend on that).
+_MAX_HEAD_PART = 300
 
 _ELLIPSIS = "\N{HORIZONTAL ELLIPSIS}"
 
@@ -47,10 +53,10 @@ def telegram_payload(
 def _text(alert: Alert) -> str:
     head = (
         f"<b>{SEVERITY_MARK[alert.severity]} {escape(alert.severity.name)} · "
-        f"{escape(alert.title)}</b>"
+        f"{escape(_clipped(alert.title))}</b>"
     )
     foot = f"{alert.at:%Y-%m-%d %H:%M:%S} UTC"
-    fixed = [head, escape(subject_line(alert.subject))]
+    fixed = [head, escape(_clipped(subject_line(alert.subject)))]
     return _fitting(fixed, alert.detail, foot)
 
 
@@ -66,8 +72,17 @@ def _fitting(fixed: list[str], detail: str, foot: str) -> str:
     low, high = 0, len(detail)
     while low < high:
         middle = (low + high + 1) // 2
-        if len(joined(middle)) <= MAX_TEXT:
+        if _units(joined(middle)) <= MAX_TEXT:
             low = middle
         else:
             high = middle - 1
     return joined(low)
+
+
+def _clipped(text: str) -> str:
+    return text if len(text) <= _MAX_HEAD_PART else text[:_MAX_HEAD_PART] + _ELLIPSIS
+
+
+def _units(text: str) -> int:
+    """UTF-16 code units: the largest count Telegram could mean by a message's length."""
+    return len(text.encode("utf-16-le")) // 2

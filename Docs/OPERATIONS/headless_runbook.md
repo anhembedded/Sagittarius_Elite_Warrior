@@ -202,11 +202,15 @@ A stop on purpose is also silence: the check fires after its grace, which is wha
 2. **Store both** the way §3 and §3b do, one file each, pasted without echo:
 
 ```bash
-for n in alerting_telegram_bot_token alerting_telegram_chat_id; do
-  [ -e /etc/sew/credentials/$n ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/$n
-  read -rsp "$n: " v; echo
-  printf '%s' "$v" | sudo tee /etc/sew/credentials/$n > /dev/null; unset v
-done
+[ -e /etc/sew/credentials/alerting_telegram_bot_token ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_bot_token
+read -rsp "Bot token: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_bot_token > /dev/null; unset v
+```
+
+```bash
+[ -e /etc/sew/credentials/alerting_telegram_chat_id ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_chat_id
+read -rsp "Chat id: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_chat_id > /dev/null; unset v
 ```
 
 Then `sudo systemctl restart sew-run`, and prove it: `alert test` sends one message to every configured channel and says, per channel, what happened. A refusal is turned into what to do: "chat not found" and a bot never started both read "Open the bot on Telegram and press Start, then check the chat id". Read the start line `journalctl -u sew-run | grep alert-channel`: `telegram is on` or `telegram is off: ...` (never the values).

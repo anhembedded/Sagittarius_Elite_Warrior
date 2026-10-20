@@ -83,3 +83,24 @@ def test_a_cut_never_leaves_half_an_entity() -> None:
     text = str(body["text"])
     assert len(text) <= MAX_TEXT
     assert "&l" not in text.replace("&lt;", "")
+
+
+def _utf16_units(text: str) -> int:
+    return len(text.encode("utf-16-le")) // 2
+
+
+def test_the_limit_is_kept_in_utf16_units_whichever_unit_telegram_counts() -> None:
+    """Telegram counts entity offsets in UTF-16 code units, where an emoji is two; a text kept
+    under 4096 code points can be 8000 units and refused (400), which loses the alert."""
+    body = telegram_payload("42", _halt(detail="\N{ROCKET}" * 5000), Loudness.LOUD)
+
+    assert _utf16_units(str(body["text"])) <= MAX_TEXT
+
+
+def test_a_head_too_long_to_fit_is_cut_as_a_last_resort() -> None:
+    body = telegram_payload("42", _halt(name="x" * 5000), Loudness.LOUD)
+
+    text = str(body["text"])
+    assert _utf16_units(text) <= MAX_TEXT
+    assert "x" * 100 in text
+    assert text.count("<b>") == text.count("</b>") == 1
