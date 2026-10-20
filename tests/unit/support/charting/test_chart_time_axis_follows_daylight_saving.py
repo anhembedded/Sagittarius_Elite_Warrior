@@ -7,6 +7,7 @@ the runner's `TZ`."""
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -123,8 +124,9 @@ def test_day_ticks_sit_on_the_local_midnight_of_the_zone(
 
 
 def test_a_view_at_the_edge_of_the_calendar_draws_instead_of_raising(
-    qapp: object,
+    qapp: object, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    monkeypatch.setattr(service, "_reported_fallbacks", set())
     layout = ChartPlotLayout()
     try:
         layout.set_display_timezone("America/New_York")
@@ -133,6 +135,9 @@ def test_a_view_at_the_edge_of_the_calendar_draws_instead_of_raising(
         layout.main_plot.setXRange(first, first + 3600, padding=0)
         layout.widget.grab()
 
-        _drawn_labels(layout)
+        with caplog.at_level(logging.WARNING, logger="App.DisplayTimezone"):
+            _drawn_labels(layout)
+
+        assert "falling back to UTC" in caplog.text
     finally:
         layout.widget.deleteLater()
