@@ -11,7 +11,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from pyqtgraph import (  # type: ignore[import-untyped]
-    DateAxisItem,
     PlotCurveItem,
     PlotWidget,
     mkPen,
@@ -24,7 +23,16 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     EMPTY_LEVEL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.zoned_date_axis import (
+    ZonedDateAxisItem,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
 
 KEY_TEXT = "Green: the bot's equity. Grey: buy and hold, from the same capital."
 
@@ -34,7 +42,9 @@ class EquityPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.plot = PlotWidget(axisItems={"bottom": DateAxisItem(orientation="bottom")})
+        self.plot = PlotWidget(
+            axisItems={"bottom": ZonedDateAxisItem(DEFAULT_TIMEZONE)}
+        )
         self.plot.setObjectName("plotBacktestEquity")
         self.plot.setBackground("default")
         self.plot.showGrid(x=True, y=True, alpha=0.15)
@@ -49,6 +59,17 @@ class EquityPane(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.plot, 1)
         layout.addWidget(key)
+
+    def follow_display_timezone(self, preference: DisplayTimezonePreference) -> None:
+        """@brief The time axis reads in the shared display time zone (`BUG-243`), now and after
+        each change, until this pane is destroyed."""
+        self._read_in_zone(preference.zone)
+        self.destroyed.connect(preference.subscribe(self._read_in_zone))
+
+    def _read_in_zone(self, zone: str) -> None:
+        axis = self.plot.getPlotItem().getAxis("bottom")
+        if isinstance(axis, ZonedDateAxisItem):
+            axis.set_display_zone(zone)
 
     def show_equity(self, points: Sequence[EquityPoint]) -> None:
         times = [point.time.timestamp() for point in points]
