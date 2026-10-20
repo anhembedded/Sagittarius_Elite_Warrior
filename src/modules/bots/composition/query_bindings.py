@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     ListBotsQuery,
     ListBotsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
+    RunBacktestQuery,
+    RunBacktestQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
     RunGridBacktestQueryHandler,
@@ -71,3 +75,4 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetPlanRiskFactsQuery, GetPlanRiskFactsQueryHandler)
     container.bind(GetVenueConnectionQuery, GetVenueConnectionQueryHandler)
     container.bind(RunGridBacktestQuery, RunGridBacktestQueryHandler)
+    container.bind(RunBacktestQuery, RunBacktestQueryHandler)

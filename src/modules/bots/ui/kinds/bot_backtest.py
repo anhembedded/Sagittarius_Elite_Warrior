@@ -4,10 +4,13 @@ The seam: the screen asks `kind_panels.backtest_for(kind_id)` and gets a
 `BotBacktest` or nothing, then shows its page in the detail panel's Backtest
 tab and tells it what is selected. The screen never names a kind.
 
-Recipes (each one entry in `kind_panels`, nothing in the screen):
-· a DCA backtest — its own simulator behind its own `BotBacktest`;
-· a Signal bot's backtest — the strategy engine's replay behind one;
-· a kind with no backtest — no entry; the tab stays hidden.
+This page-per-kind seam is being replaced (`EPIC-040D` built the kind-neutral workbench, `EPIC-040F`
+retires this page for the Grid): a new kind no longer writes a page. The recipes are now:
+· a kind's backtest — its `IKindBacktester`, returned by `IBotKind.backtester()`, answering a
+  `BacktestOutcome` (`contracts/i_kind_backtester.py`); the workbench draws it;
+· a kind's parameter editor — one `BotKindPanel` entry in `kind_panels`;
+· a kind with no backtest — `IBotKind.backtester()` answers `None`, and the workbench refuses it in
+  words.
 """
 
 from __future__ import annotations

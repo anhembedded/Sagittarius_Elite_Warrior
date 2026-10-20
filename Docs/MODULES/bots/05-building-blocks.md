@@ -70,8 +70,27 @@ whole as `detail`; its figures and notes are written once, in
 reads too until `EPIC-040F`. `GridKind` is given its adapter where it is built
 (`bots/composition/executor_bindings.py` → `_build_kind_catalog`). No file of the outcome, the port
 or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_kind_neutral.py`).
-Nothing draws the outcome yet: the Grid page still reads `GridBacktestResult`, until `EPIC-040D`
-and `EPIC-040F`.
+**The workbench that draws it (`EPIC-040D`).** `bots/ui/backtest_workbench/backtest_workbench.py` →
+`BacktestWorkbench`, built from `WorkbenchPorts`, is one page for every kind: the interval and
+period, Run, Cancel (Stop while a sync runs), Sync candles and Run without funding, the sandbox's
+editor, the replay chart (`BotChart` with the kind's `IBotKind.overlay` plus the outcome's fills,
+`outcome_view.py` → `result_overlay`), the equity against buy and hold (`equity_pane.py` →
+`EquityPane`), the figures read-out and the fills table. The replay chart reads in the application's display time zone and offers its drop-down (`BOT-205`; `WorkbenchPorts.display_timezone`), like the Live chart it will sit beside. It names no kind: it asks the catalog for the
+selected bot's kind and for a new instance of that kind's editor (`BotKindPanel`), and runs the
+kind's backtester through `bots/application/queries/run_backtest/` → `RunBacktestQuery`,
+`RunBacktestQueryHandler` (a kind that is unknown, or has no backtest, answers a `BacktestRefusal`).
+`backtest_workbench_presenter.py` → `BacktestWorkbenchPresenter` owns one fence for the page's
+background work (`ActionOwnershipTracker`); `backtest_run_coordinator.py` →
+`BacktestRunCoordinator` runs the query or the candle sync off the UI thread and answers with the
+action's id (the page is handed `WorkbenchPorts.run_query`, a function of the one query, never a
+dispatcher, so no command is in reach by type); `sandbox_editing.py` → `SandboxEditing` holds the `SandboxSession`, the editor and the
+verdicts; what the page says is one value, `workbench_state.py` → `WorkbenchState`, which the view
+applies (`controls_of`). The run's lifecycle is `backtest_run_fsm_matrix.py` → `RunActivity`,
+`RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The page is not yet shown
+in the Bots screen: `EPIC-040E` hosts it, and `EPIC-040F` retires the Grid's own page. Nothing in the
+package imports a kind (`test_backtest_outcome_is_kind_neutral.py`) or a command, an order or an
+account reader (`test_backtest_workbench_reaches_no_order_or_account.py`). The picture is
+[`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) in [`06-runtime.md`](06-runtime.md).
 
 The shell does not import a kind. Today's exceptions, files of the shell that still import Grid
 types, are listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt`, and the list
@@ -217,7 +236,7 @@ the constants in [`10-quality.md`](10-quality.md).
 
 | Change | Where | Task |
 | :--- | :--- | :--- |
-| The workbench draws any kind's outcome; the Grid page reads it instead of `GridBacktestResult` | `bots/ui/` | `EPIC-040D`, `EPIC-040F` |
+| The Grid page is retired and the Grid reads the outcome through the workbench instead of `GridBacktestResult` | `bots/ui/` | `EPIC-040F` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
