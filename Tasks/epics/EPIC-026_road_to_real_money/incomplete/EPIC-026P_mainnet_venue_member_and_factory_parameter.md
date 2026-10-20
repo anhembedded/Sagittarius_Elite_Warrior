@@ -10,8 +10,8 @@ the app can send an order for real money.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-003` ("This app does not talk to mainnet"), `SPEC-004` §2, `SPEC-005` §2,
 `SPEC-006`/`007`/`010` venue preconditions.
-**Depends on:** [`EPIC-026O`](EPIC-026O_reconciliation_script_and_soak_report.md) (gate 2),
-[`EPIC-026F`](EPIC-026F_live_candidate_report.md) (gate 1), the ADR **Accepted** by the user with
+**Depends on:** [`EPIC-026O`](../cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) (gate 2),
+[`EPIC-026F`](../cancelled/EPIC-026F_live_candidate_report.md) (gate 1), the ADR **Accepted** by the user with
 `O3` answered. Merge requires an independent review by a different session
 (`ONBOARDING.md` §7; the reviewer loads the full rubric).
 

@@ -1,6 +1,9 @@
 # EPIC-026O — A journal-versus-exchange reconciliation script, and the 14-day unattended Testnet soak that gate 2 reads
 
-**Status:** 🔵 Backlog
+> **Cancelled 2026-10-20** (decision N4 in [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md), owner pre-approved the coordinator's recommendation): the 14-day journal soak is replaced by the 24 h Grid soak (must-have 6) and the owner's runbook §11 checklist (must-have 1).
+
+
+**Status:** ❌ Cancelled (2026-10-20)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §2 success criterion 3; ADR D6; the user
 (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"*.
 **Risk:** 🟡 — a script and a report; the risk is a soak that "passes" because the script
