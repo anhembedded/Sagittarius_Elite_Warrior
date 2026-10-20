@@ -59,6 +59,7 @@
 | [EPIC-033S](completed/EPIC-033S_market_chart_history_range.md) | The Market mode's charts scroll back and load a chosen range | Elite | EPIC-033H | 🟡 | ✅ Done (2026-10-05) |
 | [EPIC-033T](completed/EPIC-033T_market_chart_back_to_live.md) | A Market chart showing a range goes back to its live window in one step | Elite | EPIC-033S | 🟢 | ✅ Done (2026-10-05) |
 | [EPIC-033U](completed/EPIC-033U_bots_tab_meaning_colours.md) | The Bots tab colours profit, loss and state from the one meaning table, readable on a light base, a dark base and in High Contrast (D8) | Elite | EPIC-033K, EPIC-033M | 🟢 | ✅ Done (2026-10-19) |
+| [EPIC-033V](completed/EPIC-033V_market_symbol_picker.md) | The Market mode lets the person choose a symbol (Ctrl+L, shared picker) and keep a Watchlist of their own | Elite | EPIC-033H, EPIC-033Q | 🟢 | ✅ Done (2026-10-20) |
 | [EPIC-033M](completed/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban (colour literals of data series moved to `BOT-161`, the last uncollectable objects to `BUG-152`) | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N, EPIC-033P, EPIC-033Q, EPIC-033R, EPIC-033S | 🟢 | ✅ Done (2026-10-06) |
 
 ### Engine track (Sagittarius_Engine, its own board; listed here as dependencies only, ONBOARDING §9)

@@ -100,6 +100,11 @@ class WeightMeter:
             self._requests.append(request)
             return sum(r.weight for r in self._requests if r.minute == minute)
 
+    def clock_position(self) -> tuple[float, int]:
+        """`(now, whole seconds left in the current minute)` by the meter's clock."""
+        now = self._clock()
+        return now, max(1, _SECONDS_PER_MINUTE - int(now % _SECONDS_PER_MINUTE))
+
     @property
     def requests(self) -> tuple[MeteredRequest, ...]:
         with self._lock:

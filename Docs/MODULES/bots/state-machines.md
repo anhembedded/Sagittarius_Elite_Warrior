@@ -85,8 +85,9 @@ the reconcile decides the next state, not the click.
 | `ERROR` | `app_restart` | `ERROR` (stays) |
 <!-- end generated: lifecycle -->
 
-`AWAITING_RECOVERY` (`EPIC-042`) is a halt a kind named transient: the ladder is off, the base is kept,
-the exits are watched, and the bot waits for its cause to stay clear for the dwell, then resumes
+`AWAITING_RECOVERY` (`EPIC-042`) is a halt a kind named transient: the ladder is off (not for the
+exchange's pause, `EPIC-042F`: the cancels would be refused inside it, so the ladder rests until the
+attempt cancels it), the base is kept, the exits are watched, and the bot waits for its cause to stay clear for the dwell, then resumes
 through the person's Resume path (`condition_cleared`). Three events lead into and out of it
 (`halt_transient`, `condition_cleared`, `budget_exhausted`); a person's `resume`, `stop`, `switch_off`,
 `halt`, `fault` and a restart are declared too. `PAUSED` and `RECOVERING` have no `halt_transient` row:

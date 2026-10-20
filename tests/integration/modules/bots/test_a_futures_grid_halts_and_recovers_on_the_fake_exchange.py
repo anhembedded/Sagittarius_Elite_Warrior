@@ -262,7 +262,8 @@ def test_a_start_is_refused_when_the_venue_will_not_make_its_settings_the_bots(
                 symbol=SYMBOL,
                 side=OrderSide.BUY,
                 order_type=OrderType.LIMIT,
-                quantity=D("0.001"),
+                # 100 USDT, the symbol's minimum notional (`EPIC-037E`: the fake refuses less).
+                quantity=D("0.002"),
                 price=D("50000"),
                 time_in_force=TimeInForce.GTC,
             )

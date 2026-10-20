@@ -16,6 +16,9 @@ from types import SimpleNamespace
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -31,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    BotStatusReport,
+    GetBotStatusReportQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
@@ -98,6 +105,18 @@ GRID_CONFIG = {
 }
 
 
+class NoBotsToReport(ICommandDispatcher):
+    """The dispatcher of a wiring test: the account-level loss cap's sample reads an empty host
+    (`EPIC-026L`) and anything else is a command this world must not send."""
+
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        if handler_class is GetBotStatusReportQuery:
+            return BotStatusReport()
+        raise AssertionError(
+            f"a wiring test sent {handler_class!r} through the dispatcher"
+        )
+
+
 def registered(
     state_dir: Path, instance: IInstanceAccess | None = None
 ) -> tuple[BotsModule, SimpleNamespace]:
@@ -109,6 +128,7 @@ def registered(
         instance if instance is not None else InstanceAccess.unguarded(),
     )
     container.singleton(IConfig, DictConfig({"bots.state_dir": str(state_dir)}))
+    container.singleton(ICommandDispatcher, NoBotsToReport())
     container.singleton(
         IVenueTradingPorts,
         FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),

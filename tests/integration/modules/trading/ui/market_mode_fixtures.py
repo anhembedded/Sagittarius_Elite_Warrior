@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
@@ -49,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import SymbolPreferences
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
     presenter_container,
@@ -99,6 +103,8 @@ def market_mode(history: FakeHistoricalKlines) -> Iterator[MarketMode]:
         scripts=IndicatorScriptRegistry(),
         script_params=lambda _key: None,
         account=FakeAccountSnapshot(),
+        catalog=FakeSymbolCatalog(),
+        preferences=SymbolPreferences(),
         symbols=("BTCUSDT",),
         interval="1m",
     )

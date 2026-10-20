@@ -134,7 +134,11 @@ def test_bot_show_text_prints_the_recovery_table_and_json_carries_the_same_rows(
 
     rules = json.loads(out)["data"]["bots"][0]["recovery"]["rules"]
     rows = [line for line in text.splitlines() if line.startswith("Recovery")]
-    assert [rule["code"] for rule in rules] == ["price_feed_stale", "user_stream_down"]
+    assert [rule["code"] for rule in rules] == [
+        "price_feed_stale",
+        "rate_limited",
+        "user_stream_down",
+    ]
     assert len(rows) == len(rules)
     assert all(rule["code"] in row for rule, row in zip(rules, rows, strict=True))
     assert "after 2 min clear, 0 of 3 used in 24 h" in rows[0]
@@ -162,6 +166,7 @@ def test_the_verbs_are_a_table_not_a_chain() -> None:
         "resume",
         "start",
         "edit",
+        "loss-cap-ack",
     ]
 
 

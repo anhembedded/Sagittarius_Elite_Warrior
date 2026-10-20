@@ -29,18 +29,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
     refusal_words,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 
 logger = logging.getLogger("App.Bots.OrderSession")
 
 
 def order_session_refusal_words(
-    session: ITradingSession, subject: str, opened_for: str | None = None
+    session: ITradingSession, subject: str, opened_for: SessionOpener = None
 ) -> str | None:
     """Open the venue's order session if it is closed; `None` when it is open,
     else the refusal in the session's own words. `subject` names who asked, for
     the log ("Bot ab12cd", "Venue spot_testnet"). `opened_for` is the bot the opening
     serves (`BOT-183`): the announcement names it, so the venue's other RECOVERING bots
-    keep waiting for their own resume; `None` for a caller that is no bot's."""
+    keep waiting for their own resume; `OpenedByPerson.PERSON` for a person's action that is no
+    bot's (`BOT-197`); `None` only when no opener is known, which still wakes them."""
     opened = session.ensure_ready(opened_for)
     if opened.ready:
         logger.info(

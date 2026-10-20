@@ -6,6 +6,8 @@ answered `connection_not_ready`, and the bot went `RUNNING -> HALTED on switch_o
 a person ends, with a position open and no exchange-side stop. The pause is not a switch-off: it is
 the exchange asking for a minute, and `GridRateLimitPause` already knows what to do with that (halt
 for exactly the pause, take nothing off the exchange because nothing can be sent, resume by itself).
+Since `EPIC-042F` the wait is the halt-recovery mechanism's (AWAITING_RECOVERY): Futures lists the
+exchange's pause as the one reason it recovers from, so the behaviour the owner saw is unchanged.
 
 The journey runs the composed app and the production executor against the Futures testnet fake,
 whose `FaultPlan` answers the connection check's first request with a 429 and a `Retry-After`.
@@ -49,7 +51,7 @@ def _answer_the_next_connection_check_with_a_pause(futures: FakeExchange) -> Non
     )
 
 
-def test_an_order_met_by_the_pause_halts_the_bot_for_the_pause_and_not_as_a_switch_off(
+def test_an_order_met_by_the_pause_holds_the_bot_for_the_pause_and_not_as_a_switch_off(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
@@ -60,7 +62,7 @@ def test_an_order_met_by_the_pause_halts_the_bot_for_the_pause_and_not_as_a_swit
         app.move_price(LONG.entry_price)  # an entry fills; its counter must be placed
 
         runtime = app.runtime(bot_id)
-        assert app.bot(bot_id).state is S.HALTED, (
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY, (
             runtime.reason,
             runtime.reason_detail,
         )

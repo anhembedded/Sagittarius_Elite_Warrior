@@ -1,6 +1,6 @@
 # EPIC-037 — The AI finds what already exists before it writes, and the machine stops it when it does not
 
-- **Status:** 🟡 In progress (1/6) — scaffolded 2026-10-09; 037A done 2026-10-12. Started on the owner's word ( "lưu vào 1 epic, để tuần sau làm tiếp việc này", save it in an epic and continue next week)
+- **Status:** 🟡 In progress (1/7) — scaffolded 2026-10-09; 037A done 2026-10-12. Started on the owner's word ( "lưu vào 1 epic, để tuần sau làm tiếp việc này", save it in an epic and continue next week)
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the owner's systems-thinking review of 2026-10-09: *"there are module features that could use a mechanism that already exists, but when the AI develops it does not notice, e.g. choosing the bot's symbol: another screen already had a picker mechanism, but the bot built a different one instead of reusing it"* (translated). The analysis, its data and its sources are recorded in [`ANALYSIS_2026-10-09_systems_thinking.md`](ANALYSIS_2026-10-09_systems_thinking.md).
 - **North star:** [`ANALYSIS_2026-10-09_systems_thinking.md`](ANALYSIS_2026-10-09_systems_thinking.md). The owner's page (https://claude.ai/artifact/SSMXy58rtcwCYrXn1kraCJ, private, English, with a systems-thinking primer) is a secondary reference only.
@@ -31,7 +31,8 @@
 | [EPIC-037F](incomplete/EPIC-037F_one_place_issues_task_ids.md) | One place issues BOT and BUG ids, open PR branches included | Elite | None | 🟢 | Planned |
 | [EPIC-037C](incomplete/EPIC-037C_only_one_guards.md) | "Only one" guards: a second copy of a canonical mechanism turns CI red | Elite | 037A | 🟡 | Planned |
 | [EPIC-037D](incomplete/EPIC-037D_sibling_parity_tests.md) | Sibling paths that do one job prove they give one result | Elite | None | 🟡 | Planned |
-| [EPIC-037E](incomplete/EPIC-037E_demanding_fake_exchange.md) | The fake exchange is demanding by default: faults, reorderings and invariants | Elite | 037D | 🔴 | Planned |
+| [EPIC-037E](incomplete/EPIC-037E_demanding_fake_exchange.md) | The fake exchange is demanding by default: it refuses what Binance refuses (slice 1) | Elite | None | 🔴 | 🟡 Slice 1 in review (2026-10-20) |
+| [EPIC-037G](incomplete/EPIC-037G_seeded_faults_and_invariants.md) | Seeded faults and invariants on the fake exchange (the rest of 037E) | Elite | 037D | 🔴 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -47,5 +48,6 @@
 - PRO-007's PnL and risk figures (a separate proposal).
 
 ## Notes (newest first)
+- **2026-10-20** — `037E` slice 1: the fake Futures exchange refuses filter violations, a wrong position side and a stale timestamp by default, and a 429/418 on request. The seeded faults and invariants are `037G`. Decisions: [`DECISION_2026-10-20_the_fake_refuses_by_default.md`](incomplete/DECISION_2026-10-20_the_fake_refuses_by_default.md).
 - **2026-10-12** — `037A` done: capability catalog (`.claude/rules/capabilities.md`, 31 rows) generated from `Capability:` docstring blocks, one completeness guard, Reuse section and review check A7. Research and design: [`RESEARCH_037A_capability_catalog.md`](RESEARCH_037A_capability_catalog.md). Always-loaded lines unchanged (285).
 - **2026-10-09** — Scaffolded from the systems analysis; documentation only, not started.

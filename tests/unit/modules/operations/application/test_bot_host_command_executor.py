@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    LOSS_CAP_SUBJECT,
     HostControlAction,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -16,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    AcknowledgeLossCapForHostCommand,
     EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
@@ -61,6 +63,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
         StartBotForHostCommand(BOT, "spot_mainnet"),
         EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
+        AcknowledgeLossCapForHostCommand(),
     ]
 
 
@@ -140,3 +143,32 @@ def test_only_an_edit_speaks_the_hosts_own_sentence_every_other_action_keeps_its
     outcome = executor.execute(command(action=HostControlAction.START))
 
     assert outcome.message == "the bot is STARTING (see `bot show`)"
+
+
+def test_an_accepted_acknowledgement_says_bots_may_start_again_and_the_day_keeps_counting() -> (
+    None
+):
+    executor = BotHostCommandExecutor(
+        _Dispatcher(BotCommandResult.done(LOSS_CAP_SUBJECT))
+    )
+
+    outcome = executor.execute(
+        command(action=HostControlAction.ACKNOWLEDGE_LOSS_CAP, bot_id=LOSS_CAP_SUBJECT)
+    )
+
+    assert outcome.accepted
+    assert "start again" in outcome.message and "00:00 UTC" in outcome.message
+
+
+def test_an_acknowledgement_of_a_cap_that_is_not_tripped_is_refused_in_the_caps_words() -> (
+    None
+):
+    refused = BotCommandResult.refused(
+        BotRefusal.LOSS_CAP_NOT_TRIPPED, "the loss cap is not tripped", LOSS_CAP_SUBJECT
+    )
+
+    outcome = BotHostCommandExecutor(_Dispatcher(refused)).execute(
+        command(action=HostControlAction.ACKNOWLEDGE_LOSS_CAP, bot_id=LOSS_CAP_SUBJECT)
+    )
+
+    assert not outcome.accepted and outcome.message == "the loss cap is not tripped"

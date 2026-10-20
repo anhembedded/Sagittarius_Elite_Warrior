@@ -63,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.price_band_check import (
     PriceBandCheck,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
     StopPriceCheck,
 )
@@ -142,7 +145,7 @@ class ExecuteOrderCommandHandler(
                 refusal = ExecuteOrderSafetyGate.SYMBOL_LEASED
             if refusal is not None:
                 return ExecuteOrderResult(refusal, preview, (), None)
-            opened = self._readiness.ensure_ready(command.venue)
+            opened = self._readiness.ensure_ready(command.venue, OpenedByPerson.PERSON)
             if not opened.ready:
                 return ExecuteOrderResult(opened.block_reason, None, (), None)
 

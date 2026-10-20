@@ -1,0 +1,465 @@
+#!/usr/bin/env bash
+# sew-key - add, remove and list the Binance keys of the sew-run service. Run it as root.
+#
+#   sew-key add [venue]      type a key and a secret (no echo), have the app check them, confirm
+#                            the venue by typing its name, then write them
+#   sew-key remove <venue>   empty a mainnet venue's two credential files, or delete a testnet
+#                            venue's two lines from sew.env
+#   sew-key list             per venue: whether a key is present, and its file mode and owner;
+#                            never a value, a length, a prefix or a hash
+#
+# Venues: spot_mainnet futures_mainnet (systemd credential files) and spot_testnet
+# futures_testnet (four names in sew.env). The runbook, Docs/OPERATIONS/headless_runbook.md
+# section 3, is the manual way this script replaces; BOT-200 is the design.
+#
+# The credential files live in /etc/sew/credentials, the directory the unit's one
+# `LoadCredential=sew:/etc/sew/credentials` line loads (scripts/render_service_files.py): a file
+# that does not exist is a key that is not set, never a reason the service cannot start.
+#
+# A key is read with `read -s` and travels only through shell builtins and pipes: it is never
+# an argument of any process (so not in `ps`), never in the environment of a child, never in a
+# log, never in your shell history. `key check` runs as the service user and reads it from its
+# standard input. Files are written under umask 077 as a temporary file beside the target and
+# renamed over it, so a failure leaves the old key in place. The script never restarts the
+# service.
+#
+# Not covered: an `EnvironmentFile=` that a unit drop-in adds is not followed when looking for an
+# environment variable that would shadow a key. And if sudoers enables `log_input`, sudo's own
+# I/O log would record the key on its way to `key check`; leave it off for this command (runbook).
+#
+# Environment overrides, for tests (refused when really root): SEW_KEY_CREDENTIALS_DIR, SEW_KEY_ENV_FILE, SEW_KEY_UNIT_DIR,
+# SEW_KEY_CHECK_COMMAND (an executable that stands in for `key check`), SEW_KEY_PYTHON,
+# SEW_KEY_MAIN, SEW_KEY_PYTHONPATH, SEW_KEY_DATA_ROOT, SEW_KEY_USER, SEW_KEY_EUID,
+# SEW_KEY_NO_CHOWN (skip chown, for a test that is not root).
+
+set -euo pipefail
+umask 077
+
+# The overrides below exist for tests. A root process that carries any of them (through
+# `sudo -E`, an env_keep grant or root's own shell) would let the environment choose the
+# program that receives the plaintext key, so a really-root run refuses them all.
+REAL_UID=$(id -u)
+if [[ "$REAL_UID" == "0" && -n "$(compgen -e SEW_KEY_)" ]]; then
+  printf 'sew-key: refusing to run as root with SEW_KEY_* set in the environment (%s)\n' \
+    "$(compgen -e SEW_KEY_ | tr '\n' ' ')" >&2
+  exit 2
+fi
+readonly REAL_UID
+
+readonly CREDENTIALS_DIR="${SEW_KEY_CREDENTIALS_DIR:-/etc/sew/credentials}"
+readonly ENV_FILE="${SEW_KEY_ENV_FILE:-/etc/sew/sew.env}"
+readonly UNIT_DIR="${SEW_KEY_UNIT_DIR:-/etc/systemd/system}"
+readonly SERVICE_USER="${SEW_KEY_USER:-sew}"
+readonly APP_PYTHON="${SEW_KEY_PYTHON:-/opt/sew/venv/bin/python}"
+readonly APP_MAIN="${SEW_KEY_MAIN:-/opt/sew/Sagittarius_Elite_Warrior/src/main.py}"
+readonly APP_PYTHONPATH="${SEW_KEY_PYTHONPATH:-/opt/sew}"
+readonly APP_DATA_ROOT="${SEW_KEY_DATA_ROOT:-/var/lib/sew}"
+readonly CHECK_COMMAND="${SEW_KEY_CHECK_COMMAND:-}"
+readonly EFFECTIVE_UID="${SEW_KEY_EUID:-$REAL_UID}"
+readonly NO_CHOWN="${SEW_KEY_NO_CHOWN:-}"
+readonly VENUES=(spot_mainnet futures_mainnet spot_testnet futures_testnet)
+
+TEMP_FILES=()
+cleanup() {
+  local file
+  for file in "${TEMP_FILES[@]+"${TEMP_FILES[@]}"}"; do
+    rm -f -- "$file"
+  done
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# A designed refusal exits 2 (exit_codes.md); `fail` is a real failure, exit 1.
+die() {
+  printf 'sew-key: %s\n' "$*" >&2
+  exit 2
+}
+
+fail() {
+  printf 'sew-key: %s\n' "$*" >&2
+  exit 1
+}
+
+usage() {
+  cat >&2 <<'USAGE'
+usage: sew-key add [venue]
+       sew-key remove <venue>
+       sew-key list
+venues: spot_mainnet futures_mainnet spot_testnet futures_testnet
+USAGE
+  exit 2
+}
+
+is_venue() {
+  local venue
+  for venue in "${VENUES[@]}"; do
+    [[ "$1" == "$venue" ]] && return 0
+  done
+  return 1
+}
+
+is_mainnet() {
+  [[ "$1" == *_mainnet ]]
+}
+
+# BINANCE_SPOT_TESTNET_API_KEY for spot_testnet; the same pair of names the app reads.
+env_name() { # venue, KEY|SECRET
+  local upper
+  upper=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
+  printf 'BINANCE_%s_API_%s' "$upper" "$2"
+}
+
+require_root_and_layout() {
+  [[ "$EFFECTIVE_UID" == "0" ]] || die "run this as root (sudo sew-key ...): it writes /etc/sew"
+  [[ -d "$CREDENTIALS_DIR" ]] || die "$CREDENTIALS_DIR does not exist; create it as the runbook's section 3 says"
+}
+
+# --- writing -------------------------------------------------------------------------------
+
+# Create an empty file of mode $2, owner $3, group $4 at $1 (the value is never an argument).
+make_empty_file() { # path, mode, owner, group
+  if [[ -n "$NO_CHOWN" ]]; then
+    install -m "$2" /dev/null "$1"
+  else
+    install -m "$2" -o "$3" -g "$4" /dev/null "$1"
+  fi
+}
+
+# A new temporary file beside $1, registered for removal; its path is left in NEW_TEMP (not
+# printed: a command substitution would register it in a subshell the trap never sees).
+NEW_TEMP=""
+new_temp_beside() { # target, mode, owner, group
+  NEW_TEMP=$(mktemp "$(dirname -- "$1")/.sew-key.XXXXXX")
+  TEMP_FILES+=("$NEW_TEMP")
+  make_empty_file "$NEW_TEMP" "$2" "$3" "$4"
+}
+
+# Rename over the target. -T: a target that is a directory is an error, never "move it inside".
+publish() { # temp, target
+  mv -fT -- "$1" "$2"
+}
+
+# --- the app's check -----------------------------------------------------------------------
+
+# Feed the key and the secret to `key check` on standard input; prints its JSON, returns its status.
+run_key_check() { # (reads KEY and SECRET from the caller's variables)
+  if [[ -n "$CHECK_COMMAND" ]]; then
+    printf '%s\n%s\n' "$KEY" "$SECRET" | "$CHECK_COMMAND" key check --json
+  else
+    printf '%s\n%s\n' "$KEY" "$SECRET" | sudo -u "$SERVICE_USER" env \
+      "PYTHONPATH=$APP_PYTHONPATH" "SEW_DATA_ROOT=$APP_DATA_ROOT" \
+      "$APP_PYTHON" "$APP_MAIN" key check --json
+  fi
+}
+
+# Read one field of the check's JSON. The JSON holds no secret (the app never prints one).
+# shellcheck disable=SC2016 # the Python source is single-quoted on purpose
+json_field() { # json, venues|message|environments
+  printf '%s' "$1" | "$APP_PYTHON" -I -c '
+import json, sys
+payload = json.load(sys.stdin)["data"]
+field = sys.argv[1]
+if field == "venues":
+    print("\n".join(payload["venues"]))
+elif field == "message":
+    print(payload["message"])
+else:
+    for item in payload["environments"]:
+        words = item["standing"] if not item["reason"] else item["standing"] + ": " + item["reason"]
+        print("  " + item["environment"] + " - " + words)
+' "$2"
+}
+
+# --- shadowing -----------------------------------------------------------------------------
+
+# The app reads an environment variable before any file, so a venue named in the unit or in
+# sew.env (for a mainnet venue) would hide the key this script writes.
+shadowed_by() { # venue; prints where, returns 0 when shadowed
+  local key_name secret_name file found=1
+  key_name=$(env_name "$1" KEY)
+  secret_name=$(env_name "$1" SECRET)
+  local candidates=("$UNIT_DIR/sew-run.service")
+  if [[ -d "$UNIT_DIR/sew-run.service.d" ]]; then
+    for file in "$UNIT_DIR"/sew-run.service.d/*.conf; do
+      if [[ -e "$file" ]]; then candidates+=("$file"); fi
+    done
+  fi
+  if is_mainnet "$1"; then candidates+=("$ENV_FILE"); fi
+  for file in "${candidates[@]}"; do
+    if [[ -f "$file" ]] && sets_a_variable "$file" "$key_name" "$secret_name"; then
+      printf '%s\n' "$file"
+      found=0
+    fi
+  done
+  return "$found"
+}
+
+# True when the file assigns a non-empty value to either name, on a line that is not a comment.
+sets_a_variable() { # file, name, name
+  awk -v a="$2" -v b="$3" -v q="'" '
+    /^[[:space:]]*[#;]/ { next }
+    $0 ~ "(^|[^A-Z_])(" a "|" b ")=[\"" q "]?[^[:space:]\"" q "]" { found = 1 }
+    END { exit found ? 0 : 1 }' "$1"
+}
+
+# --- sew.env -------------------------------------------------------------------------------
+
+# sew.env without the venue's two names; every other line stays as it was.
+env_file_without() { # venue
+  local key_name secret_name
+  key_name=$(env_name "$1" KEY)
+  secret_name=$(env_name "$1" SECRET)
+  [[ -f "$ENV_FILE" ]] || return 0
+  awk -v a="$key_name" -v b="$secret_name" '
+    {
+      line = $0
+      sub(/^[[:space:]]*(export[[:space:]]+)?/, "", line)
+      split(line, parts, "=")
+      if (parts[1] == a || parts[1] == b) next
+      print
+    }' "$ENV_FILE"
+}
+
+env_file_holds() { # name; true when sew.env sets it to something
+  [[ -f "$ENV_FILE" ]] || return 1
+  awk -v n="$1" -v q="'" '
+    {
+      line = $0
+      sub(/^[[:space:]]*(export[[:space:]]+)?/, "", line)
+      eq = index(line, "=")
+      value = substr(line, eq + 1)
+      gsub("^[\"" q "]+|[\"" q "]+$", "", value)
+      if (eq > 0 && substr(line, 1, eq - 1) == n && length(value) > 0) found = 1
+    }
+    END { exit found ? 0 : 1 }' "$ENV_FILE"
+}
+
+write_env_file() { # venue, with_key (1|0); the key and secret come from KEY and SECRET
+  new_temp_beside "$ENV_FILE" 0640 root "$SERVICE_USER"
+  local temp="$NEW_TEMP"
+  {
+    env_file_without "$1"
+    if [[ "$2" == "1" ]]; then
+      printf '%s=%s\n' "$(env_name "$1" KEY)" "$KEY"
+      printf '%s=%s\n' "$(env_name "$1" SECRET)" "$SECRET"
+    fi
+  } | tee "$temp" > /dev/null
+  publish "$temp" "$ENV_FILE"
+}
+
+# --- mainnet credential files --------------------------------------------------------------
+
+write_mainnet_files() { # venue, with_value (1|0); the key and secret come from KEY and SECRET
+  local key_file="$CREDENTIALS_DIR/${1}_api_key" secret_file="$CREDENTIALS_DIR/${1}_api_secret"
+  [[ ! -d "$key_file" && ! -d "$secret_file" ]] || die "a credential path is a directory; nothing was changed"
+  new_temp_beside "$key_file" 0600 root root
+  local key_temp="$NEW_TEMP"
+  new_temp_beside "$secret_file" 0600 root root
+  local secret_temp="$NEW_TEMP"
+  if [[ "$2" == "1" ]]; then
+    printf '%s' "$KEY" | tee "$key_temp" > /dev/null
+    printf '%s' "$SECRET" | tee "$secret_temp" > /dev/null
+  fi
+  # The old key is kept aside until the secret is in place, so a failure between the two
+  # renames cannot leave a new key beside an old secret. A signal between them is held off
+  # for the same reason; the traps come back after the pair.
+  local backup=""
+  if [[ -f "$key_file" ]]; then
+    new_temp_beside "$key_file" 0600 root root
+    backup="$NEW_TEMP"
+    cp -p -- "$key_file" "$backup"
+  fi
+  trap '' INT TERM
+  publish "$key_temp" "$key_file"
+  if ! publish "$secret_temp" "$secret_file"; then
+    if [[ -n "$backup" ]]; then publish "$backup" "$key_file"; else rm -f -- "$key_file"; fi
+    fail "could not write $secret_file; the old key was put back"
+  fi
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+}
+
+# --- prompts -------------------------------------------------------------------------------
+
+trim() { # value; prints it without leading or trailing whitespace
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  printf '%s' "${value%"${value##*[![:space:]]}"}"
+}
+
+confirm_by_typing() { # prompt, expected-venue ... ; prints the venue typed, returns 1 on a mismatch
+  local prompt="$1" typed expected
+  shift
+  read -rp "$prompt" typed || return 1
+  typed=$(trim "$typed")
+  for expected in "$@"; do
+    if [[ "$typed" == "$expected" ]]; then
+      printf '%s' "$typed"
+      return 0
+    fi
+  done
+  return 1
+}
+
+next_steps() {
+  cat <<'NEXT'
+
+Next:
+  sudo systemctl restart sew-run
+The running service keeps the old key until it restarts. After the restart every bot that was
+running comes back RECOVERING; resume each one yourself:
+  main.py bot resume <id> [--confirm-venue <venue>]
+(--confirm-venue names the mainnet venue; runbook sections 3 and 6.) This script did not restart anything.
+NEXT
+}
+
+# --- commands ------------------------------------------------------------------------------
+
+cmd_add() {
+  local wanted="${1:-}"
+  require_root_and_layout
+  if [[ -n "$wanted" ]]; then
+    is_venue "$wanted" || die "unknown venue '$wanted'; one of: ${VENUES[*]}"
+  fi
+
+  local KEY SECRET
+  read -rsp "API key: " KEY || die "no key was typed"
+  printf '\n' >&2
+  read -rsp "API secret: " SECRET || die "no secret was typed"
+  printf '\n' >&2
+  KEY=$(trim "$KEY")
+  SECRET=$(trim "$SECRET")
+  [[ -n "$KEY" && -n "$SECRET" ]] || die "the key or the secret is empty; nothing was written"
+  if [[ ! "$KEY" =~ ^[A-Za-z0-9]+$ || ! "$SECRET" =~ ^[A-Za-z0-9]+$ ]]; then
+    die "the key or the secret holds a character a Binance key never has (only letters and digits); nothing was written"
+  fi
+
+  local result status=0
+  result=$(run_key_check) || status=$?
+  if [[ "$status" -ne 0 ]]; then
+    printf 'sew-key: the key check refused this key (exit %s: 2 unusable input, 5 replace the key, 6 exchange did not answer); nothing was written.\n' "$status" >&2
+    if [[ -n "$result" ]] && message=$(json_field "$result" message 2>/dev/null); then
+      printf '%s\n' "$message" >&2
+      json_field "$result" environments >&2 2>/dev/null || true
+    fi
+    exit "$status"
+  fi
+
+  local venues=() line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && venues+=("$line")
+  done < <(json_field "$result" venues)
+  [[ "${#venues[@]}" -gt 0 ]] || die "the key check named no venue; nothing was written"
+  for line in "${venues[@]}"; do
+    is_venue "$line" || die "the key check named an unknown venue; nothing was written"
+  done
+
+  local target prompt
+  if [[ -n "$wanted" ]]; then
+    local fits=0
+    for line in "${venues[@]}"; do
+      [[ "$line" == "$wanted" ]] && fits=1
+    done
+    [[ "$fits" -eq 1 ]] || die "this key is for: ${venues[*]} - not $wanted; nothing was written"
+    venues=("$wanted")
+  fi
+  printf 'This key is for: %s\n' "${venues[*]}" >&2
+  if is_mainnet "${venues[0]}"; then
+    printf 'It is a MAINNET key: bots on it trade real money.\n' >&2
+  fi
+  prompt="Type the venue to store it for (${venues[*]}): "
+  target=$(confirm_by_typing "$prompt" "${venues[@]}") || die "the venue typed does not match; nothing was written"
+
+  local where
+  if where=$(shadowed_by "$target"); then
+    die "$target would be hidden by an environment variable the app reads first, set in: $where. Remove that setting, then run sew-key add again; nothing was written"
+  fi
+
+  if is_mainnet "$target"; then
+    write_mainnet_files "$target" 1
+    printf '%s: key and secret written to %s (mode 0600, root)\n' "$target" "$CREDENTIALS_DIR"
+  else
+    write_env_file "$target" 1
+    printf '%s: key and secret written to %s (mode 0640, root:%s)\n' "$target" "$ENV_FILE" "$SERVICE_USER"
+  fi
+  next_steps
+}
+
+cmd_remove() {
+  local venue="${1:-}"
+  [[ -n "$venue" ]] || usage
+  is_venue "$venue" || die "unknown venue '$venue'; one of: ${VENUES[*]}"
+  require_root_and_layout
+  confirm_by_typing "Type the venue to remove its key (${venue}): " "$venue" > /dev/null \
+    || die "the venue typed does not match; nothing was changed"
+  local KEY="" SECRET=""
+  if is_mainnet "$venue"; then
+    write_mainnet_files "$venue" 0
+    printf '%s: the two credential files are now empty (an empty or a missing file both mean no key)\n' "$venue"
+  else
+    if [[ ! -f "$ENV_FILE" ]]; then
+      printf '%s: %s does not exist; nothing to remove\n' "$venue" "$ENV_FILE"
+      return 0
+    fi
+    write_env_file "$venue" 0
+    printf '%s: its two lines are gone from %s\n' "$venue" "$ENV_FILE"
+  fi
+  next_steps
+}
+
+describe_file() { # path; mode and owner, never content
+  if [[ ! -e "$1" ]]; then
+    printf 'missing (not set; the host still starts)'
+  else
+    stat -c 'mode %a, owner %U:%G' -- "$1"
+  fi
+}
+
+cmd_list() {
+  require_root_and_layout
+  local venue key_file secret_file shadow
+  for venue in "${VENUES[@]}"; do
+    if is_mainnet "$venue"; then
+      key_file="$CREDENTIALS_DIR/${venue}_api_key"
+      secret_file="$CREDENTIALS_DIR/${venue}_api_secret"
+      if [[ -s "$key_file" && -s "$secret_file" ]]; then
+        printf '%-16s key present\n' "$venue"
+      elif [[ -s "$key_file" || -s "$secret_file" ]]; then
+        printf '%-16s INCOMPLETE: only one of the two files holds a value\n' "$venue"
+      else
+        printf '%-16s no key\n' "$venue"
+      fi
+      printf '  %s: %s\n' "${venue}_api_key" "$(describe_file "$key_file")"
+      printf '  %s: %s\n' "${venue}_api_secret" "$(describe_file "$secret_file")"
+    else
+      if env_file_holds "$(env_name "$venue" KEY)" && env_file_holds "$(env_name "$venue" SECRET)"; then
+        printf '%-16s key present (in %s)\n' "$venue" "$ENV_FILE"
+      elif env_file_holds "$(env_name "$venue" KEY)" || env_file_holds "$(env_name "$venue" SECRET)"; then
+        printf '%-16s INCOMPLETE: only one of the two names holds a value (in %s)\n' "$venue" "$ENV_FILE"
+      else
+        printf '%-16s no key\n' "$venue"
+      fi
+    fi
+    if shadow=$(shadowed_by "$venue"); then
+      printf '  WARNING: an environment variable for this venue is set in %s; the app reads it before any file\n' "$shadow"
+    fi
+  done
+  if [[ -e "$ENV_FILE" ]]; then
+    printf '%s: %s\n' "$ENV_FILE" "$(describe_file "$ENV_FILE")"
+  fi
+}
+
+main() {
+  local command="${1:-}"
+  [[ -n "$command" ]] || usage
+  shift
+  case "$command" in
+    add) [[ $# -le 1 ]] || usage; cmd_add "$@" ;;
+    remove) [[ $# -eq 1 ]] || usage; cmd_remove "$@" ;;
+    list) [[ $# -eq 0 ]] || usage; cmd_list ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"

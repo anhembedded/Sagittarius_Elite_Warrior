@@ -172,8 +172,8 @@ def _retries(values: tuple[object, ...]) -> str:
 
 
 def _rate_limit(values: tuple[object, ...]) -> str:
-    margin, longest, resumes = values
-    return f"{seconds(margin)}; {seconds(longest)}; {resumes}"
+    margin, longest = values
+    return f"{seconds(margin)}; {seconds(longest)}"
 
 
 def _recheck(values: tuple[object, ...]) -> str:
@@ -234,6 +234,24 @@ TIMING: tuple[TimingRow, ...] = (
         _each,
     ),
     TimingRow(
+        "Account-level loss cap: the bots are sampled every; it trips when it cannot judge for; "
+        "the price a bot saves to its file is at most this old",
+        (
+            Constant(
+                f"{_BOTS}/application/services/loss_cap/account_loss_cap.py",
+                "SAMPLE_EVERY_SECONDS",
+            ),
+            Constant(
+                f"{_BOTS}/domain/loss_cap/loss_cap_policy.py", "UNJUDGED_TRIP_AFTER"
+            ),
+            Constant(
+                f"{_BOTS}/application/kinds/grid/watch/grid_price_reaction.py",
+                "MARK_PRICE_SAVE_SECONDS",
+            ),
+        ),
+        _each,
+    ),
+    TimingRow(
         "Order pacer default caps: open orders, spacing, orders per minute",
         (
             Constant(
@@ -285,14 +303,11 @@ TIMING: tuple[TimingRow, ...] = (
         _retries,
     ),
     TimingRow(
-        "Rate-limit pause: margin, longest wait, most automatic resumes",
+        "Rate-limit pause: margin after it ends before the attempt (the recovery rule's dwell), "
+        "longest pause a bot waits for",
         tuple(
             Constant(f"{_BOTS}/domain/grid/rate_limit_pause.py", name)
-            for name in (
-                "AUTO_RESUME_MARGIN",
-                "MAX_AUTO_RESUME_WAIT",
-                "MAX_AUTO_RESUMES",
-            )
+            for name in ("AUTO_RESUME_MARGIN", "MAX_AUTO_RESUME_WAIT")
         ),
         _rate_limit,
     ),

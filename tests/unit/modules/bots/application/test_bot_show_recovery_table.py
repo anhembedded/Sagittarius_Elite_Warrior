@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_KIND_ID,
     GRID_RECOVERY_LAYER,
     GridKind,
 )
@@ -38,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     PRICE_FEED_STALE,
+    RATE_LIMITED,
     USER_STREAM_DOWN,
     RecoveryLayer,
     RuleChange,
@@ -99,12 +101,17 @@ def test_a_spot_grid_shows_the_rows_the_director_resolves() -> None:
     assert [r.code for r in entry.recovery.rules] == [e.code for e in expected]
     assert {r.code for r in entry.recovery.rules} == {
         PRICE_FEED_STALE,
+        RATE_LIMITED,
         USER_STREAM_DOWN,
     }
-    first = entry.recovery.rules[0]
+    by_code = {r.code: r for r in entry.recovery.rules}
+    first = by_code[PRICE_FEED_STALE]
     assert (first.dwell_s, first.max_attempts, first.window_s) == (120, 3, 86400)
     assert first.stalled_after_s == 900
     assert first.decided_by == "common"
+    pause = by_code[RATE_LIMITED]
+    assert (pause.dwell_s, pause.max_attempts) == (2, 3)
+    assert pause.decided_by == GRID_KIND_ID
 
 
 def test_the_kinds_own_layer_reaches_the_report() -> None:
@@ -125,14 +132,26 @@ def test_the_kinds_own_layer_reaches_the_report() -> None:
 @pytest.mark.parametrize(
     "venue", [TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET]
 )
-def test_a_futures_grid_says_nothing_recovers_and_which_layer_said_so(
+def test_a_futures_grid_shows_only_the_exchanges_pause_and_the_layer_that_listed_it(
     venue: TradingVenue,
 ) -> None:
     entry = _shown(_dispatcher(venue))
 
     assert entry.recovery is not None
+    assert [(r.code, r.decided_by) for r in entry.recovery.rules] == [
+        (RATE_LIMITED, "futures")
+    ]
+    assert entry.recovery.none_decided_by == ""
+
+
+def test_a_bot_on_a_venue_that_trades_no_market_says_nothing_recovers_and_who_said_so() -> (
+    None
+):
+    entry = _shown(_dispatcher(TradingVenue.DISABLED))
+
+    assert entry.recovery is not None
     assert entry.recovery.rules == ()
-    assert entry.recovery.none_decided_by == "futures"
+    assert entry.recovery.none_decided_by == "unknown venue"
 
 
 def test_attempts_inside_the_window_are_counted_and_older_ones_are_not() -> None:

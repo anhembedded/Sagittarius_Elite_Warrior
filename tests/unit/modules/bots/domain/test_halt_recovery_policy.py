@@ -141,24 +141,42 @@ def test_a_layer_that_builds_an_invalid_rule_fails_when_the_policy_is_built(
         _merged(kind)
 
 
-def test_spot_keeps_the_common_set() -> None:
+def test_spot_keeps_the_common_set_and_the_grids_pause() -> None:
     spot = venue_profile_of(TradingVenue.SPOT_MAINNET)
     assert spot is not None
     policy = effective_policy(COMMON_LAYER, GRID_RECOVERY_LAYER, spot.recovery_layer)
-    assert [row.code for row in policy.rows] == [PRICE_FEED_STALE, USER_STREAM_DOWN]
+    assert [row.code for row in policy.rows] == [
+        PRICE_FEED_STALE,
+        RATE_LIMITED,
+        USER_STREAM_DOWN,
+    ]
+    pause = {row.code: row for row in policy.rows}[RATE_LIMITED]
+    assert pause.decided_by == GRID_KIND_ID
+    assert pause.rule.dwell == timedelta(seconds=2)
+    assert pause.rule.max_attempts == DEFAULT_RULE.max_attempts, (
+        "the one budget per bot"
+    )
 
 
 @pytest.mark.parametrize(
     "venue", [TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET]
 )
-def test_futures_recovers_nothing_whatever_a_kind_adds(venue: TradingVenue) -> None:
-    """ADR 042 D5: its halt closes the position and `EPIC-039L` governs it."""
+def test_futures_recovers_only_the_exchanges_pause_whatever_a_kind_adds(
+    venue: TradingVenue,
+) -> None:
+    """ADR 042 D5: its halt closes the position and `EPIC-039L` governs it, so it clears every
+    lower layer; the exchange's pause is the one reason it lists (`EPIC-042F`, `BUG-216`)."""
     futures = venue_profile_of(venue)
     assert futures is not None
-    greedy = RecoveryLayer(GRID_KIND_ID, changes={RATE_LIMITED: RuleChange()})
-    assert effective_policy(
-        COMMON_LAYER, greedy, futures.recovery_layer
-    ).recovers_nothing
+    greedy = RecoveryLayer(
+        GRID_KIND_ID,
+        changes={HaltCode("order_rejected"): RuleChange(), RATE_LIMITED: RuleChange()},
+    )
+    policy = effective_policy(COMMON_LAYER, greedy, futures.recovery_layer)
+    assert [row.code for row in policy.rows] == [RATE_LIMITED]
+    [pause] = policy.rows
+    assert pause.decided_by == "futures"
+    assert pause.rule.dwell == timedelta(seconds=2)
 
 
 def test_the_policy_answers_for_one_code_and_for_the_longest_window() -> None:

@@ -31,8 +31,9 @@ class FilledOrder:
     quantity: Decimal
     #: The net profit `book_cycle` booked for the cycle this fill closed; `None` when it closed none.
     cycle_profit: Decimal | None
-    #: The run's realized profit and closed cycles right after this fill.
-    realised_total: Decimal
+    #: The run's grid profit (completed cycles only, `GridRuntime.realised_profit`) and closed
+    #: cycles right after this fill.
+    grid_profit: Decimal
     completed_cycles: int
 
 
@@ -51,6 +52,6 @@ def filled_order(
         price=order.price,
         quantity=order.total_executed,
         cycle_profit=after.realised_profit - before.realised_profit if closed else None,
-        realised_total=after.realised_profit,
+        grid_profit=after.realised_profit,
         completed_cycles=after.completed_cycles,
     )

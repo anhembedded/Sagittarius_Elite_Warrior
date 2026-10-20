@@ -65,12 +65,36 @@ The walking skeleton (`EPIC-036G`) added:
   line carries the bot's `reason_detail` (`bot_alert_source.py` → `_reason_line`), which is where
   "the automatic recoveries are used up" is said; the entry into a state of `CLEARED_ON_ENTRY`
   (`bot_alert_source.py` → `CLEARED_ON_ENTRY`) calls `condition_cleared` with the key
-  `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`).
+  `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`);
+  `on_account_loss_cap_tripped` (`EPIC-026L`) raises one CRITICAL `ACCOUNT_LOSS_CAP_TRIPPED` about the
+  whole app (`AlertSubject.app`, `BOT_EVENTS` group) with the figure, the loss, the count of bots being
+  stopped and how to acknowledge; it has no recovery message, because the owner's acknowledgement ends it
+  and a second trip is a new alert.
+- **`LiquidationAlertSource`** (`alerting/application/sources/liquidation_alert_source.py` →
+  `LiquidationAlertSource`; `EPIC-036B1`), the early warning of a Futures bot: `on_risk_changed` raises
+  one `LIQUIDATION_RISK` WARNING when the guard's level becomes `WARN`, with the mark price, the
+  exchange's liquidation price and the distance, and ends it on `SAFE`; `on_bot_changed` ends it when
+  the bot reaches `STOPPED` or is removed (with "Recovered"), and forgets it quietly in any state the
+  guard does not judge, where the guard resets to `SAFE` without an event. `CRITICAL` and `UNKNOWN` raise nothing here: the bot halts
+  and the halt is the alert. The distances are the bot's (`FuturesGridThresholds`); this source holds
+  none.
+- **`StreamAlertSource`** (`alerting/application/sources/stream_alert_source.py` →
+  `StreamAlertSource`; `EPIC-036B1`), the user-data stream: `on_user_stream_health` raises one
+  `USER_STREAM_DOWN` for the venue (`AlertSubject.venue_wide`) when a `CONNECTING` or `RECONNECTING`
+  event says the outage is older than the grace, and ends it on `CONNECTED`; `STOPPED` is not an
+  outage. One alert for the venue, not one per bot halted by the same cause.
+- **`WarningLatch`** (`alerting/application/warning_latch.py` → `WarningLatch`) and
+  **`EarlyWarningPolicy`** (`alerting/domain/alert_policies.py` → `EarlyWarningPolicy`): one open
+  warning per key and a cool-down between two raises, so a condition that flips between raised and
+  cleared (the hub forgets its dedup window on a clear) sends one pair per cool-down and not one per
+  flap. Both early sources hold one; the liquidation source's defers a clear that comes inside the
+  cool-down (`defer_clear`), so no "Recovered" is sent that a re-cross would make false.
 - **`BotFillAlertSource`** (`alerting/application/sources/bot_fill_alert_source.py` →
   `BotFillAlertSource`; BOT-189), the second source at the edge: `on_order_filled` words one INFO
   `ORDER_FILLED` alert per `BotOrderFilledEvent` (`bot_fill_alert_source.py` → `fill_line`: symbol,
   side, quantity, price, level, and on the fill that closes a cycle the cycle's net profit, the run's
-  total and the number of cycles). Its dedup key is the order with the bot (`Alert.raised`'s `reason`),
+  **grid profit** (completed cycles only, never the Total PnL; `BotOrderFilledEvent.grid_profit`) and the
+  number of cycles). Its dedup key is the order with the bot (`Alert.raised`'s `reason`),
   so a repeat of one fill is one message and two fills are two. The exits live in `BotAlertSource`: the
   entry into `STOPPING` with the reason `stop_loss`, `take_profit` or `range_exit` is one alert at once
   (`bot_alert_source.py` → `EXIT_ON_STOP`, `BotAlertSource._alert_on_exit`); `on_range_changed` tells a
@@ -128,15 +152,24 @@ The Options page (`EPIC-036D1`) added:
   `_OPTIONS_PAGE` (`alerting/module.py` → `_OPTIONS_PAGE`, `AlertingModule.contribute`), order 30
   after Trading and Market Data.
 
+- **The dead man's switch** (`EPIC-036E1`): `DeadMansSwitch` (`alerting/application/dead_mans_switch.py`
+  → `DeadMansSwitch`, `DeadMansSwitch.tick`) is not an `IAlertChannel`, because it carries liveness and
+  no alert. It reads the check-in URL by name from the channels' `ISecretStore`
+  (`DEAD_MANS_SWITCH_SECRET`), posts through `IWebhookTransport`, asks `IWorkerLiveness`
+  (`alerting/contracts/i_worker_liveness.py`) whether the worker makes progress, and reports a monitor
+  that stays down through `IDeliveryFollowUp.channel_failing`. `WorkerLiveness`
+  (`alerting/adapters/worker_liveness.py` → `WorkerLiveness`, `STALL_AFTER`) is the one stamp per
+  worker thread that `ThreadedDeliveryHost` touches after each pass.
+
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
-among them.
+and the switch's among them.
 
 ## Planned
 
 | Class | Where | Task |
 | :--- | :--- | :--- |
-| `StreamAlertSource`, `SystemAlertSource` (replaces `NotificationEventHandler`) | `alerting/application/sources/` | `EPIC-036B` |
+| `SystemAlertSource` (replaces `NotificationEventHandler`), the market-data stream's `PRICE_FEED_STALE`, the rate-limit pause, the revoked key and the storage pause as kinds of their own, the full (state, reason) table | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
-| `HeartbeatService`, the dead man's switch pinger | `alerting/application/`, `alerting/adapters/` | `EPIC-036E` |
+| `HeartbeatService` and the daily summary (the heartbeat reads `EPIC-035W`'s snapshot) | `alerting/application/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

@@ -178,6 +178,7 @@ class GridExecutor(IBotExecutor):
         self._gap = GridStreamGap(
             context, self._reconciler, self._placer.release_held, self._post
         )
+        self._pause = GridRateLimitPause(context)
         self._guard = GridTaskGuard(
             context,
             GridParking(
@@ -186,7 +187,7 @@ class GridExecutor(IBotExecutor):
                 self._stop,
                 exposure.protection or NoProtection(),
             ),
-            GridRateLimitPause(context, retries, self._post, self._resume, self._price),
+            self._pause,
             self._storage,
         )
         self._prices = GridPriceReaction(
@@ -196,7 +197,7 @@ class GridExecutor(IBotExecutor):
         self._halt_recovery = GridHaltRecovery(
             context,
             context.halts,
-            GridHaltProbe(context, context.streams),
+            GridHaltProbe(context, context.streams, self._pause),
             self._resume,
             self._stop,
             lambda: self._proposal is not None,

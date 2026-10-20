@@ -1,0 +1,326 @@
+#!/usr/bin/env bash
+# sew-install - set a fresh Ubuntu VPS up to run the bots as the sew-run service. Run it as root.
+#
+#   git clone https://github.com/anhembedded/Sagittarius_Elite_Warrior.git   # the directory name stays as is
+#   sudo Sagittarius_Elite_Warrior/deploy/linux/sew-install [options]
+#
+#   --dry-run          say what would be done; change nothing (still needs root, to read /etc/sew)
+#   --start            start the service at the end (default: enable it, print the start command)
+#   --ref REF          check this tag, commit or branch out in /opt/sew (a fresh install only)
+#   --repo-url URL     where /opt/sew/Sagittarius_Elite_Warrior is cloned from when this script runs
+#                      from another clone (default: the project's GitHub repository)
+#   --skip-preflight   skip the host checks (Ubuntu, systemd 251+, disk, clock); not the rest
+#
+# This is runbook section 2 (Docs/OPERATIONS/headless_runbook.md) as one command, plus the links
+# and the shell helpers. It stops before the first key: a key is added with `sudo sew-key add`.
+#
+# Safe to run again: whatever exists is left as it is. It never writes a credential file, sew.env
+# (except to create it empty) or user_config.json, never handles a key value, and never changes
+# the code of a host that is running (that is `sudo sew-update`).
+#
+# Exit codes (Docs/OPERATIONS/exit_codes.md): 0 done, 1 a step failed, 2 a refusal it designed
+# (not root, a failed host check, a bad option).
+
+set -euo pipefail
+
+TOOL=sew-install
+DRY_RUN=0
+SCRIPT_DIR=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
+# shellcheck source=sew-lib.sh
+source "$SCRIPT_DIR/sew-lib.sh"
+
+readonly DEFAULT_REPO_URL="https://github.com/anhembedded/Sagittarius_Elite_Warrior.git"
+REPO_URL="$DEFAULT_REPO_URL"
+REF=""
+START=0
+SKIP_PREFLIGHT=0
+PYTHON_BIN=""
+HOST_RUNNING=0
+STARTED=0
+
+usage() {
+  cat >&2 << 'USAGE'
+usage: sew-install [--dry-run] [--start] [--ref REF] [--repo-url URL] [--skip-preflight]
+USAGE
+  exit 2
+}
+
+# --- the host -------------------------------------------------------------------------------
+
+preflight_system() {
+  local problems=() os_id="" os_version="" systemd_version="" synced="" free
+  local os_release="$ROOT/etc/os-release"
+  if [[ -r "$os_release" ]]; then
+    os_id=$(sed -n 's/^ID=//p' "$os_release" | tr -d "\"'")
+    os_version=$(sed -n 's/^VERSION_ID=//p' "$os_release" | tr -d "\"'")
+  fi
+  if [[ "$os_id" != "ubuntu" ]]; then
+    problems+=("this is not Ubuntu (ID='${os_id:-unknown}'); the runbook's manual steps (section 2) are the way on another system")
+  fi
+  if [[ ! -d "$ROOT/run/systemd/system" ]]; then
+    problems+=("systemd is not the init system of this host (no /run/systemd/system); the unit needs it")
+  fi
+  systemd_version=$(systemctl --version 2> /dev/null | awk 'NR == 1 { print $2 }' || true)
+  if [[ ! "$systemd_version" =~ ^[0-9]+$ ]] || ((systemd_version < 251)); then
+    problems+=("systemd ${systemd_version:-unknown} is older than 251, which first let LoadCredential= take a directory (Ubuntu ${os_version:-?}; 24.04 ships 255, 22.04 ships 249)")
+  fi
+  free=$(free_mb "$SEW_HOME_DIR")
+  if ((free < MIN_FREE_MB)); then
+    problems+=("only $free MiB are free where /opt/sew goes; the venv and the checkout need ${MIN_FREE_MB}")
+  fi
+  free=$(free_mb "$DATA_ROOT")
+  if ((free < MIN_FREE_MB / 2)); then
+    problems+=("only $free MiB are free where /var/lib/sew goes; the data root needs $((MIN_FREE_MB / 2))")
+  fi
+  synced=$(timedatectl show -p NTPSynchronized --value 2> /dev/null || true)
+  if [[ "$synced" != "yes" ]]; then
+    problems+=("the clock is not synchronised (NTPSynchronized='${synced:-unknown}'); the exchange refuses a request stamped 1000 ms off: 'sudo timedatectl set-ntp true', wait for 'yes', run again")
+  fi
+  if ((${#problems[@]} > 0)); then
+    local problem
+    for problem in "${problems[@]}"; do
+      printf '%s: FAIL %s\n' "$TOOL" "$problem" >&2
+    done
+    die "${#problems[@]} host check(s) failed; nothing was changed (--skip-preflight skips them)"
+  fi
+  note "Ubuntu $os_version, systemd $systemd_version, ${free} MiB free, clock synchronised"
+}
+
+# python3.12 or the python3 that is a supported minor version (install-rule.md: floor 3.12).
+find_python() {
+  local candidate
+  for candidate in python3.12 python3.13 python3; do
+    if command -v "$candidate" > /dev/null 2>&1 \
+      && "$candidate" -c 'import sys; sys.exit(0 if (3, 12) <= sys.version_info[:2] < (3, 14) else 1)' 2> /dev/null; then
+      command -v "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+ensure_packages() {
+  local missing=()
+  command -v git > /dev/null 2>&1 || missing+=(git)
+  PYTHON_BIN=$(find_python) || die "no Python 3.12 or 3.13 on this host; Ubuntu 24.04 ships 3.12 ('sudo apt install python3.12'), then run again"
+  "$PYTHON_BIN" -c 'import ensurepip, venv' 2> /dev/null || missing+=("$(basename -- "$PYTHON_BIN")-venv")
+  if ((${#missing[@]} == 0)); then
+    note "git and $PYTHON_BIN with venv are present"
+    return 0
+  fi
+  act "apt-get update" apt-get update -qq
+  act "apt-get install ${missing[*]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+}
+
+# --- the layout -----------------------------------------------------------------------------
+
+ensure_account() {
+  if getent passwd sew > /dev/null 2>&1; then
+    note "the sew account exists"
+  else
+    act "create the sew account (no login, home /var/lib/sew)" \
+      useradd --system --home-dir /var/lib/sew --shell /usr/sbin/nologin --user-group sew
+  fi
+}
+
+ensure_layout() {
+  ensure_dir 0755 root root "$SEW_HOME_DIR"
+  ensure_dir 0700 sew sew "$DATA_ROOT"
+  ensure_dir 0750 root sew "$ETC_DIR"
+  # Only PID 1 reads the credentials (LoadCredential=), so root alone does: tighter than 0750.
+  ensure_dir 0700 root root "$CREDENTIALS_DIR"
+  if [[ -e "$ENV_FILE" ]]; then
+    note "$ENV_FILE exists; it is not touched"
+  else
+    owner_flags root sew
+    act "create $ENV_FILE, empty (0640 root:sew); testnet keys go in with 'sudo sew-key add'" \
+      install -m 0640 "${OWNER_FLAGS[@]}" /dev/null "$ENV_FILE"
+  fi
+}
+
+# The checkout is /opt/sew/Sagittarius_Elite_Warrior, root-owned. When this script runs from
+# another clone, that clone is only the way to get here.
+ensure_checkout() {
+  if [[ -d "$CHECKOUT/.git" ]]; then
+    note "the checkout exists: $CHECKOUT"
+    if [[ -n "$REF" ]]; then
+      ((HOST_RUNNING == 0)) || die "sew-run is running: --ref would change its code under it; use 'sudo sew-update $REF'"
+      checkout_ref "$REF"
+    fi
+    return 0
+  fi
+  [[ ! -e "$CHECKOUT" ]] || die "$CHECKOUT exists and is not a git checkout; move it aside and run again"
+  act "clone $REPO_URL into $CHECKOUT" git clone --quiet -- "$REPO_URL" "$CHECKOUT"
+  if [[ -n "$REF" ]]; then
+    checkout_ref "$REF"
+  fi
+}
+
+checkout_ref() { # ref
+  if [[ "$DRY_RUN" == 1 && ! -d "$CHECKOUT/.git" ]]; then
+    note "would check out $1"
+    return 0
+  fi
+  local sha
+  sha=$(resolve_ref "$1") || die "'$1' names no commit in $CHECKOUT (a tag, a commit or origin/<branch>)"
+  if [[ "$(git_checkout rev-parse HEAD)" == "$sha" ]]; then
+    note "the checkout is already at $1 ($sha)"
+    return 0
+  fi
+  act "check out $1 ($sha)" git -C "$CHECKOUT" checkout --quiet --detach "$sha"
+}
+
+require_release_files() {
+  if [[ "$DRY_RUN" == 1 && ! -d "$CHECKOUT/.git" ]]; then
+    return 0
+  fi
+  local missing
+  if missing=$(missing_release_file); then
+    die "$CHECKOUT has no deploy/linux/$missing: this release predates the install scripts; use --ref with a release that has them"
+  fi
+  [[ -f "$CHECKOUT/requirements-headless.txt" && -f "$CHECKOUT/requirements.lock" ]] \
+    || die "$CHECKOUT has no requirements-headless.txt or requirements.lock"
+}
+
+ensure_venv() {
+  if [[ -x "$VENV/bin/python" ]]; then
+    "$VENV/bin/python" -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)' \
+      || die "$VENV runs a Python older than 3.12; move it aside and run again to rebuild it"
+    note "the venv exists: $VENV"
+  else
+    act "create the venv $VENV with $PYTHON_BIN" "$PYTHON_BIN" -m venv "$VENV"
+  fi
+}
+
+# --- the end --------------------------------------------------------------------------------
+
+# The app starts as the sew account: `status` reads files and opens no connection; 10 (no host
+# is running) is the answer on a fresh install.
+smoke_check() {
+  if [[ "$DRY_RUN" == 1 ]]; then
+    note "would run 'main.py status' as sew (exit 0, 10 or 11 means the app starts)"
+    return 0
+  fi
+  local out status=0
+  out=$(as_service status 2>&1) || status=$?
+  case "$status" in
+    0 | 10 | 11) note "the app starts as sew ('main.py status' exited $status)" ;;
+    *)
+      printf '%s\n' "$out" >&2
+      fail "the app does not start as sew ('main.py status' exited $status); the output is above"
+      ;;
+  esac
+}
+
+enable_and_maybe_start() {
+  act "enable $SERVICE at boot" systemctl enable "$SERVICE"
+  if ((BACKUP_TIMER_NEW == 1)); then
+    act "enable the daily state backup (sew-backup.timer)" systemctl enable --now sew-backup.timer
+  fi
+  if ((START == 1)); then
+    act "start $SERVICE" systemctl start "$SERVICE"
+    STARTED=1
+  fi
+}
+
+print_next_steps() {
+  local m="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
+  printf '\n'
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf 'Dry run: nothing was changed.\n'
+  fi
+  local last_step="Start, and look: sudo systemctl start $SERVICE; sewlog   (section 5)"
+  if ((STARTED == 1)); then
+    last_step="Look: sewlog; sewstatus   (section 5)"
+    printf '%s was started (--start).\n' "$SERVICE"
+  else
+    printf '%s is enabled but NOT started: it has no key yet, so a start now would end in exit 5, a code the\nunit never restarts. Start it when the steps below are done: sudo systemctl start %s (or: sudo sew-install --start)\n' "$SERVICE" "$SERVICE"
+  fi
+  cat << NEXT
+
+Next, in this order (runbook: Docs/OPERATIONS/headless_runbook.md):
+  1. A key (section 3; a testnet key first, section 5):
+       sudo sew-key add                 # the key, the secret (no echo), the venue; 'sudo sew-key list' shows them
+  2. Alerts (sections 3 and 3b), each pasted without echo into its file under /etc/sew/credentials:
+       alerting_discord_webhook         # a Discord webhook URL: bot events reach your channel
+       alerting_deadman_ping_url        # a healthchecks.io check-in URL: you are told when the host goes silent
+  3. The loss cap (section 6): set "bots.account_loss_cap": "500 USDT" (your figure) in
+       /opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json
+  4. The pre-flight (section 4; on mainnet the start runs it):
+       $m preflight --venue futures_testnet
+  5. $last_step
+  6. After any restart the bots that were running come back RECOVERING; resume each one yourself:
+       M bot list ; M bot resume <id> [--confirm-venue <venue>]
+
+Open a new login shell (or: . /etc/profile.d/sew.sh) for M, sewlog, sewstatus, sewbots, sewproblems; 'sewhelp' lists them.
+Upgrade later with: sudo sew-update [ref]      Back up with: sudo sew-backup (a daily timer runs it too)
+NEXT
+}
+
+main() {
+  while (($# > 0)); do
+    case "$1" in
+      --dry-run) DRY_RUN=1 ;;
+      --start) START=1 ;;
+      --skip-preflight) SKIP_PREFLIGHT=1 ;;
+      --ref)
+        (($# >= 2)) || usage
+        REF="$2"
+        shift
+        ;;
+      --repo-url)
+        (($# >= 2)) || usage
+        REPO_URL="$2"
+        shift
+        ;;
+      *) usage ;;
+    esac
+    shift
+  done
+
+  sew_init
+  require_root
+
+  step "The host"
+  if ((SKIP_PREFLIGHT == 1)); then
+    warn "the host checks were skipped (--skip-preflight)"
+  else
+    preflight_system
+  fi
+  if service_live; then
+    HOST_RUNNING=1
+    note "$SERVICE is running: this run leaves its code alone"
+  fi
+
+  step "Packages"
+  ensure_packages
+
+  step "The sew account and its directories"
+  ensure_account
+  ensure_layout
+
+  step "The code"
+  ensure_checkout
+  require_release_files
+
+  step "The Python environment"
+  ensure_venv
+  if ((HOST_RUNNING == 1)); then
+    note "skipped: a running host keeps its code; 'sudo sew-update' changes it"
+  else
+    install_python_stack
+  fi
+
+  step "systemd, the shell helpers, the commands"
+  install_system_files
+  check_load_credential
+  enable_and_maybe_start
+
+  step "Does the app start"
+  smoke_check
+
+  print_next_steps
+}
+
+main "$@"
+exit $?

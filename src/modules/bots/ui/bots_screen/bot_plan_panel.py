@@ -24,6 +24,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    TOTAL_PNL_BASIS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     title_word_of,
     venue_profile_of,
@@ -81,7 +84,7 @@ FACT_SPECS = (
             ("grid_profit", "Profit from completed cycles"),
             ("cycles", "Completed cycles"),
             ("cycle_average", "Average per cycle (net of fees)"),
-            ("total_pnl", "Total PnL"),
+            ("total_pnl", f"Total PnL ({TOTAL_PNL_BASIS})"),
             ("unrealised", "of which unrealised"),
             ("hodl", "HODL benchmark"),
             ("inventory", "Held"),

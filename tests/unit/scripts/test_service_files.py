@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
     DISCORD_WEBHOOK_SECRET,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch import (
+    DEAD_MANS_SWITCH_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_signals import (
     NOTIFY_SOCKET_VARIABLE,
 )
@@ -51,7 +54,9 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
 )
 from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
     CREDENTIALS_DIRECTORY_ENV,
+    UNIT_CREDENTIAL_ID,
     SystemdCredentialStore,
+    unit_credential_name,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,
@@ -187,21 +192,64 @@ def test_the_unit_sets_no_log_file() -> None:
 # --- the unit's secrets and data root ----------------------------------------
 
 
-def test_the_unit_loads_every_mainnet_credential_under_the_name_the_store_reads(
+def _credential_directory() -> str:
+    """The one directory the unit loads, `ID:/path` split."""
+    (line,) = service()["LoadCredential"]
+    credential_id, directory = line.split(":", 1)
+    assert credential_id == UNIT_CREDENTIAL_ID
+    return directory
+
+
+def test_the_unit_loads_the_credentials_directory_and_no_file_a_missing_file_could_break() -> (
+    None
+):
+    """systemd stops a unit whose `LoadCredential=` names a file that does not exist
+    (`243/CREDENTIALS`); a directory loads whatever it holds, so a secret whose file was
+    never created is a secret that is not set (`systemd.exec(5)`, since systemd 251)."""
+    lines = service()["LoadCredential"]
+
+    assert lines == [f"{UNIT_CREDENTIAL_ID}:{UnitPaths().config_dir}/credentials"]
+    secret_names = (*mainnet_credential_names(), *alerting_credential_names())
+    for line in lines:
+        assert not any(line.endswith(f"/{name}") for name in secret_names), line
+        assert "ImportCredential" not in line
+
+
+def test_sew_key_writes_where_the_unit_reads() -> None:
+    """The root script's default credentials directory is the directory the unit loads."""
+    text = (_ROOT / "deploy" / "linux" / "sew-key").read_text(encoding="utf-8")
+
+    assert f":-{_credential_directory()}}}" in text
+
+
+def test_every_secret_the_app_reads_is_found_under_the_name_systemd_gives_its_file(
     tmp_path: Path,
 ) -> None:
-    loaded = dict(value.split(":", 1) for value in service()["LoadCredential"])
-    assert set(loaded) == set(mainnet_credential_names()) | set(
-        alerting_credential_names()
-    )
-    for name, source in loaded.items():
-        assert source.endswith(f"/credentials/{name}")
-        (tmp_path / name).write_text(f"{_PLACEHOLDER}\n", encoding="utf-8")
+    """The unit's directory form names a file `<ID>_<file>`; the store asks for the file."""
+    names = (*mainnet_credential_names(), *alerting_credential_names())
+    for name in names:
+        (tmp_path / unit_credential_name(name)).write_text(
+            f"{_PLACEHOLDER}\n", encoding="utf-8"
+        )
 
     store = SystemdCredentialStore({CREDENTIALS_DIRECTORY_ENV: str(tmp_path)})
 
-    for name in loaded:
+    for name in names:
         assert store.read(name) == _PLACEHOLDER
+
+
+def test_a_secret_whose_file_was_never_created_reads_as_not_set(
+    tmp_path: Path,
+) -> None:
+    """The directory holds the files that exist and nothing for the others."""
+    (tmp_path / unit_credential_name(DISCORD_WEBHOOK_SECRET)).write_text(
+        _PLACEHOLDER, encoding="utf-8"
+    )
+    store = SystemdCredentialStore({CREDENTIALS_DIRECTORY_ENV: str(tmp_path)})
+
+    assert store.read(DISCORD_WEBHOOK_SECRET) == _PLACEHOLDER
+    for name in (*mainnet_credential_names(), DEAD_MANS_SWITCH_SECRET):
+        assert store.read(name) is None
 
 
 def test_a_credential_file_left_empty_for_an_unused_venue_reads_as_no_key(
@@ -209,7 +257,7 @@ def test_a_credential_file_left_empty_for_an_unused_venue_reads_as_no_key(
 ) -> None:
     """The runbook tells the operator to create an empty file for a venue they do not use."""
     for name in mainnet_credential_names():
-        (tmp_path / name).write_bytes(b"")
+        (tmp_path / unit_credential_name(name)).write_bytes(b"")
     store = SystemdCredentialStore({CREDENTIALS_DIRECTORY_ENV: str(tmp_path)})
 
     assert [store.read(name) for name in mainnet_credential_names()] == [None] * 4
@@ -299,13 +347,3 @@ def test_systemd_accepts_the_unit(tmp_path: Path) -> None:
     assert not re.search(
         r"(?i)unknown (key|section)|invalid|ignoring", result.stderr
     ), result.stderr
-
-
-def test_the_unit_loads_the_discord_webhook_under_the_name_the_channel_reads() -> None:
-    """`EPIC-036G` (D3): the credential's name is the secret's name the channel asks for."""
-    loaded = dict(value.split(":", 1) for value in service()["LoadCredential"])
-
-    assert DISCORD_WEBHOOK_SECRET in loaded
-    assert loaded[DISCORD_WEBHOOK_SECRET].endswith(
-        f"/credentials/{DISCORD_WEBHOOK_SECRET}"
-    )

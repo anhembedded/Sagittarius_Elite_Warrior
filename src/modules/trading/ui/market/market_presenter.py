@@ -80,7 +80,9 @@ from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
 from .market_dependencies import MarketDependencies, market_dependencies_for
 from .market_view import IndicatorChoice, MarketView
+from .symbol_commands import symbol_commands_for
 from .watchlist_stream import WATCHLIST_INTERVAL, WatchlistStream
+from .watchlist_symbols import WatchlistSymbols
 
 logger = logging.getLogger("App.Trading.Market")
 
@@ -123,10 +125,24 @@ class MarketPresenter(CommandPresenter):
             self,
         )
         self._params.edited.connect(self._redraw_indicator)
-        view.watchlist.set_symbols(list(dependencies.symbols))
+        self.tracked = WatchlistSymbols(dependencies.symbols, dependencies.state, self)
+        view.watchlist.set_symbols(list(self.tracked.entries))
         self._watchlist = WatchlistStream(
-            view, dependencies, lambda: self.choice.current
+            view,
+            dependencies,
+            lambda: self.choice.current,
+            lambda: self.tracked.entries,
         )
+        self._symbols = symbol_commands_for(
+            view,
+            dependencies,
+            self._notifier,
+            lambda: self.choice.current,
+            self.tracked,
+            self._open_chart,
+            self,
+        )
+        self.tracked.changed.connect(self._watchlist.track)
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
         view.set_stream_text("Market data: not live")
@@ -155,6 +171,7 @@ class MarketPresenter(CommandPresenter):
             initially_enabled=bool(self._charts),
         )
         self.choice.bind_commands(binder)
+        self._symbols.bind_commands(binder)
         self._history.bind_commands(binder)
         self._params.bind_commands(binder)
 
@@ -164,8 +181,8 @@ class MarketPresenter(CommandPresenter):
         leaving restarts the one it released (`BOT-165`)."""
         if not self._opened:
             self._opened = True
-            if self._deps.symbols:
-                self._open_chart(self._deps.symbols[0])
+            if self.tracked.entries:
+                self._open_chart(self.tracked.entries[0])
         if self._live:
             if not self._watchlist.running:
                 self._watchlist.start()
@@ -206,7 +223,7 @@ class MarketPresenter(CommandPresenter):
         current = self.view.current_symbol
         for symbol in symbols:
             self._close_chart(symbol)
-        self.view.watchlist.set_symbols(list(self._deps.symbols))
+        self.view.watchlist.set_symbols(list(self.tracked.entries))
         if self._watchlist.running:
             self._watchlist.start()
         for symbol in symbols:

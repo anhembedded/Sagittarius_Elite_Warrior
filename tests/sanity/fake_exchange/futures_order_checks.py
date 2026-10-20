@@ -6,6 +6,11 @@ resting, is for more than the position holds (the error page: it "conflicts with
 open orders"). A position past what the leverage allows is `-2027` and one past the margin
 available is `-2019`. Not in the pages read, and chosen here: the order of the last two
 (`-2027` first), and that open orders reserve no margin.
+
+`EPIC-037E` — before those, the symbol's filters (`futures_order_filters.py`) and the position
+side: an order whose `positionSide` is not the account's mode (`BOTH` in One-way, `LONG`/`SHORT`
+in Hedge) is `-4061` "Order's position side does not match user's setting." (error-code page,
+read 2026-10-20).
 """
 
 from __future__ import annotations
@@ -14,9 +19,11 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any
 
+from .futures_account_settings import AccountSettings
 from .futures_account_state import FuturesAccountState
 from .futures_market import FuturesMarket, max_notional
 from .futures_matching import reduces, remaining
+from .futures_order_filters import OrderFilters
 from .futures_symbol_config import FuturesSymbolConfig
 
 _TYPE_MARKET = "MARKET"
@@ -41,13 +48,22 @@ class OrderChecks:
         account: FuturesAccountState,
         market: FuturesMarket,
         symbol_config: FuturesSymbolConfig,
+        settings: AccountSettings,
     ) -> None:
+        self._settings = settings
+        self._filters = OrderFilters(self._market_price)
         self._resting = resting
         self._account = account
         self._market = market
         self._symbol_config = symbol_config
 
     def refused(self, order: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
+        mismatch = self._position_side_refusal(order)
+        if mismatch is not None:
+            return mismatch
+        filtered = self._filters.refused(order)
+        if filtered is not None:
+            return filtered
         held = self._account.positions.amount(order["symbol"])
         if order["reduceOnly"]:
             if not reduces(held, order["side"]) or self._reduce_only_excess(
@@ -56,6 +72,18 @@ class OrderChecks:
                 return REDUCE_ONLY_REJECTED
             return None
         return self._margin_refusal(order, held)
+
+    def _market_price(self, symbol: str, side: str) -> Decimal:
+        bid, ask = self._market.best_bid_ask(symbol)
+        return ask if side == "BUY" else bid
+
+    def _position_side_refusal(
+        self, order: dict[str, Any]
+    ) -> tuple[int, dict[str, Any]] | None:
+        hedge = self._settings.dual_side
+        if (order["positionSide"] != "BOTH") == hedge:
+            return None
+        return _refusal(-4061, "Order's position side does not match user's setting.")
 
     def market_quantity(self, order: dict[str, Any]) -> Decimal:
         """The quantity a market order fills: as asked, or capped at the

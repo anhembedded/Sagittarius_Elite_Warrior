@@ -44,12 +44,14 @@ the measurements are in the task file's §5a.)
   `VenueOrderPacers` hands every bot of a venue the same `MonotonicOrderPacer`, which reserves a turn
   under a lock, so the venue's orders keep the budget's spacing whichever bot sends them. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
-  order halts `RATE_LIMITED` at that order and schedules its own resume; a neighbour that only reads
-  says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every halted bot resumes at
-  the same instant, the pause plus `AUTO_RESUME_MARGIN`.
+  order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
+  that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
+  bot of the venue attempts on the same beat of the price watch once the pause is over and the
+  `AUTO_RESUME_MARGIN` has passed (see "The exchange's pause" below).
 - **What caps it:** `other_active_bot` (one bot per venue and symbol), `venue_is_full` (at most
   `MAX_ACTIVE_BOTS_PER_VENUE`), `venue_recovering` (no Start while a bot of the venue waits to
-  recover, because a Start opens the order session and the session's opening reconciles it).
+  recover: its orders and budget are reconciled only by its own Resume, so nothing new starts beside that
+  unverified exposure; a Start's session opening resumes no other bot, `BOT-183`, `BOT-197`, `BOT-201`).
 
 ## Built: a fill
 
@@ -117,6 +119,45 @@ stop again when trading is enabled (`GridStopper.after_switch_on`). An order a b
 session is closed is refused, and the bot halts rather than faults (`.../bot_order_gateway.py` →
 `BotOrderGateway`).
 
+## Built: the account-level loss cap
+
+*What happens when the day's loss across the host's bots reaches the owner's figure?* (`EPIC-026L`,
+decision N3.) The parts are in [`05-building-blocks.md`](05-building-blocks.md).
+
+1. **Sample.** Every `SAMPLE_EVERY_SECONDS` the bots ticker calls `AccountLossCap.sample`
+   (`bots/application/services/loss_cap/account_loss_cap.py` → `AccountLossCap.sample`). The sampler
+   reads the status report and turns each bot into a `BotObservation`: its run's result
+   (`RunEarnings.total_pnl`, realised plus unrealised at the price the bot last saved, at most
+   `MARK_PRICE_SAVE_SECONDS` old) or *unknown*.
+2. **Add up.** `LossCapLedger.observe` keeps, per bot, the result when the ledger first saw the run
+   (its baseline) and the latest; a new run banks the old run's day; a deleted bot keeps what it
+   lost. The day is the sum, from 00:00 UTC; at midnight the ledger starts again.
+3. **Decide.** `loss_reached` (the loss is at or beyond the figure) or `unjudged_too_long` (a bot that
+   may hold risk has had no result for `UNJUDGED_TRIP_AFTER`, the bots could not be read, or a bot
+   file is refused). No figure set: nothing is judged.
+4. **Trip, in this order.** The trip is written to `loss_cap.json` first; then
+   `LossCapStopper.stop_all` dispatches `StopBotCommand` for every bot not at rest (the Bots tab's own
+   Stop; a position venue closes at market, the only form it accepts, any other keeps its base);
+   then `AccountLossCapTrippedEvent` is published and `alerting` sends the CRITICAL alert. A record that
+   cannot be written is logged at ERROR and the trip holds in memory: the stops and the alert still go.
+5. **Stay down.** `BotRunner.start` and `resume` refuse with `BotRefusal.LOSS_CAP_TRIPPED` while the
+   record holds a trip; every later sample stops a bot that got going by a path that does not ask the
+   runner (a halt recovery, for one) and asks again for a stop that was refused. A restart reads the
+   record and stays tripped; so does a day roll-over; so does an unset figure.
+6. **Acknowledge.** The owner runs `main.py bot loss-cap-ack`; the running host's command directory
+   carries it to `AcknowledgeLossCapForHostCommandHandler`, which asks `AccountLossCap.acknowledge`. It is
+   refused while today's loss is still at or above the figure (clearing the trip would only trip it again:
+   the owner raises `bots.account_loss_cap` and restarts, or waits for 00:00 UTC), and when the cap is not
+   tripped. Otherwise the trip clears and **the day's count goes on** from 00:00 UTC, so a further loss to
+   the figure trips it again; no bot is started: the owner starts each one.
+
+**What the figure is not.** It is the sum of the bots' own accounts at the prices they last saved,
+not the exchange's equity: it sees what a bot has recorded, within about
+`SAMPLE_EVERY_SECONDS + MARK_PRICE_SAVE_SECONDS` of the market, and between the trip and the last bot
+reaching `STOPPED` the market goes on. A Spot bot keeps its base, so its loss can still move after
+the trip; the alert says so. These limits are the price of a cap that depends on no bot's own logic
+and adds no close path.
+
 ## Built: restart
 
 [`diagrams/06-restart.puml`](diagrams/06-restart.puml) — *what happens to a running bot when the app
@@ -124,7 +165,9 @@ restarts?*
 
 `BotRestoreService` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) applies
 `app_restart` to every saved bot: `RUNNING` and `PAUSED` become `RECOVERING`, `STARTING` becomes
-`HALTED`, and nothing is placed. `BotBootRecovery` (`.../bot_boot_recovery.py` →
+`HALTED`, and nothing is placed. A tripped account-level loss cap is read back from its record and still holds every start and resume
+(`bots/composition/loss_cap_bindings.py` → `bind_loss_cap`); a record this build cannot read starts the
+cap tripped (`LossCapTripReason.RECORD_UNREADABLE`). `BotBootRecovery` (`.../bot_boot_recovery.py` →
 `BotBootRecovery.run`) has every `RECOVERING` bot report what the exchange holds, read only, and pays
 the cancels a cut-short start left owing. The full reconcile (`.../grid_reconciler.py` →
 `GridReconciler.run`) runs only once the venue's order session is open: until then nothing listens to
@@ -155,7 +198,7 @@ owner had paused returns to `PAUSED` with the reason `restored_paused` (`GridRec
 the state line shows until the next Resume clears it, so the second press is explained on screen and
 not only in the `[recovering-resume]` log line.
 
-The opening is announced as opened *for* the bot that asked (`BOT-183`, ADR 038 O2: a host never resumes a bot by itself). `order_session_refusal` passes the bot id to `ITradingSession.ensure_ready` (`src/modules/trading/contracts/i_trading_session.py` → `ITradingSession.ensure_ready`), which carries it on `TradingSwitchChangedEvent.opened_for` (`src/modules/trading/application/session/session_readiness.py` → `SessionReadiness.ensure_ready`). `BotEventRouter.on_switch` hands it to every bot of the venue, and `GridFacts._apply_switch` reconciles a `RECOVERING` bot only when `opened_for` names that bot or is `None`; any other `RECOVERING` bot logs `[recovering-waits]` and stays as it was. `None` is an opener that is no bot's (a manual order, a strategy arm), which still wakes the venue's `RECOVERING` bots (ADR open question O1). The headless `run --resume-recovering` no longer relies on the event: it sends each `RECOVERING` bot its own `ResumeBotCommand` (`.../resume_recovering_for_host/handler.py` → `ResumeRecoveringForHostCommandHandler`), so it resumes them also when an earlier Resume already opened the session, which publishes no event. A `STOPPING` bot and the cancel a cut-short start owes act on any opening, as before: each finishes what its owner already asked for.
+The opening is announced as opened *for* the bot that asked (`BOT-183`, ADR 038 O2: a host never resumes a bot by itself). `order_session_refusal` passes the bot id to `ITradingSession.ensure_ready` (`src/modules/trading/contracts/i_trading_session.py` → `ITradingSession.ensure_ready`), which carries it on `TradingSwitchChangedEvent.opened_for` (`src/modules/trading/application/session/session_readiness.py` → `SessionReadiness.ensure_ready`). `BotEventRouter.on_switch` hands it to every bot of the venue, and `GridFacts._apply_switch` reconciles a `RECOVERING` bot only when `opened_for` names that bot or is `None` (no opener known); any other `RECOVERING` bot logs `[recovering-waits]` and stays as it was. A person's action that belongs to no bot, a manual order (`ExecuteOrderCommandHandler`) or arming a strategy (`ArmStrategyCommandHandler`), passes the typed `OpenedByPerson.PERSON` (`src/modules/trading/contracts/session_opener.py` → `OpenedByPerson`, `SessionOpener`), which wakes no `RECOVERING` bot either (`BOT-197`, the owner's decision of 2026-10-20). The headless `run --resume-recovering` no longer relies on the event: it sends each `RECOVERING` bot its own `ResumeBotCommand` (`.../resume_recovering_for_host/handler.py` → `ResumeRecoveringForHostCommandHandler`), so it resumes them also when an earlier Resume already opened the session, which publishes no event. A `STOPPING` bot and the cancel a cut-short start owes act on any opening, as before: each finishes what its owner already asked for.
 
 A deliberate action that trades opens the order session in one place (`.../order_session_opening.py` →
 `order_session_refusal`, `order_session_refusal_words`), with exactly three callers: Start, a Resume
@@ -176,7 +219,7 @@ A running `run` host takes five more requests from a person's second shell (`EPI
 `src/modules/bots/application/use_cases/resume_bot_for_host/handler.py` → `ResumeBotForHostCommandHandler`), each dispatching the screen's own
 command, so the lifecycle table, the read-only rule and the real-money question apply unchanged. `bot stop` arrives as `StopBotForOperatorCommand` (`src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py` → `StopBotForOperatorCommandHandler`): after the lifecycle table allows the stop, a position venue is refused (`EXPOSURE_MUST_CLOSE`, in words that name `--close-position`) unless the operator typed the flag (`StopBotForOperatorCommand.close_position`, carried by the command file's optional `close_position` key, `BUG-224`); then it opens the venue's order session when it is closed (`order_session_refusal`, a mainnet venue only with the typed venue), then dispatches `StopBotForHostCommand` with `ExposureHandling.CLOSE_AT_MARKET` for the flag and `KEEP` without it, which the host handler passes unchanged to the screen's `StopBotCommand`. So a Futures bot can only be stopped from the command line with the explicit close, and a Spot bot keeps its base unless the flag sells it. The shutdown policy's `StopBotForHostCommand` still opens nothing and keeps (so it leaves a Futures bot, which refuses KEEP), and the screen's Stop is unchanged. The resume covers PAUSED and RECOVERING; a
 HALTED or AWAITING_RECOVERY bot is refused with words, because its resume proposes a ladder a person confirms.
-`bot start` is the very `StartBotForHostCommand` that `run --start-planned` dispatches (`src/modules/bots/application/use_cases/start_bot_for_host/handler.py` → `StartBotForHostCommandHandler.execute`), which dispatches the screen's `StartBotCommand`: so the readiness check refuses in words for the symbol's holder, a full venue and a venue with a RECOVERING bot (`other_active_bot.py` → `occupancy_of`). The handler adds two answers for both callers: a HALTED or AWAITING_RECOVERY bot is refused with the way back (`run --resume-halted`, the Bots tab) before the lifecycle table is asked, and the refusal that asks for the typed mainnet venue names the venue's RECOVERING bots, because the Start opens the order session and opening it reconciles them (as the stop's refusal says). Deleting a bot is not a request the host takes (the owner dropped `bot delete` from the command directory on 2026-10-17): it stays `bot apply --prune` on a stopped host. The command file's `action` word is the only new key value: an older host reads `start` as a malformed document.
+`bot start` is the very `StartBotForHostCommand` that `run --start-planned` dispatches (`src/modules/bots/application/use_cases/start_bot_for_host/handler.py` → `StartBotForHostCommandHandler.execute`), which dispatches the screen's `StartBotCommand`: so the readiness check refuses in words for the symbol's holder, a full venue and a venue with a RECOVERING bot (`other_active_bot.py` → `occupancy_of`). The handler adds two answers for both callers: a HALTED or AWAITING_RECOVERY bot is refused with the way back (`run --resume-halted`, the Bots tab) before the lifecycle table is asked, and the refusal that asks for the typed mainnet venue names the venue's RECOVERING bots, so the person sees that they wait and that the Start is refused while any does (a Start's session opening resumes none of them, `BOT-183`; the reason is above, `BOT-201`). Deleting a bot is not a request the host takes (the owner dropped `bot delete` from the command directory on 2026-10-17): it stays `bot apply --prune` on a stopped host. The command file's `action` word is the only new key value: an older host reads `start` as a malformed document.
 `bot edit` is `EditBotForHostCommand` (`src/modules/bots/application/use_cases/edit_bot_for_host/handler.py` → `EditBotForHostCommandHandler.execute`), the Bots tab's Save for one bot at rest reached through the command directory (`EPIC-038L`). Under `BotCommandLock`, the lock `StartBotCommandHandler` holds while it reads every bot and moves one to STARTING, it (1) asks the lifecycle table (`bot_lifecycle_fsm_matrix.py` → `permits_edit`: DRAFT and STOPPED only; every other state is refused in words that say to stop it first, or to wait when it is STOPPING), (2) refuses an empty set, a repeated key or more than `MAX_SETTINGS_PER_EDIT` settings (`src/core/contracts/parameter_setting.py` → `ParameterSetting`, `MAX_SETTINGS_PER_EDIT`), (3) merges the settings into the bot's parameters and asks the bot's kind whether the changed ones can be stored, without the exchange (`i_bot_kind.py` → `IBotKind.parameter_problem`, closed by default so a kind that declares nothing is edited by no command line; the Grid answers through `grid_parameter_check.py` → `grid_parameter_problem`, which builds a probe and asks `GridParams.from_config`, so `validate` and the edit share one set of rules and only the changed keys, with the other end of the range and the `direction`/`leverage` pair they are judged against, are blamed on the edit), (4) refuses a set that changes nothing, then (5) dispatches the screen's own `EditBotCommand` (`edit_bot/handler.py` → `EditBotCommandHandler.execute`: the bot lands on DRAFT; kind, venue and symbol are not editable) and answers each `key old -> new`. An edit places no order and asks no venue, so a mainnet bot needs no `--confirm-venue`; the money question stays at `bot start`, whose guard is untouched. A bot at rest has no executor and no worker, so there is no queue to run on: the write is the one the Save makes, serialized with a Start by the lock. The values to edit are read with `bot show <id> --params` (`GetBotStatusReportQueryHandler` fills `BotStatusEntry.parameters` for the one-bot read only; a plain read of the file, no host round trip). The command file gains the optional key `set` (`host_command_codec.py` → `parse_command`, `encode_command`) next to the action word `edit`; an older host reads the unknown key as a malformed document and does nothing. `state/bot_plan.json` (`AppliedPlan`) records a desired state per bot and no parameters, so an edit leaves it alone; the plan file is the owner's and must be edited to match, or the next `bot apply` of the old plan edits the bot back.
 The transport is the `operations` module's (`Docs/MODULES/README.md` has no `operations` folder yet): the host's `HostedControlPoller` (`src/modules/operations/adapters/hosted_control_poller.py` → `HostedControlPoller`) runs on the Engine scheduler's thread, so these five commands are dispatched from that thread, as the stop policy's worker dispatches Stop; each is queued on the bot's own executor, which is the bot's one writer. At shutdown the Engine stops the scheduler first and the hosted services after, and the poller's `stop()` waits for a poll already running and then refuses further ones, so no command is dispatched into a closing application.
 
@@ -255,7 +298,7 @@ bot's effective policy (`bots/contracts/venue_profile.py` → `recovery_policy_o
 and the venue's layers merged) has a rule for the reason, and the bot's ledger holds fewer attempts than
 the rule allows in its window; otherwise `halt`, and when the budget is what made it plain the reason
 says "the 3 automatic recoveries allowed in 24 h are used up". A `PAUSED` or `RECOVERING` bot halts
-plainly, and a Futures venue has no rule. The ladder comes off on entering the state
+plainly, and a Futures venue has no rule but the exchange's pause. The ladder comes off on entering the state
 (`.../kinds/grid/grid_task_guard.py` → `GridTaskGuard`). When that cancel fails the bot lands in plain
 `HALTED` instead (`GridTaskGuard._halt_unparked`): the wait presumes a ladder off the exchange, and
 `BOT_HALTED` then says the orders may still rest.
@@ -281,12 +324,37 @@ evidence, every tagged order cancelled, a ladder sized from the price now and th
 (4) publishes `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py`), which
 `alerting` carries to the owner from `EPIC-042D`; a wait that lasts `stalled_after` publishes
 `BotRecoveryStalledEvent` once, which `alerting` already carries as `BOT_RECOVERY_STALLED`. An attempt that meets a new cause (a moved price, a
-symbol that does not trade, a rate limit, a rejected key) ends in `HALTED` through `halt_with`; one that
+symbol that does not trade, a rejected key) ends in `HALTED` through `halt_with`; one that meets the
+exchange's pause goes back to waiting, for the pause (below); one that
 changes nothing (the budget registration refused, the price unreadable) leaves the bot waiting with the
 attempt spent, and with the budget spent it goes to `HALTED` with `budget_exhausted`. The run does
 nothing while a person's resume proposal is held, and a person's Resume, a Stop or an Emergency Stop
 moves the bot out and the next beat forgets the wait. The cancel in step (3) is also the retry of an
 entry park that failed during the outage: no ladder is laid over orders that may still rest.
+
+**The exchange's pause** (`EPIC-042F`). A rate limit is one more reason of the policy, `rate_limited`,
+declared in the Grid's layer (`GRID_RECOVERY_LAYER`) with a dwell of `AUTO_RESUME_MARGIN` and the common
+budget (three per rolling 24 h per bot, counted with every other reason) and stalled alert; a Futures
+venue clears the lower layers and lists it alone, so a Futures bot resumes from a pause as it always did
+(`BUG-216`). The halt reaches the mechanism from two doors that end in one function
+(`.../kinds/grid/grid_order_failure.py` → `pause_with`): an order the venue's gate refused (`fail_with`)
+and a read or cancel that raised (`GridRateLimitPause.halt`). A bot that places or waits to goes to
+`AWAITING_RECOVERY`, keeping its ladder (no cancel is sent into a pause, `GridTaskGuard`), unless the
+pause is longer than `MAX_AUTO_RESUME_WAIT` (`.../domain/grid/rate_limit_pause.py` →
+`too_long_to_wait_words`): that halt is plain and says "resume by hand". After the task,
+`GridRateLimitPause.after_task` records when the pause ends on the bot's monotonic clock; the probe
+(`GridHaltProbe`) says `rate_limited` is clear when it has ended (`GridRateLimitPause.holds`), so the
+run's dwell is the margin and its attempt is the person's own Resume, **with the exits re-checked on a
+fresh price first**: a stop loss crossed during the pause ends the bot as a Stop and no ladder is laid,
+which the retired timer never checked. A bot already waiting for another reason keeps that reason and its
+dwell; the pause only joins the causes the run samples (`GridHaltRecovery._every_cause_clear`), so a
+limit cannot shorten a quiet feed's 120 s. A limit met by an attempt costs that attempt, and the waiting
+bot attempts again after the pause; a spent budget ends the wait in `HALTED` (`budget_exhausted`). What
+the mechanism never recovers is left to a person and says so: a `PAUSED` or `RECOVERING` bot that meets a
+limit is `HALTED` (the owner's Pause is not undone by a machine), and so is a `HALTED` bot whose Resume met
+one (resume again once the pause ends). The pause's end is kept in memory: a restart ends the wait in
+`HALTED` like any other. All bots of a venue wait for the same instant (the gate is the venue's) and
+attempt on the same beat of the price watch, about a beat later than the old timer fired.
 
 **The long wait.** The wait has no limit. After the rule's `stalled_after` the run publishes
 `BotRecoveryStalledEvent` once (`bots/contracts/events/bot_recovery_stalled_event.py`), which `alerting`

@@ -24,6 +24,32 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_err
 #: filters, so it alone cannot be looked up in the plain dict below.
 _GENERIC_FILTER_FAILURE_CODE = -1013
 
+#: `BUG-236` — the USDⓈ-M Futures order-filter family: each code names the filter itself
+#: (Futures never sends `-1013`'s message-text shape for these), so a refusal reads as the
+#: filter it broke instead of `UNKNOWN`. Sourced from the Futures error-code page (read
+#: 2026-10-20), not re-verified live, see the note above. A filter refusal is a sizing
+#: defect of the order, not a transient fault: the caller's `ORDER_INVALID` path treats it
+#: as non-retryable (`order_outcome._NAMED_REFUSALS`). The page's symbol-configuration codes
+#: (`-4008`..`-4012`, `-4017`, `-4018`, `-4025`, `-4029`, `-4030`, `-4058`) say the
+#: exchange's own table is wrong, nothing the order can fix: they stay `UNKNOWN`.
+_FUTURES_FILTER_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
+    -4001: OrderRejectionReason.PRICE_FILTER,  # "Price less than 0."
+    -4002: OrderRejectionReason.PRICE_FILTER,  # "Price greater than max price."
+    -4004: OrderRejectionReason.LOT_SIZE,  # "Quantity less than min quantity."
+    -4005: OrderRejectionReason.LOT_SIZE,  # "Quantity greater than max quantity."
+    -4006: OrderRejectionReason.PRICE_FILTER,  # "Stop price less than zero."
+    -4007: OrderRejectionReason.PRICE_FILTER,  # "Stop price greater than max price."
+    -4013: OrderRejectionReason.PRICE_FILTER,  # "Price less than min price."
+    -4014: OrderRejectionReason.PRICE_FILTER,  # "Price not increased by tick size."
+    -4016: OrderRejectionReason.PRICE_FILTER,  # "Price is higher than mark price multiplier cap."
+    -4023: OrderRejectionReason.LOT_SIZE,  # "Qty not increased by step size."
+    -4024: OrderRejectionReason.PRICE_FILTER,  # "Price is lower than mark price multiplier floor."
+    -4183: OrderRejectionReason.PRICE_FILTER,  # "Price is higher than stop price multiplier cap."
+    -4184: OrderRejectionReason.PRICE_FILTER,  # "Price is lower than stop price multiplier floor."
+    -4210: OrderRejectionReason.PRICE_FILTER,  # "Stop price is higher than price multiplier cap."
+    -4211: OrderRejectionReason.PRICE_FILTER,  # "Stop price is lower than price multiplier floor."
+}
+
 #: Codes that mean exactly one thing, no message-text disambiguation needed.
 #: `-1021` (Invalid timestamp / clock skew) is deliberately absent from this
 #: map, not merely unmapped: it is a real, documented code — already
@@ -61,6 +87,7 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     -2011: OrderRejectionReason.UNKNOWN_ORDER,
     -2013: OrderRejectionReason.UNKNOWN_ORDER,
     -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
+    **_FUTURES_FILTER_CODE_TO_REASON,
 }
 
 #: `-1013` is Binance's one generic "filter failure" code, shared by
