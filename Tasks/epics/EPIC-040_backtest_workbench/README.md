@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -52,7 +52,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | [EPIC-040A](completed/EPIC-040A_pin_grid_backtest_behaviour.md) | The Grid's backtest page is pinned by tests and preview frames before anything moves | Elite | None | 🟢 | ✅ Done (2026-10-20) |
 | [EPIC-040B](completed/EPIC-040B_kind_neutral_backtest_contract.md) | One kind-neutral backtest result and simulator port; the Grid's replay answers through it | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040C](completed/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
-| [EPIC-040D](incomplete/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | Planned |
+| [EPIC-040D](completed/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040E](incomplete/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | Planned |
 | [EPIC-040F](incomplete/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | Planned |
 | [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
@@ -74,11 +74,11 @@ The coordinator put the five decisions below to the owner, each summarised, with
 
 ## Resume
 
-*Written 2026-10-20 by the author session of `040A`–`040C`, for the session that takes `040D`–`040G`. The owner asked for all of EPIC-040.*
+*Written 2026-10-20 by the author session of `040A`–`040C`, for the session that takes `040D`–`040G`; brought up to date by the `040D` pull request. The owner asked for all of EPIC-040.*
 
-**Where it stands.** Phase 1 is done: `040A` ([#624](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/624), merged `e6551b2`), `040B` ([#627](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/627), merged `6c5f05a`) and `040C` (this pull request). Nothing is on screen yet: the Grid's own Backtest page is unchanged and is what `040D`–`040F` replace.
+**Where it stands.** Phase 1 is done: `040A` ([#624](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/624), merged `e6551b2`), `040B` ([#627](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/627), merged `6c5f05a`) and `040C` ([#628](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/628), merged `dd3897f`); `040D` (the workbench page, `ui/backtest_workbench/`) is in the next pull request. Nothing is on screen in the app yet: the Grid's own Backtest page is unchanged, `040E` hosts the workbench and `040F` replaces the Grid's page.
 
-**Where `040D` starts.** Read, in order: §1 here; [`040D`](incomplete/EPIC-040D_backtest_workbench_shell.md); the *Implementation notes* of the three completed children (their "Findings" paragraphs are the hand-over); `Docs/MODULES/bots/05-building-blocks.md` ("The kind's backtest") and `08-concepts.md` (the sandbox plan). The code to build on:
+**Where `040D` starts.** Read, in order: §1 here; [`040D`](completed/EPIC-040D_backtest_workbench_shell.md); the *Implementation notes* of the three completed children (their "Findings" paragraphs are the hand-over); `Docs/MODULES/bots/05-building-blocks.md` ("The kind's backtest") and `08-concepts.md` (the sandbox plan). The code to build on:
 - `bots/domain/backtest/` — `BacktestOutcome` and its records, `StopCause`, `BacktestAnswer`, `SandboxPlan`; `bots/contracts/i_kind_backtester.py` — `IKindBacktester`, `KindBacktestRequest`; `IBotKind.backtester()` finds a kind's backtest through the catalog.
 - `bots/ui/backtest/` — `SandboxSession` (copy the saved plan, ask before discarding edits), `judge_sandbox`, `sandbox_line`.
 - The safety net: `tests/unit/modules/bots/ui/kinds/test_grid_backtest_states.py` and `ui/kinds/grid/backtest/preview_frames.py` (thirteen frames). `040F` must pass them unchanged against the workbench.
@@ -96,8 +96,8 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | `040G` | 040B | A trade record beside `fills`, or the workbench pairs entries and exits; the assertion that nothing before `start` is reported (the stub test cannot make it); a `StopCause` member such as a signal exit. |
 
 **Open questions, with a recommendation.**
-1. **§1's decisions are still marked pending the owner** (and `TRACKING.md` lists them as an open blocker). The owner has now asked for the whole epic. *Recommend:* take §1 as approved, and write the owner's go-ahead and its date into §1 before `040D` codes; ask only if the owner narrows it.
-2. **Does the sandbox read the planner market the live panel reads, or a terms-only read?** The planner read also touches the account's fee tier and the open orders on the symbol (never the balance); the sandbox already ignores the open orders. *Recommend:* reuse `selected.market` (no new read, the same numbers the live plan is judged by) and say in the banner that fees are the account's tier; build a terms-only read only if the owner objects.
+1. **§1's decisions.** Resolved: the owner approved all five on 2026-10-20 (§1 records it), and `TRACKING.md` no longer lists them as a blocker.
+2. **Does the sandbox read the planner market the live panel reads, or a terms-only read?** Resolved in `040D`: it reuses `selected.market` (no new read, the same numbers the live plan is judged by) and the page says a run charges the account's fees as read now (`ui/backtest_workbench/source_line.py`); a terms-only read waits for an owner objection.
 3. **`040G` is 🔴 (real orders from strategy code) and its per-file design is written when it starts.** *Recommend:* write a decision record from `.claude/templates/decision.md` (the strategy reference and version, where warm-up comes from, the position executor's scope, fault isolation) and send it to the coordinator before any `040G` code; the Engine, dependencies and config stay untouched without asking.
 
 **Working notes for the next session.**
@@ -106,6 +106,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 - One reviewer session per pull request (on a different model from the author's, never one `ONBOARDING.md` §7 excludes), spawned in the turn that pushes; push once per round with every fix; read both `gate (Unit)` and `gate (Rest)` job logs yourself even when the reviewer says green, then send READY with the full sha and the review comment link.
 
 ## Notes (newest first)
+- **2026-10-20** — `040D` done: one workbench page for any kind (`ui/backtest_workbench/`), driven by `RunBacktestQuery`, with the Grid registered as the only kind in its tests and a stub strategy kind proving no Grid is needed. It is not on screen until `040E`; `040F` deletes the Grid's own page. The §1 decisions are recorded as approved.
 - **2026-10-20** — `040C` done, and with it phase 1 (`040A`–`040C`): the frozen `SandboxPlan`, the session rule (copy the saved plan; ask before discarding edits), judging by the kind's `validate` with no account, and a guard plus an execution test that the sandbox sends no command. Nothing shows a sandbox on screen until `040D`; the coupling to settle there is recorded in the child.
 - **2026-10-20** — `040B` done: the kind-neutral `BacktestOutcome`, the `IKindBacktester` port found through `IBotKind.backtester()`, and the Grid's adapter. The neutral types are new records mapped from the Grid's, not moved, so the 039B oracle and 039K tests keep their imports; `FundingRequirement` moved to the domain. Nothing draws the outcome until `040D`.
 - **2026-10-20** — `040A` done: thirteen preview frames and one test per state, no behaviour changed. It found three status-line gaps (one cause) the Grid page has today; they are recorded in the child for `040F`.

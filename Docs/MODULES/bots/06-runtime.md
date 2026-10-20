@@ -414,6 +414,30 @@ at that moment (`bots/application/kinds/grid/grid_parking.py` → `GridParking.l
 exchange", "is not on the exchange" (the record says one stands and the exchange does not list it),
 "no protective stop stands over it", or "could not be read", never "none" for an unread list.
 
+## Built: a backtest from the workbench (EPIC-040D)
+
+[`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the
+owner presses Run on the Backtest workbench?* The replay and the candle sync run off the UI thread
+(`bots/ui/backtest_workbench/backtest_run_coordinator.py` → `BacktestRunCoordinator.start_backtest`,
+`start_sync`) and answer with the id of the action that started them
+(`backtest_workbench_presenter.py` → `BacktestWorkbenchPresenter._on_finished`). One fence
+(`ActionOwnershipTracker`) covers both, so the page has at most one action at a time. **Cancel**
+invalidates the action before it stops the worker (a per-run `threading.Event` the kind's backtester
+polls): the answer of a cancelled run is never shown, and the last result stays; a Cancel with
+nothing running does nothing. **Another bot selected** replaces the sandbox with that bot's copy,
+ends the run the same way and clears the result, because a result is only ever shown beside the
+bot it was run for; the same bot read again changes nothing. While the sandbox keeps edits (the
+question is open, or the person chose to keep them) it stays the source bot's: it is judged,
+replayed and drawn with the market numbers and risk facts that bot came with
+(`backtest_workbench_presenter.py` → `BacktestWorkbenchPresenter.follow`; `sandbox_editing.py` → `SandboxEditing.copies`),
+never another symbol's, and a run already in flight when the question opens is not cancelled: it
+finishes for the sandbox's own bot. **A refusal for candles that
+are not stored** offers a sync and never fetches by itself (`BUG-107`); after the sync the same query
+runs again with the funding the person chose for it. **A failure** is a command failure to the notifier (`bots.backtest.backtest` or
+`bots.backtest.sync`) and the page says "The run failed." only; the exception travels as the
+notice's detail (`BOT-169`). The sandbox plan the request carries is a copy, so no step of this
+sequence reaches the bot, its orders or the account.
+
 ## Built: the mainnet lock removed (EPIC-039L C4-lite)
 
 **The mainnet gate (C4-lite), built.** Futures mainnet is open to bots since the owner's O2

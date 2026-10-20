@@ -5,7 +5,7 @@
 **Risk:** 🟡 — the screen's layout and its saved state (docks and geometry persist per mode)
 **Complexity:** M — layout, saved-state migration, command wiring
 **Epic:** [EPIC-040](../README.md)
-**Depends on:** [EPIC-040D](EPIC-040D_backtest_workbench_shell.md)
+**Depends on:** [EPIC-040D](../completed/EPIC-040D_backtest_workbench_shell.md)
 
 ---
 

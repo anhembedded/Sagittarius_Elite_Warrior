@@ -1,0 +1,27 @@
+' Question: what happens, in order, when the owner presses Run on the Backtest workbench?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-backtest-run
+participant "BacktestWorkbench\n(UI thread)" as W
+participant BacktestRunCoordinator as C
+participant "pool worker" as P
+participant RunBacktestQueryHandler as Q
+participant "the kind's\nIKindBacktester" as B
+participant "market_data\n(stored candles)" as M
+
+W -> W : the fence opens an action (id n)\nactivity IDLE --> RUNNING
+W -> C : start_backtest(n, RunBacktestQuery(kind, request))
+C -> P : the query with a cancel flag
+P -> Q : execute(query)
+Q -> B : run(request) for the kind the catalog names
+B -> M : read stored candles, 1-second klines, funding
+alt the period is stored
+  B --> W : BacktestOutcome (candles, equity, fills, figures, notes)
+  W -> W : n is still current: show the result\nactivity RUNNING --> IDLE
+else candles missing
+  B --> W : BacktestRefusal(missing candles)
+  W -> W : offer "Sync candles"; only a click syncs
+else Cancel pressed, or another bot selected
+  W -> W : the fence drops n at once; the flag stops the worker
+  note over W : a late answer for n is dropped and logged;\nthe last result stays on screen after a Cancel
+end
+@enduml
