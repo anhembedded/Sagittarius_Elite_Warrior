@@ -130,3 +130,35 @@ An unattended run is judged by the grep of §3 and by the `[health]` line, so th
 | CRITICAL | the process is compromised (none of the above) |
 
 A HALTED bot is **not** an error of the process: the pre-send refusals of our own (the safety gate, the limits, the session lease, the minimum notional) and a reconcile that finds the exchange holding more than the bot bought end there, and the WARNING carries the gate or the reason. The ERROR a failing step writes with its traceback is a second record about the same event, not a duplicate: the transition says where the bot went, the step says why.
+
+## 8. Reading the log with the params coloured: `main.py logs` (`BOT-199`, [`PRO-019`](../../Tasks/proposal/PRO-019.md))
+
+The stored record is plain and stays plain (§3). Colour is added at the screen by a viewer that reads plain lines from a pipe or a file and writes them back, and writes them **unchanged** whenever the output is not an interactive terminal, `NO_COLOR` is set (non-empty), `TERM` is `dumb`, or `--no-color`/`--color never` is given.
+
+```bash
+M="/opt/sew/.venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"   # as in the runbook
+journalctl -u sew-run -o cat -f | $M logs                                       # live
+journalctl -u sew-run -o cat --since today | $M logs --level warning
+journalctl -u sew-run -o cat | $M logs --bot uie03d --since 2h
+$M logs --file /var/lib/sew/logs/cli-<timestamp>-<pid>.log --tag reduce-only-refused
+$M logs --file <log.file path> --follow --level error
+journalctl -u sew-run -o cat -f | $M logs --color always | less -R              # keep colour through a pager
+```
+
+Use `-o cat`: the viewer reads the format of §3, not journald's own prefix (`-o short` lines are shown unchanged). The command builds no application and takes no lock, so it works while `run` is up and when the app cannot boot.
+
+| Part of the line | Style (one table, `src/support/log_view/log_meaning_table.py`) |
+| :--- | :--- |
+| timestamp, the ` - ` separators | dim |
+| logger (`App.Bots.GridExit`) | cyan |
+| level | CRITICAL bold red, ERROR red, WARNING yellow, INFO default, DEBUG/TRACE dim; WARNING and above also colour the fixed text of the message |
+| bracket tag (`[boot-recovery]`, `BACKTEST_TRACE`) | magenta |
+| **param**: a value the log call substituted (`Bot %s: exit slice %d of %s` → the id, the number) | bold green |
+| a **guess**: a word that looks like a value, on a line no template fits | green, not bold |
+| traceback lines | dim red |
+
+Every word is still printed; colour is never the only signal. **How a param is known.** The plain line cannot say which words were substituted, so `scripts/render_log_templates.py` reads every log call's message template out of `src/` with `ast` into `src/support/log_view/template_catalogue.json`, and the viewer matches a line against it: exact for a `%`-call, an f-string and a call with no params. A line no template fits (or two fit and disagree), and the few calls whose message is a variable, are guessed (`key=value` values, bot ids, numbers) and drawn in the guess style. `test_the_log_template_catalogue_is_current.py` fails when a log call is added or changed without `python3 scripts/render_log_templates.py --write`, so the viewer cannot silently fall behind; it also fails if the number of variable-message calls grows.
+
+Filters keep whole records: a traceback or other continuation line is shown or hidden with the record above it, and a line before the first record appears only when no filter is set. `--level` is "this level and above"; `--bot` matches the 6-character id as a whole word; `--tag` takes `health` or `[health]`; `--since` takes `2h`, `30m`, `1d12h`, `today`, `yesterday` or `2026-10-20T14:30` (a local time). `--follow` needs `--file` (a pipe already streams) and survives a truncation or a rotation of the file.
+
+**Limits.** A record is matched on its first line; a param that itself holds a newline is guessed. A viewer on a different version of the code than the writer may mis-match (the VPS runs one checkout, so the catalogue is the same).
