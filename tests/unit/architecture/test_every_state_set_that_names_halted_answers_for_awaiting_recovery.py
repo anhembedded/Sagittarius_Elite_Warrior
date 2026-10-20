@@ -53,10 +53,6 @@ _EXCEPTIONS: dict[tuple[str, str], str] = {
         "BotBootRecovery.run",
     ): "pays the cancel a cut-short start owes at boot; only HALTED owes it",
     (
-        "modules/bots/ui/bots_screen/bot_state_looks.py",
-        "<module>",
-    ): "the display words of every state in a complete EnumLabels (`Halted`, `Awaiting recovery`): it names the wait, in words the string rule does not read as its id",
-    (
         "modules/alerting/application/sources/bot_alert_source.py",
         "<module>",
     ): "the entry into the wait is deliberately silent; its recovery and stall have their own events (`EPIC-042D`)",
@@ -104,8 +100,10 @@ def _answers(node: ast.AST) -> bool:
 
 
 def _strings(node: ast.AST) -> set[str]:
+    """The string constants under `node`, lower-cased, a display word (`Awaiting recovery`)
+    written as the id it names (`awaiting_recovery`)."""
     return {
-        n.value.lower()
+        n.value.lower().replace(" ", "_")
         for n in ast.walk(node)
         if isinstance(n, ast.Constant) and isinstance(n.value, str)
     }

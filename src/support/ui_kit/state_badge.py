@@ -44,8 +44,10 @@ class StateBadge(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.addWidget(self._icon, 0)
         row.addWidget(self._text, 1)
-        # Held to its content in a status bar, where a stretching label would crowd its neighbours.
-        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
+        if not wrap:
+            # Held to its content in a status bar, where a stretching label would crowd its
+            # neighbours. A wrapping badge may shrink: it folds its line instead.
+            self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Preferred)
         self._icon.hide()
 
     def text(self) -> str:

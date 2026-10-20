@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
     tone_colour,
@@ -113,3 +114,26 @@ def test_a_tone_icon_differs_from_the_plain_one_on_a_palette(
     plain = tone_icon("play", Tone.NEUTRAL, 16).pixmap(16, 16).toImage()
 
     assert toned != plain
+
+
+_LONG_LINE = (
+    "Not connected: the exchange has not answered the last three checks in a row"
+)
+
+
+def _host_of(badge: StateBadge, qtbot) -> QWidget:
+    host = QWidget()
+    qtbot.addWidget(host)
+    QHBoxLayout(host).addWidget(badge)
+    badge.setText(_LONG_LINE)
+    return host
+
+
+def test_a_wrapping_badge_may_shrink_and_a_plain_one_holds_its_line(qtbot) -> None:
+    """A wrapped badge folds a long line instead of widening its host; the status bar's keeps
+    its content's width so it does not crowd its neighbours."""
+    wrapped = _host_of(StateBadge("wrapped", wrap=True), qtbot)
+    plain = _host_of(StateBadge("plain"), qtbot)
+
+    assert wrapped.minimumSizeHint().width() < wrapped.sizeHint().width() // 2
+    assert plain.minimumSizeHint().width() >= plain.sizeHint().width()

@@ -80,15 +80,18 @@ def test_update_tick_replaces_a_previous_tick_for_the_same_symbol(model):
 
 def test_percent_change_says_its_direction_in_the_text(model):
     """Colour is never the only signal: a gain reads `▲ +`, a loss `▼ -`, a
-    change that rounds to zero neither."""
-    model.set_symbols(["BTCUSDT", "ETHUSDT", "SOLUSDT"])
+    change of exactly zero neither; one too small for its decimals keeps its direction, as its
+    colour does."""
+    model.set_symbols(["BTCUSDT", "ETHUSDT", "SOLUSDT", "ADAUSDT"])
     model.update_tick("BTCUSDT", 100.0, 1.5, 10.0)
     model.update_tick("ETHUSDT", 100.0, -1.5, 10.0)
     model.update_tick("SOLUSDT", 100.0, 0.001, 10.0)
+    model.update_tick("ADAUSDT", 100.0, 0.0, 10.0)
 
     assert _text(model, 0, "change.signed") == "▲ +1.50%"
     assert _text(model, 1, "change.signed") == "▼ -1.50%"
-    assert _text(model, 2, "change.signed") == "0.00%"
+    assert _text(model, 2, "change.signed") == "▲ +0.00%"
+    assert _text(model, 3, "change.signed") == "0.00%"
 
 
 def test_percent_change_takes_the_meaning_tables_colour_on_the_palette(model):

@@ -24,6 +24,7 @@ Capability: Colour something by meaning (good, bad, warning), never a hex
 
 from __future__ import annotations
 
+import math
 from decimal import Decimal
 from enum import Enum, auto
 
@@ -71,8 +72,9 @@ _DARK_BASE_COLOURS = {
 
 def sign_tone(amount: Decimal | float | None) -> Tone:
     """Profit, loss, or no verdict for zero and for a figure not known; the
-    figure's own digits, sign and arrow stay in the text beside it."""
-    if amount is None or amount == 0:
+    figure's own digits, sign and arrow stay in the text beside it. A figure that is not
+    finite (NaN, infinity) has no arrow in the text, so no verdict either."""
+    if amount is None or amount == 0 or not math.isfinite(amount):
         return Tone.NEUTRAL
     return Tone.POSITIVE if amount > 0 else Tone.NEGATIVE
 

@@ -27,14 +27,13 @@ aligns, sorts and writes them by kind. Sorting is numeric because the value
 is a number, not because a `SORT_ROLE` stood beside the text, which is what
 this file carried until then.
 
-**No colour.** The deleted delegates painted the PnL cell and the side label
-from `Theme.success`/`Theme.danger` (`chart_card`'s `BULL_COLOR`/`BEAR_COLOR`).
-ADR D21 leaves colour to the system colour scheme, and Qt has no colour role meaning
-"this position is losing money", so the fact is carried where it cannot be
-themed away: the sign is already in the number (`10.00` / `-10.00`),
-the side is a word (`LONG` / `SHORT`), and a losing row's PnL cell is **bold** —
-the row the user came here to act on, which is the same emphasis and the same
-argument `database_status_table_model.py` uses for a shard with gaps.
+**Meaning, three ways (`EPIC-043C`).** A position's PnL says its direction in the text (an arrow and
+a sign, `▲ +10.00` / `▼ -10.00`, from the `.signed` key), in the colour the meaning table gives it
+on the application's palette (`RowTableModel._tone`, which Qt's colour scheme does not touch), and,
+for a losing row, in **bold**: the row the user came here to act on, the same emphasis
+`database_status_table_model.py` uses for a shard with gaps. The side is a word
+(`LONG` / `SHORT`); the deleted delegates painted it from `Theme.success`/`Theme.danger`, and it
+stays a word.
 
 @par What left this file in PR 4.1b
 `rowCount()`, `columnCount()`, `headerData()`, `row_for()`, `set_rows()` and the

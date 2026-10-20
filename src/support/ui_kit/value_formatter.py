@@ -128,10 +128,13 @@ def _is_signed_key(key: str) -> bool:
 
 
 def _signed_text(text: str, number: float) -> str:
-    """`text`, the figure written plainly, with its direction: an arrow, and a sign for a gain."""
+    """`text`, the figure written plainly, with its direction: an arrow, and a sign for a gain.
+
+    The direction is the number's (`sign_tone` decides its colour on the same number), so a
+    figure too small for its decimals keeps its arrow (`▲ +0.00`); only exactly zero has none."""
     if not math.isfinite(number):
         return text
-    if not text.strip("-0.,%"):
+    if number == 0:
         return text.lstrip("-")
     if number > 0:
         return f"{_UP_ARROW} +{text}"

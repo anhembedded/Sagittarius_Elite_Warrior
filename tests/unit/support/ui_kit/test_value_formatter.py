@@ -7,6 +7,10 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     BYTES_KEY,
     RATIO_KEY,
@@ -280,16 +284,38 @@ def test_a_signed_figure_carries_an_arrow_and_a_sign(
     ("kind", "value", "expected"),
     [
         (ColumnKind.MONEY, 0, "0.00"),
-        (ColumnKind.MONEY, 0.004, "0.00"),
-        (ColumnKind.MONEY, -0.004, "0.00"),
+        (ColumnKind.MONEY, -0.0, "0.00"),
         (ColumnKind.PERCENT, 0.0, "0.00%"),
-        (ColumnKind.PERCENT, -0.001, "0.00%"),
     ],
 )
-def test_a_figure_that_rounds_to_zero_has_neither_arrow_nor_sign(
+def test_exactly_zero_has_neither_arrow_nor_sign(
     kind: ColumnKind, value: object, expected: str
 ) -> None:
     assert _signed(kind, value) == expected
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "expected"),
+    [
+        (ColumnKind.MONEY, 0.004, "▲ +0.00"),
+        (ColumnKind.MONEY, -0.004, "▼ 0.00"),
+        (ColumnKind.PERCENT, 0.001, "▲ +0.00%"),
+    ],
+)
+def test_a_figure_too_small_for_its_decimals_keeps_its_direction(
+    kind: ColumnKind, value: object, expected: str
+) -> None:
+    """The text says the direction the colour will: both decide on the number itself."""
+    assert _signed(kind, value) == expected
+
+
+@pytest.mark.parametrize(
+    "value", [0.004, -0.004, 1e-12, 0.0, -0.0, float("nan"), float("inf")]
+)
+def test_the_arrow_and_the_tone_agree_on_every_figure(value: float) -> None:
+    """Colour never claims a verdict the text does not make (`ui-presentation-rule` §1)."""
+    has_arrow = any(a in _signed(ColumnKind.MONEY, value) for a in "▲▼")
+    assert has_arrow == (sign_tone(value) is not Tone.NEUTRAL)
 
 
 def test_a_figure_not_known_stays_an_empty_cell() -> None:
