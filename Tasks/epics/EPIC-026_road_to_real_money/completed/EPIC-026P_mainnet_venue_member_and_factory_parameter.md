@@ -1,6 +1,9 @@
 # EPIC-026P — `TradingVenue.FUTURES_MAINNET` exists: one reviewed enum member, a venue parameter on the session factory, separate credentials, a fourth alignment state
 
-**Status:** 🔵 Backlog
+> **Closed 2026-10-20** per [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md) §3: done by `EPIC-034E`: the mainnet venues, the factory parameter and separate credentials.
+
+
+**Status:** ✅ Done (2026-10-20, closed by the coordinator from the 2026-10-20 review)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.3; ADR D3, D4; `EPIC-021`'s ADR §3 ("a
 future epic that has to add a new member here"); the user (2026-09-20): *"hãy cho lô trình để có
 thể giao dịch thật"*.
@@ -10,8 +13,8 @@ the app can send an order for real money.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-003` ("This app does not talk to mainnet"), `SPEC-004` §2, `SPEC-005` §2,
 `SPEC-006`/`007`/`010` venue preconditions.
-**Depends on:** [`EPIC-026O`](EPIC-026O_reconciliation_script_and_soak_report.md) (gate 2),
-[`EPIC-026F`](EPIC-026F_live_candidate_report.md) (gate 1), the ADR **Accepted** by the user with
+**Depends on:** [`EPIC-026O`](../cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) (gate 2),
+[`EPIC-026F`](../cancelled/EPIC-026F_live_candidate_report.md) (gate 1), the ADR **Accepted** by the user with
 `O3` answered. Merge requires an independent review by a different session
 (`ONBOARDING.md` §7; the reviewer loads the full rubric).
 

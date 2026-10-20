@@ -44,7 +44,7 @@ def _event(
         price=D(price),
         quantity=D("0.0190"),
         level=7,
-        realised_total=D("12.8"),
+        grid_profit=D("12.8"),
         completed_cycles=31,
         quote_asset="USDT",
         cycle_profit=cycle_profit,
@@ -77,7 +77,7 @@ def test_the_fill_that_closes_a_cycle_adds_the_cycle_the_total_and_the_count() -
     [alert] = published.published
     assert alert.detail.splitlines() == [
         "ETHUSDT · BUY 0.019 @ 2,393.17 (level 7)",
-        "cycle +0.41 USDT · total +12.80 USDT · 31 cycles",
+        "cycle +0.41 USDT · grid profit +12.80 USDT · 31 cycles",
     ]
 
 

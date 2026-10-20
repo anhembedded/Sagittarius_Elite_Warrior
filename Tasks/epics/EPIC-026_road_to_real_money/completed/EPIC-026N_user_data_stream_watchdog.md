@@ -1,6 +1,9 @@
 # EPIC-026N — A watchdog on the user data stream: silence alerts, an exhausted reconnect budget disables trading
 
-**Status:** 🔵 Backlog
+> **Closed 2026-10-20** per [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md) §3: done: `UserStreamWatch`; the alert for a silent stream is `EPIC-036B`.
+
+
+**Status:** ✅ Done (2026-10-20, closed by the coordinator from the 2026-10-20 review)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.2 row 6; the user (2026-09-20): *"hãy cho
 lô trình để có thể giao dịch thật"*.
 **Risk:** 🔴 — it disables trading by itself; a false positive stops a healthy session, a false
@@ -8,7 +11,7 @@ negative leaves the app trading on stale truth.
 **Complexity:** M — a heartbeat, two thresholds, one scheduled check, one command.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-004` §5 ("The network drops").
-**Depends on:** [`EPIC-026M`](EPIC-026M_out_of_band_alerting.md)
+**Depends on:** [`EPIC-026M`](../incomplete/EPIC-026M_out_of_band_alerting.md)
 
 ---
 

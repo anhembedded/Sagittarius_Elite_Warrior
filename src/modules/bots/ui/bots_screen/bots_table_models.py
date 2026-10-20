@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     LadderRow,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    TOTAL_PNL_TITLE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -101,7 +104,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         ColumnSpec("state", "State", ColumnKind.STATUS),
         ColumnSpec("grid_profit", "Grid profit", ColumnKind.MONEY),
         ColumnSpec("cycles", "Cycles", ColumnKind.QUANTITY),
-        ColumnSpec("profit", "Total PnL", ColumnKind.MONEY),
+        ColumnSpec("profit", TOTAL_PNL_TITLE, ColumnKind.MONEY),
     )
 
     def row_index_of(self, bot_id: str) -> int:

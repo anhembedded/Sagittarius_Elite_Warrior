@@ -1,6 +1,9 @@
 # EPIC-026Q — Mainnet has its own caps with a hard ceiling, and enabling trading on it requires a typed acknowledgement
 
-**Status:** 🔵 Backlog
+> **Cancelled 2026-10-20** (decision N4 in [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md), owner pre-approved the coordinator's recommendation): O3 (b) keeps D11's single confirmation and adds an account-level loss cap and a first-bot leverage ceiling instead of venue caps and a typed acknowledgement.
+
+
+**Status:** ❌ Cancelled (2026-10-20)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §4; ADR D5 and `❓ O3`; the user
 (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"*.
 **Risk:** 🔴 — the limits that bound the first real loss; a cap read from the wrong venue's
@@ -9,7 +12,7 @@ configuration is a cap of 500 USDT on Testnet applied to real money.
 one dialog.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-004` §3 step 1 and §5, `SPEC-005` §3 step 6.
-**Depends on:** [`EPIC-026P`](EPIC-026P_mainnet_venue_member_and_factory_parameter.md); `O3`
+**Depends on:** [`EPIC-026P`](../completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md); `O3`
 answered (the values are the user's).
 
 ---

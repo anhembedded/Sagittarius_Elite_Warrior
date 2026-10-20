@@ -159,6 +159,7 @@ def build_handler(
     metadata_provider: IMarketMetadataProvider,
     trading_client_factory: FuturesTradingClientFactory,
     limits: TradingLimits | None = None,
+    publisher: RecordingPublisher | None = None,
 ) -> ExecuteOrderCommandHandler:
     """`EPIC-028B` — the handler over one venue's scope: its account reader,
     client factory and metadata, and the session state the test arranges."""
@@ -172,7 +173,9 @@ def build_handler(
         single_venue_scopes(context, state),
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(limits or LIMITS),
-        SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
+        SessionReadiness(
+            single_venue_scopes(context, state), publisher or RecordingPublisher()
+        ),
     )
 
 
@@ -185,6 +188,7 @@ def make_handler(
     raw_client: Mock | None = None,
     limits: TradingLimits | None = None,
     price_band: PercentPriceBand | None = None,
+    publisher: RecordingPublisher | None = None,
 ) -> tuple[ExecuteOrderCommandHandler, TradingSessionState]:
     state = session_state or TradingSessionState()
     if enabled and not state.enabled:
@@ -211,5 +215,6 @@ def make_handler(
         metadata_provider=metadata_provider,
         trading_client_factory=trading_client_factory,
         limits=limits,
+        publisher=publisher,
     )
     return handler, state

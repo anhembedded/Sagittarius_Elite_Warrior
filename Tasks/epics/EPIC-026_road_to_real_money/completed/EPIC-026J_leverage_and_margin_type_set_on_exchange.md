@@ -1,6 +1,9 @@
 # EPIC-026J — Leverage and margin type are set on the exchange when a strategy is armed, and read back before the first order
 
-**Status:** 🔵 Backlog
+> **Closed 2026-10-20** per [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md) §3: done for Futures: `FuturesSettingsGate` sets and reads back leverage and margin type.
+
+
+**Status:** ✅ Done (2026-10-20, closed by the coordinator from the 2026-10-20 review)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.2 row 3; the user (2026-09-20): *"hãy cho
 lô trình để có thể giao dịch thật"*.
 **Risk:** 🟡 — two new signed calls; the failure mode is an order sized for 1x on an account set
@@ -8,7 +11,7 @@ to 20x, which is what happens today.
 **Complexity:** S — two adapter methods, one step in the arm handler, one read-back check.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-010` §3 (arming sets the account) — hence after `EPIC-026C`.
-**Depends on:** [`EPIC-026I`](EPIC-026I_resilient_submission.md) (the `recvWindow` and
+**Depends on:** [`EPIC-026I`](../incomplete/EPIC-026I_resilient_submission.md) (the `recvWindow` and
 `get_order` plumbing the new calls share)
 
 ---

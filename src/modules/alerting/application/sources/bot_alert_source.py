@@ -79,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
+    AccountLossCapTrippedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
     BotAutoRecoveredEvent,
 )
@@ -205,6 +208,34 @@ class BotAlertSource:
             f"Press Stop to try again.\n{_reason_line(reason)}"
         )
         self._publish(AlertKind.STOP_FAILED, subject, detail)
+
+    def on_account_loss_cap_tripped(self, event: AccountLossCapTrippedEvent) -> None:
+        """`EPIC-026L`: the account-level loss cap tripped; the owner must hear it at once.
+
+        About the whole host, not a bot, so its subject is the app. It has no recovery message: the
+        owner's acknowledgement is the end of it, and a cap that trips again is a new alert.
+        """
+        figure = f" (cap {event.figure})" if event.figure else ""
+        detail = (
+            f"The account-level loss cap tripped{figure}: {event.detail}.\n"
+            f"{event.bots_stopped} bot(s) are being stopped. No bot starts or resumes until you "
+            "acknowledge it with `main.py bot loss-cap-ack` on the running host. A Spot bot keeps "
+            "the coin it holds; a Futures bot's position is closed at market."
+        )
+        self._publisher.publish(
+            Alert.raised(
+                AlertKind.ACCOUNT_LOSS_CAP_TRIPPED,
+                AlertSubject.app(),
+                label_of(AlertKind.ACCOUNT_LOSS_CAP_TRIPPED),
+                detail,
+                self._clock.now(),
+                reason=event.reason,
+            )
+        )
+        logger.info(
+            "[alert-source] account loss cap tripped (%s): alert published",
+            event.reason,
+        )
 
     def on_recovery_stalled(self, event: BotRecoveryStalledEvent) -> None:
         """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""

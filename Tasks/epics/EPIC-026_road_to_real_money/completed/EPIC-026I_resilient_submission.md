@@ -28,10 +28,11 @@ the timeout it fixes.
 
 ## 2. Acceptance criteria
 
-- [x] Every signed request carries an explicit `recvWindow` from config
-      (`trading.recv_window_ms`, default 5000), validated against the measured clock offset at
-      session creation: an offset larger than half the window refuses with `CLOCK_SKEW` before
-      any order.
+- [x] Every signed REST request carries an explicit `recvWindow` (5000 ms). *Amended 2026-10-20:
+      a constant (`SIGNED_REQUEST_RECV_WINDOW_MS`), not `trading.recv_window_ms`, and no
+      session-creation `CLOCK_SKEW` check against the offset: see decisions 1 and 3 below. The
+      two user-data streams build their own `AsyncClient`; their WebSocket API signing adds no
+      `recvWindow`, so the exchange's own 5000 ms applies there.*
 - [x] `ITradingClient.get_order(symbol, client_order_id)` exists; on a timeout or a connection
       error during `place_order`, the handler queries it once before answering: found → the order
       is recorded as sent (counter, journal outcome, `known_open_symbols`); not found → answered

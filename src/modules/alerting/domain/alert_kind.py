@@ -19,11 +19,17 @@ class AlertKind(Enum):
     KEY_REJECTED = "key_rejected"
     STORAGE_FAILURE = "storage_failure"
     STOP_FAILED = "stop_failed"
+    #: `EPIC-026L`: the account-level loss cap tripped and every bot is stopping; the owner must
+    #: acknowledge before any bot starts again.
+    ACCOUNT_LOSS_CAP_TRIPPED = "account_loss_cap_tripped"
     #: A bot waiting in AWAITING_RECOVERY has waited longer than it should expect to (`EPIC-042`).
     BOT_RECOVERY_STALLED = "bot_recovery_stalled"
     #: A bot resumed itself after a transient halt (`EPIC-042`); one alert per recovery.
     BOT_AUTO_RECOVERED = "bot_auto_recovered"
     RATE_LIMITED = "rate_limited"
+    #: A Futures bot's position is inside the warning distance to liquidation (`EPIC-036B1`);
+    #: the critical distance halts the bot and arrives as the halt.
+    LIQUIDATION_RISK = "liquidation_risk"
     RANGE_EXIT = "range_exit"
     APP_FAILURE = "app_failure"
     #: One order of a bot's ladder filled whole (`BOT-189`, `PRO-015`); INFO, so silent by default.

@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionReadyResult,
 )
@@ -106,7 +109,7 @@ class TradingSessionService(ITradingSession):
             spot_baseline_holdings=self._session_state.spot_baseline_holdings(),
         )
 
-    def ensure_ready(self, opened_for: str | None = None) -> SessionReadyResult:
+    def ensure_ready(self, opened_for: SessionOpener = None) -> SessionReadyResult:
         response = self._dispatcher.dispatch(
             EnsureSessionReadyCommand,
             EnsureSessionReadyCommand(venue=self._trading_venue, opened_for=opened_for),

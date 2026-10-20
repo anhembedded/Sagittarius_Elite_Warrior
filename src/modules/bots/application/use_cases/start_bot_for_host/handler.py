@@ -13,9 +13,10 @@ when the typed venue is the bot's own, and otherwise nothing is dispatched.
     refusal never talks about money for a bot that could not start anyway). A HALTED or
     AWAITING_RECOVERY bot is refused in words that name its way back: its resume proposes a ladder
     a person reads and confirms (decision D13), which is `run --resume-halted` or the Bots tab;
-  · the refusal that asks for the typed mainnet venue names the venue's RECOVERING bots, because
-    starting opens the order session and opening it reconciles them (`bot stop` says the same).
-    Once the venue is typed, the screen's own Start refuses in words while any of them waits
+  · the refusal that asks for the typed mainnet venue names the venue's RECOVERING bots, so the
+    person sees that they wait and that the start is refused while any does (the order session a
+    start opens resumes none of them since `BOT-183`; `venue_recovering` says what the refusal
+    keeps, `BOT-201`). Once the venue is typed, the screen's own Start refuses in words while any of them waits
     (`VENUE_RECOVERING`), or when the symbol or the venue is full: nothing is opened for that.
 """
 
@@ -97,8 +98,8 @@ class StartBotForHostCommandHandler(
         return self._start(StartBotCommand(command.bot_id, real_money_confirmed=True))
 
     def _others_returning(self, bot_id: str, venue: TradingVenue) -> str:
-        """The venue's other RECOVERING bots, in words: starting opens the order session, and
-        opening it reconciles them (the same sentence `bot stop` gives)."""
+        """The venue's other RECOVERING bots, in words: they are not reconciled until their own
+        Resume, and the start is refused while any waits (`venue_recovering`, `BOT-201`)."""
         others = venue_recovering(
             bot_id,
             venue,
@@ -115,8 +116,8 @@ class StartBotForHostCommandHandler(
         if not others:
             return ""
         return (
-            f". Starting opens the venue's order session, which also reconciles its RECOVERING "
-            f"bot(s) ({', '.join(sorted(others))}); the start is refused while any waits "
+            f". The venue's RECOVERING bot(s) ({', '.join(sorted(others))}) are not reconciled "
+            "with the exchange until each is resumed, and the start is refused while any waits "
             "(resume or stop them first)"
         )
 

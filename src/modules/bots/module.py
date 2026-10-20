@@ -83,6 +83,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import IConfigReader
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
@@ -107,6 +108,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
     SECTION_NAME,
     BotsHealthContributor,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.loss_cap.loss_cap_health_contributor import (
+    SECTION_NAME as LOSS_CAP_SECTION_NAME,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.loss_cap.loss_cap_health_contributor import (
+    LossCapHealthContributor,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.loss_cap.loss_cap_preflight_check import (
+    CHECK_ID as LOSS_CAP_CHECK_ID,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.loss_cap.loss_cap_preflight_check import (
+    LossCapPreflightCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
     BotPriceWatch,
 )
@@ -119,6 +132,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings imp
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
     bind_executors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.loss_cap_bindings import (
+    bind_loss_cap,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings import (
     bind_queries,
 )
@@ -129,6 +145,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler 
     IBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_status import (
+    ILossCapStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_store import (
+    ILossCapStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
 )
@@ -168,6 +190,7 @@ class BotsModule(BoundedContextModule):
 
     def register(self, context: Any) -> None:
         bind_state(context.container)
+        bind_loss_cap(context.container)
         bind_executors(context.container)
         bind_commands(context.container)
         bind_queries(context.container)
@@ -207,6 +230,26 @@ class BotsModule(BoundedContextModule):
                 BOT_FILES_CHECK_ID,
                 lambda resolver: BotFilesReadableCheck(
                     resolver.resolve(IBotStore)  # type: ignore[type-abstract]
+                ),
+                self.module_id,
+            )
+        )
+        registry.declare_preflight(
+            PreflightCheckDescriptor(
+                LOSS_CAP_CHECK_ID,
+                lambda resolver: LossCapPreflightCheck(
+                    resolver.resolve(IConfigReader),  # type: ignore[type-abstract]
+                    resolver.resolve(ILossCapStore),  # type: ignore[type-abstract]
+                    resolver.resolve(IBotStore),  # type: ignore[type-abstract]
+                ),
+                self.module_id,
+            )
+        )
+        registry.declare_health(
+            HealthContributorDescriptor(
+                LOSS_CAP_SECTION_NAME,
+                lambda resolver: LossCapHealthContributor(
+                    resolver.resolve(ILossCapStatus)  # type: ignore[type-abstract]
                 ),
                 self.module_id,
             )

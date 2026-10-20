@@ -221,15 +221,16 @@ class _Capture(requests.adapters.BaseAdapter):
 
 def _real_signed_client(
     monkeypatch: pytest.MonkeyPatch, venue: TradingVenue
-) -> tuple[Any, _Capture]:
-    monkeypatch.undo()  # the real `Client`, not the builder fixture's stand-in
+) -> tuple[RealClient, _Capture]:
+    # The real `Client`, not the autouse stand-in; `undo()` would also lift the unit tier's network block.
+    monkeypatch.setattr(binance_client_builder, "Client", RealClient)
     monkeypatch.setattr(
         binance_client_builder, "sync_timestamp_offset", lambda *_: None
     )
     monkeypatch.setattr(RealClient, "ping", lambda _self: {})  # a Spot open pings
     client = new_client(venue, _KEYS)
     capture = _Capture()
-    client.session.mount("https://", capture)  # type: ignore[attr-defined]
+    client.session.mount("https://", capture)
     return client, capture
 
 
@@ -238,11 +239,11 @@ def test_a_futures_signed_request_carries_the_explicit_recv_window(
 ) -> None:
     client, capture = _real_signed_client(monkeypatch, TradingVenue.FUTURES_TESTNET)
 
-    client.futures_create_order(  # type: ignore[attr-defined]
+    client.futures_create_order(
         symbol="ETHUSDT", side="BUY", type="MARKET", quantity="1"
     )
-    client.futures_cancel_order(symbol="ETHUSDT", orderId=1)  # type: ignore[attr-defined]
-    client.futures_account()  # type: ignore[attr-defined]
+    client.futures_cancel_order(symbol="ETHUSDT", orderId=1)
+    client.futures_account()
 
     assert len(capture.sent) == 3
     for request in capture.sent:
@@ -256,10 +257,11 @@ def test_a_spot_signed_request_carries_the_explicit_recv_window(
 ) -> None:
     client, capture = _real_signed_client(monkeypatch, TradingVenue.SPOT_TESTNET)
 
-    client.get_account()  # type: ignore[attr-defined]
+    client.get_account()
 
     query = (capture.sent[0].url or "") + (capture.sent[0].body or "")
     assert f"recvWindow={SIGNED_REQUEST_RECV_WINDOW_MS}" in query
+    assert query.count("recvWindow=") == 1
 
 
 def test_the_window_is_binances_recommended_five_seconds_at_most() -> None:

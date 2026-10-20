@@ -28,7 +28,7 @@ logger = logging.getLogger("App.ExchangeClient")
 #: agree on is vocabulary, which is what this package holds (HLD §8).
 REQUEST_TIMEOUT_SECONDS = 30.0
 
-#: The `recvWindow` every signed request carries (`EPIC-026I`): how long after its
+#: The `recvWindow` every signed REST request carries (`EPIC-026I`): how long after its
 #: `timestamp` the exchange still accepts it. Binance recommends 5000 ms or less and caps it
 #: at 60000. python-binance sends its own 10000 ms when nothing is set, and a per-call
 #: `recvWindow` is overwritten by it, so the one place that sets it is `new_client`. The

@@ -14,7 +14,7 @@ both the `testnet` flag and which API family measures the server's clock.
   threshold `recvWindow` does not widen, so a machine whose clock merely runs fast
   fails every signed call). Spot measures with `get_server_time()`, Futures with
   `futures_time()`.
-- **Every signed request carries an explicit `recvWindow`** (`EPIC-026I`):
+- **Every signed REST request carries an explicit `recvWindow`** (`EPIC-026I`):
   `SIGNED_REQUEST_RECV_WINDOW_MS`, set here on the client for Spot and Futures alike, so no
   call site passes one (python-binance would overwrite it) and none relies on the library's
   own 10000 ms.

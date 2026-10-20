@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     TradingSessionSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -54,6 +57,7 @@ def test_arming_opens_the_order_session_itself() -> None:
     assert result.armed is True
     assert state.snapshot().enabled is True
     assert state.ready_requests == 1
+    assert state.opened_for == [OpenedByPerson.PERSON], "`BOT-197`: no bot's opening"
 
 
 def test_a_session_that_will_not_open_refuses_the_arm_with_the_reason_in_words() -> (

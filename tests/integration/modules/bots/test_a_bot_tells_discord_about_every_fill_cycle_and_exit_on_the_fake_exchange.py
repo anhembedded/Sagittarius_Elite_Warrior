@@ -192,7 +192,7 @@ def test_one_silent_message_per_full_fill_and_the_cycle_carries_the_profit_booke
     assert "@ 48,800" in buy and "(level 1)" in buy
     assert "cycle" not in buy
     assert f"{SYMBOL} · SELL" in sell and "(level 2)" in sell
-    assert f"cycle {profit} USDT · total {profit} USDT · 1 cycle" in sell
+    assert f"cycle {profit} USDT · grid profit {profit} USDT · 1 cycle" in sell
     assert [post.body["flags"] for post in transport.posts] == [
         SUPPRESS_NOTIFICATIONS
     ] * 2
@@ -325,7 +325,7 @@ def test_a_read_only_copy_sends_nothing_for_a_fill(
                 price=Decimal(48800),
                 quantity=Decimal(1),
                 level=1,
-                realised_total=Decimal(0),
+                grid_profit=Decimal(0),
                 completed_cycles=0,
                 quote_asset="USDT",
             )

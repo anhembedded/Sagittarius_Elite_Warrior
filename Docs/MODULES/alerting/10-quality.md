@@ -24,6 +24,11 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | A 429 that names no wait waits | 5 s | `alerting/adapters/discord_answer.py` → `DEFAULT_RETRY_AFTER` |
 | `stop()` waits for a lane stuck inside a channel | 5 s | `alerting/adapters/threaded_delivery_host.py` → `JOIN_TIMEOUT_S` |
 | The health section reports `degraded` when the oldest undelivered alert has waited | 15 min | `alerting/application/alerting_health_contributor.py` → `STUCK_AFTER` |
+| The dead man's switch pings; retries a failed ping; reports the monitor failing after | 5 min; 1 min; 3 failures in a row | `alerting/application/dead_mans_switch.py` → `PING_EVERY`, `RETRY_AFTER_FAILURE`, `FAILURES_BEFORE_ALERT` |
+| A worker that has not finished a pass is stalled, and the ping stops | 5 min | `alerting/adapters/worker_liveness.py` → `STALL_AFTER` |
+| The beacon asks whether a ping is due | 5 s | `alerting/composition/alerting_bindings.py` → `BEACON_SECONDS` |
+| A Futures bot's liquidation warning is raised at most once per | 10 min | `alerting/domain/alert_policies.py` → `EarlyWarningPolicy.liquidation_cooldown` |
+| A user-data stream down this long is told; a venue's outage is told at most once per | 60 s; 10 min | `alerting/domain/alert_policies.py` → `EarlyWarningPolicy.stream_down_grace`, `EarlyWarningPolicy.stream_cooldown` |
 | A CRITICAL asks for this many channels when the owner has them (N8) | 2 | `alerting/application/alert_router.py` → `CRITICAL_CHANNELS` |
 | Bots listed in a grouped alert, alerts listed in a summary, held alerts kept | 20; 20; 500 | `alert_coalescer.py` → `MAX_LISTED` · `quiet_hours_hold.py` → `MAX_LISTED`, `MAX_HELD` |
 | Open conditions remembered; fail-overs remembered; criticals scanned behind a wait | 1000; 1000; 20 | `condition_book.py` → `MAX_OPEN` · `channel_delivery.py` → `MAX_REMEMBERED`, `WAITING_SCAN` |
@@ -31,6 +36,5 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 ## Planned
 
 `EPIC-036C` adds the channel's own pacing under Discord's limit (research 036 §1: about 5 messages
-per 2 s per webhook, to be measured). `EPIC-036E` adds the heartbeat (6 h, N4) and the dead man's
-switch ping (5 min, N7). By decision D4 of `EPIC-041` this table becomes generated from the
+per 2 s per webhook, to be measured). `EPIC-036E` adds the heartbeat (6 h, N4). By decision D4 of `EPIC-041` this table becomes generated from the
 constants, in the task that fills this view.

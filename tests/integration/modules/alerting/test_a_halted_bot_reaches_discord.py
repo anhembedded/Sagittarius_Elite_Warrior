@@ -17,6 +17,7 @@ import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -56,10 +57,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recove
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_risk_changed_event import (
+    BotRiskChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import RiskLevel
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.contract_bot_store import (
     sample_bot,
 )
@@ -76,7 +81,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
     IAlertChannels,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+    UserStreamState,
+)
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.integration.modules.bots.bots_module_world import (
     GRID_CONFIG,
 )
@@ -264,6 +276,72 @@ def test_an_automatic_recovery_reaches_discord_as_one_warning(
     assert "WARNING" in content
     assert "Bot recovered by itself: grid one" in content
     assert "attempt 1 of 3" in content
+
+
+def test_a_liquidation_warning_reaches_discord_as_one_warning(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-036B1`: the module subscribed the risk event; the owner's VPS bot tells its approach."""
+    booted = _boot(
+        monkeypatch,
+        tmp_path,
+        InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
+        FakeWebhookTransport(),
+    )
+    events = booted.app.container.resolve(IEventPublisher)  # type: ignore[type-abstract]
+    try:
+        booted.save(BotLifecycleState.DRAFT)
+        booted.save(BotLifecycleState.RUNNING)
+        events.publish(
+            BotRiskChangedEvent(
+                bot_id="abc123",
+                symbol="ETHUSDT",
+                level=RiskLevel.WARN,
+                reason="The mark price 1900 is 9.50% from the exchange's liquidation price 1720",
+                distance=Decimal("0.095"),
+                mark_price=Decimal(1900),
+                liquidation_price=Decimal(1720),
+            )
+        )
+        booted.wait_for_posts(1)
+    finally:
+        booted.app.stop()
+
+    [post] = booted.transport.posts
+    content = str(post.body["content"])
+    assert "WARNING" in content
+    assert "Liquidation risk: grid one" in content
+    assert "liquidation price 1720" in content
+
+
+def test_a_user_stream_outage_reaches_discord_as_one_alert_about_the_venue(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-036B1`: the module subscribed trading's stream health; one message, not one per bot."""
+    booted = _boot(
+        monkeypatch,
+        tmp_path,
+        InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
+        FakeWebhookTransport(),
+    )
+    events = booted.app.container.resolve(IEventPublisher)  # type: ignore[type-abstract]
+    try:
+        events.publish(
+            UserStreamHealthEvent(
+                state=UserStreamState.RECONNECTING,
+                since=booted.clock.now() - timedelta(seconds=90),
+                attempt=4,
+                venue=TradingVenue.FUTURES_MAINNET,
+            )
+        )
+        booted.wait_for_posts(1)
+    finally:
+        booted.app.stop()
+
+    [post] = booted.transport.posts
+    content = str(post.body["content"])
+    assert "CRITICAL" in content
+    assert "Account stream down: Futures Mainnet" in content
 
 
 def test_the_host_hears_that_a_channel_carries_bot_events(skeleton: Skeleton) -> None:
