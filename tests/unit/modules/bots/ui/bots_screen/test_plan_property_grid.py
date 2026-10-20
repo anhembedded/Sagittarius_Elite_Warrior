@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
-from PySide6.QtWidgets import QAbstractScrollArea, QTreeView
+from PySide6.QtWidgets import QAbstractScrollArea, QStyleOptionViewItem, QTreeView
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     TOTAL_PNL_BASIS,
 )
@@ -75,27 +75,46 @@ def test_a_row_the_table_does_not_have_is_refused(qtbot) -> None:
         grid.set_values({"margin_mode": "Isolated"})
 
 
-def test_values_are_right_aligned_in_the_fixed_pitch_font_and_titles_left(
+def _painted(grid: PlanPropertyGrid, key: str, column: int) -> QStyleOptionViewItem:
+    """The cell as the view's own delegate paints it: its text, alignment and font."""
+    option = QStyleOptionViewItem()
+    index = grid._proxy_index(key, column)
+    grid.view.itemDelegateForIndex(index).initStyleOption(option, index)
+    return option
+
+
+def _side(option: QStyleOptionViewItem) -> Qt.AlignmentFlag:
+    return Qt.AlignmentFlag(int(option.displayAlignment)) & (  # type: ignore[attr-defined]
+        Qt.AlignmentFlag.AlignHorizontal_Mask
+    )
+
+
+def test_a_text_row_reads_left_and_a_number_row_right_each_in_its_kinds_font(
     qtbot,
 ) -> None:
+    """The owner (2026-10-20): "căn như đề xuất": a symbol and a venue left, a capital, a price,
+    a PnL right. The row's kind decides, not the column's."""
     grid = _grid(qtbot)
-    grid.set_values({"symbol": "BTCUSDT"})
-    model = grid.view.model()
-    group = model.index(1, 0)
+    grid.set_values({"symbol": "BTCUSDT", "capital": "500", "last_price": "64,500.00"})
+    fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
 
-    title = model.index(0, 0, group)
-    value = model.index(0, 1, group)
+    symbol, capital = _painted(grid, "symbol", 1), _painted(grid, "capital", 1)
 
-    assert Qt.AlignmentFlag(int(title.data(Qt.ItemDataRole.TextAlignmentRole))) & (
-        Qt.AlignmentFlag.AlignLeft
-    )
-    assert Qt.AlignmentFlag(int(value.data(Qt.ItemDataRole.TextAlignmentRole))) & (
-        Qt.AlignmentFlag.AlignRight
-    )
-    assert (
-        QFont(value.data(Qt.ItemDataRole.FontRole)).family()
-        == QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-    )
+    assert symbol.text == "BTCUSDT" and capital.text == "500"  # type: ignore[attr-defined]
+    assert _side(symbol) & Qt.AlignmentFlag.AlignLeft
+    assert _side(capital) & Qt.AlignmentFlag.AlignRight
+    assert QFont(capital.font).family() == fixed  # type: ignore[attr-defined]
+    assert QFont(symbol.font).family() != fixed  # type: ignore[attr-defined]
+    assert _side(_painted(grid, "last_price", 1)) & Qt.AlignmentFlag.AlignRight
+    assert _side(_painted(grid, "venue", 1)) & Qt.AlignmentFlag.AlignLeft
+    assert _side(_painted(grid, "step_design", 1)) & Qt.AlignmentFlag.AlignLeft
+
+
+def test_property_titles_read_left(qtbot) -> None:
+    grid = _grid(qtbot)
+
+    assert _side(_painted(grid, "capital", 0)) & Qt.AlignmentFlag.AlignLeft
+    assert _side(_painted(grid, "total_pnl", 0)) & Qt.AlignmentFlag.AlignLeft
 
 
 def test_a_long_title_wraps_to_the_lines_it_needs_and_a_short_one_does_not(

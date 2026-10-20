@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     TOTAL_PNL_BASIS,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: The rows only a venue with funding shows (`EPIC-039J`): costs apart from the profit.
 COST_KEYS = ("commissions", "funding")
@@ -33,6 +34,9 @@ READINESS_GROUP = "readiness"
 class PropertyRow:
     key: str
     title: str
+    #: What the value is: a word reads left, a figure right (`row_kind_delegate.py`), and a
+    #: figure whose digits line up is in the platform's fixed-pitch font (`kind_font`).
+    kind: ColumnKind = ColumnKind.TEXT
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,57 +51,64 @@ def step_key(step: ReadinessStep) -> str:
     return f"step_{step.name.lower()}"
 
 
-def _rows(*pairs: tuple[str, str]) -> tuple[PropertyRow, ...]:
-    return tuple(PropertyRow(key, title) for key, title in pairs)
+def _rows(*triples: tuple[str, str, ColumnKind]) -> tuple[PropertyRow, ...]:
+    return tuple(PropertyRow(key, title, kind) for key, title, kind in triples)
 
+
+_TEXT, _MONEY, _PRICE, _QUANTITY = (
+    ColumnKind.TEXT,
+    ColumnKind.MONEY,
+    ColumnKind.PRICE,
+    ColumnKind.QUANTITY,
+)
 
 PROPERTY_GROUPS: tuple[PropertyGroup, ...] = (
     PropertyGroup(
         READINESS_GROUP,
         "Readiness",
-        _rows(*((step_key(step), step.value) for step in ReadinessStep)),
+        _rows(*((step_key(step), step.value, _TEXT) for step in ReadinessStep)),
     ),
     PropertyGroup(
         "plan",
         "Plan",
         _rows(
-            ("venue", "Venue"),
-            ("symbol", "Symbol"),
-            ("capital", "Capital"),
+            ("venue", "Venue", _TEXT),
+            ("symbol", "Symbol", _TEXT),
+            ("capital", "Capital", _MONEY),
             # `BOT-193`: the ladder the saved parameters make (designed) and what a cycle there
             # earns (estimate).
-            ("grid_step", "Saved grid step, top to bottom"),
-            ("cycle_profit", "Profit per cycle (estimate)"),
-            ("lower_edge", "Lower edge"),
-            ("upper_edge", "Upper edge"),
-            ("stop_loss", "Stop loss"),
-            ("take_profit", "Take profit"),
-            (LIQUIDATION_KEY, "Liquidation price"),
+            ("grid_step", "Saved grid step, top to bottom", ColumnKind.PERCENT),
+            ("cycle_profit", "Profit per cycle (estimate)", _MONEY),
+            ("lower_edge", "Lower edge", _PRICE),
+            ("upper_edge", "Upper edge", _PRICE),
+            ("stop_loss", "Stop loss", _PRICE),
+            ("take_profit", "Take profit", _PRICE),
+            (LIQUIDATION_KEY, "Liquidation price", _TEXT),
         ),
     ),
     PropertyGroup(
         "results",
         "Results",
         _rows(
-            ("running_time", "Running time"),
-            ("grid_profit", "Profit from completed cycles"),
-            ("cycles", "Completed cycles"),
-            ("cycle_average", "Average per cycle (net of fees)"),
-            ("total_pnl", f"Total PnL ({TOTAL_PNL_BASIS})"),
-            ("unrealised", "of which unrealised"),
-            ("hodl", "HODL benchmark"),
-            ("commissions", "Commissions paid"),
-            ("funding", "Funding (earned +, paid −)"),
+            ("running_time", "Running time", ColumnKind.DURATION),
+            ("grid_profit", "Profit from completed cycles", _MONEY),
+            ("cycles", "Completed cycles", _QUANTITY),
+            ("cycle_average", "Average per cycle (net of fees)", _MONEY),
+            ("total_pnl", f"Total PnL ({TOTAL_PNL_BASIS})", _MONEY),
+            ("unrealised", "of which unrealised", _MONEY),
+            ("hodl", "HODL benchmark", _MONEY),
+            ("commissions", "Commissions paid", _QUANTITY),
+            ("funding", "Funding (earned +, paid −)", _QUANTITY),
         ),
     ),
     PropertyGroup(
         "holdings",
         "Holdings",
         _rows(
-            ("inventory", "Held"),
-            ("earlier_runs", "Left from earlier runs"),
+            ("inventory", "Held", _QUANTITY),
+            ("earlier_runs", "Left from earlier runs", _QUANTITY),
             # Beside what is held: where the price the bot last heard stands, and how old it is.
-            ("last_price", "Last price heard"),
+            ("last_price", "Last price heard", _PRICE),
         ),
     ),
 )

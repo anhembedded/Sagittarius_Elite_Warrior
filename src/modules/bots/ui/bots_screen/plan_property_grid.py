@@ -2,10 +2,13 @@
 
 A `QTreeView` over a `QStandardItemModel`, configured the one way every table is
 (`configure_item_view`, `ui-presentation-rule.md` §9). Two columns: the property, left, and its
-value, right. The column kinds decide that: a value column is right-aligned only when its kind is
-numeric, so the Value column is `QUANTITY` (which also puts its digits in the platform's fixed-pitch
-font) and the formatter writes a string "as given", so every sentence the screen's words built
-(`bot_facts.py`, `bot_ladder_facts.py`) reaches the cell untouched.
+value. A value reads by the kind of its row (`PropertyRow.kind`): a word (a venue, a symbol, a step's
+state) left, a figure (a price, an amount, a duration) right and, where its digits line up, in the
+platform's fixed-pitch font. The Engine aligns by the column's kind, so `RowKindDelegate` is its
+delegate with the alignment of the row's kind; the column itself is declared `QUANTITY`, which is
+what the first row (a heading, holding no value) shows the conformance checks. The formatter
+writes a string "as given", so every sentence the screen's words built (`bot_facts.py`,
+`bot_ladder_facts.py`) reaches the cell untouched.
 
 Text wraps in its cell, which `QTreeView` paints but never makes room for (it sizes a row from one
 line), so each row's height is asked of the wrapped text at the column's width (`SizeHintRole`) and
@@ -43,6 +46,10 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     PropertyGroup,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.row_kind_delegate import (
+    ROW_KIND_ROLE,
+    RowKindDelegate,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kind_font import kind_font
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text_at
@@ -97,6 +104,7 @@ class PlanPropertyGrid:
             selection=Selection.EXTENDED,
             sortable=False,
         )
+        self.view.setItemDelegate(RowKindDelegate(COLUMNS, formatter, self.view))
         self._set_up_view()
         copy = QShortcut(QKeySequence.StandardKey.Copy, self.view)
         copy.setContext(Qt.ShortcutContext.WidgetShortcut)
@@ -112,13 +120,16 @@ class PlanPropertyGrid:
         heading.setFont(font)
         value = QStandardItem()
         value.setEditable(False)
-        digits = kind_font(COLUMNS[VALUE_COLUMN].kind)
-        if digits is not None:
-            value.setFont(digits)
+        # The heading's own value cell holds nothing; it is the column's kind, as the checks read it.
+        column_digits = kind_font(COLUMNS[VALUE_COLUMN].kind)
+        if column_digits is not None:
+            value.setFont(column_digits)
         for row in group.rows:
             label, shown = QStandardItem(row.title), QStandardItem()
             for item in (label, shown):
                 item.setEditable(False)
+            shown.setData(row.kind, ROW_KIND_ROLE)
+            digits = kind_font(row.kind)
             if digits is not None:
                 shown.setFont(digits)
             label.setToolTip(row.title)

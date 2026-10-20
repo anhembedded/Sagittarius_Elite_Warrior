@@ -158,8 +158,9 @@ The Plan panel's figures are one grouped property table (`BOT-206`): `bots/ui/bo
 → `PROPERTY_GROUPS`, `PropertyGroup`, `PropertyRow` list what it shows (Readiness, Plan, Results, Holdings, a row
 per figure, keyed by the `BotFacts` field or the ladder row that writes it); `plan_property_grid.py` →
 `PlanPropertyGrid` is a stock `QTreeView` over a `QStandardItemModel`, configured by the Engine's
-`configure_item_view` like every table, with the Value column of kind `QUANTITY` so the kind right-aligns it and
-sets its digits in the fixed-pitch font. `BotPlanPanel` writes `BotFacts`, `LadderFacts` and the readiness steps
+`configure_item_view` like every table, with each row's value read by the kind of its row (`plan_property_rows.py` → `PropertyRow`; `row_kind_delegate.py` →
+`RowKindDelegate`, the Engine's delegate aligning a word left and a figure right, a figure whose digits line up in
+the fixed-pitch font). `BotPlanPanel` writes `BotFacts`, `LadderFacts` and the readiness steps
 (`readiness_words.py` → `step_rows`) into it by key, and shows or hides rows by venue (costs and liquidation
 only on a venue with them) and the Readiness group only for a bot at rest. The words are the ones those
 functions already built; the table only lays them out. What blocks Start (`readiness_words.py` → `item_lines`)
