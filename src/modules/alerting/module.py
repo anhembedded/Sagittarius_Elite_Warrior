@@ -73,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.alerting_health_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_exit_alert_source import (
+    BotExitAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_fill_alert_source import (
     BotFillAlertSource,
 )
@@ -100,6 +103,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recove
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_exit_closed_event import (
+    BotExitClosedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_order_filled_event import (
     BotOrderFilledEvent,
@@ -206,6 +212,7 @@ class AlertingModule(BoundedContextModule):
         bus.on(
             BotOrderFilledEvent, container.resolve(BotFillAlertSource).on_order_filled
         )
+        bus.on(BotExitClosedEvent, container.resolve(BotExitAlertSource).on_exit_closed)
         source.seed()
 
     def shutdown(self, context: IEngineContext) -> None:

@@ -80,6 +80,9 @@ KIND_PROFILES = MappingProxyType(
             AlertGroup.NOTICES, _WARNING, "Alert channel failing"
         ),
         AlertKind.ORDER_FILLED: KindProfile(AlertGroup.ROUTINE, _INFO, "Order filled"),
+        AlertKind.EXIT_CLOSED: KindProfile(
+            AlertGroup.ROUTINE, _INFO, "Position closed"
+        ),
         AlertKind.FILLS_SKIPPED: KindProfile(
             AlertGroup.ROUTINE, _INFO, "Fill messages skipped"
         ),

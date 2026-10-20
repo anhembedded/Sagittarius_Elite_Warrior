@@ -10,9 +10,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_exit_closed_event import (
+    BotExitClosedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import pnl_summary
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -60,3 +64,25 @@ def test_a_mark_price_through_the_take_profit_closes_the_position_and_stops_the_
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0
         assert app.resting() == {}
+
+
+def test_the_reduce_only_close_tells_the_exit_once_with_the_books_after_its_last_fill(
+    futures: FakeExchange,
+) -> None:
+    """`BOT-190`: the Futures close is told as the Spot one is, from the run's books."""
+    with booted_futures_bots(futures) as app:
+        bot_id = _started(app, _TAKE_PROFIT)
+        told: list[BotExitClosedEvent] = []
+        app.engine.event_bus.on(BotExitClosedEvent, told.append)
+
+        futures.urls.futures_book.faults.hold_fills = True
+        app.move_price(Decimal(66600))
+        app.ticker.fire()
+        app.deliver()
+
+        [event] = told
+        runtime = app.runtime(bot_id)
+        assert app.position() == 0
+        assert event.reason == GridReason.TAKE_PROFIT.value
+        assert event.run_id.startswith(f"{bot_id}@")
+        assert event.total_pnl == pnl_summary(runtime, None).total

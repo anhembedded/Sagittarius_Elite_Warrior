@@ -58,6 +58,19 @@ a take profit or a range exit that closes is `STOPPING` with its reason: `BotAle
 CRITICAL at once, with the bot's own detail ("price 2290, traded to 2288"). Nothing here places or
 changes an order.
 
+**The result of an exit (`BOT-190`).** The bot is STOPPED before the closing market slices fill, and the
+slices are booked one by one afterwards, so the status report at STOPPED still holds the position at its
+last price: neither the exit's fill price nor its fee. The message that tells the result therefore does
+not come from the state change. The sequence is: the stop sends the exit slices and confirms STOPPED
+(the stop loss message went out at the entry into STOPPING); each slice's fill is booked on the bot's
+queue; the booking that leaves the run holding dust makes `GridExitReport` publish one
+`BotExitClosedEvent` (`bots/application/kinds/grid/grid_exit_report.py` → `GridExitReport.after_exit_fill`); `BotExitAlertSource.on_exit_closed`
+words the INFO `EXIT_CLOSED` ("Position closed") with the total of the run's books after that booking,
+fee included. The proof is the composed test on the fake exchange
+(`tests/integration/modules/bots/test_an_exit_tells_discord_its_result_once_the_last_slice_is_booked_on_the_fake_exchange.py`):
+the message's total equals the books after the last fill and differs from the total at STOPPED. A stop
+the owner asked for, a halt and the exchange-side stop send no such message.
+
 **What a restart does.** The bot counts a fill once and so publishes it once; the dedup windows are in
 memory ([`08-concepts.md`](08-concepts.md)), so the guarantee is the bot's, not the hub's. A fill that
 happened while the app was closed is told once, by the reconcile that finds it.

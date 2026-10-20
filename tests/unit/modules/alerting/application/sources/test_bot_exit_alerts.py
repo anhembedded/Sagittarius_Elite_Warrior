@@ -13,8 +13,10 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
-    EXIT_ON_STOP,
     BotAlertSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_exit_words import (
+    EXIT_ON_STOP,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
     FakeAlertClock,

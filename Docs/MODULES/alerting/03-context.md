@@ -19,6 +19,9 @@ published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_i
 `GetBotStatusReportQuery`, `BotStatusEntry`) — and, since `BOT-189`, `BotOrderFilledEvent`
 (`src/modules/bots/contracts/events/bot_order_filled_event.py` → `BotOrderFilledEvent`, published once
 per order that filled whole by `grid_fill_announcer.py` → `GridFillAnnouncer.announce`),
+`BotExitClosedEvent` (`src/modules/bots/contracts/events/bot_exit_closed_event.py` → `BotExitClosedEvent`,
+published once per exit after its last closing slice is booked, by `grid_exit_report.py` →
+`GridExitReport.after_exit_fill`; `BOT-190`),
 `BotRangeChangedEvent` (`src/modules/bots/contracts/events/bot_range_changed_event.py` →
 `BotRangeChangedEvent`) and `BotProtectiveStopEvent`
 (`src/modules/bots/contracts/events/bot_protective_stop_event.py` → `BotProtectiveStopEvent`) and, since `EPIC-026L`,

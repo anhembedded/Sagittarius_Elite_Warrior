@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 790, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 792, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -189,6 +189,7 @@
 ["s", "Bot ", ": the exchange terms are unchanged"],
 ["ss", "Bot ", ": the exchange's facts are unavailable: ", " [exchange-facts]"],
 ["ss", "Bot ", ": the exchange's position could not be read (", "); the last reading ages [liquidation-risk]"],
+["ssss", "Bot ", ": the exit of ", " closed the position, ", " left; result ", " [exit-closed]"],
 ["s", "Bot ", ": the interrupted start could not be cleaned"],
 ["s", "Bot ", ": the key probe failed; asking again"],
 ["ssss", "Bot ", ": the mark price ", " left the range, ", " ", "; closing [range-exit]"],
@@ -556,6 +557,7 @@
 ["s", "[alert-skipped] read-only copy, ignoring clear of ", ""],
 ["s", "[alert-skipped] read-only copy, not sending ", ""],
 ["s", "[alert-source] account loss cap tripped (", "): alert published"],
+["ss", "[alert-source] bot ", ": ", " closed its position, result published"],
 ["ss", "[alert-source] bot ", ": ", " published"],
 ["s", "[alert-source] bot ", ": LIQUIDATION_RISK published"],
 ["s", "[alert-source] bot ", ": liquidation warning held back (inside the cool-down)"],

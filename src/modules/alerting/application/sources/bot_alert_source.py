@@ -57,6 +57,10 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_exit_words import (
+    EXIT_ON_STOP,
+    EXIT_SENTENCES,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_reason_routes import (
     own_route_on_entry,
     stalled_route,
@@ -114,25 +118,6 @@ logger = logging.getLogger("App.Alerting")
 #: an alert of this kind.
 ALERT_ON_ENTRY: Mapping[str, AlertKind] = MappingProxyType(
     {"HALTED": AlertKind.BOT_HALTED, "ERROR": AlertKind.BOT_ERROR}
-)
-
-#: `BOT-189`: a stop that began with one of these reasons (`GridReason.value`) is an exit the owner
-#: must hear at once; the entry into STOPPING carries it, and the bot is closing its position.
-EXIT_ON_STOP: Mapping[str, AlertKind] = MappingProxyType(
-    {
-        "stop_loss": AlertKind.STOP_LOSS_HIT,
-        "take_profit": AlertKind.TAKE_PROFIT_HIT,
-        "range_exit": AlertKind.RANGE_EXIT,
-    }
-)
-
-#: What the owner reads about each exit, before the bot's own detail.
-_EXIT_SENTENCES: Mapping[AlertKind, str] = MappingProxyType(
-    {
-        AlertKind.STOP_LOSS_HIT: "The stop loss was reached",
-        AlertKind.TAKE_PROFIT_HIT: "The take profit was reached in the app",
-        AlertKind.RANGE_EXIT: "The price left the range and the bot closes there",
-    }
 )
 
 #: `RangePosition.value`s, as the range event spells them (alerting reads contracts, not `bots.domain`).
@@ -322,7 +307,7 @@ class BotAlertSource:
         if kind is None:
             return
         detail = (
-            f"{_EXIT_SENTENCES[kind]} ({entry.reason_detail or 'no detail recorded'}). "
+            f"{EXIT_SENTENCES[kind]} ({entry.reason_detail or 'no detail recorded'}). "
             "The bot is closing its position at market and stopping."
         )
         alert = self._alert(kind, subject_of(entry), detail)

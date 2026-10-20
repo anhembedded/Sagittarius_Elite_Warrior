@@ -34,6 +34,9 @@ class AlertKind(Enum):
     APP_FAILURE = "app_failure"
     #: One order of a bot's ladder filled whole (`BOT-189`, `PRO-015`); INFO, so silent by default.
     ORDER_FILLED = "order_filled"
+    #: An exit (stop loss, take profit, range exit) has closed the position and its last closing
+    #: slice is booked: the run's realized result (`BOT-190`); INFO, so silent by default.
+    EXIT_CLOSED = "exit_closed"
     #: The one line that says the fill messages queued behind a slow channel were dropped (`BOT-189`).
     FILLS_SKIPPED = "fills_skipped"
     HEARTBEAT = "heartbeat"
