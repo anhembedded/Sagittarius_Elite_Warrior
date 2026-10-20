@@ -11,6 +11,9 @@ from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench import (
+    backtest_workbench_presenter as presenter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,
 )
@@ -20,7 +23,12 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.backtest.sandbox_fixtu
     market,
 )
 
-from .workbench_fixtures import WorkbenchWorld, build_workbench, selection
+from .workbench_fixtures import (
+    WorkbenchWorld,
+    build_workbench,
+    futures_selection,
+    selection,
+)
 
 SAME = "The same as the bot's plan."
 
@@ -255,3 +263,76 @@ def test_the_same_bot_id_on_another_symbol_is_not_the_sandboxs_source(
     world.workbench.follow(_other_symbol_selection("a3f9c1"))
 
     assert "maker 0.10%" in world.workbench.view.source.text()
+
+
+def _kept_across(world: WorkbenchWorld, qtbot: Any, other: WorkbenchSelection) -> None:
+    """Edit the sandbox of the first bot, select `other`, and keep the edits."""
+    view = world.workbench.view
+    world.workbench.follow(selection("a3f9c1"))
+    _edit(world, upper="71000")
+    world.workbench.follow(other)
+    qtbot.mouseClick(view.keep_button, Qt.MouseButton.LeftButton)
+    world.workbench.follow(other)
+
+
+def test_a_kept_sandbox_is_judged_by_its_own_markets_numbers_not_the_selected_bots(
+    world: WorkbenchWorld, qtbot: Any
+) -> None:
+    """Bot B's symbol has a minimum notional no order of A's ladder reaches: judged by B's numbers
+    the plan would be refused; judged by A's it is fine."""
+    planner = market()
+    strict = replace(planner.terms, min_notional=Decimal(10**9))
+    other = WorkbenchSelection(
+        replace(bot("b7e2d4"), symbol="ETHUSDT"), replace(planner, terms=strict)
+    )
+
+    _kept_across(world, qtbot, other)
+
+    view = world.workbench.view
+    assert view.run_button.isEnabled() and view.run_button.toolTip() == ""
+
+
+def test_a_kept_futures_sandbox_runs_with_its_own_symbols_risk_facts(
+    qtbot: Any,
+) -> None:
+    world = build_workbench()
+    qtbot.addWidget(world.workbench.view)
+    first = futures_selection("f00001")
+    other_facts = replace(
+        first.risk, brackets=replace(first.risk.brackets, symbol="ETHUSDT")
+    )
+    other = replace(futures_selection("f00002"), risk=other_facts)
+    view = world.workbench.view
+    world.workbench.follow(first)
+    view.config_edited.emit({**first.bot.config, "upper": "71000"})
+    world.workbench.follow(other)
+    qtbot.mouseClick(view.keep_button, Qt.MouseButton.LeftButton)
+    world.workbench.follow(other)
+
+    qtbot.mouseClick(view.run_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+
+    assert world.dispatcher.queries[-1].request.brackets == first.risk.brackets
+    world.workbench.shutdown()
+
+
+def test_the_result_is_drawn_with_the_terms_it_was_run_with(
+    world: WorkbenchWorld, qtbot: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawn_with = []
+    real = presenter.result_overlay
+
+    def spy(kind: Any, plan: Any, terms: Any, outcome: Any) -> Any:
+        drawn_with.append(terms)
+        return real(kind, plan, terms, outcome)
+
+    monkeypatch.setattr(presenter, "result_overlay", spy)
+    first = selection("a3f9c1")
+    world.workbench.follow(first)
+    _edit(world, upper="71000")
+    qtbot.mouseClick(world.workbench.view.run_button, Qt.MouseButton.LeftButton)
+    world.workbench.follow(_other_symbol_selection("b7e2d4"))
+
+    world.pool.run_all()
+
+    assert drawn_with == [first.market.terms]
