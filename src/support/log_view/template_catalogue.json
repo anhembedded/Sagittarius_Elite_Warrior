@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 804, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 800, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -335,10 +335,6 @@
 ["ss", "GetFuturesSymbolSettingQuery for ", " on ", ": the venue has no leverage and margin mode"],
 ["ss", "GetLeverageBracketsQuery for ", " on ", ": the venue has no leverage brackets"],
 ["ss", "GetMarkPriceQuery for ", " on ", ": the venue has no mark price"],
-["ssss", "Grid backtest ", ": ", " ", " to ", ""],
-["ss", "Grid backtest ", ": syncing ", ""],
-["s", "Grid backtest work ", " ended after its page closed"],
-["ss", "Grid backtest work ", " failed: ", ""],
 ["ss", "Handling ArmStrategyCommand for '", "' on ", ""],
 ["sss", "Handling CancelOrderCommand for ", " ", " on ", ""],
 ["sds", "Handling ChangeLeverageCommand: ", " to ", "x on ", ""],

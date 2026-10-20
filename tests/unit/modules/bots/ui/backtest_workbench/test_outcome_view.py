@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.outcome_vi
     chart_candles,
     result_overlay,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview import (
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.sample_replays import (
     sample_result,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
