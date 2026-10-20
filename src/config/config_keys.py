@@ -173,8 +173,8 @@ class ConfigKeys(str, Enum):
         "trading.position_refresh_interval_seconds"
     )
 
-    # `BOT-018` — Telegram notification channel, opt-in: `EPIC-036B` unwired it from the
-    # composition root (the channel's file stays until `EPIC-036C` moves Telegram into
-    # `alerting` and migrates the token), so these keys are read by nothing until then.
+    # `BOT-018` — Telegram notification channel. Since `EPIC-036C1` these two keys are only what
+    # an older install still holds: `TelegramConfigMigration` moves them into the secret store at
+    # boot and clears them, and the Telegram alert channel reads the store, never these keys.
     NOTIFICATIONS_TELEGRAM_BOT_TOKEN = "notifications.telegram.bot_token"  # noqa: S105 - config key name, not a secret value
     NOTIFICATIONS_TELEGRAM_CHAT_ID = "notifications.telegram.chat_id"

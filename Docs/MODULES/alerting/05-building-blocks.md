@@ -192,6 +192,21 @@ The Options page (`EPIC-036D1`) added:
   one record with a counter. The in-app toast is a second consumer of the relay, not an
   `IAlertChannel`: a notice inside the app, with no use for an outbox that holds 24 h.
 
+- **Telegram** (`EPIC-036C1`): `TelegramChannel` (`alerting/adapters/telegram_channel.py` →
+  `TelegramChannel`, `TelegramChannel.deliver`) reads the bot token and chat id by name from the
+  channels' `ISecretStore` (`TELEGRAM_TOKEN_SECRET`, `TELEGRAM_CHAT_SECRET`) at each send and posts
+  `sendMessage` through `IWebhookTransport` (the token is in the URL path, so both values are checked
+  against the shapes Telegram issues before use). The body is HTML-escaped text with one bold head
+  (`telegram_message.py` → `telegram_payload`; HTML and not MarkdownV2 because one missed escape makes
+  Telegram refuse the whole message); a silent cell sets `disable_notification`. Its answers map to
+  `DeliveryResult` in `telegram_answer.py` → `result_of`: a 429 waits the `parameters.retry_after`
+  Telegram names, "chat not found", a blocked bot and a rejected token are permanent refusals whose
+  reason says what to do. `TelegramConfigMigration`
+  (`alerting/application/telegram_config_migration.py` → `TelegramConfigMigration.run`) runs at
+  `AlertingModule.boot` before the channels are built: it writes each of the old config keys to the
+  store and clears the key only after the store reads the value back equal. The words shared with
+  Discord are in `adapters/alert_text.py`.
+
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
 and the switch's among them.
 
@@ -199,7 +214,7 @@ and the switch's among them.
 
 | Class | Where | Task |
 | :--- | :--- | :--- |
-| `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
+| The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `HeartbeatService` and the daily summary (the heartbeat reads `EPIC-035W`'s snapshot) | `alerting/application/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

@@ -25,6 +25,8 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
     each once per condition with a cool-down;
   - the fill source (`BOT-189`): one INFO, silent message for every order that filled whole, the
     cycle's profit on the fill that closes a cycle, bounded per channel by `FillBacklog`;
+  - Telegram beside it (`EPIC-036C1`), configured when its bot token and chat id are stored, with
+    the old config-file token moved into the secret store at boot;
   - one channel, Discord, configured when its webhook is stored
     (`composition/channel_bindings.py` is where a channel is added);
   - `alert test`, the command-line Send test;
@@ -84,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidat
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_alert_source import (
     StreamAlertSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_config_migration import (
+    TelegramConfigMigration,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.cli.alert_cli_handler import (
     AlertCliHandler,
@@ -188,6 +193,9 @@ class AlertingModule(BoundedContextModule):
         if container.resolve(IInstanceAccess).read_only:
             logger.info("[alerting] not started: this copy is read-only")
             return
+        # Before the host builds the channel catalog: a token moved out of the config file
+        # is then the one the Telegram channel finds (`EPIC-036C1`).
+        container.resolve(TelegramConfigMigration).run()
         host = container.resolve(ThreadedDeliveryHost)
         host.start()
         self._host = host
