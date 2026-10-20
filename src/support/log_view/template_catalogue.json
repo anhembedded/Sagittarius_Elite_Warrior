@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 811, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 816, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -558,6 +558,11 @@
 ["ss", "[alert-failover] alert ", ": ", " asked to wait and no other channel is left"],
 ["sss", "[alert-failover] alert ", ": ", " asked to wait, queued on ", ""],
 ["sdd", "[alert-fills] ", ": ", " queued fill message(s) dropped; the queue holds ", " [fill-backlog]"],
+["s", "[alert-heartbeat] DAILY_SUMMARY published for ", ""],
+["", "[alert-heartbeat] HEARTBEAT published"],
+["", "[alert-heartbeat] pass failed"],
+["", "[alert-heartbeat] the bots' state could not be read for the heartbeat"],
+["", "[alert-heartbeat] the daily summary could not be built"],
 ["ss", "[alert-inhibited] ", " hidden by ", ""],
 ["", "[alert-migration] telegram not migrated: another store answers for the Telegram credentials first; the old values stay in the config file"],
 ["", "[alert-migration] telegram not migrated: no secret store can be used here; the old values stay in the config file (on a server, provision the Telegram credentials: headless runbook 3b2)"],
