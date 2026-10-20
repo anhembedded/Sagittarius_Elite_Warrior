@@ -136,10 +136,21 @@ Size is the build effort (S ≈ a day, M ≈ a few days, L ≈ a week or more); 
 | O3 | The first real-money stage: capital, leverage ceiling, per-order notional, daily-loss cap. | (a) the per-bot budget alone, as today; (b) (a) plus an account-level loss cap (must-have 3) and a leverage ceiling constant for the first bot, in the style of `MAX_ACTIVE_BOTS_PER_VENUE`; (c) restore ADR D5's venue caps and typed acknowledgement, which D11 dropped. | (b), with the first bot on Spot or on Futures at 1× so the unverified Futures checks are not on the critical path. The figures are the owner's; size the first bot so that its full stop-loss loss is an amount the owner can lose without consequence. |
 | O4 | The alerting channel. | Telegram (the ADR's pick) or Discord. | Already answered: Discord first (`EPIC-036` D1), Telegram later (`EPIC-036C`). Record it and close O4. |
 
-Further decisions this review surfaced, none yet asked: whether a real-money bot may leave a Spot
-inventory behind a dead host (the Futures answer exists, O12); and whether `EPIC-026` is retired in favour
-of the must-have list above (recommended: keep it as the home of must-haves 3, 4 and 8 and mark the stale
-sub-tasks, rather than open an epic for a list of eight).
+### 6.1 Decisions this review surfaced, each with one recommended option
+
+The owner said on 2026-10-20 that anything needing confirmation goes with the coordinator's recommendation, so each
+decision below has one recommended option for the coordinator to record; nothing here is recorded as decided by this review.
+
+| # | Question | Recommended option | Why |
+| :-: | :--- | :--- | :--- |
+| N1 | `BOT-197`: what may a manual desk order or a strategy arm that opens a closed order session do to the venue's `RECOVERING` bots? | It wakes none: a `RECOVERING` bot reconciles only on its own Resume or an opening that names it (the rule `BOT-183` already set for bot commands). | A real-money bot must never start from an action that did not name it; the cost is one more Resume. Build is S. |
+| N2 | May a Spot inventory stay behind a dead host (resting orders, no exchange-side stop)? | Yes, accepted, as for Futures (O12 of `EPIC-039L`); record it and say so in the runbook §0. | A Spot holding is not a leveraged exposure; the dead man's switch (must-have 2) tells the owner. |
+| N3 | The account-level loss cap's shape (must-have 3). | One figure per host, in the owner's quote currency, summed over the host's bots' realised plus unrealised loss since 00:00 UTC; at the figure every bot is stopped through the existing stop path and none restarts until the owner acknowledges. No new close path, no new persistence beyond one day-stamp file. | It is the smallest control that does not depend on any bot's own logic; a drawdown percentage can follow. |
+| N4 | Retire `EPIC-026`? | Keep it open as the home of must-haves 3, 4 and 8, mark `026D`–`F`, `026O` and `026Q` cancelled with a pointer to this review, and cancel nothing else. | Opening a new epic for a list of eight costs more than it saves. |
+| N5 | Liquidation warnings below `CRITICAL` reaching Discord. | Defer to `EPIC-036B` (can follow). | The `CRITICAL` halt already alerts; warnings are an early notice, not a safeguard. |
+
+Order of the owner's open numbers, once the above are recorded: the O3 figures (first-bot budget, leverage ceiling,
+loss-cap figure) and the O1 tolerance are the only inputs only the owner can supply.
 
 ## 7. Records found stale while reading (not corrected here)
 
