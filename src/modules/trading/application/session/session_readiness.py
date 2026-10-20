@@ -81,7 +81,8 @@ class SessionReadiness:
         """@brief `venue`'s order session is open when this answers `ready`.
 
         @param opened_for The bot the opening is for, named on the event it publishes
-        (`BOT-183`); `None` when the opener is no bot's.
+        (`BOT-183`): a bot id, `OpenedByPerson.PERSON` for a person's action that is no bot's
+        (`BOT-197`), or `None` when no opener is known (still wakes a waiting bot).
 
         Network round trips on a closed session: call it from a worker thread.
         """

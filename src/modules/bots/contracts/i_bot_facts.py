@@ -68,8 +68,9 @@ class IBotFacts(ABC):
         """Trading on the bot's venue was enabled, disabled or Emergency-Stopped.
 
         @param opened_for For an opening, the bot whose command opened the session (`BOT-183`),
-        or `None` when the opener is no bot's. A bot waiting for its own Resume goes back to work
-        only when this names it or is `None`."""
+        `OpenedByPerson.PERSON` for a person's action that is no bot's (`BOT-197`), or `None` when no
+        opener is known. A bot waiting for its own Resume goes back to work only when this names
+        it or is `None`."""
 
     @abstractmethod
     def reconcile_after_gap(self) -> None:

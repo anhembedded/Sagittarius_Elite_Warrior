@@ -43,7 +43,8 @@ def order_session_refusal_words(
     else the refusal in the session's own words. `subject` names who asked, for
     the log ("Bot ab12cd", "Venue spot_testnet"). `opened_for` is the bot the opening
     serves (`BOT-183`): the announcement names it, so the venue's other RECOVERING bots
-    keep waiting for their own resume; `None` for a caller that is no bot's."""
+    keep waiting for their own resume; `OpenedByPerson.PERSON` for a person's action that is no
+    bot's (`BOT-197`); `None` only when no opener is known, which still wakes them."""
     opened = session.ensure_ready(opened_for)
     if opened.ready:
         logger.info(

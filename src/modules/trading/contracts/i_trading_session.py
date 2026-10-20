@@ -142,7 +142,9 @@ class ITradingSession(ABC):
 
         @param opened_for The bot the opening is for (`BOT-183`): the event that announces the
         opening names it, so a bot waiting for its own Resume is not put back to work by
-        another bot's command. `None` when the caller is no bot's.
+        another bot's command, or by a person's. A bot id; `OpenedByPerson.PERSON` for a person's
+        action that is no bot's (a manual order, a strategy arm; `BOT-197`); `None` only when no
+        opener is known, which still wakes them (`SessionOpener`).
         """
 
     @abstractmethod
