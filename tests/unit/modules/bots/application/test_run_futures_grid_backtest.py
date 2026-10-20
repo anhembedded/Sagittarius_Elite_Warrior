@@ -23,11 +23,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
     RunGridBacktestQuery,
     RunGridBacktestQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
-    FundingRequirement,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.cost_model_futures import (
     FuturesCostModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirement import (
+    FundingRequirement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     FUNDING_INTERVAL,

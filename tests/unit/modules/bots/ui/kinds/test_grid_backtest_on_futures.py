@@ -23,11 +23,11 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
-    FundingRequirement,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.result import (
     GridBacktestRefusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirement import (
+    FundingRequirement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestPorts,

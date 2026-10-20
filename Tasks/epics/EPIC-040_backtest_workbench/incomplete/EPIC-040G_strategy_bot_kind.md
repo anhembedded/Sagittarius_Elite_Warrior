@@ -5,7 +5,7 @@
 **Risk:** 🔴 — real orders driven by strategy code; a backtest that differs from live, or a strategy fault that takes the host down, costs money
 **Complexity:** L — a second `IBotKind`, a position executor, warm-up and recovery, a backtester adapter, migration of saved strategy configs
 **Epic:** [EPIC-040](../README.md)
-**Depends on:** [EPIC-040B](EPIC-040B_kind_neutral_backtest_contract.md) (the port this kind's backtest answers through), [EPIC-040F](EPIC-040F_grid_on_the_workbench.md) (the workbench proven on the Grid first)
+**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md) (the port this kind's backtest answers through), [EPIC-040F](EPIC-040F_grid_on_the_workbench.md) (the workbench proven on the Grid first)
 
 ---
 

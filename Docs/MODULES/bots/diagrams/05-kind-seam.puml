@@ -7,9 +7,11 @@ left to right direction
 [BotKindCatalog] as C
 [GridKind] as GK
 [GridExecutorFactory] as GF
+[GridKindBacktester] as GB
 [a second kind\n(EPIC-040G)] as K2
 SH --> C : IBotKindCatalog.kind(kind_id)
 C --> GK : IBotKind
 C ..> K2 : IBotKind (Planned)
 GK --> GF : executor_factory()
+GK --> GB : backtester() -> IKindBacktester
 @enduml

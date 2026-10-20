@@ -45,13 +45,33 @@ second copy of the app gets read-only wrappers instead (`.../read_only_bot_store
 ## Built: the seam a kind plugs into
 
 A new kind plugs in through one seam, `IBotKind` (`bots/contracts/i_bot_kind.py` → `IBotKind`):
-`kind_id`, `supported_profiles`, `validate`, `overlay` and `executor_factory`, and two concrete methods that no implementer is forced to override: `recovery_layer` and, since `EPIC-038L`, `parameter_problem` (whether the parameters a `bot edit` sets can be stored, judged without the exchange; closed by default, so a kind that declares nothing is edited by no command line; the Grid answers in `bots/domain/grid/grid_parameter_check.py` → `grid_parameter_problem`, through `GridParams.from_config`). The shell finds a kind
+`kind_id`, `supported_profiles`, `validate`, `overlay` and `executor_factory`, and three concrete methods that no implementer is forced to override: `recovery_layer`, `backtester` (since `EPIC-040B`, below) and, since `EPIC-038L`, `parameter_problem` (whether the parameters a `bot edit` sets can be stored, judged without the exchange; closed by default, so a kind that declares nothing is edited by no command line; the Grid answers in `bots/domain/grid/grid_parameter_check.py` → `grid_parameter_problem`, through `GridParams.from_config`). The shell finds a kind
 by its id through `IBotKindCatalog` (`bots/contracts/i_bot_kind_catalog.py` → `IBotKindCatalog`),
 implemented by `BotKindCatalog` (`.../bot_kind_catalog.py` → `BotKindCatalog`); the Grid is
 `GridKind` (`bots/domain/grid/grid_kind.py` → `GridKind`). A Grid's `overlay`
 (`bots/domain/grid/grid_overlay.py`) draws one label per price: a range limit equal to a level's
 price is part of that level's label ("L6 · range top"), else its own "range top"/"range bottom" line,
 and SL/TP keep their own roles and styles (`BUG-207`).
+
+**The kind's backtest.** `IBotKind.backtester` answers the kind's `IKindBacktester`
+(`bots/contracts/i_kind_backtester.py` → `IKindBacktester`, `KindBacktestRequest`), or `None`
+(concrete, `None` by default). The request is the symbol, the parameters, the symbol's terms, the
+venue, an interval and a period, an optional `warmup` before the period, and a `cancelled` poll;
+the answer is a kind-neutral `BacktestAnswer`: a `BacktestOutcome`, a `BacktestRefusal` in words,
+or a `BacktestCancelled`. The outcome (`bots/domain/backtest/backtest_outcome.py` →
+`BacktestOutcome`) is an envelope every pane can read, with no kind named: the candles replayed,
+the equity curve against buy and hold, the fills (each labelled), the fees, the provenance,
+`figures` (an ordered list of labelled raw values with a kind and a tone), `notes` (the caveats,
+the missing funding first) and `detail`, the kind's own rich result. The Grid's adapter is
+`bots/application/kinds/grid/grid_kind_backtester.py` → `GridKindBacktester`: it runs the existing
+`RunGridBacktestQuery` handler and maps the answer (`outcome_of`), keeping `GridBacktestResult`
+whole as `detail`; its figures and notes are written once, in
+`bots/domain/grid/grid_figures.py` → `grid_figures`, `grid_notes`, which the Grid page's summary
+reads too until `EPIC-040F`. `GridKind` is given its adapter where it is built
+(`bots/composition/executor_bindings.py` → `_build_kind_catalog`). No file of the outcome, the port
+or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_kind_neutral.py`).
+Nothing draws the outcome yet: the Grid page still reads `GridBacktestResult`, until `EPIC-040D`
+and `EPIC-040F`.
 
 The shell does not import a kind. Today's exceptions, files of the shell that still import Grid
 types, are listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt`, and the list
@@ -197,7 +217,7 @@ the constants in [`10-quality.md`](10-quality.md).
 
 | Change | Where | Task |
 | :--- | :--- | :--- |
-| One kind-neutral backtest result and simulator port | `bots/application/`, `bots/contracts/` | `EPIC-040B` |
+| The workbench draws any kind's outcome; the Grid page reads it instead of `GridBacktestResult` | `bots/ui/` | `EPIC-040D`, `EPIC-040F` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |

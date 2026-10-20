@@ -10,7 +10,8 @@ that runs it:
   · `parameter_problem()` — whether a set of parameters being changed can be stored, judged
     without the exchange (`bot edit`, `EPIC-038L`);
   · `overlay()` — what the bot's chart draws;
-  · `executor_factory()` — what builds the executor that runs one bot.
+  · `executor_factory()` — what builds the executor that runs one bot;
+  · `backtester()` — what replays the kind's parameters over stored candles (`EPIC-040B`).
 
 @par Extension cases (only Grid is built: `EPIC-029C`, `EPIC-029E`)
   · **Signal** — a strategy's signals drive a bot instead of a desk card
@@ -34,6 +35,9 @@ from collections.abc import Collection, Mapping
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
+    IKindBacktester,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
@@ -101,3 +105,9 @@ class IBotKind(ABC):
         default, so a kind that recovers nothing of its own declares nothing and no implementer
         changes (a port gaining an `@abstractmethod` would change every one, `BUG-026`)."""
         return RecoveryLayer(self.kind_id)
+
+    def backtester(self) -> IKindBacktester | None:
+        """The kind's backtest, or `None` when it has none (`EPIC-040B`). Concrete and `None` by
+        default, so a kind with no backtest declares nothing and no implementer changes (a port
+        gaining an `@abstractmethod` would change every one, `BUG-026`)."""
+        return None

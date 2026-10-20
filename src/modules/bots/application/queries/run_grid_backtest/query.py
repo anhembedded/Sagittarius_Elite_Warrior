@@ -8,7 +8,7 @@ from datetime import datetime
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirement import (
     FundingRequirement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
