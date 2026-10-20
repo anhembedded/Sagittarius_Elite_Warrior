@@ -261,6 +261,12 @@ TIMING: tuple[TimingRow, ...] = (
         _caps,
     ),
     TimingRow(
+        "Order pacer: the window it keeps beyond trading's rate window, for the moment trading's "
+        "stamp trails the pacer's turn",
+        (Constant(f"{_BOTS}/adapters/monotonic_order_pacer.py", "STAMP_JITTER"),),
+        _each,
+    ),
+    TimingRow(
         "Most bots not at rest one venue holds at once",
         (Constant(f"{_BOTS}/domain/venue_bot_cap.py", "MAX_ACTIVE_BOTS_PER_VENUE"),),
         _count,
