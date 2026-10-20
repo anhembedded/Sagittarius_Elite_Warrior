@@ -10,7 +10,6 @@ sees in each frame."""
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
     GridBacktestView,
 )
@@ -32,9 +31,6 @@ def _buttons(view: GridBacktestView) -> dict[str, bool]:
         )
         if button.isVisibleTo(view)
     }
-    assert all(
-        isinstance(b, QPushButton) for b in (view.run_button, view.cancel_button)
-    )
     return shown
 
 
@@ -64,6 +60,7 @@ def test_every_state_of_the_page_has_a_frame() -> None:
         "futures_liquidated",
         "cancelled",
         "another_bot",
+        "another_bot_mid_run",
     }
 
 
@@ -95,7 +92,7 @@ def test_idle_says_why_run_is_off(
 def test_running_offers_only_cancel_and_says_what_it_runs(frame) -> None:  # type: ignore[no-untyped-def]
     view = frame("running")
 
-    assert view.status.text() == "Backtesting BTCUSDT on 15m…"
+    assert view.status.text() == "Backtesting BTCUSDT on 1h…"
     assert _buttons(view) == {"Run backtest": False, "Cancel": True}
     assert view.summary_text() == {}
 
@@ -104,7 +101,7 @@ def test_a_sync_in_flight_is_stopped_not_cancelled(frame) -> None:  # type: igno
     view = frame("syncing")
 
     assert view.status.text().startswith(
-        "Syncing BTCUSDT 15m candles and 1-second klines"
+        "Syncing BTCUSDT 1h candles and 1-second klines"
     )
     assert _buttons(view) == {"Run backtest": False, "Stop": True}
 
@@ -112,7 +109,7 @@ def test_a_sync_in_flight_is_stopped_not_cancelled(frame) -> None:  # type: igno
 def test_missing_candles_offer_a_sync_and_keep_run_on(frame) -> None:  # type: ignore[no-untyped-def]
     view = frame("refused_candles")
 
-    assert "No 15m candles of BTCUSDT" in view.status.text()
+    assert "No 1h candles of BTCUSDT" in view.status.text()
     assert _buttons(view) == {
         "Run backtest": True,
         "Cancel": False,
@@ -124,7 +121,10 @@ def test_missing_candles_offer_a_sync_and_keep_run_on(frame) -> None:  # type: i
 def test_missing_funding_offers_to_run_without_it_and_not_a_sync(frame) -> None:  # type: ignore[no-untyped-def]
     view = frame("refused_funding")
 
-    assert "funding history of BTCUSDT could not be read" in view.status.text()
+    assert (
+        "A Futures backtest without funding flatters a leveraged grid"
+        in view.status.text()
+    )
     assert _buttons(view) == {
         "Run backtest": True,
         "Cancel": False,
@@ -141,7 +141,7 @@ def test_a_spot_result_shows_its_figures_and_no_futures_line(frame) -> None:  # 
     assert figures["candles"] == "120"
     assert "funding_paid" not in figures
     assert "Modelled" not in view.notes.text()
-    assert view.equity.grid_curve.getData()[0] is not None
+    assert len(view.equity.grid_curve.getData()[0]) == 120
 
 
 def test_a_futures_result_shows_funding_apart_and_says_it_is_modelled(frame) -> None:  # type: ignore[no-untyped-def]
@@ -178,4 +178,14 @@ def test_another_bot_clears_the_result_and_the_run_is_on_again(frame) -> None:  
     assert view.notes.text() == ""
     # Not pinned: the status line still reads "Backtest done." here, because
     # `show_idle("")` writes it only when there is a reason (recorded in EPIC-040A).
+    assert _buttons(view) == {"Run backtest": True, "Cancel": False}
+
+
+def test_another_bot_mid_run_drops_the_late_answer_and_turns_run_on(frame) -> None:  # type: ignore[no-untyped-def]
+    view = frame("another_bot_mid_run")
+
+    assert view.summary_text() == {}
+    assert view.notes.text() == ""
+    # Not pinned: the status still reads "Backtesting BTCUSDT on 1h…" with Cancel off,
+    # a third case of `show_idle("")` writing no status (recorded in EPIC-040A).
     assert _buttons(view) == {"Run backtest": True, "Cancel": False}

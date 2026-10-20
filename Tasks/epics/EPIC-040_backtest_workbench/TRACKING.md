@@ -60,7 +60,7 @@ gantt
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
 | 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
 | 2026-10-20 | Start | Un-parked by the owner; phase 1 (`040A`–`040C`) first. |
-| 2026-10-20 | 040A | Twelve frames and one test per state of the Grid backtest page; no behaviour changed. |
+| 2026-10-20 | 040A | Thirteen frames and one test per state of the Grid backtest page; no behaviour changed. |
 
 ---
 
