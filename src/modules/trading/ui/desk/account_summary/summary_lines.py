@@ -23,7 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     FuturesAccountSummary,
     SpotAccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import sign_tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 
 _UNPRICED = "unknown: a holding could not be priced"
@@ -54,20 +56,23 @@ def _futures_readout(summary: FuturesAccountSummary) -> Readout:
     specs = (
         _money("available", "Available", unit),
         _money("wallet", "Wallet balance", unit),
-        _money("unrealized_pnl", "Unrealized PnL", unit),
+        _money(signed_key("unrealized_pnl"), "Unrealized PnL", unit),
         _money("margin_balance", "Margin balance", unit),
     )
     values = {
         "available": summary.available_balance,
         "wallet": summary.wallet_balance,
-        "unrealized_pnl": summary.unrealized_pnl,
+        signed_key("unrealized_pnl"): summary.unrealized_pnl,
         "margin_balance": summary.margin_balance,
     }
+    tones = {signed_key("unrealized_pnl"): sign_tone(summary.unrealized_pnl)}
     if not multi:
-        return Readout(specs, values)
+        return Readout(specs, values, tones)
     margin = ColumnSpec("margin", "Margin", ColumnKind.TEXT)
     return Readout(
-        (*specs, margin), {**values, "margin": "every margin asset (Multi-Assets)"}
+        (*specs, margin),
+        {**values, "margin": "every margin asset (Multi-Assets)"},
+        tones,
     )
 
 

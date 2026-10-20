@@ -245,14 +245,15 @@ class BotPlanPanel(QStackedWidget):
         self.state.setText((facts.state_word or facts.state) if facts else "")
         self._show_where_the_bot_stands()
         self.properties.set_values(
-            {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS}
+            {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS},
+            facts.tones if facts else {},
         )
         self._show_costs(facts is not None and facts.shows_costs)
 
     def _show_ladder(self) -> None:
         """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
         ladder = ladder_facts(self._model.ladder)
-        self.properties.set_values(dict(ladder.rows))
+        self.properties.set_values(dict(ladder.rows), ladder.tones)
         self.properties.set_rows_shown((LIQUIDATION_KEY,), ladder.shows_liquidation)
 
     def _show_costs(self, shown: bool) -> None:

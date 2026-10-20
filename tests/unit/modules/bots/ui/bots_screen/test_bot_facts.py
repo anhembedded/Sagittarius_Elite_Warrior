@@ -41,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_row
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.grid_runtime_builders import (
     started_ladder,
 )
@@ -84,16 +85,16 @@ _PRICED = replace(_HELD, mark_price=Decimal(65000), pnl=_pnl("65000"))
 def test_unrealised_pnl_is_what_the_held_base_gained_at_the_bots_own_price() -> None:
     facts = bot_facts(_running(_PRICED), NOW)
 
-    assert facts.unrealised == "10.00 at 65,000.00"
+    assert facts.unrealised == "▲ +10.00 at 65,000.00"
     lower = replace(_PRICED, mark_price=Decimal(63000), pnl=_pnl("63000"))
-    assert bot_facts(_running(lower), NOW).unrealised == "-10.00 at 63,000.00"
+    assert bot_facts(_running(lower), NOW).unrealised == "▼ -10.00 at 63,000.00"
 
 
 def test_grid_profit_comes_first_with_the_total_and_the_unrealised_kept_apart() -> None:
     facts = bot_facts(_running(_PRICED), NOW)
 
-    assert facts.total_pnl == "30.00"
-    assert facts.grid_profit == "12.50"
+    assert facts.total_pnl == "▲ +30.00"
+    assert facts.grid_profit == "▲ +12.50"
     assert [key for key in PROPERTY_KEYS if key in _EARNINGS] == [
         "grid_profit",
         "cycles",
@@ -104,7 +105,7 @@ def test_grid_profit_comes_first_with_the_total_and_the_unrealised_kept_apart() 
 
 def test_the_hodl_benchmark_is_shown_beside_the_total() -> None:
     """1000 at 60 000 buys 1/60 BTC; at 65 000 that is 1083.33: +83.33."""
-    assert bot_facts(_running(_PRICED), NOW).hodl == "83.33"
+    assert bot_facts(_running(_PRICED), NOW).hodl == "▲ +83.33"
 
 
 def test_without_a_price_the_bot_heard_the_unrealised_and_the_total_say_so() -> None:
@@ -126,7 +127,7 @@ def test_a_flat_bot_shows_no_unrealised_and_a_total_equal_to_what_it_realised() 
     facts = bot_facts(_running(flat), NOW)
 
     assert facts.unrealised == "—"
-    assert facts.total_pnl == "20.00"
+    assert facts.total_pnl == "▲ +20.00"
 
 
 def test_fees_that_could_not_be_priced_make_the_total_say_it_is_short() -> None:
@@ -140,7 +141,7 @@ def test_the_state_carries_its_reason_and_capital_comes_from_the_kinds_key() -> 
 
     assert facts.state == "Halted — trading turned off"
     assert facts.capital == "1000"
-    assert facts.grid_profit == "12.50"
+    assert facts.grid_profit == "▲ +12.50"
 
 
 def test_running_time_counts_from_the_run_start_and_stops_at_rest() -> None:
@@ -259,3 +260,14 @@ def test_the_bots_table_shows_grid_profit_and_cycles_before_the_total(qtbot) -> 
     assert keys[-3:] == ["grid_profit.signed", "cycles", "profit.signed"]
     cells = [model.index(0, keys.index(key)).data() for key in keys[-3:]]
     assert cells == [Decimal("12.5"), 3, Decimal(30)]
+
+
+def test_each_earnings_figure_says_whether_it_is_a_profit_or_a_loss() -> None:
+    """`EPIC-043C`: the Plan dock paints a figure by what it means; zero and unknown say nothing."""
+    facts = bot_facts(_running(_PRICED), NOW)
+
+    assert facts.tones["grid_profit"] is Tone.POSITIVE
+    assert facts.tones["total_pnl"] is Tone.POSITIVE
+    assert facts.tones["unrealised"] is Tone.POSITIVE
+    assert facts.tones["hodl"] is Tone.POSITIVE
+    assert bot_facts(_running(None), NOW).tones["total_pnl"] is Tone.NEUTRAL

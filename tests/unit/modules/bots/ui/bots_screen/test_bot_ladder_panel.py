@@ -175,7 +175,7 @@ def test_the_plan_says_where_the_last_price_the_bot_heard_stands(
     assert _fact(screen, "stop_loss") == "off"
     assert _fact(screen, "take_profit") == "off"
     assert _fact(screen, "grid_step") == "1.45% to 1.67%"
-    assert _fact(screen, "cycle_average").startswith("2.50")
+    assert _fact(screen, "cycle_average").startswith("▲ +2.50")
     assert not screen.view.plan.properties.row_is_shown("liquidation")
 
 

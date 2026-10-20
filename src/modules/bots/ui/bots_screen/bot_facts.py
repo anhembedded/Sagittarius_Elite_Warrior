@@ -12,7 +12,8 @@ rather than showing a stale or guessed one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -39,7 +40,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     KIND_CAPITAL_KEYS,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    signed_key,
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -54,7 +60,8 @@ def _quantity(value: Decimal) -> str:
 
 
 def _write_money(value: Decimal) -> str:
-    return write_value(ColumnKind.MONEY, float(value))
+    """A figure that says how the run is doing: an arrow, a sign, and the tone's colour beside it."""
+    return write_value(ColumnKind.MONEY, float(value), signed_key("pnl"))
 
 
 def _money(value: Decimal | None) -> str:
@@ -116,6 +123,19 @@ class BotFacts:
     #: state reads at a glance and the note stands in the status banner. `state` is both, as ever.
     state_word: str = ""
     note: str = ""
+    #: `EPIC-043C` - what each earnings figure means, by its row key: a profit, a loss.
+    tones: Mapping[str, Tone] = field(default_factory=dict)
+
+
+def _tones(bot: BotSnapshot) -> dict[str, Tone]:
+    earnings = RunEarnings.of(bot.progress)
+    hodl = bot.progress.pnl.hodl if bot.progress and bot.progress.pnl else None
+    return {
+        "grid_profit": sign_tone(earnings.grid_profit if earnings else None),
+        "total_pnl": sign_tone(earnings.total_pnl if earnings else None),
+        "unrealised": sign_tone(earnings.unrealised if earnings else None),
+        "hodl": sign_tone(hodl),
+    }
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -140,6 +160,7 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         funding=_cost(bot, "funding"),
         shows_costs=_has_funding(bot),
         cycles=cycles_text(RunEarnings.of(progress)),
+        tones=_tones(bot),
     )
 
 
