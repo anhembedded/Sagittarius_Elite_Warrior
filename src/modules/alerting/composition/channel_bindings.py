@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_cha
     DISCORD_WEBHOOK_SECRET,
     DiscordWebhookChannel,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.paced_channel import (
+    PacedChannel,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_catalog import (
     RegisteredChannelCatalog,
 )
@@ -41,11 +44,17 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel im
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
     IAlertChannelCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
+    IAlertClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_catalog_builder import (
     IChannelCatalogBuilder,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import (
+    DISCORD_PACING,
 )
 
 logger = logging.getLogger("App.Alerting")
@@ -92,7 +101,11 @@ def discord_channel(resolver: PortResolver) -> IAlertChannel | None:
         "[alert-channel] discord is on: webhook read from the Discord webhook "
         "credential (alerting_discord_webhook)"
     )
-    return DiscordWebhookChannel(secrets, resolver.resolve(IWebhookTransport))  # type: ignore[type-abstract]
+    return PacedChannel(
+        DiscordWebhookChannel(secrets, resolver.resolve(IWebhookTransport)),  # type: ignore[type-abstract]
+        resolver.resolve(IAlertClock),  # type: ignore[type-abstract]
+        DISCORD_PACING,
+    )
 
 
 CHANNEL_DESCRIPTORS: tuple[AlertChannelDescriptor, ...] = (

@@ -12,7 +12,8 @@ the headless host runs it?*
 thread, `alerting-lane-<channel>`, and one more, `alerting-housekeeping`, runs the flush every
 second (`alerting/adapters/threaded_delivery_host.py` → `LANE_THREAD_PREFIX`,
 `HOUSEKEEPING_THREAD_NAME`, `ThreadedDeliveryHost.start`); a lane that raises logs and carries on at
-the next poll (`ThreadedDeliveryHost._run_lane`). It is a thread and not an Engine `Scheduler` job
+the next poll, or sooner when the channel's wait ends sooner (`ThreadedDeliveryHost._run_lane`,
+`ThreadedDeliveryHost._sleep_of`). It is a thread and not an Engine `Scheduler` job
 because every scheduled run puts two events on the bus (the docstring of
 `threaded_delivery_host.py`).
 

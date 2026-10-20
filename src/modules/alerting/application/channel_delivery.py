@@ -170,6 +170,15 @@ class ChannelDelivery:
                 del self._failed_over[next(iter(self._failed_over))]
         self._follow_up.fail_over(item.delivery.alert_id, channel_id)
 
+    def pause_remaining(self, channel_id: str) -> timedelta | None:
+        """How long the channel still waits; `None` when it does not. A lane sleeps no longer than
+        this, so a pacing wait of a fraction of a second is not stretched to a poll interval."""
+        until = self._pause_until(channel_id)
+        if until is None:
+            return None
+        remaining = until - self._clock.now()
+        return remaining if remaining > timedelta(0) else None
+
     def _pause_until(self, channel_id: str) -> datetime | None:
         """When the channel may be tried again. After a restart the in-memory wait
         is gone, so the first look reads it back from the channel's open

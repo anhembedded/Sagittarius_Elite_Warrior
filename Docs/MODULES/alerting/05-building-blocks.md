@@ -192,6 +192,15 @@ The Options page (`EPIC-036D1`) added:
   one record with a counter. The in-app toast is a second consumer of the relay, not an
   `IAlertChannel`: a notice inside the app, with no use for an outbox that holds 24 h.
 
+- **Pacing** (`EPIC-036C2`): `PacedChannel` (`alerting/adapters/paced_channel.py` → `PacedChannel`,
+  `SendWindow`) wraps a channel and keeps a window of its last sends (`PacingPolicy`, `DISCORD_PACING`,
+  `TELEGRAM_PACING` in `alerting/domain/alert_policies.py`). A send over the limit is not made: the
+  wrapper answers `DeliveryResult.retry_later(wait)`, the answer a 429 gets, so `ChannelDelivery` pauses the
+  channel for that long and uses no attempt; a burst is spread and nothing is lost, CRITICAL first. The
+  lane sleeps `min(poll, ChannelDelivery.pause_remaining)` (`threaded_delivery_host.py` →
+  `ThreadedDeliveryHost._sleep_of`), so a wait of a fraction of a second is not stretched to the 5 s poll.
+  `composition/channel_bindings.py` wraps the Discord channel; Telegram's descriptor wraps the same way.
+
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
 and the switch's among them.
 

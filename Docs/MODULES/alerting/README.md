@@ -36,6 +36,7 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | A bot's reason chooses its alert: rate limit, rejected key, storage pause, a price feed that stays quiet; the reason table and its completeness test | **Built** | `EPIC-036B2` |
 | The app's own failures (`APP_FAILURE`: a task that died, a failed sync, a UI slot that raised) replacing the old notification handler and its direct Telegram wiring | **Built** | `EPIC-036B` |
 | Telegram moved in, embeds, pacing, secret rotation | Planned | `EPIC-036C` |
+| Each channel paced under its platform's rate limit; the worker's lane sleeps no longer than the channel's wait | **Built** | `EPIC-036C2` |
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |

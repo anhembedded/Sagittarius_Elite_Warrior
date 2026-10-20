@@ -1,6 +1,6 @@
 # EPIC-036C — Discord channel and Telegram migration: two real channels, secrets only in the keyring
 
-**Status:** 🔵 Planned — not started
+**Status:** 🟡 Partly done — [`EPIC-036C2`](../completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) (2026-10-20) delivered the pacing and proved the rotation. Left: the Discord embed (an owner decision, see 036C2 §3), the Telegram migration (`036C1`) and the Options page's Telegram fields (moved to `036D`)
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N3, N8), relayed by the coordinator session; owner decision D3 of [`EPIC-035`](../../EPIC-035_spot_grid_unattended_safety/DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) (Discord).
 **Risk:** 🟡 — a secret webhook URL, a config-to-keyring migration and a new outbound dependency on Discord
 **Complexity:** L
@@ -23,7 +23,7 @@
 - [ ] **Keyring:** the Discord webhook URL and the Telegram token are stored by name through `ISecretStore` and read when sending. **Migration:** on first run the Telegram token in the config is written to the keyring and then removed from the config, once; a second run changes nothing; a keyring that is unavailable leaves the config untouched and reports it (`SecretStoreUnavailableError`), never loses the token.
 - [ ] **No secret leaks:** a webhook URL, a bot token or a ping URL appears in no log line, exception message, traceback, config file, history record or UI text; a channel's errors are sanitised at the channel.
 - [ ] **Send test** returns the outcome as a value: a missing/invalid webhook, a 404 (deleted), a Telegram "chat not found" or a bot never started becomes plain guidance ("Open the bot on Telegram and press Start, then try again"), never a raw error code.
-- [ ] **Rotate webhook:** replaces the stored secret and invalidates nothing else; the old value is not shown anywhere.
+- [x] (`EPIC-036C2`, by test: Save over a stored webhook is the rotation) **Rotate webhook:** replaces the stored secret and invalidates nothing else; the old value is not shown anywhere.
 - [ ] A permanent failure (deleted webhook, revoked token) is reported as `permanent`, so the worker stops retrying and raises `CHANNEL_FAILING`.
 - [ ] Both channels pass one shared **channel contract test** (never raises; maps a transport failure to a `DeliveryResult`).
 
