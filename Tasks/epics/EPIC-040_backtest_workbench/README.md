@@ -71,6 +71,39 @@
 - **Colour and theme.** That is `PRO-009`.
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
+## Resume
+
+*Written 2026-10-20 by the author session of `040A`–`040C`, for the session that takes `040D`–`040G`. The owner asked for all of EPIC-040.*
+
+**Where it stands.** Phase 1 is done: `040A` ([#624](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/624), merged `e6551b2`), `040B` ([#627](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/627), merged `6c5f05a`) and `040C` (this pull request). Nothing is on screen yet: the Grid's own Backtest page is unchanged and is what `040D`–`040F` replace.
+
+**Where `040D` starts.** Read, in order: §1 here; [`040D`](incomplete/EPIC-040D_backtest_workbench_shell.md); the *Implementation notes* of the three completed children (their "Findings" paragraphs are the hand-over); `Docs/MODULES/bots/05-building-blocks.md` ("The kind's backtest") and `08-concepts.md` (the sandbox plan). The code to build on:
+- `bots/domain/backtest/` — `BacktestOutcome` and its records, `StopCause`, `BacktestAnswer`, `SandboxPlan`; `bots/contracts/i_kind_backtester.py` — `IKindBacktester`, `KindBacktestRequest`; `IBotKind.backtester()` finds a kind's backtest through the catalog.
+- `bots/ui/backtest/` — `SandboxSession` (copy the saved plan, ask before discarding edits), `judge_sandbox`, `sandbox_line`.
+- The safety net: `tests/unit/modules/bots/ui/kinds/test_grid_backtest_states.py` and `ui/kinds/grid/backtest/preview_frames.py` (thirteen frames). `040F` must pass them unchanged against the workbench.
+- What `040F` deletes: `ui/kinds/grid/backtest/` (about 1,190 lines) and its hosting in `ui/bots_screen/kind_backtests.py`.
+
+**What each child left for a later one** (also written in that child's file):
+
+| For | Left by | What |
+| :-- | :-- | :-- |
+| `040D` | 040B | The neutral dispatching query (kind id and `KindBacktestRequest` in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) and its coordinator. Map `FigureTone` to the meaning colours (`Tone`; the Grid sets none). Build the trades pane by pairing the labelled `fills` (the outcome has no trade record). Mark `StopCause` on the chart. |
+| `040D` | 040C | The sandbox editor is a second `BotKindPanel`; it must **not** be bound to the Bots menu's kind commands (`kind_command_binding.py` acts on the selected bot's panel) and takes `set_plan_facts(None, risk)`. Bind the "discard your edits?" question to `SandboxSession.confirm_switch` / `keep_current`. Say whose fees a run charges (the account's tier). |
+| `040E` | 040A | The tabbed centre. The Engine's workbench shell takes any central widget (`sagittarius_engine/extensions/pyside_mvc/workbench/workbench_shell.py`), and `bots_view.py` already uses a stock `QTabWidget`, so a stock `QTabWidget` in the centre needs no Engine change; confirm it when `040E` starts. |
+| `040F` | 040A | The status line: `GridBacktestView.show_idle("")` writes no status, so "Backtest done." stays after another bot is selected, "Backtesting…" stays after a mid-run switch (Run on, Cancel off), and "Select a bot…" stays once the page is ready. One cause; fix and pin it (the tests leave those states unasserted on purpose). Also "No candles are stored for  at 15m." before the first run (an empty symbol), and a frame for a late *refusal* after a mid-run switch. |
+| `040F` | 040B | Drop the Grid's duplicate records (`PriceBar`, `EquityPoint`, `BacktestFill`, `BacktestProvenance`, `DataWindow`; `BacktestBar` repeats `PriceBar`) once the 039B oracle's imports are retargeted. |
+| `040G` | 040B | A trade record beside `fills`, or the workbench pairs entries and exits; the assertion that nothing before `start` is reported (the stub test cannot make it); a `StopCause` member such as a signal exit. |
+
+**Open questions, with a recommendation.**
+1. **§1's decisions are still marked pending the owner** (and `TRACKING.md` lists them as an open blocker). The owner has now asked for the whole epic. *Recommend:* take §1 as approved, and write the owner's go-ahead and its date into §1 before `040D` codes; ask only if the owner narrows it.
+2. **Does the sandbox read the planner market the live panel reads, or a terms-only read?** The planner read also touches the account's fee tier and the open orders on the symbol (never the balance); the sandbox already ignores the open orders. *Recommend:* reuse `selected.market` (no new read, the same numbers the live plan is judged by) and say in the banner that fees are the account's tier; build a terms-only read only if the owner objects.
+3. **`040G` is 🔴 (real orders from strategy code) and its per-file design is written when it starts.** *Recommend:* write a decision record from `.claude/templates/decision.md` (the strategy reference and version, where warm-up comes from, the position executor's scope, fault isolation) and send it to the coordinator before any `040G` code; the Engine, dependencies and config stay untouched without asking.
+
+**Working notes for the next session.**
+- The environment is ephemeral: set up `.venv`, the engine pin and `pwsh` as `install-rule.md` §2b says; `PYTHONPATH=..` and `QT_QPA_PLATFORM=offscreen` for tests. Run the commit tier, `tests/unit/architecture`, `tests/unit/modules/bots` and `tests/unit/presentation` before each push (about 5 minutes); they caught three ratchets that the focused tests do not: `ANN401` (no `Any` in a new signature), the member-name duplication ratchet (a new class member named like a member of another UI package; rename it) and the display-formatting guard (no `strftime` or format spec in UI code).
+- Check a test by mutation: stage first (`git add`), mutate, run, `git checkout -- <file>`; a new untracked file cannot be restored that way. Reviewers found two surviving mutants in `040B` that the author's own checks missed, so probe the field-by-field mappings.
+- One reviewer session per pull request (`claude-opus-5-5`, never Fable), spawned in the turn that pushes; push once per round with every fix; read both `gate (Unit)` and `gate (Rest)` job logs yourself even when the reviewer says green, then send READY with the full sha and the review comment link.
+
 ## Notes (newest first)
 - **2026-10-20** — `040C` done, and with it phase 1 (`040A`–`040C`): the frozen `SandboxPlan`, the session rule (copy the saved plan; ask before discarding edits), judging by the kind's `validate` with no account, and a guard plus an execution test that the sandbox sends no command. Nothing shows a sandbox on screen until `040D`; the coupling to settle there is recorded in the child.
 - **2026-10-20** — `040B` done: the kind-neutral `BacktestOutcome`, the `IKindBacktester` port found through `IBotKind.backtester()`, and the Grid's adapter. The neutral types are new records mapped from the Grid's, not moved, so the 039B oracle and 039K tests keep their imports; `FundingRequirement` moved to the domain. Nothing draws the outcome until `040D`.

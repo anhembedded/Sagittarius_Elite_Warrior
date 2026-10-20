@@ -6,7 +6,7 @@
 **Complexity:** L — a presenter trio, a coordinator for the run, four result panes
 **Epic:** [EPIC-040](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](EPIC-040C_sandbox_parameters.md)
+**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](../completed/EPIC-040C_sandbox_parameters.md)
 
 ---
 
