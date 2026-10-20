@@ -98,7 +98,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
-_BRACKETS = LeverageBrackets(
+BRACKETS = LeverageBrackets(
     SYMBOL,
     (
         LeverageBracket(
@@ -184,7 +184,7 @@ class _Frame:
         venue = (
             TradingVenue.FUTURES_TESTNET if self._futures else TradingVenue.SPOT_TESTNET
         )
-        brackets = _BRACKETS if self._futures else None
+        brackets = BRACKETS if self._futures else None
         return BacktestContext(
             bot_id, venue, SYMBOL, CONFIG, TERMS if terms else None, brackets
         )
@@ -225,7 +225,7 @@ def _futures_replay(
         note,
     )
     run = FuturesRunTerms(
-        _BRACKETS,
+        BRACKETS,
         _MAKER,
         _TAKER,
         funding,

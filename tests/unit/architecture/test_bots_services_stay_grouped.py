@@ -85,13 +85,24 @@ def _is_kind_module(module: str) -> bool:
     )
 
 
-def files_importing_a_kind(paths: Iterable[Path], root: Path) -> list[str]:
-    """Repo-relative paths of the given files that import a kind."""
+def _is_shared(module: str, shared: tuple[str, ...]) -> bool:
+    return any(module == name or module.startswith(f"{name}.") for name in shared)
+
+
+def files_importing_a_kind(
+    paths: Iterable[Path], root: Path, shared: tuple[str, ...] = ()
+) -> list[str]:
+    """Repo-relative paths of the given files that import a kind. `shared` names modules inside a
+    kind package that every kind implements and none owns (the editor's base class), which a
+    kind-neutral file may import."""
     found = []
     for path in sorted(paths):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         dotted = ".".join(path.relative_to(root / "src").with_suffix("").parts)
-        if any(_is_kind_module(m) for m in _imported_modules(tree, dotted)):
+        if any(
+            _is_kind_module(m) and not _is_shared(m, shared)
+            for m in _imported_modules(tree, dotted)
+        ):
             found.append(path.relative_to(root).as_posix())
     return found
 
