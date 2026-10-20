@@ -23,6 +23,8 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
   - early warnings (`EPIC-036B1`): a Futures bot inside its liquidation warning distance
     (`LIQUIDATION_RISK`) and a venue's user-data stream down past a grace (`USER_STREAM_DOWN`),
     each once per condition with a cool-down;
+  - the heartbeat every six hours and the daily summary (`EPIC-036E`), sent from the housekeeping
+    thread out of the bots' status report;
   - the fill source (`BOT-189`): one INFO, silent message for every order that filled whole, the
     cycle's profit on the fill that closes a cycle, bounded per channel by `FillBacklog`;
   - one channel, Discord, configured when its webhook is stored

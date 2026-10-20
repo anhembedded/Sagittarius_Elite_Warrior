@@ -1,6 +1,6 @@
 # EPIC-036C — Discord channel and Telegram migration: two real channels, secrets only in the keyring
 
-**Status:** 🟡 Partly done — [`EPIC-036C2`](../completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) (2026-10-20) delivered the pacing and proved the rotation. Left: the Discord embed (an owner decision, see 036C2 §3), the Telegram migration (`036C1`) and the Options page's Telegram fields (moved to `036D`)
+**Status:** 🟡 Partly done — [`EPIC-036C2`](../completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) (2026-10-20) delivered the pacing and proved the rotation. The Discord embed is not built (decided by the coordinator for the owner, 2026-10-20, owner may veto: the phone's push shows the content, not the embed; 036C2 §3). Left, the Telegram migration (`036C1`) and the Options page's Telegram fields (moved to `036D`)
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N3, N8), relayed by the coordinator session; owner decision D3 of [`EPIC-035`](../../EPIC-035_spot_grid_unattended_safety/DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) (Discord).
 **Risk:** 🟡 — a secret webhook URL, a config-to-keyring migration and a new outbound dependency on Discord
 **Complexity:** L
@@ -17,7 +17,7 @@
 `TelegramNotificationChannel` (`src/infrastructure/notifications/telegram_notification_channel.py`, 76 lines) reads its token from the config, does not retry and swallows a failure into a log line. There is no Discord channel. Real users report: Discord bans an IP that keeps retrying after a 429; Telegram can demand a wait of hours; a Discord webhook has no authentication, so a leaked URL lets anyone post; Telegram answers "chat not found" when the owner never pressed `/start`. Verify the limits with real response headers when the task starts; the design's numbers come from vendor blogs and single reports.
 
 ## 2. Acceptance criteria
-- [ ] **`DiscordWebhookChannel`** (in `alerting/adapters`) posts an **embed** coloured by severity with the subject, title, detail and time; **silent** loudness sets Discord's `@silent` flag; grouped and counted alerts show their count and bots.
+- [ ] **Decided not to build, 2026-10-20 (owner may veto; 036C2 §3):** `DiscordWebhookChannel` (in `alerting/adapters`) posts an **embed** coloured by severity with the subject, title, detail and time; **silent** loudness sets Discord's `@silent` flag; grouped and counted alerts show their count and bots.
 - [ ] **`TelegramChannel`** moves into `alerting/adapters` and implements `IAlertChannel`; it formats Markdown, uses `disable_notification` for silent, and **escapes** user-controlled text.
 - [ ] **Rate limits:** each channel reads the platform's `Retry-After` / `retry_after`, returns it in `DeliveryResult`, and is never called again before it; the channel's own pacing stays under the platform limit; a 429 is never retried in a loop (an IP ban would lose every alert).
 - [ ] **Keyring:** the Discord webhook URL and the Telegram token are stored by name through `ISecretStore` and read when sending. **Migration:** on first run the Telegram token in the config is written to the keyring and then removed from the config, once; a second run changes nothing; a keyring that is unavailable leaves the config untouched and reports it (`SecretStoreUnavailableError`), never loses the token.

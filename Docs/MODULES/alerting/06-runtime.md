@@ -160,8 +160,24 @@ The first tick is at start. The URL is read from the secret store at each ping a
 exception (`dead_mans_switch.py` → `DeadMansSwitch`, `DeadMansSwitch._ping`; the beacon logs an
 escaped exception by its type name, `threaded_delivery_host.py` → `ThreadedDeliveryHost._run_beacon`).
 The ping proves the process and its alert worker are alive, not that each bot is healthy: that is the
-heartbeat's body (`EPIC-036E`, after `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
+heartbeat's body (`EPIC-036E`, `heartbeat_service.py` → `HeartbeatService`; its per-bot health waits for `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
 its grace, which is wanted while resting orders stay on the exchange.
+
+## Built: the heartbeat and the daily summary (`EPIC-036E`)
+Once a second the housekeeping thread calls `HeartbeatService.tick` and then the hub's flush
+(`alerting_bindings.py` → `_housekeeping_of`; `heartbeat_service.py` → `HeartbeatService.tick`).
+The first tick of a process asks the outbox when a heartbeat was last sent
+(`SqliteOutbox.latest_alert_at`); a summary is looked up by its key for the day
+(`has_alert_keyed`), and a process started after the day's summary time marks that day done, so
+a summary is missed rather than sent late. A heartbeat is
+due when none was sent or `heartbeat_every` has passed; it asks the bots' status report through
+`ICommandDispatcher` and publishes one INFO `HEARTBEAT` (`HeartbeatService._send_heartbeat`). A
+report that cannot be read still produces a heartbeat that says so, with only the error's type. The
+summary adds the last day's alerts counted by the outbox
+(`SqliteOutbox.alert_counts_since`, `heartbeat_text.py` → `summary_text`) and is keyed by its date, so it never meets the quiet-hours
+digest, which is keyed by its instant. Both go through `IAlertPublisher.publish`, so routing,
+loudness (silent by default) and quiet hours treat them like any other INFO alert, except that the
+summary is never held (`QuietHoursHold.holds`): held, it would arrive as a title in the digest.
 
 ## Built: an early warning — the position nears liquidation, the stream stays down
 

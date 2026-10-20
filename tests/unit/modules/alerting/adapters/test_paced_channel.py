@@ -65,6 +65,40 @@ def test_the_window_forgets_a_send_once_the_period_has_passed() -> None:
     assert window.wait_for(start + timedelta(seconds=2)) is None
 
 
+def test_a_wall_clock_stepped_back_never_makes_the_wait_longer_than_the_period() -> (
+    None
+):
+    """`SystemAlertClock` is wall time: an NTP step back of an hour must not become an hour's
+    pause (a wait past `failover_after` fails every waiting CRITICAL over)."""
+    window = SendWindow(POLICY)
+    start = FakeAlertClock().now()
+    for _ in range(POLICY.max_sends):
+        window.record(start)
+
+    waits = [
+        window.wait_for(start - timedelta(hours=1)),
+        window.wait_for(start - timedelta(seconds=1)),
+    ]
+
+    assert all(wait is None or wait <= POLICY.per for wait in waits)
+
+
+def test_after_a_step_back_the_window_still_limits_the_sends_made_since() -> None:
+    window = SendWindow(POLICY)
+    start = FakeAlertClock().now()
+    stepped = start - timedelta(hours=1)
+    for _ in range(POLICY.max_sends):
+        window.record(start)
+    assert window.wait_for(stepped) is None
+    for _ in range(POLICY.max_sends):
+        window.record(stepped)
+
+    wait = window.wait_for(stepped)
+
+    assert wait is not None
+    assert wait <= POLICY.per
+
+
 def test_a_send_over_the_limit_is_asked_to_wait_and_the_platform_is_not_called() -> (
     None
 ):

@@ -6,6 +6,7 @@ Only lambdas and instances with no I/O: the outbox file is opened on first
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -61,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordWebhookSetup,
     WebhookChannelSpec,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_service import (
+    HeartbeatService,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
@@ -141,6 +145,19 @@ HOUSEKEEPING_SECONDS = 1.0
 #: How often the beacon asks the dead man's switch whether a ping is due (it does no
 #: I/O unless one is).
 BEACON_SECONDS = 5.0
+
+
+def _housekeeping_of(
+    heartbeat: Callable[[], None], flush: Callable[[], None]
+) -> Callable[[], None]:
+    """One housekeeping pass: the schedule first (`EPIC-036E`), so a failing flush cannot hold a
+    heartbeat back, then the hub's flush."""
+
+    def run() -> None:
+        heartbeat()
+        flush()
+
+    return run
 
 
 def outbox_path() -> Path:
@@ -301,13 +318,25 @@ def bind_alerting(container: IContainer) -> None:
         ),
     )
     container.singleton(
+        HeartbeatService,
+        lambda resolver: HeartbeatService(
+            resolver.resolve(ICommandDispatcher),
+            resolver.resolve(IAlertPublisher),
+            resolver.resolve(IOutbox),
+            resolver.resolve(IAlertClock),
+        ),
+    )
+    container.singleton(
         ThreadedDeliveryHost,
         lambda resolver: ThreadedDeliveryHost(
             resolver.resolve(ChannelDelivery),
             resolver.resolve(IAlertChannelCatalog).channel_ids(),
             resolver.resolve(WakeSignal),
             LANE_POLL_SECONDS,
-            resolver.resolve(AlertHub).flush_due,
+            _housekeeping_of(
+                resolver.resolve(HeartbeatService).tick,
+                resolver.resolve(AlertHub).flush_due,
+            ),
             HOUSEKEEPING_SECONDS,
             resolver.resolve(WorkerLiveness),
             resolver.resolve(DeadMansSwitch).tick,

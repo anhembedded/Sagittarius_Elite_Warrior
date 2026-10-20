@@ -9,7 +9,7 @@ the headless host runs it?*
 
 `publish` runs on whichever thread raised the alert and never calls a channel
 (`alerting/contracts/i_alert_publisher.py` → `IAlertPublisher`). Each channel has its own daemon
-thread, `alerting-lane-<channel>`, and one more, `alerting-housekeeping`, runs the flush every
+thread, `alerting-lane-<channel>`, and one more, `alerting-housekeeping`, runs the heartbeat service's schedule check and the flush every
 second (`alerting/adapters/threaded_delivery_host.py` → `LANE_THREAD_PREFIX`,
 `HOUSEKEEPING_THREAD_NAME`, `ThreadedDeliveryHost.start`); a lane that raises logs and carries on at
 the next poll, or sooner when the channel's wait ends sooner (`ThreadedDeliveryHost._run_lane`,

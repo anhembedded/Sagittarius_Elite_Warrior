@@ -4,7 +4,7 @@
 **Source:** the coordinator session `session_016sGQHsRy729Fp4cY1cTXfu`, 2026-10-20, from must-have 2 of [`REVIEW_2026-10-20_what_is_still_missing.md`](../../EPIC-026_road_to_real_money/REVIEW_2026-10-20_what_is_still_missing.md): if `sew-run` dies or the VPS powers off, nothing tells the owner, and resting orders and any Futures position stay on the exchange.
 **Risk:** 🟡 — a new outbound ping to a third-party service and one more credential; no order path, no real-money behaviour
 **Complexity:** M
-**Epic:** [EPIC-036](../README.md); split from [EPIC-036E](../incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md), which keeps the heartbeat message and the daily summary
+**Epic:** [EPIC-036](../README.md); split from [EPIC-036E](../completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md), which keeps the heartbeat message and the daily summary
 **SPEC:** none; the journey is the runbook's §3b
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md); the decision is [`DECISION_2026-10-20_dead_mans_switch.md`](../DECISION_2026-10-20_dead_mans_switch.md) (an agent decision the owner may veto)
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md). **Not** on `EPIC-035W`: the switch carries liveness, not health.

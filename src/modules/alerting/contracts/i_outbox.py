@@ -13,7 +13,7 @@ channel call.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
@@ -93,6 +93,21 @@ class IOutbox(ABC):
     @abstractmethod
     def history(self, limit: int) -> tuple[HistoryEntry, ...]:
         """The newest `limit` alerts with their deliveries."""
+
+    @abstractmethod
+    def latest_alert_at(self, kind: AlertKind) -> datetime | None:
+        """When the newest stored alert of `kind` was raised; `None` when there is none.
+        What a scheduled sender reads back after a restart (`EPIC-036E`), whatever else has been
+        stored since."""
+
+    @abstractmethod
+    def has_alert_keyed(self, dedup_key: str) -> bool:
+        """Whether an alert with exactly this dedup key is stored."""
+
+    @abstractmethod
+    def alert_counts_since(self, since: datetime) -> Mapping[AlertKind, int]:
+        """How many alerts of each kind happened at or after `since`, a repeat counted each
+        time it happened (`AlertRecord.count`). Exact, not bounded by a history window."""
 
     @abstractmethod
     def backlog(self, now: datetime) -> OutboxBacklog:

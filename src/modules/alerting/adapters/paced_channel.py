@@ -39,7 +39,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudn
 
 
 class SendWindow:
-    """The instants of the last sends, forgotten once they are older than the period."""
+    """The instants of the last sends, forgotten once they are older than the period.
+
+    A send stamped *after* `now` is forgotten too: the clock is wall time and was stepped back
+    (NTP, a manual change), and keeping it would turn the step into a pause as long as the step.
+    The price is that up to `max_sends` more may go out at once, once, at the step; the wait this
+    window names is never longer than the period."""
 
     def __init__(self, policy: PacingPolicy) -> None:
         self._policy = policy
@@ -47,7 +52,7 @@ class SendWindow:
 
     def wait_for(self, now: datetime) -> timedelta | None:
         """How long until a send is allowed; `None` when one is allowed now."""
-        while self._sent and self._sent[0] <= now - self._policy.per:
+        while self._sent and not now - self._policy.per < self._sent[0] <= now:
             self._sent.popleft()
         if len(self._sent) < self._policy.max_sends:
             return None
