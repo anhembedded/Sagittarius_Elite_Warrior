@@ -52,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_row
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_column_checks import (
     alignment_problems,
     digit_font_problems,
@@ -211,7 +212,7 @@ def test_the_readiness_group_is_the_bot_at_rests_alone(qtbot) -> None:
     assert not panel.properties.group_is_shown(READINESS_GROUP)
 
 
-def test_the_blocking_reason_is_text_above_the_table_with_a_sign_and_in_no_cell(
+def test_the_blocking_reason_is_the_banner_above_the_table_with_a_sign_and_in_no_cell(
     qtbot,
 ) -> None:
     panel = _panel(qtbot)
@@ -220,15 +221,13 @@ def test_the_blocking_reason_is_text_above_the_table_with_a_sign_and_in_no_cell(
     )
     panel._model.set_readiness(_readiness(_BLOCKER), ReadinessState.DESIGNING)
 
-    reason = panel.readiness_items
+    banner = panel.banner
     table = panel.properties.view
 
-    assert _BLOCKER.reason in reason.text()
-    assert reason.isVisible() and panel.readiness_marker.isVisible()
-    assert panel.readiness_marker.accessibleName() == "Blocks Start"
-    assert not panel.readiness_marker.pixmap().isNull()
+    assert _BLOCKER.reason in banner.text
+    assert banner.isVisible() and banner.kind is NoticeKind.CRITICAL
     assert (
-        reason.mapTo(panel, reason.rect().topLeft()).y()
+        banner.mapTo(panel, banner.rect().topLeft()).y()
         < table.mapTo(panel, table.rect().topLeft()).y()
     )
     cells = [
@@ -241,12 +240,12 @@ def test_the_blocking_reason_is_text_above_the_table_with_a_sign_and_in_no_cell(
 def test_nothing_blocking_start_means_no_sign(qtbot) -> None:
     panel = _panel(qtbot)
     panel._model.set_readiness(_readiness(_BLOCKER), ReadinessState.DESIGNING)
-    assert panel.readiness_marker.isVisible()
+    assert panel.banner.kind is NoticeKind.CRITICAL
 
     panel._model.set_readiness(_readiness(), ReadinessState.READY)
 
-    assert not panel.readiness_marker.isVisible()
-    assert panel.readiness_header.text() == "Start: Ready to start"
+    assert panel.banner.kind is NoticeKind.INFORMATION
+    assert panel.banner.text == "Ready to start"
 
 
 def test_a_bot_with_a_run_keeps_its_figures_and_no_readiness(qtbot) -> None:

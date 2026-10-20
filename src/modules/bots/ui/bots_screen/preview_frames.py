@@ -57,14 +57,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     bot_facts,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
-    verdict_line,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
     BotsUiState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    plan_checks_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
@@ -179,7 +179,7 @@ def _screen(bot: BotSnapshot, verdicts: tuple[Verdict, ...]) -> BotsView:
     view.model.set_bots((bot,))
     view.model.set_selected(bot)
     view.model.set_facts(bot_facts(bot, _NOW))
-    view.model.set_judgement(tuple(verdict_line(verdict) for verdict in verdicts))
+    view.model.set_judgement(plan_checks_of(verdicts))
     view.model.set_availability(
         {
             action: availability(bot.state, action, StartConditions())

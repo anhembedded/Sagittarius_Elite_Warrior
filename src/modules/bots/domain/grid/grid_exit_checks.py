@@ -103,10 +103,8 @@ def _exit_distance(
     )
     numbers = {"distance": distance, "low": low, "high": high}
     if not low <= distance <= high:
+        advice = exit_distance_advice(inputs, side, price, distance)
         return Verdict(
-            WARNING,
-            f"{code}_DISTANCE",
-            exit_distance_advice(inputs, side, price, distance).text,
-            numbers,
+            WARNING, f"{code}_DISTANCE", advice.text, numbers, summary=advice.summary
         )
     return Verdict(OK, code, f"The {side.name} distance is within advice", numbers)

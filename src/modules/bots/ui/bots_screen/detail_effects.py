@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_step impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fix_next_item import (
     FixNextItem,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    PlanChecks,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
@@ -51,7 +54,7 @@ class DetailEffects:
         detail = self._selected.detail()
         self._model.set_facts(detail.facts if detail else None)
         self._model.set_ladder(detail.ladder if detail else None)
-        self._model.set_judgement(detail.verdict_lines if detail else ())
+        self._model.set_judgement(detail.checks if detail else PlanChecks())
         readiness = detail.readiness if detail else None
         self._step.assessed(readiness)
         self._model.set_readiness(

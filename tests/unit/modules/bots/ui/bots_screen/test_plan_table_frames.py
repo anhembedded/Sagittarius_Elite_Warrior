@@ -56,8 +56,8 @@ def test_the_draft_frame_has_its_blocking_reason_above_the_table_and_a_readiness
     view = _frame(qtbot, "draft_blocked")
     plan = view.plan
 
-    assert "above the 800.00 USDT available" in plan.readiness_items.text()
-    assert plan.readiness_marker.isVisible()
+    assert "above the 800.00 USDT available" in plan.banner.text
+    assert plan.banner.isVisible()
     assert plan.properties.group_is_shown(READINESS_GROUP)
     assert plan.properties.shown_value("step_design") == "1 thing left"
     assert plan.properties.shown_value("step_run") == "waits for Design"

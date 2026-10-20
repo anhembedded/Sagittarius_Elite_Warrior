@@ -125,7 +125,7 @@ def test_the_new_venues_account_is_judged_not_the_old_ones(open_bots_screen) -> 
 
     assert screen.presenter._account.view.state is ReadinessState.FAILED
     assert not chart_shown(screen)
-    items = screen.view.plan.readiness_items.text()
+    items = screen.view.plan.banner.text
     assert "Spot Mainnet: Not connected: key refused" in items
     causes = [n.cause for n in screen.notifier.failures_of(FailureKind.BACKGROUND)]
     assert [c for c in causes if c.startswith("bots.")] == ["bots.connect.spot_mainnet"]

@@ -79,8 +79,14 @@ def advisory_lines(readiness: BotReadiness) -> tuple[str, ...]:
 
 
 def _item_line(item: ReadinessItem, label_of: FieldLabelOf) -> str:
+    return f"• {item_sentence(item, label_of)}"
+
+
+def item_sentence(item: ReadinessItem, label_of: FieldLabelOf) -> str:
+    """One item as a sentence: its step, why, and where the fix is (`BOT-209`: the status
+    banner's words)."""
     fix = _fix_words(item, label_of)
-    return f"• {item.step.value}: {item.reason}" + (f" → {fix}" if fix else "")
+    return f"{item.step.value}: {item.reason}" + (f" → {fix}" if fix else "")
 
 
 def _fix_words(item: ReadinessItem, label_of: FieldLabelOf) -> str:

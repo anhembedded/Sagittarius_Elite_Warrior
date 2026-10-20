@@ -148,6 +148,7 @@ def _not_set(labels: tuple[str, ...]) -> GridEvaluation:
                 VerdictSeverity.REFUSED,
                 "PARAMETERS_NOT_SET",
                 unset_parameters_reason(labels),
+                title="Parameters set",
             ),
         )
     )
@@ -160,6 +161,7 @@ def _unreadable(reason: str) -> GridEvaluation:
                 VerdictSeverity.REFUSED,
                 "PARAMETERS_UNREADABLE",
                 f"The Grid parameters cannot be read: {reason}",
+                title="Parameters readable",
             ),
         )
     )
@@ -174,4 +176,5 @@ def _too_many_levels(params: GridParams, inputs: BotKindInputs) -> Verdict:
         f"{params.grid_count} grids place at least {params.grid_count} orders; "
         f"at most {allowed} may be open",
         {"orders": Decimal(params.grid_count), "max_open_orders": Decimal(allowed)},
+        title="Open-order limit",
     )

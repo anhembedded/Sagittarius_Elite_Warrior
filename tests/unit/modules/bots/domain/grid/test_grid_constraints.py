@@ -197,6 +197,17 @@ def test_run_checks_answers_one_verdict_per_constraint_in_the_tables_order() -> 
     )
     verdicts = run_checks(check_inputs)
     assert verdicts == tuple(
-        c.check(check_inputs) for c in GRID_CONSTRAINTS if c.applies(check_inputs)
+        replace(c.check(check_inputs), title=c.title)
+        for c in GRID_CONSTRAINTS
+        if c.applies(check_inputs)
     )
     assert verdicts == evaluation.verdicts
+    assert all(verdict.title for verdict in verdicts)
+
+
+def test_every_constraint_is_named_for_a_list_of_checks() -> None:
+    """`BOT-209`: a list of checks titles each row with the constraint's own name, so a
+    constraint added without one would show as a code in capitals."""
+    assert all(constraint.title.strip() for constraint in GRID_CONSTRAINTS)
+    titles = [constraint.title for constraint in GRID_CONSTRAINTS]
+    assert len(set(titles)) == len(titles)

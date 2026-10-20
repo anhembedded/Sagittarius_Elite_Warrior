@@ -241,7 +241,7 @@ def test_the_running_bots_tables_show_each_column_as_its_kind(
 
 
 def _plan_says(screen: _Screen, text: str) -> bool:
-    return screen.view.plan.readiness_header.text() == text
+    return screen.view.plan.banner.text == text
 
 
 def test_a_new_bot_goes_through_connect_design_and_run_to_a_running_bot(
@@ -255,7 +255,7 @@ def test_a_new_bot_goes_through_connect_design_and_run_to_a_running_bot(
     screen.select(bot_id)
 
     screen.qtbot.waitUntil(
-        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+        lambda: _plan_says(screen, "Ready to start"), timeout=_WAIT_MS
     )
     plan = screen.view.plan
     assert [plan.properties.shown_value(step_key(step)) for step in ReadinessStep] == [
@@ -277,7 +277,7 @@ def test_save_and_start_saves_the_edits_on_screen_and_starts_with_them(
     bot_id = _created(app)
     screen.select(bot_id)
     screen.qtbot.waitUntil(
-        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+        lambda: _plan_says(screen, "Ready to start"), timeout=_WAIT_MS
     )
     panel = screen.view._kind_panel
     assert panel is not None
@@ -301,7 +301,7 @@ def test_a_ladder_the_account_cannot_pay_for_is_listed_before_the_click_and_star
     bot_id = _created(app)
     screen.select(bot_id)
     screen.qtbot.waitUntil(
-        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+        lambda: _plan_says(screen, "Ready to start"), timeout=_WAIT_MS
     )
     spot = app.urls.spot_account
     spot.withdraw_free("USDT", spot.free_balance("USDT") - Decimal(1500))
@@ -317,7 +317,10 @@ def test_a_ladder_the_account_cannot_pay_for_is_listed_before_the_click_and_star
         ]
 
     screen.qtbot.waitUntil(balance_is_listed, timeout=_WAIT_MS)
-    assert "left" in screen.view.plan.readiness_header.text()
-    assert "USDT free" in screen.view.plan.readiness_items.text()
+    assert "left" in " ".join(
+        screen.view.plan.properties.shown_value(step_key(step))
+        for step in ReadinessStep
+    )
+    assert "USDT free" in screen.view.plan.banner.text
     assert not screen.actions.action(lifecycle_id(BotAction.START)).isEnabled()
     assert resting(app.urls) == {}

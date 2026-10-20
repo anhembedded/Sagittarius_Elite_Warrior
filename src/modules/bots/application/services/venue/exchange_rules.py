@@ -166,7 +166,12 @@ def field_verdicts(items: tuple[ReadinessItem, ...]) -> tuple[Verdict, ...]:
     shows beside that field (`CAPITAL_ABOVE_BALANCE` on the Capital field), so a
     check that moved onto the exchange's facts still speaks where the user edits."""
     return tuple(
-        Verdict(VerdictSeverity.REFUSED, item.target, item.reason)
+        Verdict(
+            VerdictSeverity.REFUSED,
+            item.target,
+            item.reason,
+            title="Capital within the balance",
+        )
         for item in items
         if item.code == QUOTE_SHORT and item.fix is ReadinessFix.EDIT_FIELD
     )

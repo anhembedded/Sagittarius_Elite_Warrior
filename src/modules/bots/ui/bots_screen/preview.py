@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialog import (
     ExportPlanDialog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    plan_checks_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
 )
@@ -88,12 +91,7 @@ def build_preview() -> QWidget:
     view.model.set_selected(draft)
     view.model.set_facts(bot_facts(draft, _NOW))
     view.model.set_ladder(grid_ladder_of(draft, _NOW))
-    view.model.set_judgement(
-        (
-            "OK: Every grid earns more than its fees (thinnest step 0.0145, fees 0.002)",
-            "Warning: The range is narrower than two daily ATRs (range 10000, threshold 11400)",
-        )
-    )
+    view.model.set_judgement(plan_checks_of(_sample_verdicts()))
     view.model.set_readiness(_sample_readiness(), ReadinessState.DESIGNING, True)
     view.model.set_availability(
         {

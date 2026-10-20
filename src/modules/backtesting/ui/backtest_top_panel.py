@@ -25,10 +25,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import (
+    NoticeBar,
+    NoticeKind,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .backtest_stat_row import BacktestStatRow
-from .notice_bar import NoticeBar, NoticeKind
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
