@@ -371,7 +371,7 @@ def test_the_fill_that_closes_a_cycle_tells_the_profit_the_cycle_booked() -> Non
     assert filled.side is OrderSide.SELL
     assert filled.cycle_profit == Decimal("9.76012")
     assert filled.cycle_profit == sold.runtime.realised_profit
-    assert (filled.realised_total, filled.completed_cycles) == (
+    assert (filled.grid_profit, filled.completed_cycles) == (
         sold.runtime.realised_profit,
         1,
     )

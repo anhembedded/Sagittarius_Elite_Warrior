@@ -103,7 +103,7 @@ class BotFillAlertSource:
 
 def fill_line(event: BotOrderFilledEvent, symbol: str) -> str:
     """`ETHUSDT · BUY 0.019 @ 2,393.17 (level 7)`, and on the fill that closes a cycle
-    `cycle +0.41 USDT · total +12.80 USDT · 31 cycles` on the next line."""
+    `cycle +0.41 USDT · grid profit +12.80 USDT · 31 cycles` on the next line."""
     line = (
         f"{symbol} · {event.side} {_plain(event.quantity)} @ {event.price:,} "
         f"(level {event.level})"
@@ -113,7 +113,7 @@ def fill_line(event: BotOrderFilledEvent, symbol: str) -> str:
     quote = event.quote_asset
     return (
         f"{line}\ncycle {_signed(event.cycle_profit)} {quote} · "
-        f"total {_signed(event.realised_total)} {quote} · "
+        f"grid profit {_signed(event.grid_profit)} {quote} · "
         f"{event.completed_cycles} {'cycle' if event.completed_cycles == 1 else 'cycles'}"
     )
 

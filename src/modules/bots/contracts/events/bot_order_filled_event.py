@@ -21,8 +21,10 @@ class BotOrderFilledEvent(BaseEvent):
 
     @details Kind-neutral: `side` is `BUY` or `SELL` as the order was sent, `price` is the order's
     own price and `quantity` all it executed. `cycle_profit` is set only on the fill that closes a
-    grid cycle: the profit that cycle booked, net of both legs' fees; `realised_total` and
-    `completed_cycles` are the run's figures right after the fill. `order_id` with `bot_id` names
+    grid cycle: the profit that cycle booked, net of both legs' fees; `grid_profit` and
+    `completed_cycles` are the run's figures right after the fill. `grid_profit` is the run's profit
+    from completed cycles only (`GridRuntime.realised_profit`), not `GridRuntime.realised_total` and
+    not the Total PnL (`BOT-202`). `order_id` with `bot_id` names
     the fill, so a consumer can tell a repeat. Published from the bot's worker thread, so a
     consumer marshals itself.
 
@@ -37,7 +39,7 @@ class BotOrderFilledEvent(BaseEvent):
     quantity: Decimal
     #: The ladder level the order stood at, from the lowest price (0-based, as the bot counts).
     level: int
-    realised_total: Decimal
+    grid_profit: Decimal
     completed_cycles: int
     #: The asset the profit figures are in.
     quote_asset: str

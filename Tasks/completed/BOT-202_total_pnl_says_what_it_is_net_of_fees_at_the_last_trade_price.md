@@ -1,8 +1,8 @@
 # BOT-202 — Total PnL says what it is: net of fees, at the bot's last trade price
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-10-20)
 **Priority:** P2
-**Board:** The owner's "PnL does not match the exchange" is not a defect: the bot's Total PnL is net of the opening fee, funding included, at its last 1-minute close, while Binance's position PNL is gross, at the mark price; the label and `bot show` do not say so, and the Discord cycle line calls the grid profit "total".
+**Board:** The owner's "PnL does not match the exchange" is not a defect: the bot's Total PnL is net of fees and funding at its last 1-minute close while Binance's position PNL is gross at the mark price; the Bots tab, `bot list` and `bot show` now say so in words built once, `bot show --json` carries commissions, funding, cost and the price's time, `bot show` says the exchange-basis unrealised is not available (the mark price is not saved), and the Discord cycle line says "grid profit" (`BotOrderFilledEvent.grid_profit`); no figure changed.
 **Source:** the owner, 2026-10-20, from the VPS: "is this a bug? the PnL does not match the exchange; also check similar bugs" (bots `puhy4o`, `e2zeyr` on Futures Testnet, `uie03d` on Spot Mainnet). Investigated by a session of the coordinating session `session_016sGQHsRy729Fp4cY1cTXfu`.
 **Risk:** 🟢 — wording and report fields only; no figure changes.
 **Complexity:** S — three display sites, one payload, their tests.
@@ -67,11 +67,11 @@ The Spot bot `uie03d` (TOTAL PNL 0.20) cannot be reconciled: Binance Spot shows 
 | Budget and exposure checks | `bot_progress.py` states the run's account is "never a safety input"; `grid_budget.py` and `grid_budgets.py` read no PnL, mark or realised figure (grep `pnl\|mark\|realised`: no hit). Not affected. |
 
 ## 2. Acceptance criteria
-- [ ] The Bots tab column, `bot list` head and `bot show` line for the total say it is net of fees and funding at the bot's last trade price (the exact words are the implementer's, one place: `run_earnings.py`).
-- [ ] `bot show` gives, for a Futures bot, the exchange-comparable unrealised (`inventory × (mark − entry)`, gross, at the mark price) beside the net one, or says it cannot because no mark was heard; both labelled.
-- [ ] `bot show --json` carries `commissions`, `funding`, `cost` and `mark_price_at` of the run, as exact decimal text.
-- [ ] The Discord cycle line names what its running figure is ("grid profit"), or carries the Total PnL; `BotOrderFilledEvent.realised_total` is renamed to say grid profit, or documents that it is not `GridRuntime.realised_total`.
-- [ ] No figure changes: the unit tests that pin the totals pass unchanged.
+- [x] The Bots tab column, `bot list` head and `bot show` line for the total say it is net of fees and funding at the bot's last trade price (the exact words are the implementer's, one place: `run_earnings.py`).
+- [x] `bot show` gives, for a Futures bot, the exchange-comparable unrealised (`inventory × (mark − entry)`, gross, at the mark price) beside the net one, or says it cannot because no mark was heard; both labelled.
+- [x] `bot show --json` carries `commissions`, `funding`, `cost` and `mark_price_at` of the run, as exact decimal text.
+- [x] The Discord cycle line names what its running figure is ("grid profit"), or carries the Total PnL; `BotOrderFilledEvent.realised_total` is renamed to say grid profit, or documents that it is not `GridRuntime.realised_total`.
+- [x] No figure changes: the unit tests that pin the totals pass unchanged.
 
 ## 3. Design
 Wording and report fields, built where the words already live (`RunEarnings`, `unrealised_text`), so the desktop and the commands change together (the reason `BOT-192` built them once). The owner's data (§1.3) is requested before the exact fee premise is written into any text; the wording itself does not depend on it.
@@ -95,4 +95,9 @@ Unit tier: the report and the panel text for a run holding base (net total, comp
 `Docs/SPEC/` use case of the bots list and show, if it quotes the head `TOTAL PNL`; the file is named when the task starts.
 
 ## Implementation notes (written when done)
-Pending.
+- **Words, once** (`run_earnings.py`): `TOTAL_PNL_BASIS` ("net of fees and funding, at the bot's last trade price"), `TOTAL_PNL_TITLE` (Bots tab column "Total PnL (net)"), `TOTAL_PNL_HEAD` (`bot list` head `TOTAL PNL (NET)`) and `TOTAL_PNL_LEGEND` (one line under the `bot list` table, so the head stays short; BOT-198 wrapping is unaffected). The Bots tab's detail row reads "Total PnL (net of fees and funding, at the bot's last trade price)"; the column itself carries the short title only. `bot show` keeps the label `Total PnL` and prints the basis on the line under it, so the existing label-and-value tests pass unchanged.
+- **Exchange basis, criterion 2 resolved as "cannot".** The reader of `bot show` has only the saved run, and the saved price is the last trade price (the 1-minute close), never the mark price; the mark is heard live and not stored. Quoting `inventory x (price - entry)` at the last trade price would be a figure at a price the exchange does not use, and the entry price is not recoverable exactly from `cost` (a long's cost holds the opening fee). So a Futures bot's `bot show` prints `Unrealised, exchange basis` followed by "not available: the bot saves its last trade price, not the exchange's mark price" (`exchange_unrealised_text`); a Spot bot prints no such row. Saving the mark price with the run would be a state change and is not part of this task.
+- **JSON** (`_earnings_payload`): `commissions`, `funding`, `cost` as exact decimal text (`commissions` and `funding` `null` when the run was not judged) and `mark_price_at` as UTC text, `null` before a price was heard. The test that pinned the key set gains the four keys; no existing value changed.
+- **Discord**: the cycle line reads `grid profit +12.80 USDT`; `BotOrderFilledEvent.realised_total` and `FilledOrder.realised_total` are renamed `grid_profit` (they were `GridRuntime.realised_profit`, while `GridRuntime.realised_total` is another figure). The tests that built or read the field use the new name; no figure changed.
+- **Not done:** the owner's data (§1.3) that would prove the 0.04 % opening-fee premise; no text states it as a fact.
+- Docs: `Docs/SPEC/SPEC-014_run_a_grid_bot.md`, `Docs/OPERATIONS/headless_runbook.md`, `Docs/MODULES/bots/07-deployment.md`, `Docs/MODULES/alerting/05-building-blocks.md`.

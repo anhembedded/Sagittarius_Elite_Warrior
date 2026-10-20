@@ -235,7 +235,10 @@ class BotStatusReport:
 
 
 def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | None:
-    """Exact decimals as text (never a float); `total_pnl` is `null` while it waits for a price."""
+    """Exact decimals as text (never a float); `total_pnl` is `null` while it waits for a price.
+
+    `BOT-202`: `commissions`, `funding`, `cost` and `mark_price_at` let a reader reconcile the total
+    with an exchange (`mark_price_at` is UTC; `null` before a price was heard)."""
     if earnings is None:
         return None
     return {
@@ -250,6 +253,12 @@ def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | No
         "mark_price": (
             None if earnings.mark_price is None else str(earnings.mark_price)
         ),
+        "commissions": (
+            None if earnings.commissions is None else str(earnings.commissions)
+        ),
+        "funding": None if earnings.funding is None else str(earnings.funding),
+        "cost": str(earnings.cost),
+        "mark_price_at": _utc(earnings.mark_price_at),
     }
 
 
