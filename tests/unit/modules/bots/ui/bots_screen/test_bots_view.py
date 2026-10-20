@@ -47,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
     NO_CHART_TEXT,
     BotsView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    READINESS_GROUP,
+    step_key,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
     GridBacktestView,
 )
@@ -55,10 +59,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import 
 )
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
-from sagittarius_engine.extensions.pyside_mvc.workbench import (
-    ReadoutForm,
-    shell_menus,
-)
+from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -104,7 +105,7 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
         "Log": _AREA.BottomDockWidgetArea,
         "Backtest": _AREA.BottomDockWidgetArea,
     }
-    assert view.surface.dock_of(view.plan).isAncestorOf(view.plan.facts)
+    assert view.surface.dock_of(view.plan).isAncestorOf(view.plan.properties.view)
     assert surface.isAncestorOf(view.table)
 
 
@@ -140,7 +141,11 @@ def test_no_push_button_of_the_mode_and_no_scroll_area_inside_another(
     """Fit levels was a push button over the chart: it is a command of the
     Bots menu now, and the mode holds no button of its own
     (`ui-presentation-rule.md` §6); the kind's editor keeps its per-field
-    helpers (Suggest from ATR). Content scrolls once, at its panel (§3)."""
+    helpers (Suggest from ATR). Content scrolls once, at its panel (§3). The
+    Plan's property table (`BOT-206`) is the one item view inside that scroll
+    area: it never scrolls, it is as tall as its rows
+    (`test_plan_property_grid.py` holds both bars off), so it is the panel's
+    content and not a second scroll."""
     panel = GridPanel()
     view.set_kind_panel(panel)
 
@@ -153,6 +158,7 @@ def test_no_push_button_of_the_mode_and_no_scroll_area_inside_another(
         area.objectName()
         for area in view.findChildren(QAbstractScrollArea)
         if not isinstance(area, QHeaderView)
+        and not _is_grown_to_its_rows(area)
         and any(isinstance(a, QAbstractScrollArea) for a in _ancestors(area, view))
     ]
 
@@ -209,8 +215,8 @@ def test_the_plan_takes_no_access_key_of_the_menu_bar(view) -> None:
     assert len(keys) == len(set(keys)), keys
 
 
-def test_the_bots_figures_are_a_read_out(view) -> None:
-    """`EPIC-033N`: label–value figures are the Engine's `ReadoutForm`."""
+def test_the_bots_figures_are_a_property_table(view) -> None:
+    """`BOT-206`: label–value figures are rows of one grouped table."""
     view.model.set_facts(
         BotFacts(
             state="Running",
@@ -224,15 +230,14 @@ def test_the_bots_figures_are_a_read_out(view) -> None:
         )
     )
 
-    facts = view.plan.facts
-    assert isinstance(facts, ReadoutForm)
-    assert facts.value_text("symbol") == "BTCUSDT"
-    assert facts.value_text("unrealised") == "10.00 at 65,000.00"
-    assert facts.value_text("running_time") == "1:05:00"
+    figures = view.plan.properties
+    assert figures.shown_value("symbol") == "BTCUSDT"
+    assert figures.shown_value("unrealised") == "10.00 at 65,000.00"
+    assert figures.shown_value("running_time") == "1:05:00"
     assert view.plan.state.text() == "Running"
 
     view.model.set_facts(None)
-    assert facts.value_text("symbol") == ""
+    assert figures.shown_value("symbol") == ""
 
 
 def test_the_verdicts_read_as_lines(view) -> None:
@@ -274,6 +279,17 @@ def _menu_bar_keys() -> set[str]:
     ]
     titles += [c.menu_path[0] for c in real_contributions(Mock()).commands()]
     return {key for title in titles for key in access_keys(title)}
+
+
+def _is_grown_to_its_rows(area: QAbstractScrollArea) -> bool:
+    """A table with no scroll bar of its own that is as tall as its rows."""
+    off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    return (
+        area.verticalScrollBarPolicy() is off
+        and area.horizontalScrollBarPolicy() is off
+        and area.sizeAdjustPolicy()
+        is QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
+    )
 
 
 def _ancestors(widget: QWidget, stop: QWidget) -> Iterator[QWidget]:
@@ -320,6 +336,10 @@ _CAPITAL_ITEM = ReadinessItem(
 )
 
 
+def _step_values(view) -> list[str]:
+    return [view.plan.properties.shown_value(step_key(step)) for step in ReadinessStep]
+
+
 def test_the_plan_shows_the_three_steps_and_what_is_left_for_a_bot_at_rest(
     view,
 ) -> None:
@@ -330,11 +350,8 @@ def test_the_plan_shows_the_three_steps_and_what_is_left_for_a_bot_at_rest(
     view.model.set_readiness(_readiness(_CAPITAL_ITEM), ReadinessState.DESIGNING)
 
     assert view.plan.readiness_header.text() == "Start: 1 thing left"
-    assert view.plan.readiness_steps.text().splitlines() == [
-        "1. Connect: done",
-        "2. Design: 1 thing left",
-        "3. Run: waits for Design",
-    ]
+    assert _step_values(view) == ["done", "1 thing left", "waits for Design"]
+    assert view.plan.properties.group_is_shown(READINESS_GROUP)
     assert _CAPITAL_ITEM.reason in view.plan.readiness_items.text()
     assert not view.plan.readiness_items.isHidden()
 
@@ -349,4 +366,4 @@ def test_a_bot_with_a_run_shows_no_readiness(view) -> None:
     view.model.set_readiness(None, ReadinessState.NOT_CONNECTED)
 
     assert view.plan.readiness_header.isHidden()
-    assert view.plan.readiness_steps.isHidden()
+    assert not view.plan.properties.group_is_shown(READINESS_GROUP)

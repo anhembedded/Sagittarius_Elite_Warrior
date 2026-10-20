@@ -13,7 +13,7 @@ import dataclasses
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from PySide6.QtWidgets import QLabel, QTableView
+from PySide6.QtWidgets import QTableView
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
 )
@@ -96,7 +96,7 @@ def _run(*resting: tuple[int, OrderSide, str]) -> dict[str, object]:
 
 
 def _fact(screen: BotsScreen, key: str) -> str:
-    return screen.view.plan.facts.value_text(key)
+    return screen.view.plan.properties.shown_value(key)
 
 
 def _running(runtime: dict[str, object]) -> StoredBot:
@@ -176,9 +176,7 @@ def test_the_plan_says_where_the_last_price_the_bot_heard_stands(
     assert _fact(screen, "take_profit") == "off"
     assert _fact(screen, "grid_step") == "1.45% to 1.67%"
     assert _fact(screen, "cycle_average").startswith("2.50")
-    assert not screen.view.plan.facts.findChild(
-        QLabel, "readout::liquidation"
-    ).isVisibleTo(screen.view.plan)
+    assert not screen.view.plan.properties.row_is_shown("liquidation")
 
 
 def test_a_run_of_another_ladder_says_so_and_shows_no_state(open_bots_screen) -> None:
@@ -234,9 +232,9 @@ def test_a_futures_bot_says_its_liquidation_price_is_not_in_the_record(qapp) -> 
     view.model.set_selected(snapshot)
     view.model.set_ladder(grid_ladder_of(snapshot, now))
 
-    row = view.plan.facts.findChild(QLabel, "readout::liquidation")
-    assert row is not None and row.isVisibleTo(view.plan.facts)
-    assert row.text() == LIQUIDATION_NOT_SAVED
+    figures = view.plan.properties
+    assert figures.row_is_shown("liquidation")
+    assert figures.shown_value("liquidation") == LIQUIDATION_NOT_SAVED
     view.model.set_ladder(None)
-    assert not row.isVisibleTo(view.plan.facts)
+    assert not figures.row_is_shown("liquidation")
     view.deleteLater()
