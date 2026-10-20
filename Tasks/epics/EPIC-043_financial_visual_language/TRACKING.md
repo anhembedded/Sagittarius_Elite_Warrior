@@ -32,7 +32,7 @@ gantt
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-043A | Verify the dark scheme | `claude/epic-043a-verify-dark-scheme` | 🟢 | 🟡 Pull request open | 2026-10-20 |
 | EPIC-043B | Options colour scheme | not yet | 🟡 | 🔵 Planned | — |
-| EPIC-043C | PnL tones and state badges | not yet | 🟡 | 🔵 Planned | — |
+| EPIC-043C | PnL tones and state badges | `claude/epic-043c-pnl-tones-and-badges` | 🟡 | 🟡 Pull request open | 2026-10-20 |
 | EPIC-043D | Headline figures and tick flash | not yet | 🟡 | 🔵 Planned | — |
 | EPIC-043E | Risk tones and icons | not yet | 🟡 | 🔵 Planned | — |
 

@@ -194,6 +194,21 @@ is as tall as its rows, so the panel scrolls once; a row's height is asked of it
 stay in the editor (`grid_exposure_fields.py` → `ExposureFields`): the second is a live estimate of the plan
 being edited, not a recorded figure.
 
+**A figure and a state read by their meaning, never by colour alone (`EPIC-043C`).** A profit, a loss or a change is
+a `signed_key` column or row (`support/ui_kit/value_formatter.py` → `signed_key`): the formatter writes an arrow and
+a sign (`▲ +12.50`, `▼ -9.00`), and the tone comes from the meaning table's colour on the application's palette.
+In a table that is `support/ui_kit/table_model.py` → `RowTableModel._tone`, which `bots_table_models.py` →
+`BotsTableModel` (grid profit, total PnL, state) and `BotLadderTableModel` (gross, net step, net per cycle) answer; in
+the Plan dock's property table it is the tone a cell names in `support/ui_kit/tone_delegate.py` → `TONE_ROLE`, which
+`row_kind_delegate.py` → `RowKindDelegate` paints, given by `bot_facts.py` → `BotFacts.tones` and
+`bot_ladder_facts.py` → `LadderFacts.tones` from the sign of each figure. A bot's lifecycle state is a word, an icon
+and a tone from two complete tables in `bot_state_looks.py` → `STATE_WORDS`, `STATE_LOOKS` (the word was
+`value.capitalize()`, which wrote `AWAITING_RECOVERY` as `Awaiting_recovery`): the Bots table puts the icon beside the
+word (`BotsTableModel._role_data`, the decoration), the Plan dock's state line and the identity strip's connection are
+a `support/ui_kit/state_badge.py` → `StateBadge`, and `connect_view.py` → `ConnectView.look` says the connection's
+icon and tone. The banner's message takes the tone of its severity in `support/ui_kit/notice_bar.py` → `NoticeBar`; each check
+takes the tone of its own in `plan_checks_view.py` → `PlanChecksView`.
+
 **The Plan dock says where the bot stands once, and lists what the kind says as checks (`BOT-209`).** Top to
 bottom for a bot at rest: the name and the state word, one status banner, the Venue field, the kind's editor, the
 checks list, the property table; a bot with a run has its figures first and the checks last. The banner

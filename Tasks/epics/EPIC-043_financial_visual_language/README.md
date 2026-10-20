@@ -30,7 +30,7 @@
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-043A](completed/EPIC-043A_verify_dark_scheme.md) | Verify: every mode under the dark scheme at 1366×768 | Elite | None | 🟢 | ✅ Done (2026-10-20; pull request open) |
 | [EPIC-043B](incomplete/EPIC-043B_options_colour_scheme.md) | Option A: the colour scheme is chosen in Tools → Options, and the series colours are contrast-checked in both schemes | Elite | 043A | 🟡 | Planned |
-| [EPIC-043C](incomplete/EPIC-043C_pnl_tones_and_state_badges.md) | B1 + B2: PnL toned everywhere, and state badges | Elite | 043B, BOT-209 merged (the Plan dock structure) | 🟡 | Planned |
+| [EPIC-043C](completed/EPIC-043C_pnl_tones_and_state_badges.md) | B1 + B2: PnL toned everywhere, and state badges | Elite | 043B, BOT-209 merged (the Plan dock structure) | 🟡 | ✅ Done (2026-10-20; pull request open) |
 | [EPIC-043D](incomplete/EPIC-043D_headline_figures_and_tick_flash.md) | B3 + B4: headline figures, and the tick flash toggle | Elite | 043C | 🟡 | Planned |
 | [EPIC-043E](incomplete/EPIC-043E_risk_tones_and_icons.md) | B5 + B6: risk tones and Lucide icons | Elite | 043D | 🟡 | Planned |
 
@@ -47,5 +47,6 @@
 - Animations beyond the tick flash.
 
 ## Notes (newest first)
+- **2026-10-20** — `043C` done: profit, loss and change read with an arrow, a sign and a tone in every table, read-out and the Plan dock; bot and connection states are an icon and a word. A Watchlist change of exactly zero no longer reads as a win (owner may veto).
 - **2026-10-20** — `043A` done: every mode reads in dark and the chart chrome follows a runtime palette switch; `setColorScheme` has no effect on Qt's offscreen, minimal and xcb platforms (only a Windows or macOS host can show it), so `043B` tests the call and the owner's host judges the look.
 - **2026-10-20** — Scaffolded after the owner accepted PRO-009; the documentation pull request also amends `EPIC-033` D8 and HLD §11.4.

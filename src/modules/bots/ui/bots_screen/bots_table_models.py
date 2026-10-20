@@ -16,7 +16,8 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import ClassVar
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtWidgets import QApplication, QStyle
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
 )
@@ -35,6 +36,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_state_looks import (
+    state_look,
+    state_text,
+    state_tone,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     kind_title,
 )
@@ -43,6 +49,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     sign_tone,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_icon import tone_icon
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -59,26 +66,6 @@ _ATTENTION_STATES = frozenset(
         BotLifecycleState.ERROR,
     }
 )
-
-
-#: `EPIC-033U`: what a state means. Its word is in the cell; the tone only adds to it.
-_STATE_TONES = {
-    BotLifecycleState.RUNNING: Tone.POSITIVE,
-    BotLifecycleState.PAUSED: Tone.CAUTION,
-    BotLifecycleState.RECOVERING: Tone.CAUTION,
-    BotLifecycleState.AWAITING_RECOVERY: Tone.CAUTION,
-    BotLifecycleState.HALTED: Tone.NEGATIVE,
-    BotLifecycleState.ERROR: Tone.NEGATIVE,
-}
-
-
-def state_tone(state: BotLifecycleState) -> Tone:
-    return _STATE_TONES.get(state, Tone.NEUTRAL)
-
-
-def state_text(state: BotLifecycleState) -> str:
-    """The state as the list and the header name it: `Running`, `Halted`."""
-    return state.value.capitalize()
 
 
 class BotsTableModel(RowTableModel[BotSnapshot]):
@@ -115,6 +102,17 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
 
     def _is_emphasised(self, row: BotSnapshot, column: int) -> bool:
         return column == self.column("state") and row.state in _ATTENTION_STATES
+
+    def _role_data(self, row: BotSnapshot, column: int, role: int) -> object:
+        """The state's icon beside its word, in its tone's colour on the palette as it is when
+        asked (`EPIC-043C`)."""
+        if role != Qt.ItemDataRole.DecorationRole:
+            return None
+        look = state_look(row.state)
+        if column != self.column("state") or look is None:
+            return None
+        size = QApplication.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize)
+        return tone_icon(look.icon, look.tone, size)
 
     def _tone(self, row: BotSnapshot, column: int) -> Tone:
         if column == self.column("state"):

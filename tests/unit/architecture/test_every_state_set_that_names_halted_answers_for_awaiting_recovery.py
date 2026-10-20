@@ -53,6 +53,10 @@ _EXCEPTIONS: dict[tuple[str, str], str] = {
         "BotBootRecovery.run",
     ): "pays the cancel a cut-short start owes at boot; only HALTED owes it",
     (
+        "modules/bots/ui/bots_screen/bot_state_looks.py",
+        "<module>",
+    ): "the display words of every state in a complete EnumLabels (`Halted`, `Awaiting recovery`): it names the wait, in words the string rule does not read as its id",
+    (
         "modules/alerting/application/sources/bot_alert_source.py",
         "<module>",
     ): "the entry into the wait is deliberately silent; its recovery and stall have their own events (`EPIC-042D`)",

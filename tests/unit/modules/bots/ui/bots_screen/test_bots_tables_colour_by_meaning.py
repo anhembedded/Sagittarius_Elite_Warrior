@@ -166,3 +166,36 @@ def test_a_ladder_cycle_that_loses_after_fees_is_coloured_as_a_loss(monkeypatch)
     assert (
         ladder.data(ladder.index(1, ladder.column("net.signed")), _FOREGROUND) is None
     )
+
+
+def test_the_state_cell_has_an_icon_beside_its_word_and_only_that_cell(
+    open_bots_screen,
+):
+    """`EPIC-043C`: a halted bot shows a stop sign beside "Halted"; a draft, which has not run,
+    shows the word alone; no other column carries an icon."""
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    table = _show(screen, S.HALTED, "-3.25")
+    decoration = Qt.ItemDataRole.DecorationRole
+
+    icon = table.data(table.index(0, table.column("state")), decoration)
+    other = table.data(table.index(0, table.column("name")), decoration)
+
+    assert icon is not None and not icon.isNull()
+    assert other is None
+    draft = _show(screen, S.DRAFT, "0")
+    assert draft.data(draft.index(0, draft.column("state")), decoration) is None
+
+
+def test_each_state_that_has_a_look_has_its_own_icon(open_bots_screen):
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    decoration = Qt.ItemDataRole.DecorationRole
+
+    def pixels(state: S) -> bytes:
+        table = _show(screen, state, "1")
+        icon = table.data(table.index(0, table.column("state")), decoration)
+        return bytes(icon.pixmap(16, 16).toImage().constBits())
+
+    shown = {state: pixels(state) for state in (S.RUNNING, S.PAUSED, S.HALTED)}
+    assert len(set(shown.values())) == 3
