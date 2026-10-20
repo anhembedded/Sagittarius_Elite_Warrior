@@ -38,3 +38,9 @@ class TradingSwitchChangedEvent(BaseEvent):
     #: The venue whose session changed. No default, as on every account
     #: event (`EPIC-028C`).
     venue: TradingVenue = field(kw_only=True)
+    #: `BOT-183` - who the session was opened for: the id of the bot whose Start, Resume or stop
+    #: needed it, or `None` for an opener that is no bot's (a manual order, a strategy, the
+    #: host's `--resume-recovering`, which wakes every RECOVERING bot of the venue by design).
+    #: A bot that is waiting for its own Resume acts on the event only when this names it or
+    #: is `None`: another bot's command must not put it back to work.
+    opened_for: str | None = field(default=None, kw_only=True)

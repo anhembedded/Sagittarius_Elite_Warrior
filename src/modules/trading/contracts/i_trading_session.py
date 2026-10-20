@@ -122,7 +122,7 @@ class ITradingSession(ABC):
         after it returns."""
 
     @abstractmethod
-    def ensure_ready(self) -> SessionReadyResult:
+    def ensure_ready(self, opened_for: str | None = None) -> SessionReadyResult:
         """Open the venue's order session if it is not open: reconcile against
         the exchange and, if that succeeds, allow live submission (`EPIC-034C`,
         decision D3 — there is no switch to turn it on).
@@ -136,6 +136,10 @@ class ITradingSession(ABC):
         ran, so a concurrent Emergency Stop wins and this answers `ready=False`
         with a named `block_reason` rather than blindly reopening the session.
         On an open one it answers `ready` with nothing read (`already_open`).
+
+        @param opened_for The bot the opening is for (`BOT-183`): the event that announces the
+        opening names it, so a bot waiting for its own Resume is not put back to work by
+        another bot's command. `None` when the caller is no bot's.
         """
 
     @abstractmethod

@@ -1,23 +1,31 @@
-"""`EPIC-038D` - the host's "resume the RECOVERING bots", answered by the screen's own session open.
+"""`EPIC-038D` - the host's "resume the RECOVERING bots": each bot's own Resume, asked for all of them.
 
-The Bots tab never resumes a RECOVERING bot itself: the first deliberate action that
-trades opens the venue's order session (`ITradingSession.ensure_ready`, SPEC-004), the
-session announces itself on the bus, and the router tells every bot on that venue to
-reconcile with the exchange. This handler is that open and nothing more, so the
-reconciliation a headless resume runs is the one the GUI runs. It asks per venue, not
-per bot, because the session is the venue's.
+A restart leaves RUNNING and PAUSED bots RECOVERING until a person resumes them (ADR 038 O2). The
+screen's way is the bot's `ResumeBotCommand`: it opens the venue's order session for that bot and its
+executor reconciles it with the exchange (`BUG-204`). This handler sends that same command for every
+RECOVERING bot of the venue, so the reconciliation a headless resume runs is the one the GUI runs,
+and it does not depend on a session-opening event: a session that is already open (a halted bot's
+resume opened it a moment ago) publishes none, and an opening names the bot it was for (`BOT-183`),
+so no other bot would be woken by it. It reports per venue because the session is the venue's.
 
-Real money (decision O8): a mainnet venue is opened only when the operator typed its
-name (`--confirm-venue`); otherwise it is skipped, said so, and its bots stay RECOVERING.
+Real money (decision O8): a mainnet venue is resumed only when the operator typed its name
+(`--confirm-venue`); otherwise it is skipped, said so, and its bots stay RECOVERING.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import cast
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
-    order_session_refusal_words,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
+    ResumeBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     ResumeRecoveringForHostCommand,
@@ -28,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -39,16 +44,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 class ResumeRecoveringForHostCommandHandler(
     ICommandHandler[ResumeRecoveringForHostCommand, ResumeRecoveringResult]
 ):
-    def __init__(self, store: IBotStore, ports: IVenueTradingPorts) -> None:
+    def __init__(self, store: IBotStore, dispatcher: ICommandDispatcher) -> None:
         self._store = store
-        self._ports = ports
+        self._dispatcher = dispatcher
 
     def execute(
         self, command: ResumeRecoveringForHostCommand
     ) -> ResumeRecoveringResult:
         return ResumeRecoveringResult(
             tuple(
-                self._open(venue, bot_ids, command.confirmed_venue)
+                self._resume(venue, bot_ids, command.confirmed_venue)
                 for venue, bot_ids in self._recovering_by_venue().items()
             )
         )
@@ -62,7 +67,7 @@ class ResumeRecoveringForHostCommandHandler(
                 )
         return {venue: tuple(ids) for venue, ids in grouped.items()}
 
-    def _open(
+    def _resume(
         self, venue: TradingVenue, bot_ids: tuple[str, ...], confirmed: str | None
     ) -> VenueResumeOutcome:
         if venue.is_mainnet and confirmed != venue.value:
@@ -70,16 +75,22 @@ class ResumeRecoveringForHostCommandHandler(
                 venue.value,
                 bot_ids,
                 opened=False,
-                note=f"{venue.display_name} trades real money: resuming needs --confirm-venue {venue.value}",
+                note=f"{venue.display_name} trades real money: resuming needs --confirm-venue "
+                f"{venue.value}; {', '.join(bot_ids)} stay RECOVERING",
             )
-        refusal = order_session_refusal_words(
-            self._ports.get(venue).trading_session, f"Venue {venue.value}"
-        )
-        if refusal is None:
-            return VenueResumeOutcome(venue.value, bot_ids, opened=True)
-        return VenueResumeOutcome(
-            venue.value,
-            bot_ids,
-            opened=False,
-            note=f"the order session did not open: {refusal}",
-        )
+        not_resumed: list[str] = []
+        for bot_id in bot_ids:
+            resumed = cast(
+                BotCommandResult,
+                self._dispatcher.dispatch(
+                    ResumeBotCommand,
+                    ResumeBotCommand(bot_id, real_money_confirmed=venue.is_mainnet),
+                ),
+            )
+            if not resumed.accepted:
+                not_resumed.append(f"{bot_id} stays RECOVERING ({resumed.message})")
+        if not_resumed:
+            return VenueResumeOutcome(
+                venue.value, bot_ids, opened=False, note="; ".join(not_resumed)
+            )
+        return VenueResumeOutcome(venue.value, bot_ids, opened=True)

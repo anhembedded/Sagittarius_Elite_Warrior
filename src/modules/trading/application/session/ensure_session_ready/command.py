@@ -18,3 +18,6 @@ class EnsureSessionReadyCommand:
     #: required: a caller that forgets it fails at construction, never
     #: silently addresses some default venue.
     venue: TradingVenue = field(kw_only=True)
+    #: `BOT-183` - the bot this opening is for, carried on the event it publishes; `None`
+    #: when the opener is no bot's.
+    opened_for: str | None = field(default=None, kw_only=True)

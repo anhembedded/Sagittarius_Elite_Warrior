@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
 )
+from Sagittarius_Elite_Warrior.src.support.cli_host.error_message_style import (
+    styled_error_message,
+)
 
 logger = logging.getLogger("App.CliHost")
 
@@ -54,7 +57,10 @@ def run_command(command: Callable[[], CliOutcome | None]) -> int:
         traceback.print_exc(file=sys.stderr)
         return int(ExitCode.ERROR)
     if outcome is not None and outcome.message:
-        sys.stderr.write(outcome.message + "\n")
+        message = outcome.message
+        if not outcome.succeeded:
+            message = styled_error_message(message, sys.stderr)
+        sys.stderr.write(message + "\n")
     status = exit_status_of(outcome)
     logger.debug("[cli-exit] command finished with status %d", status)
     return status

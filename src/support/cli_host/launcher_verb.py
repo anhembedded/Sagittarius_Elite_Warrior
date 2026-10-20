@@ -19,6 +19,7 @@ the word *starts* stays in the entry point, because that is application code
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
@@ -29,6 +30,9 @@ class LauncherVerb:
     #: Optional flags the verb accepts and the mode it starts reads itself
     #: (`--dev`); the parser only has to let them through.
     flags: tuple[str, ...] = ()
+    #: A verb with options of its own (`logs --level warning`) adds them here; the
+    #: verb's parser then accepts exactly what this adds, besides `flags`.
+    configure: Callable[[argparse.ArgumentParser], None] | None = None
 
 
 def add_launcher_verbs(
@@ -40,3 +44,5 @@ def add_launcher_verbs(
         parser = subparsers.add_parser(verb.name, help=verb.help)
         for flag in verb.flags:
             parser.add_argument(flag, action="store_true")
+        if verb.configure is not None:
+            verb.configure(parser)

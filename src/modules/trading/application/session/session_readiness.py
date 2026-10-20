@@ -72,17 +72,24 @@ class SessionReadiness:
         self._publisher = publisher
         self._venue_locks: dict[TradingVenue, threading.Lock] = {}
 
-    def ensure_ready(self, venue: TradingVenue) -> SessionReadyResult:
+    def ensure_ready(
+        self, venue: TradingVenue, opened_for: str | None = None
+    ) -> SessionReadyResult:
         """@brief `venue`'s order session is open when this answers `ready`.
+
+        @param opened_for The bot the opening is for, named on the event it publishes
+        (`BOT-183`); `None` when the opener is no bot's.
 
         Network round trips on a closed session: call it from a worker thread.
         """
         if not venue.supports_order_submission:
             return self._blocked(SessionBlockReason.TRADING_VENUE_DISABLED)
         with self._venue_locks.setdefault(venue, threading.Lock()):
-            return self._ensure_ready_serialised(venue)
+            return self._ensure_ready_serialised(venue, opened_for)
 
-    def _ensure_ready_serialised(self, venue: TradingVenue) -> SessionReadyResult:
+    def _ensure_ready_serialised(
+        self, venue: TradingVenue, opened_for: str | None
+    ) -> SessionReadyResult:
         # `EPIC-028B` — everything below is `venue`'s own: its state,
         # connection, client and user data stream. Opening one venue's session
         # never touches the other's.
@@ -149,7 +156,9 @@ class SessionReadiness:
 
         scope.ports.user_data_stream.start()
         self._publisher.publish(
-            TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=venue)
+            TradingSwitchChangedEvent(
+                True, TradingSwitchCause.ENABLED, venue=venue, opened_for=opened_for
+            )
         )
         if spot_baseline_holdings is not None:
             logger.info(

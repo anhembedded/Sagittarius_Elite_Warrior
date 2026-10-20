@@ -2,8 +2,8 @@
 
 - **Reported:** 2026-10-19 (coordinator session, from the owner's VPS journal and Binance testnet screenshots; bot `e2zeyr`, BNBUSDT)
 - **Severity:** 🔴 P1. A stop that closes a leveraged position can believe it sold what it did not.
-- **Status:** Open
-- **Board:** Exit slice 1 of 0.66 BNB was logged `done`, yet the derived position stayed 3.96 and the exchange UI refuses a reduce-only close ("ReduceOnly Order is rejected") for both open positions even with no open orders. Not reproduced; cause not established.
+- **Status:** ✅ Closed (2026-10-20): not reproduced on a fresh testnet account; reopen if it recurs
+- **Board:** The exchange refused reduce-only closes (`-2022`) of a bot's BNB and ETH futures positions, also from its own UI with no open order, while a non-reduce-only Limit close worked. Not a code defect as far as shown: on a fresh Futures Testnet account two bots (ETH, BNB) stopped and closed their positions correctly (owner, 2026-10-20), so the old testnet account is the suspected cause. The `[reduce-only-refused]` line (PR 582) names the cause if it recurs; reopen then.
 - **Context:** `bots` → `application/kinds/grid/stop/grid_exit_slices.py` (`send_exit_slices`), `application/services/positions/closer_futures.py` (`PositionExposureCloser.close`) → `trading` order submission
 - **Environment:** VPS, Futures Testnet, isolated 5x, 2026-10-19 15:38 UTC, `159fbfd`.
 
@@ -81,3 +81,10 @@ Recommendation: A now; B only if a refusal line shows `one_way` next to a refusa
 
 ## Resume (author session of BUG-228/229/231, 2026-10-19)
 Done and merged: PR 579 (BUG-228, BUG-229: a bot's close is sent as `OrderPurpose.CLOSE`; a cancel that finds no order is `OrderOutcomeKind.GONE`) and PR 582 (the `[reduce-only-refused]` and `[order-session-open]` log lines). Open, in the owner's hands: which of options A/B/C to build for the refused reduce-only market close, whether to re-read the hedge mode (A recommended), and the fresh testnet account. Not built: any option; a handler-level test with a tagged owner; the `-2022` line for Emergency Stop's closes (they bypass `ExecuteOrderCommandHandler`). Unproven: why the exchange's open-orders list still showed 29 cancelled orders (BUG-228), and why a reduce-only market close is refused on this account. Next, once the owner decides: read the first `[reduce-only-refused]` line from the VPS journal (`journalctl -u sew-run | grep -E "reduce-only-refused|order-session-open"`), which names the position mode, the order as sent, the exchange's position with its margin type, the owner book's position and the exchange's text; then pick the option it supports. BUG-230 (Spot) stays Open and unreproduced.
+
+## Closure (coordinator, 2026-10-20)
+The owner opened a fresh Futures Testnet account and ran two grid bots on it, ETHUSDT and BNBUSDT, on the VPS host (the owner was asked to update to `master-warrior` `3e209a8`, which includes PRs 579, 582 and 583; the exact commit it ran was not reported). Both bots took positions and were stopped with the close option; both positions closed correctly (owner's report, 2026-10-20 ~10:00 UTC+7). No `-2022` was reported.
+
+What this establishes: the same code closes positions by reduce-only market slices on a healthy account, so the refusal of 2026-10-19 belonged to the old testnet account (or the testnet backend serving it), not to the bot's order parameters. What it does not establish: why that account refused the reduce-only flag; the account is no longer used, so the cause stays unknown.
+
+Decisions left as they are: none of the options A/B/C above, and none of the hedge-mode options, is built. They become live again only if a refusal recurs, and then the first `[reduce-only-refused]` line from the journal decides between them. The Emergency Stop gap named under "Diagnostic added" (its closes bypass `ExecuteOrderCommandHandler` and get no `[reduce-only-refused]` line) is still true and is recorded here, not fixed. BUG-230 (Spot) is a separate report and stays Open.

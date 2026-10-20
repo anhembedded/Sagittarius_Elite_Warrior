@@ -32,4 +32,4 @@ class EnsureSessionReadyCommandHandler(
 
     def execute(self, command: EnsureSessionReadyCommand) -> SessionReadyResult:
         logger.debug("Handling EnsureSessionReadyCommand on %s", command.venue.value)
-        return self._readiness.ensure_ready(command.venue)
+        return self._readiness.ensure_ready(command.venue, command.opened_for)

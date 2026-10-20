@@ -200,7 +200,7 @@ def test_a_bot_that_does_not_exist_is_refused() -> None:
     assert world.session.ready_requests == 0
 
 
-def test_the_mainnet_refusal_names_the_other_recovering_bots_the_session_would_return() -> (
+def test_the_mainnet_refusal_names_the_other_recovering_bots_that_keep_waiting() -> (
     None
 ):
     venue = TradingVenue.SPOT_MAINNET
@@ -226,4 +226,13 @@ def test_the_mainnet_refusal_names_the_other_recovering_bots_the_session_would_r
 
     assert refused.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
     assert "bbbbbb, cccccc" in refused.message and "dddddd" not in refused.message
-    assert "before the restart" in refused.message
+    assert "keep waiting for their own resume" in refused.message
+
+
+def test_the_session_a_stop_opens_is_opened_for_the_stopped_bot() -> None:
+    """`BOT-183`: the stop wakes no other bot of the venue."""
+    world = _World(TradingVenue.SPOT_TESTNET, S.HALTED)
+
+    world.stop()
+
+    assert world.session.opened_for == ["aaaaaa"]

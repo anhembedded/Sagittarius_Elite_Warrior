@@ -65,6 +65,11 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_output import (
     wants_machine_output,
 )
+from Sagittarius_Elite_Warrior.src.support.log_view.log_viewer_cli import (
+    configure_logs_parser,
+    run_logs,
+    system_environment,
+)
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -177,6 +182,11 @@ _LAUNCHER_VERBS = (
         "gui", "Open the desktop application", ("--dev", "--debug", "--self-check")
     ),
     LauncherVerb("shell", "Open the interactive prompt", ("--dev", "--debug")),
+    LauncherVerb(
+        "logs",
+        "Show a plain log read from a pipe or --file, params coloured on a terminal",
+        configure=configure_logs_parser,
+    ),
 )
 
 
@@ -248,6 +258,9 @@ def main() -> int:
         return int(ExitCode.USAGE)
     if args.command == "gui":
         return run_command(_run_gui)
+    if args.command == "logs":
+        # `BOT-199`: a viewer of text; it builds no app and takes no lock.
+        return run_command(lambda: run_logs(args, system_environment()))
 
     commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
     work = _app_work_for(args, commands)
