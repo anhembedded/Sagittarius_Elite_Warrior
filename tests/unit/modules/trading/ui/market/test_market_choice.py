@@ -16,9 +16,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
+    ADD_TO_WATCHLIST,
     BACK_TO_LIVE,
+    CHOOSE_SYMBOL,
     LOAD_OLDER,
     LOAD_RANGE,
+    REMOVE_FROM_WATCHLIST,
     SHOW_FUTURES,
     SHOW_SPOT,
     VIEW_MENU,
@@ -145,7 +148,8 @@ def test_a_remembered_market_the_mode_does_not_offer_keeps_spot(build):
 
 def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
     """View → Spot market, Futures market (`EPIC-033Q`), Load older candles,
-    Load range… (`EPIC-033S`) and Back to live (`EPIC-033T`) sit beside the
+    Load range… (`EPIC-033S`), Back to live (`EPIC-033T`) and the symbol
+    commands (`EPIC-033V`) sit beside the
     window's own View items: one item per mode (keys assigned by the window),
     T&oolbars and Stat&us bar.
     Their keys are none of those, and none of the mode keys HLD §11.2.3 plans
@@ -165,6 +169,9 @@ def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
     assert [c.command_id for c in choices] == [
         SHOW_SPOT,
         SHOW_FUTURES,
+        CHOOSE_SYMBOL,
+        ADD_TO_WATCHLIST,
+        REMOVE_FROM_WATCHLIST,
         LOAD_OLDER,
         LOAD_RANGE,
         BACK_TO_LIVE,

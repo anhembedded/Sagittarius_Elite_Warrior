@@ -66,7 +66,10 @@ _NO_CHART_TEXT = (
     "No chart is open. Open one from the Watchlist: double-click a symbol, "
     "or select it and press Enter."
 )
-_NO_SYMBOLS_TEXT = "No symbols are tracked. Choose them in Tools → Options."
+_NO_SYMBOLS_TEXT = (
+    "No symbols are tracked. Add one with View → Add to Watchlist… "
+    "or open a chart with View → Symbol…."
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,9 @@ class MarketView(OutputSourceView):
     #: The script selected in the Indicators panel changed (its key, `""`
     #: for none): what Tools → Indicator parameters… edits.
     indicator_selected = Signal(str)
+    #: The Watchlist row selected changed (its symbol, `""` for none): what
+    #: View → Remove from Watchlist removes.
+    watchlist_selected = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -143,6 +149,12 @@ class MarketView(OutputSourceView):
     def open_symbols(self) -> tuple[str, ...]:
         """The open charts, in tab order."""
         return tuple(self._symbol_at(i) for i in range(self.tabs.count()))
+
+    @property
+    def selected_watchlist_symbol(self) -> str:
+        """The symbol of the Watchlist row selected, `""` for none."""
+        row = self._watchlist.selected_row()
+        return "" if row is None else row.symbol
 
     @property
     def selected_indicator(self) -> str:
@@ -228,6 +240,14 @@ class MarketView(OutputSourceView):
 
     def _connect(self) -> None:
         self._watchlist.view.activated.connect(self._on_watchlist_activated)
+        # A reset (a market change, a symbol added or removed) clears the
+        # selection without a selection signal.
+        self._watchlist.view.selectionModel().selectionChanged.connect(
+            lambda *_: self.watchlist_selected.emit(self.selected_watchlist_symbol)
+        )
+        self._watchlist.proxy.modelReset.connect(
+            lambda: self.watchlist_selected.emit(self.selected_watchlist_symbol)
+        )
         self.tabs.tabCloseRequested.connect(self._on_tab_close_requested)
         self.tabs.currentChanged.connect(
             lambda _index: self.current_chart_changed.emit(self.current_symbol)

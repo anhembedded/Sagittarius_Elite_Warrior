@@ -25,6 +25,12 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
 - **View → Back to live:** a chart showing a range draws its newest first
   window again and follows the stream, in one request (`EPIC-033T`); off
   while the chart in front shows no range and while it loads.
+- **View → Symbol…, Add to Watchlist…, Remove from Watchlist (`EPIC-033V`):** which
+  symbol the mode charts and which it tracks. Symbol… (Ctrl+L, on the toolbar)
+  opens the shared symbol picker and shows the chosen symbol's chart; Add to
+  Watchlist… (toolbar) opens the same picker and tracks the choice; Remove
+  from Watchlist stops tracking the selected row, so it is off while none is
+  selected. Both open commands end with "…": they ask for more input.
 - **Groups (`BOT-157`):** in View the market choice is one menu group and
   the three history loads another, so a separator sets the choice of market
   apart from the chart commands.
@@ -65,12 +71,17 @@ SHOW_FUTURES = "trading.market.show_futures"
 LOAD_OLDER = "trading.market.load_older"
 LOAD_RANGE = "trading.market.load_range"
 BACK_TO_LIVE = "trading.market.back_to_live"
+CHOOSE_SYMBOL = "trading.market.choose_symbol"
+ADD_TO_WATCHLIST = "trading.market.add_to_watchlist"
+REMOVE_FROM_WATCHLIST = "trading.market.remove_from_watchlist"
 INDICATOR_PARAMS = "trading.market.indicator_params"
 #: The `exclusive_group` of Spot and Futures, and their menu group.
 MARKET_CHOICE = "trading.market.market"
 #: The menu group of what the chart in front shows beyond its first window
 #: (`BOT-157`): set apart from the market choice by a separator.
 CHART_HISTORY = "trading.market.chart_history"
+#: The menu group of the symbol commands (`EPIC-033V`).
+SYMBOLS = "trading.market.symbols"
 
 
 def market_commands(route: str) -> tuple[CommandContribution, ...]:
@@ -105,6 +116,35 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             checkable=True,
             exclusive_group=MARKET_CHOICE,
             group=MARKET_CHOICE,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=CHOOSE_SYMBOL,
+            text="S&ymbol…",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+            shortcut="Ctrl+L",
+            group=SYMBOLS,
+            needs_input=True,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=ADD_TO_WATCHLIST,
+            text="Add to &Watchlist…",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+            group=SYMBOLS,
+            needs_input=True,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=REMOVE_FROM_WATCHLIST,
+            text="Remove from Wat&chlist",
+            menu_path=VIEW_MENU,
+            mode=route,
+            group=SYMBOLS,
         ),
         CommandContribution(
             contributor_id="trading",

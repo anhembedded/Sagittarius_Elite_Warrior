@@ -13,16 +13,10 @@ venue lists Futures symbols, each market read once and kept.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 
 from PySide6.QtCore import QObject, Signal
-from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
-    FailureKind,
-    FailureNotice,
-    INotifier,
-    failure_detail,
-)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     BOT_MARKET,
@@ -40,13 +34,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolListReader,
     SymbolPreferences,
     find_symbol_preferences,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-logger = logging.getLogger("App.Bots.NewBot")
 
 _CATALOG_CAUSE = "bots.read.symbols"
 _CATALOG_HEADLINE = (
@@ -64,10 +57,6 @@ class NewBotSymbols(QObject):
     #: message bar carries why (`BOT-169`).
     catalog_failed = Signal()
 
-    # Worker-thread side of the read; the queued connection moves each answer
-    # onto the main thread.
-    _catalog_read = Signal(object, list)
-
     def __init__(
         self,
         catalog: ISymbolCatalog,
@@ -77,15 +66,19 @@ class NewBotSymbols(QObject):
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._notifier = notifier
-        self._catalog = catalog
-        self._threads = threads
         self._preferences = preferences
-        self._listed: dict[MarketType, list[str]] = {}
-        self._asked: set[MarketType] = set()
+        self._reader: SymbolListReader[MarketType] = SymbolListReader(
+            catalog.list_symbols,
+            threads,
+            notifier,
+            cause=_CATALOG_CAUSE,
+            scope=BOTS_ROUTE,
+            parent=self,
+        )
+        self._reader.ready.connect(self.catalog_ready)
+        self._reader.failed.connect(self.catalog_failed)
         self._market = BOT_MARKET
         self._title = SPOT_TITLE
-        self._catalog_read.connect(self._on_catalog_read)
 
     def use_venue(self, venue: TradingVenue) -> None:
         """The venue the dialog is on now: the picker lists its market's symbols."""
@@ -93,7 +86,7 @@ class NewBotSymbols(QObject):
         self._title = title_word_of(venue)
 
     def catalog_symbols(self) -> Sequence[str]:
-        return self._listed.get(self._market, [])
+        return self._reader.symbols(self._market)
 
     def starred(self) -> Sequence[str]:
         return self._preferences.favourites
@@ -104,43 +97,13 @@ class NewBotSymbols(QObject):
     def load_catalog(self) -> None:
         """Reads the catalog the first time the picker opens; later opens
         reuse it. A failed read is asked again on the next open."""
-        market, title = self._market, self._title
-        if market in self._asked:
-            return
-        self._asked.add(market)
-        self._threads.submit(self._read_catalog_off_thread, market, title)
+        self._reader.load(self._market, _CATALOG_HEADLINE.format(title=self._title))
 
     def toggle_star(self, symbol: str) -> None:
         self._preferences.toggle_favourite(symbol)
 
     def note_used(self, symbol: str) -> None:
         self._preferences.note_used(symbol)
-
-    def _read_catalog_off_thread(self, market: MarketType, title: str) -> None:
-        """Runs on a worker thread; reports only through signals."""
-        try:
-            symbols = list(self._catalog.list_symbols(market))
-        except Exception as exc:
-            logger.exception("Could not read the %s symbol list", title)
-            self._asked.discard(market)
-            self._notifier.report_failure(
-                FailureNotice(
-                    FailureKind.BACKGROUND,
-                    _CATALOG_CAUSE,
-                    _CATALOG_HEADLINE.format(title=title),
-                    scope=BOTS_ROUTE,
-                    detail=failure_detail(exc),
-                    retry=self.load_catalog,
-                )
-            )
-            self.catalog_failed.emit()
-            return
-        self._catalog_read.emit(market, symbols)
-
-    def _on_catalog_read(self, market: MarketType, symbols: list[str]) -> None:
-        self._listed[market] = symbols
-        self._notifier.clear_failure(_CATALOG_CAUSE)
-        self.catalog_ready.emit()
 
 
 def new_bot_symbols(
