@@ -4,7 +4,8 @@ The zone used to be the Backtest's own remembered field. It is the person's cloc
 shared `DisplayTimezonePreference` now and the Backtest's view model follows it in both
 directions: the Run setup combo writes the view model, which writes the preference; a choice made
 on another screen reaches the view model, which tells the chart and the trade table as before.
-Each side sets only what differs, so the two never answer each other in a loop.
+Each side sets only what differs, so the two never answer each other in a loop. The
+subscription ends with the view model, so the app-lifetime preference never calls a deleted one.
 """
 
 from __future__ import annotations
@@ -24,4 +25,4 @@ def follow_shared_display_timezone(
     time_range.displayTimezoneChanged.connect(
         lambda: preference.set_zone(time_range.displayTimezone)
     )
-    preference.subscribe(time_range.set_display_timezone)
+    time_range.destroyed.connect(preference.subscribe(time_range.set_display_timezone))

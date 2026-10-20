@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import shiboken6
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
     BotFills,
@@ -91,3 +92,16 @@ def test_the_screen_follows_the_display_zone_the_container_holds(
     assert displayed_text(table.view, 0, screen.view.fills.fills.column("time")) == (
         "2026-10-04 12:00:00"
     )
+
+
+def test_a_deleted_panel_no_longer_hears_the_zone(qapp) -> None:
+    """The preference lives as long as the application; a panel that is gone must not make
+    `set_zone` raise (which would also skip the later listeners and the remembering)."""
+    panel, preference = _panel()
+    marked: list[bool] = []
+    preference.set_on_changed(lambda: marked.append(True))
+
+    shiboken6.delete(panel)
+    preference.set_zone("Asia/Tokyo")
+
+    assert marked == [True]

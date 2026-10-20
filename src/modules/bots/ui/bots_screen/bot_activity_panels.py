@@ -108,7 +108,7 @@ class BotFillsPanel(QWidget):
     def use_display_timezone(self, timezone: DisplayTimezonePreference) -> None:
         """Writes the Time column in the shared display zone, and again when it changes."""
         self._timezone = timezone
-        timezone.subscribe(lambda _zone: self._show_fills())
+        self.destroyed.connect(timezone.subscribe(lambda _zone: self._show_fills()))
         self._show_fills()
 
     def use_precisions(self, precisions: ISymbolPrecisions) -> None:

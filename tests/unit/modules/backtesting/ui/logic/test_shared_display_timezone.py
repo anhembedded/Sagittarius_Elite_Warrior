@@ -3,6 +3,7 @@ choice: a pick on either side reaches the other, once."""
 
 from __future__ import annotations
 
+import shiboken6
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.shared_display_timezone import (
     follow_shared_display_timezone,
 )
@@ -48,3 +49,16 @@ def test_a_pick_on_another_screen_reaches_the_view_model_and_announces_it_once(
     preference.set_zone("Europe/London")
 
     assert announced == ["Europe/London"]
+
+
+def test_a_deleted_view_model_no_longer_hears_the_zone(qapp) -> None:
+    preference = DisplayTimezonePreference()
+    marked: list[bool] = []
+    preference.set_on_changed(lambda: marked.append(True))
+    time_range = TimeRangeViewModel()
+    follow_shared_display_timezone(time_range, preference)
+
+    shiboken6.delete(time_range)
+    preference.set_zone("Asia/Tokyo")
+
+    assert marked == [True]
