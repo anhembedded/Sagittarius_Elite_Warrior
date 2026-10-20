@@ -211,7 +211,8 @@ class BacktestWorkbenchView(QWidget):
         if self._editor is not None:
             self._editor.config_changed.disconnect(self.config_edited)
             self._editor_layout.removeWidget(self._editor)
-            self._editor.setParent(None)
+            self._editor.hide()
+            self._editor.deleteLater()
         self._editor = editor
         if editor is not None:
             self._editor_layout.addWidget(editor)

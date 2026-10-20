@@ -107,7 +107,7 @@ venue the kind's `supported_profiles()` leaves out, turns the tab off with its r
 and View → Backtest tab (Ctrl+J) switch the tabs (`bots_command_binding.py`); the second follows the
 tab. A window state saved with the old Backtest dock still loads: Qt skips a dock name the window no
 longer has. A run in flight when the selection moves to a bot of another venue keeps running on its
-hidden workbench (it is that bot's run); its result is there when the person comes back, and a run
+hidden workbench (it is that bot's run, and the hidden page stays a child of the tab, never a window of its own: `widget_slot.replace_in`, `BUG-242`); its result is there when the person comes back, and a run
 that fails still tells the person through the notifier, naming the action. The page keeps its
 minimum size inside the mode's: the period on one row and the commands with the status line on the
 next, and the results as tabs (Replay, Equity, Figures, Fills), so a tab widget, which asks for its

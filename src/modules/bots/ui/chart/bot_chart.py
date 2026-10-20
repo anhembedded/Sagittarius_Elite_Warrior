@@ -75,7 +75,9 @@ class BotChart(LiveCandleChart):
         self._stop_following_zone: Callable[[], None] | None = None
 
     def _on_history_drawn(self, klines: Sequence[MarketData]) -> None:
-        if klines:
+        # With no symbol shown the history is not a load that came back empty but a drawing the
+        # caller handed over (a backtest result, or none): nothing is missing (`BUG-242`).
+        if klines or not self.shown_symbol:
             self._notice.clear()
         else:
             self._notice.show(
