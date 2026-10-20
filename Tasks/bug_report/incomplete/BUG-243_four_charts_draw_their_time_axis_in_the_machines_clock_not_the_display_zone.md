@@ -1,4 +1,4 @@
-# BUG-241 — Four charts draw their time axis in the machine's clock, not in the display zone
+# BUG-243 — Four charts draw their time axis in the machine's clock, not in the display zone
 
 - **Reported:** 2026-10-20 (independent review of PR #639, `BUG-240`: https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/639#issuecomment-6294370195)
 - **Severity:** 🟡 P2 — under the default display zone, UTC, these charts read the machine's local time (+07 on the owner's machine) while the crosshair and tables beside them read UTC, and they ignore a chosen zone. Display only.
