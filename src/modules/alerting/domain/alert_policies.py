@@ -50,3 +50,26 @@ class DeliveryPolicy:
         """The wait after the `attempts`-th failure: doubling, capped."""
         wait = self.backoff_base * (1 << max(attempts - 1, 0))
         return min(wait, self.backoff_cap)
+
+
+@dataclass(frozen=True, slots=True)
+class EarlyWarningPolicy:
+    """`EPIC-036B1`: when an early warning is raised and how soon it may be raised again.
+
+    Chosen bounds, not measured rates (agent decisions the owner may veto, recorded in
+    `DECISION_2026-10-20_early_warnings.md`). The liquidation distances themselves are the
+    bot's (`FuturesGridThresholds`); this policy only keeps the warning from repeating.
+    """
+
+    #: A bot's liquidation warning is raised at most this often, so a mark price that crosses
+    #: the line again after a return to safety is not a new message each time.
+    liquidation_cooldown: timedelta = timedelta(minutes=10)
+    #: A user-data stream not connected for this long is an outage worth a message; the bots
+    #: halt at two minutes (`UserStreamLimits.down_limit`), so this is the notice before the
+    #: halt, and the routine reconnect after the 24 h cut (seconds) stays silent.
+    stream_down_grace: timedelta = timedelta(seconds=60)
+    #: A venue's stream outage is told at most this often.
+    stream_cooldown: timedelta = timedelta(minutes=10)
+
+
+DEFAULT_EARLY_WARNINGS = EarlyWarningPolicy()

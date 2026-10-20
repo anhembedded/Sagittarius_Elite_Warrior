@@ -35,7 +35,8 @@ from a systemd credential file. The journey, drawn: [`06-runtime.md`](06-runtime
 | `JsonAlertSettings` | **Real, partly** (`BOT-191`) | Each bot's mode survives a restart in `<data root>/state/alert_settings.json`; routes, disabled channels and quiet hours are not editable yet and stay N4's defaults (`EPIC-036D`). `InMemoryAlertSettings` remains the tests' stand-in |
 | The Options page's per-bot choice (All messages, Critical only, None) | **Real, new** (`BOT-191`) | Applies to the next alert without a restart; a bot set to Critical only sends no fill message and still sends its halts |
 | The Options page's Discord webhook, Save, Remove and Send test | **Real, new** (`EPIC-036D1`) | The one place a desktop owner configures the channel; a first save or a removal takes effect after a restart ([`06-runtime.md`](06-runtime.md)) |
-| Telegram, stream and system sources, the rest of the UI, the heartbeat, the dead man's switch, remote control | **Absent** | `EPIC-036C`, `036B`, `036D`, `036E`, `036F` |
+| `DeadMansSwitch`, `WorkerLiveness` | **Real, new** (`EPIC-036E1`) | A POST to an external monitor's check-in URL every 5 minutes while the worker makes progress; off until the credential `alerting_deadman_ping_url` holds an `https` URL ([`06-runtime.md`](06-runtime.md)) |
+| Telegram, stream and system sources, the rest of the UI, the heartbeat message, the daily summary, remote control | **Absent** | `EPIC-036C`, `036B`, `036D`, `036E`, `036F` |
 
 ## How it is proven
 

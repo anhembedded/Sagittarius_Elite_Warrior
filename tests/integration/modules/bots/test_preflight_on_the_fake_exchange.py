@@ -46,6 +46,7 @@ from sagittarius_engine import App
 from .grid_fake_exchange import FakeExchange, app_config
 
 EXPECTED_IDS = {
+    "account-loss-cap",
     "bot-files-readable",
     "clock-skew",
     "credentials-present",

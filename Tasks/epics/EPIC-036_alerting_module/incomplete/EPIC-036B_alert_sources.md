@@ -1,6 +1,6 @@
 # EPIC-036B — Alert sources: bots, streams and the system become typed alerts
 
-**Status:** 🔵 Planned — not started
+**Status:** 🔵 Planned — not started; the liquidation warning and the user-data stream alert were split off as [`EPIC-036B1`](../completed/EPIC-036B1_early_warnings_liquidation_and_user_stream.md) (done 2026-10-20), so `StreamAlertSource` below is built for `USER_STREAM_DOWN` and stays here for `PRICE_FEED_STALE`
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N1), relayed by the coordinator session; supersedes the source half of [`EPIC-035K`](../../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md).
 **Risk:** 🟢 — reads events that exist; the one removal is a handler with a known set of triggers
 **Complexity:** M

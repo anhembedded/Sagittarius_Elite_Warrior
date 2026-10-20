@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands imp
     ADD_TO_WATCHLIST,
     CHOOSE_SYMBOL,
     REMOVE_FROM_WATCHLIST,
+    SHOW_FUTURES,
     market_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
@@ -158,10 +159,6 @@ def test_the_picker_marks_the_chart_in_front_as_current(commands, threads):
 
 
 def test_the_other_market_lists_its_own_symbols_once(commands, catalog, threads):
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
-        SHOW_FUTURES,
-    )
-
     presenter, registry = commands()
     registry.action(SHOW_FUTURES).trigger()
 
@@ -215,6 +212,17 @@ def test_a_chosen_symbol_is_a_recent_one(qapp, build, catalog, threads):
 
     assert preferences.recents[0] == "SOLUSDT"
     owner.deleteLater()
+
+
+def test_a_picker_opened_before_the_list_arrives_fills_when_it_does(commands, threads):
+    presenter, registry = commands()
+    registry.action(CHOOSE_SYMBOL).trigger()
+    picker = _picker(presenter)
+    assert picker._model.rowCount() == 0
+
+    threads.run_all()
+
+    assert picker._model.rowCount() == len(_SPOT)
 
 
 # -- Add to Watchlist… -----------------------------------------------------------------

@@ -6,6 +6,11 @@ whose window ended, the quiet-hours summary). It is a thread here and not a
 and `.completed` on the event bus, so a one-second job would put two events a
 second into the Developer event log for the life of the app.
 
+A third thread, the beacon, runs the dead man's switch (`EPIC-036E1`). It is apart from
+the lanes on purpose: a monitor that is slow or down delays no delivery. What ties it to
+the worker is `WorkerLiveness`: every lane and the housekeeping pass stamp it after each
+pass, and the switch pings only while the stamps are fresh.
+
 A lane is a daemon thread that does `ChannelDelivery.run_due` for its channel,
 then waits for the hub's nudge or the poll interval - the poll is what picks up a
 `retry_after` that has come due. One lane per channel is the whole of "a queue per
@@ -21,6 +26,9 @@ from collections.abc import Callable, Sequence
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
     WakeSignal,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.worker_liveness import (
+    WorkerLiveness,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_delivery import (
     ChannelDelivery,
 )
@@ -32,6 +40,7 @@ JOIN_TIMEOUT_S = 5.0
 
 LANE_THREAD_PREFIX = "alerting-lane-"
 HOUSEKEEPING_THREAD_NAME = "alerting-housekeeping"
+BEACON_THREAD_NAME = "alerting-beacon"
 
 
 class ThreadedDeliveryHost:
@@ -43,6 +52,9 @@ class ThreadedDeliveryHost:
         poll_seconds: float,
         housekeeping: Callable[[], None],
         housekeeping_seconds: float,
+        liveness: WorkerLiveness,
+        beacon: Callable[[], None],
+        beacon_seconds: float,
     ) -> None:
         self._delivery = delivery
         self._channel_ids = tuple(channel_ids)
@@ -50,11 +62,15 @@ class ThreadedDeliveryHost:
         self._poll_seconds = poll_seconds
         self._housekeeping = housekeeping
         self._housekeeping_seconds = housekeeping_seconds
+        self._liveness = liveness
+        self._beacon = beacon
+        self._beacon_seconds = beacon_seconds
         self._stopping = threading.Event()
         self._lanes: list[threading.Thread] = []
 
     def start(self) -> None:
         for channel_id in self._channel_ids:
+            self._liveness.register(f"{LANE_THREAD_PREFIX}{channel_id}")
             lane = threading.Thread(
                 target=self._run_lane,
                 args=(channel_id,),
@@ -64,11 +80,17 @@ class ThreadedDeliveryHost:
             self._lanes.append(lane)
             lane.start()
         lanes = len(self._lanes)
+        self._liveness.register(HOUSEKEEPING_THREAD_NAME)
         keeper = threading.Thread(
             target=self._run_housekeeping, name=HOUSEKEEPING_THREAD_NAME, daemon=True
         )
         self._lanes.append(keeper)
         keeper.start()
+        beacon = threading.Thread(
+            target=self._run_beacon, name=BEACON_THREAD_NAME, daemon=True
+        )
+        self._lanes.append(beacon)
+        beacon.start()
         logger.info("[alert-worker] %s lane(s): %s", lanes, self._channel_ids)
 
     def stop(self) -> None:
@@ -90,6 +112,20 @@ class ThreadedDeliveryHost:
             except Exception:
                 # Housekeeping that dies leaves grouped alerts unsent.
                 logger.exception("[alert-worker] housekeeping pass failed")
+            self._liveness.touch(HOUSEKEEPING_THREAD_NAME)
+
+    def _run_beacon(self) -> None:
+        """The first pass is at once, so a started app is seen by the monitor without
+        waiting a poll interval."""
+        while not self._stopping.is_set():
+            try:
+                self._beacon()
+            except Exception as error:  # noqa: BLE001 - a beacon that dies is a silent monitor
+                # Only the type: the message of a transport error can carry the check-in URL.
+                logger.warning(
+                    "[alert-worker] beacon pass failed (%s)", type(error).__name__
+                )
+            self._stopping.wait(self._beacon_seconds)
 
     def _run_lane(self, channel_id: str) -> None:
         seen = self._signal.generation()
@@ -100,4 +136,5 @@ class ThreadedDeliveryHost:
                 # A lane that dies is an owner who stops hearing from the bots:
                 # log and carry on at the next poll.
                 logger.exception("[alert-worker] pass over %s failed", channel_id)
+            self._liveness.touch(f"{LANE_THREAD_PREFIX}{channel_id}")
             seen = self._signal.wait(seen, self._poll_seconds)

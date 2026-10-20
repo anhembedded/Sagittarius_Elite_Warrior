@@ -174,15 +174,18 @@ def test_an_answer_that_is_not_what_binance_documents_is_never_read_as_accepted(
     assert verdict.standing is KeyStanding.UNREACHABLE
 
 
-def test_the_log_names_the_key_by_fingerprint_never_the_secret(caplog) -> None:
+def test_the_log_names_no_part_of_the_key_or_the_secret(caplog) -> None:
+    """`BOT-200` tightens this from "the fingerprint, never the secret": `key check` runs
+    as root on a server, and a log outlives the terminal, so the first and last four
+    characters of the key are not logged either. The environment and the standing are."""
     probe, _, _ = _probe(_api_error(-2008))
 
     with caplog.at_level(logging.INFO):
         probe.probe(KeyEnvironment.MAINNET, _CREDENTIALS)
 
-    assert "KKKK…KKKK" in caplog.text
-    assert "S" * 8 not in caplog.text
-    assert "K" * 8 not in caplog.text
+    assert "Binance mainnet: the key was unknown" in caplog.text
+    assert "KKKK" not in caplog.text
+    assert "SSSS" not in caplog.text
 
 
 def test_a_key_python_cannot_send_leaks_nowhere_in_the_log(caplog) -> None:

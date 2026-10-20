@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.vo.number_text import (
@@ -28,6 +29,25 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
 NO_VALUE = "—"
 #: The total needs the price the bot itself last heard, and it has heard none.
 NO_PRICE_YET = "no price yet"
+
+#: `BOT-202` - what the total is, said once for the Bots tab, `bot list` and `bot show`. It is the
+#: bot's own account: the opening fee is in the cost of what is held and funding is added, and the
+#: price is the close of the venue's 1-minute stream (the last trade), not the mark price.
+TOTAL_PNL_BASIS = "net of fees and funding, at the bot's last trade price"
+#: The Bots tab column and the `bot list` head; the fuller words are `TOTAL_PNL_BASIS`.
+TOTAL_PNL_TITLE = "Total PnL (net)"
+TOTAL_PNL_HEAD = TOTAL_PNL_TITLE.upper()
+#: Said under `bot list`, so the head can stay short.
+TOTAL_PNL_LEGEND = (
+    f"{TOTAL_PNL_HEAD.removesuffix(' (NET)')} is {TOTAL_PNL_BASIS}. A Futures exchange's "
+    "position PNL is gross of fees, excludes funding and uses its mark price, so the two differ."
+)
+#: `bot show` on a position venue: Binance's number is `inventory x (mark - entry)`, and the bot
+#: saves the last trade price, not the mark price, so it cannot rebuild that number.
+EXCHANGE_UNREALISED_LABEL = "Unrealised, exchange basis"
+NO_MARK_PRICE_SAVED = (
+    "not available: the bot saves its last trade price, not the exchange's mark price"
+)
 
 type MoneyWriter = Callable[[Decimal], str]
 type PriceWriter = Callable[[Decimal], str]
@@ -62,6 +82,17 @@ class RunEarnings:
     holds_base: bool = False
     #: The last price the bot heard.
     mark_price: Decimal | None = None
+    #: `BOT-202` - whether the run holds a position of either sign (a Futures SHORT has negative
+    #: inventory, which `holds_base` does not count).
+    holds_position: bool = False
+    #: `BOT-202` - what the run's fills paid in commission, in the quote asset; `None` when not judged.
+    commissions: Decimal | None = None
+    #: `BOT-202` - funding settled on the position, signed (earned positive); `None` when not judged.
+    funding: Decimal | None = None
+    #: `BOT-202` - what the held base cost, the opening fee of a long included.
+    cost: Decimal = Decimal(0)
+    #: `BOT-202` - when the bot heard `mark_price` (its own clock); `None` before one.
+    mark_price_at: datetime | None = None
 
     @classmethod
     def of(cls, progress: BotProgress | None) -> RunEarnings | None:
@@ -77,7 +108,12 @@ class RunEarnings:
             unpriced_fees=pnl.unpriced_fees if pnl is not None else 0,
             unrealised=pnl.unrealised if pnl is not None else None,
             holds_base=progress.inventory > 0 and progress.average_cost is not None,
+            holds_position=progress.inventory != 0,
             mark_price=progress.mark_price,
+            commissions=pnl.commissions if pnl is not None else None,
+            funding=pnl.funding if pnl is not None else None,
+            cost=progress.cost,
+            mark_price_at=progress.mark_price_at,
         )
 
 
@@ -114,3 +150,15 @@ def unrealised_text(
     if earnings.unrealised is None or earnings.mark_price is None:
         return NO_PRICE_YET
     return f"{money(earnings.unrealised)} at {price(earnings.mark_price)}"
+
+
+def exchange_unrealised_text(earnings: RunEarnings | None) -> str:
+    """The Futures exchange's own position PNL (gross, at its mark price), which the bot cannot give.
+
+    The saved run holds the last trade price only (`GridRuntime.mark_price` is the 1-minute close);
+    the mark price is heard live and not saved, so this says so rather than quoting a figure at a
+    price nobody heard.
+    """
+    if earnings is None or not earnings.holds_position:
+        return NO_VALUE
+    return NO_MARK_PRICE_SAVED

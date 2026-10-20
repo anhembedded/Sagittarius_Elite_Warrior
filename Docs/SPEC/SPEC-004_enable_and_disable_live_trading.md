@@ -93,8 +93,9 @@ holds before the app sends anything."*
   be released by an Emergency Stop, exactly when an open position most needs the strategy that
   planned its exit to still own the symbol.
 - It does not stay open past the app. Closing the app closes it, because this state is never
-  persisted; a bot restored by the next start waits (RECOVERING) until an action opens the session
-  again: Start, arming a strategy, a manual order, or the bot's own Resume (`BUG-204`).
+  persisted; a bot restored by the next start waits (RECOVERING) until its own Resume (`BUG-204`) or the host's
+  `--resume-recovering`: opening the session by Start of another bot, arming a strategy or a manual
+  order does not resume it (`BOT-183`, `BOT-197`).
 - **A start never arms a strategy** (`BOT-166`, the owner's decision of 2026-10-06). The
   configuration last armed on a venue is saved and restored at start — symbol, interval, sizing,
   leverage, parameters — but only as a selection: the Bots mode lists the venue as *Not armed*

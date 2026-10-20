@@ -1,7 +1,10 @@
 # EPIC-026 — From Futures Testnet to real money, through five gated stages
 
-- **Status:** 🔵 Planned — awaiting the user's decision on [`PRO-005`](../../proposal/PRO-005.md)
-  and the ADR's open questions O1–O4.
+- **Status:** 🔵 Planned, re-checked 2026-10-20 — [`PRO-005`](../../proposal/PRO-005.md) is still
+  Proposed. Most of the operational half was built under other epics and the product is now grid bots:
+  see [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md) for what
+  is done, partly done, missing and no longer relevant, and the ranked must-have list. The ADR's O1 and
+  O3 still need the owner; O2 and O4 are answered in practice.
 - **Repositories:** Elite. No Engine change is expected (every mechanism needed — ports, DI, event
   bus, feeds, scheduler — already exists, as `EPIC-021` found).
 - **Origin:** [`PRO-005`](../../proposal/PRO-005.md) — the user (2026-09-20): *"đánh giá xem giờ
@@ -78,29 +81,29 @@ complexity; every task is one pull request unless its file says otherwise.
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | **Stage 0 — nothing open behind us** | | | | | |
-| [EPIC-026A](incomplete/EPIC-026A_spec_006_cancel_one_open_order.md) | `SPEC-006` — cancel one open order, written and proven | Elite | None | 🟢 | Planned |
-| [EPIC-026B](incomplete/EPIC-026B_spec_007_emergency_stop.md) | `SPEC-007` — Emergency Stop, written and proven | Elite | None | 🟢 | Planned |
-| [EPIC-026C](incomplete/EPIC-026C_spec_010_arm_and_disarm_a_strategy.md) | `SPEC-010` — arm a strategy on a symbol, and disarm it, written and proven | Elite | the user's `EPIC-025B`/`C` confirmation | 🟢 | Planned |
+| [EPIC-026A](incomplete/EPIC-026A_spec_006_cancel_one_open_order.md) | `SPEC-006` — cancel one open order, written and proven | Elite | None | 🟢 | Partly — code and tests exist; SPEC file not written |
+| [EPIC-026B](incomplete/EPIC-026B_spec_007_emergency_stop.md) | `SPEC-007` — Emergency Stop, written and proven | Elite | None | 🟢 | Partly — code and tests exist; SPEC file not written |
+| [EPIC-026C](incomplete/EPIC-026C_spec_010_arm_and_disarm_a_strategy.md) | `SPEC-010` — arm a strategy on a symbol, and disarm it, written and proven | Elite | the user's `EPIC-025B`/`C` confirmation | 🟢 | Partly — code and tests exist; SPEC file not written |
 | **Stage 1 — the edge is real** | | | | | |
-| [EPIC-026D](incomplete/EPIC-026D_edge_thresholds_decision.md) | The acceptance thresholds for a live candidate, fixed before any run (ADR O1) | Elite | None (user decision) | 🟢 | Planned |
-| [EPIC-026E](incomplete/EPIC-026E_rolling_walk_forward_validation.md) | Rolling walk-forward validation over stored history, on the existing out-of-sample split | Elite | D | 🟡 | Planned |
-| [EPIC-026F](incomplete/EPIC-026F_live_candidate_report.md) | The candidate report: one strategy, one symbol, one timeframe, judged against D | Elite | E, `EPIC-001B` | 🟡 | Planned |
+| [EPIC-026D](cancelled/EPIC-026D_edge_thresholds_decision.md) | The acceptance thresholds for a live candidate, fixed before any run (ADR O1) | Elite | None (user decision) | 🟢 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
+| [EPIC-026E](cancelled/EPIC-026E_rolling_walk_forward_validation.md) | Rolling walk-forward validation over stored history, on the existing out-of-sample split | Elite | D | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
+| [EPIC-026F](cancelled/EPIC-026F_live_candidate_report.md) | The candidate report: one strategy, one symbol, one timeframe, judged against D | Elite | E, `EPIC-001B` | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | **Stage 2 — operations survive without a human** | | | | | |
-| [EPIC-026G](incomplete/EPIC-026G_trade_journal.md) | Trade journal: orders, fills, positions and breaker state in SQLite | Elite | None | 🔴 | Planned |
-| [EPIC-026I](incomplete/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | Planned |
-| [EPIC-026H](incomplete/EPIC-026H_crash_recovery_adopt_journaled_positions.md) | Crash recovery: a position the journal recorded as ours is adopted on enable (ADR O2) | Elite | G | 🔴 | Planned |
-| [EPIC-026J](incomplete/EPIC-026J_leverage_and_margin_type_set_on_exchange.md) | Leverage and margin type set on the exchange on arm, and read back | Elite | I | 🟡 | Planned |
-| [EPIC-026K](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Exchange-side protective stop: reduce-only `STOP_MARKET` after each entry fill | Elite | G, I | 🔴 | Planned |
-| [EPIC-026L](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Daily-loss and drawdown circuit breaker that trips Emergency Stop and stays tripped | Elite | G | 🔴 | Planned |
-| [EPIC-026M](incomplete/EPIC-026M_out_of_band_alerting.md) | Out-of-band alerting for trading events (delivers `BOT-018`; ADR O4) | Elite | None | 🟡 | Planned |
-| [EPIC-026N](incomplete/EPIC-026N_user_data_stream_watchdog.md) | User-data-stream watchdog: silence alerts, an exhausted reconnect budget disables trading | Elite | M | 🔴 | Planned |
-| [EPIC-026O](incomplete/EPIC-026O_reconciliation_script_and_soak_report.md) | Journal-versus-exchange reconciliation script, and the 14-day Testnet soak report | Elite | G–N | 🟡 | Planned |
+| [EPIC-026G](incomplete/EPIC-026G_trade_journal.md) | Trade journal: orders, fills, positions and breaker state in SQLite | Elite | None | 🔴 | Partly — per-bot JSON store; decision journal is `EPIC-035X` |
+| [EPIC-026I](incomplete/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | Partly — unknown outcome resolved, rate-limit pause built; explicit `recvWindow` not |
+| [EPIC-026H](completed/EPIC-026H_crash_recovery_adopt_journaled_positions.md) | Crash recovery: a position the journal recorded as ours is adopted on enable (ADR O2) | Elite | G | 🔴 | Done differently — adopt by tag on the owner's Resume; `BOT-197` open |
+| [EPIC-026J](completed/EPIC-026J_leverage_and_margin_type_set_on_exchange.md) | Leverage and margin type set on the exchange on arm, and read back | Elite | I | 🟡 | Done (Futures) — `FuturesSettingsGate` |
+| [EPIC-026K](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Exchange-side protective stop: reduce-only `STOP_MARKET` after each entry fill | Elite | G, I | 🔴 | Partly — Futures Grid Long/Short built (`EPIC-039L`); Neutral waits for T3; Spot none by design |
+| [EPIC-026L](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Account-level loss cap: one figure per host, every bot stopped through the existing Stop, none restarts until the owner acknowledges (re-scoped 2026-10-20: no drawdown, no Emergency Stop, no journal) | Elite | None | 🔴 | 🟡 Built 2026-10-20, pull request open; the owner's Testnet drill and the desktop acknowledge are open |
+| [EPIC-026M](incomplete/EPIC-026M_out_of_band_alerting.md) | Out-of-band alerting for trading events (delivers `BOT-018`; ADR O4) | Elite | None | 🟡 | Done for bot halts (Discord); heartbeat is `EPIC-036E` |
+| [EPIC-026N](completed/EPIC-026N_user_data_stream_watchdog.md) | User-data-stream watchdog: silence alerts, an exhausted reconnect budget disables trading | Elite | M | 🔴 | Done — `UserStreamWatch`; its own alert is `EPIC-036B` |
+| [EPIC-026O](cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) | Journal-versus-exchange reconciliation script, and the 14-day Testnet soak report | Elite | G–N | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | **Stage 3 — mainnet exists and is locked** | | | | | |
-| [EPIC-026P](incomplete/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | `TradingVenue.FUTURES_MAINNET`, the factory parameter, separate credentials, the fourth alignment state (ADR D3, D4) | Elite | O, ADR accepted | 🔴 | Planned |
-| [EPIC-026Q](incomplete/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Mainnet caps with a hard ceiling, and a typed acknowledgement on enable (ADR D5, O3) | Elite | P | 🔴 | Planned |
-| [EPIC-026R](incomplete/EPIC-026R_mainnet_read_only_first_contact.md) | Mainnet read-only first contact with a restricted key: `exchange-status`, permissions checked | Elite | P | 🟡 | Planned |
+| [EPIC-026P](completed/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | `TradingVenue.FUTURES_MAINNET`, the factory parameter, separate credentials, the fourth alignment state (ADR D3, D4) | Elite | O, ADR accepted | 🔴 | Done — by `EPIC-034E` |
+| [EPIC-026Q](cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Mainnet caps with a hard ceiling, and a typed acknowledgement on enable (ADR D5, O3) | Elite | P | 🔴 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
+| [EPIC-026R](incomplete/EPIC-026R_mainnet_read_only_first_contact.md) | Mainnet read-only first contact with a restricted key: `exchange-status`, permissions checked | Elite | P | 🟡 | Done in code; the owner's own-key check is `EPIC-034E`'s last box |
 | **Stage 4 — capital is earned** | | | | | |
-| [EPIC-026S](incomplete/EPIC-026S_live_versus_backtest_report.md) | Live-versus-backtest report after each capital stage; the next increase is a user decision | Elite | Q, R | 🟡 | Planned |
+| [EPIC-026S](incomplete/EPIC-026S_live_versus_backtest_report.md) | Live-versus-backtest report after each capital stage; the next increase is a user decision | Elite | Q, R | 🟡 | Missing — needs a live run first |
 
 ## 4. Phase exit criteria
 
@@ -120,6 +123,20 @@ break-even stops (`BOT-105`); backtest report persistence (`BOT-115`); the chart
 (`BOT-011`). None of them shortens the path to a first real fill.
 
 ## Notes (newest first)
+
+- **2026-10-20** — Must-have 8 of the [2026-10-20 review](REVIEW_2026-10-20_what_is_still_missing.md) written into
+  [`headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md): §3c (rotating an API key, planned and after a leak,
+  the Discord webhook and the dead man's switch URL), §8b (what `/var/lib/sew` holds, the `sew-backup` script and its daily
+  timer, the pull off the VPS, the restore) and checklist row 13 ("one backup taken before the first real-money run").
+  The row is the owner's to sign: no backup has been taken on a real server, and the procedure has been run by its author
+  against stand-in directories only, not under a real systemd.
+
+- **2026-10-20** — Re-checked against `master-warrior` `01d188a` at the owner's request, with the code read
+  rather than the task files: [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md).
+  The Status column in §3 now says what the code does; the sub-task files themselves are unchanged and
+  still say Backlog. Nothing was accepted or built. Must-have before the first real-money bot: the owner's
+  headless checklist, the dead man's switch (`EPIC-036E`), an account-level loss cap, `BOT-197`, the
+  Futures testnet checks, the soak, the own-key check and a written key rotation and backup.
 
 - **2026-10-07** — The owner decided D11 of `EPIC-034`: mainnet trades exactly like testnet, with no order blocked. `TradingVenue` gained `SPOT_MAINNET` and `FUTURES_MAINNET`, so D3's lock is lifted (this epic's stage 3 member, `EPIC-026P`, is delivered by `EPIC-034E`); the soak (D6) was already cancelled. The caps and typed acknowledgement of D5 are not built, by the same decision.
 

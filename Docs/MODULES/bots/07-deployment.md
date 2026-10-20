@@ -16,7 +16,10 @@ Each bot has its own worker thread and FIFO queue, so one slow bot never delays 
 changes a running bot runs there: the router on the bus thread only copies an event and queues it
 ([`05-building-blocks.md`](05-building-blocks.md)). Periodic checks run on `ThreadBotTicker`
 (`bots/adapters/thread_bot_ticker.py` → `ThreadBotTicker`): one ticker, named `bots-ticker`
-(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. A bot waiting to recover has its recovery run posted onto its own worker at that beat (`.../kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery.check`), so the attempt, the cancels and the new ladder run on the thread that owns the bot and never beside a fill. The user-stream and
+(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. A bot waiting to recover has its recovery run posted onto its own worker at that beat (`.../kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery.check`), so the attempt, the cancels and the new ladder run on the thread that owns the bot and never beside a fill. The account-level loss cap's sample (`EPIC-026L`; `bots/application/services/loss_cap/account_loss_cap.py` →
+`AccountLossCap.sample`) is one more task on that ticker, so it has a daemon thread of its own;
+its acknowledgement arrives on the host's command thread, and one lock guards its record while the
+reads, the stops and the publish run outside it. The user-stream and
 sleep watches re-arm on the retry scheduler's heartbeat ([`10-quality.md`](10-quality.md) gives the
 periods). `BotsModule.shutdown` (`bots/module.py` → `BotsModule.shutdown`) closes the scheduler first,
 then the price streams, then every worker, each after running what is queued, so the app exits with
@@ -38,6 +41,12 @@ of the bot's life:
 
 **Rolling back across `AWAITING_RECOVERY`** (`EPIC-042B`). An older build reads the new `recovery_attempts` key as nothing (it reads only the keys it knows) and so loses the ledger on its next write. It **refuses** a file whose state is `AWAITING_RECOVERY` (`bots/adapters/persistence/bot_record_codec.py` → `decode` rejects an unknown state value): the bot is *reported* as unreadable, left untouched and never dropped (`bots/contracts/i_bot_store.py` → `RefusedBotFile`), and the host's pre-flight fails on it. So before a downgrade, resume or stop every bot in `AWAITING_RECOVERY`; the status report lists them (`bot list`, the `awaiting_recovery` count in the health snapshot).
 
+**The loss cap's record.** One more file, `state/loss_cap.json`, beside the bots' folder and not in it
+(a file inside would be read as a bot; `bots/composition/loss_cap_bindings.py` → `loss_cap_record_path`), written
+atomically by `bots/adapters/file_loss_cap_store.py` → `FileLossCapStore`. Its only writer is
+`AccountLossCap`, on the sampling thread (the day's ledger, when it changes, and a trip) and on the
+host's command thread (an acknowledgement). A host with no figure set never writes it.
+
 ## Built: a second process
 
 A second process on the same data root is read-only (`EPIC-035H`): `boot()` returns before restoring
@@ -56,6 +65,7 @@ attempts used inside its window, or `no automatic recovery (<layer> layer)` for 
 profit first, net of both legs' fees and without Futures funding): the Bots tab's figures and words, its table's `Grid profit` and `Cycles` columns and its panel's rows, built once in `bots/contracts/run_earnings.py` → `RunEarnings`, `grid_profit_text`, `total_pnl_text`,
 `plain_money`, `plain_price` (Qt-free, because a headless host installs no Qt) from `BotProgress`; `GetBotStatusReportQueryHandler` fills
 `BotStatusEntry.earnings`, `bots/cli/bot_status_reports.py` prints it. Read from the bot's file, no exchange call.
+The total is worded once as *net of fees and funding, at the bot's last trade price* (`run_earnings.py` → `TOTAL_PNL_BASIS`, `TOTAL_PNL_TITLE`, `TOTAL_PNL_HEAD`, `TOTAL_PNL_LEGEND`): the Bots tab column, the `bot list` head with a legend line under the table, and the `bot show` line. A Futures exchange's own position PNL is gross of fees, excludes funding and uses the mark price, which the bot does not save, so `bot show` prints `Unrealised, exchange basis` as not available (`exchange_unrealised_text`) instead of a figure at a price nobody heard (`BOT-202`). `bot show --json` carries `commissions`, `funding`, `cost` and `mark_price_at` beside the total (`bot_status_report.py` → `_earnings_payload`).
 `bot show` also prints the Grid bot's ladder summary, the average cycle it booked and where the last price it heard stands, `bot show --grids` one row per grid and `bot list` a `GRID STEP` column (`BOT-193`): the Bots tab's Plan rows and Ladder table, built once in `bots/contracts/grid_ladder.py` → `grid_ladder_of` and worded by `bots/contracts/grid_ladder_texts.py` (Qt-free), carried by `BotStatusEntry.ladder` (`GetBotStatusReportQueryHandler` fills it with the bot clock's `now`), printed by `bots/cli/bot_status_reports.py` → `bot_show_grids_report`, and in JSON by `bots/contracts/grid_ladder_payload.py` → `ladder_payload`. Read from the bot's file, no exchange call; the maker fee rate is recorded when a run starts (`BOT-194`), so the net columns are filled for a run that recorded one and blank for an older file; the Futures liquidation price is not in the file, so its row says so.
 `bot order <id>` (`BOT-187`) prints the orders the bot's file records, the Bots tab's orders table
 (`BotProgress.orders` through `GetBotQuery`). The verb is `bots/cli/bot_order_verbs.py` → `OrderBotVerb`;

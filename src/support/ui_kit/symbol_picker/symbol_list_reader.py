@@ -77,7 +77,9 @@ class SymbolListReader[K: Hashable](QObject):
         try:
             symbols = list(self._read(key))
         except Exception as exc:
-            logger.warning("[symbol-list] could not read %s", key, exc_info=True)
+            logger.exception(
+                "[symbol-list] could not read %s (cause %s)", key, self._cause
+            )
             self._asked.discard(key)
             self._notifier.report_failure(
                 FailureNotice(

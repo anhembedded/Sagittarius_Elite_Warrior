@@ -244,14 +244,15 @@ def test_a_venue_that_is_full_is_an_item_naming_the_bots_that_fill_it() -> None:
 
 
 def test_a_venue_with_a_bot_waiting_to_recover_is_an_item_that_says_why() -> None:
-    """`EPIC-042E`: a Start opens the session, which resumes the bots waiting for it."""
+    """`BOT-201`: a bot waiting to recover is not reconciled until its own Resume, so no Start beside it."""
     readiness = _assess(run=RunFacts(venue_recovering=("aaa111", "bbb222")))
 
     (item,) = readiness.items
     assert item.step is ReadinessStep.RUN
     assert item.reason == (
-        "Spot Testnet has 2 bot(s) waiting to recover (aaa111, bbb222); starting another "
-        "opens the venue's order session, which would resume them. Resume or stop them first"
+        "Spot Testnet has 2 bot(s) waiting to recover (aaa111, bbb222); each is reconciled "
+        "with the exchange only when it is resumed, so no other bot starts on this venue until "
+        "they are resumed or stopped"
     )
     assert (item.fix, item.target) == (ReadinessFix.STOP_OTHER_BOT, "aaa111")
     assert item.refusal is BotRefusal.VENUE_RECOVERING

@@ -3,7 +3,7 @@
 Sends one test message to every configured channel and reports each answer.
 Read-only (it writes no outbox and takes no lock), so it runs beside a running
 host. On the VPS a channel's secret exists only inside the service's unit
-(`LoadCredential=`), so the runbook runs it with the unit's credential
+(`LoadCredential=`), so the runbook runs it with the unit's credentials directory
 (`Docs/OPERATIONS/headless_runbook.md`).
 
 Exit status: 0 when every channel took the message; 5 (`CONFIGURATION`, the
