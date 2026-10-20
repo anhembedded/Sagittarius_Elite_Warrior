@@ -25,6 +25,7 @@ from urllib.parse import parse_qsl
 from .futures_routes import handle as handle_futures
 from .history_log import now_ms
 from .order_book_state import OrderBookState
+from .rate_limit_policy import RateLimitPolicy
 from .request_weight import WeightMeter
 from .sapi_routes import ApiRestrictions
 from .sapi_routes import handle as handle_sapi
@@ -105,7 +106,7 @@ class KeyPolicy:
 
 
 class ClockPolicy:
-    """Binance's timestamp rule on signed requests (`BUG-221`), off until a test turns it on.
+    """Binance's timestamp rule on signed requests (`BUG-221`); on by default since `EPIC-037E`.
 
     With `enforcing` on, a signed request whose `timestamp` is more than 1000 ms ahead of the
     exchange's clock (`history_log.now_ms`, which `exchange_clock_skewed_by` moves), or older
@@ -117,7 +118,7 @@ class ClockPolicy:
     DEFAULT_RECV_WINDOW_MS = 5000
 
     def __init__(self) -> None:
-        self.enforcing = False
+        self.enforcing = True
         #: Signed requests refused with `-1021`, to say what a step of the clock cost.
         self.rejected = 0
 
@@ -159,6 +160,8 @@ class _Handler(BaseHTTPRequestHandler):
     #: `BUG-216` — what each request weighs; the minute's total goes back in the
     #: `X-MBX-USED-WEIGHT-1M` header, as the exchange does.
     weights: WeightMeter
+    #: `EPIC-037E` — set `.limit` to answer 429, then 418, past that weight per minute.
+    rate_limit: RateLimitPolicy
     #: The fault this request was given, if any (one handler instance per request).
     _fault: FaultAnswer | None = None
     _used_weight: int = 0
@@ -194,6 +197,13 @@ class _Handler(BaseHTTPRequestHandler):
         self._fault = self.faults.take(path)
         if self._fault is not None:
             return self._fault.status, self._fault.body
+        limited = self.rate_limit.refusal(
+            self._used_weight, *self.weights.minute_position()
+        )
+        if limited is not None:
+            status, body, headers = limited
+            self._fault = FaultAnswer("", status, body, headers)
+            return status, body
         if self.maintenance.on:
             return 503, MAINTENANCE_PAGE
         if "signature" in params:
@@ -276,6 +286,8 @@ class FakeServerUrls:
     weights: WeightMeter = field(default_factory=WeightMeter)
     #: `BUG-221` — set `.enforcing` to make a stale timestamp answer `-1021`, as Binance does.
     clock: ClockPolicy = field(default_factory=ClockPolicy)
+    #: `EPIC-037E` — set `.limit` to make the exchange refuse with 429, then 418.
+    rate_limit: RateLimitPolicy = field(default_factory=RateLimitPolicy)
 
 
 @contextmanager
@@ -295,6 +307,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     handler.faults = FaultPlan()
     handler.weights = WeightMeter()
     handler.clock = ClockPolicy()
+    handler.rate_limit = RateLimitPolicy()
     server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -313,6 +326,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             faults=handler.faults,
             weights=handler.weights,
             clock=handler.clock,
+            rate_limit=handler.rate_limit,
         )
     finally:
         server.shutdown()

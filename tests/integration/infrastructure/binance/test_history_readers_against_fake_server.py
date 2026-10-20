@@ -338,7 +338,11 @@ def test_a_futures_run_that_began_a_moment_ago_is_read_whatever_the_clock_error(
     reads from a little before the start and keeps only what is from it on, on a machine whose
     clock agrees with the exchange's and on the owner's, 127 s ahead of it."""
     skew = -machine_ahead_by_ms
-    with _fake_exchange(), exchange_clock_skewed_by(skew):
+    with _fake_exchange() as urls, exchange_clock_skewed_by(skew):
+        # The test moves the exchange's clock between requests to stamp orders on either side of
+        # the run's start (`EPIC-037E`); a request whose timestamp that leaves outside the
+        # receive window would be refused with -1021, which is not what this test is about.
+        urls.clock.enforcing = False
         sessions = FuturesSessionFactory()
         metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
         trading = FuturesTradingClient(

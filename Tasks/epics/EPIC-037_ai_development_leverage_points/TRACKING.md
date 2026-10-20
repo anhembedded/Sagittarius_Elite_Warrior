@@ -38,7 +38,8 @@ gantt
 | EPIC-037F | [one id issuer](incomplete/EPIC-037F_one_place_issues_task_ids.md) | — | 🟢 | 🔵 Planned | 2026-10-14 |
 | EPIC-037C | [only-one guards](incomplete/EPIC-037C_only_one_guards.md) | — | 🟡 | 🔵 Planned | 2026-10-20 |
 | EPIC-037D | [sibling parity tests](incomplete/EPIC-037D_sibling_parity_tests.md) | — | 🟡 | 🔵 Planned | 2026-10-20 |
-| EPIC-037E | [demanding fake exchange](incomplete/EPIC-037E_demanding_fake_exchange.md) | — | 🔴 | 🔵 Planned | 2026-11-03 |
+| EPIC-037E | [demanding fake exchange](incomplete/EPIC-037E_demanding_fake_exchange.md) | claude/epic-037e-demanding-fake-exchange | 🔴 | 🟡 Slice 1 in review | 2026-11-03 |
+| EPIC-037G | [seeded faults and invariants](incomplete/EPIC-037G_seeded_faults_and_invariants.md) | — | 🔴 | 🔵 Planned | 2026-11-03 |
 
 ---
 
@@ -47,6 +48,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-09 | Spec | Epic scaffolded from the systems analysis; not started. |
+| 2026-10-20 | 037E | Slice 1: the fake refuses what Binance refuses; rest split into 037G. |
 
 ---
 

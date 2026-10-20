@@ -82,11 +82,11 @@ class OrderBookState:
         #: `EPIC-039C` — late, duplicated and rejected (all off).
         self.faults = MatchFaults()
         self._events = futures_user_data.UserDataQueue(self.account, self.faults)
-        self._checks = OrderChecks(
-            self._orders, self.account, self.market, self.symbol_config
-        )
         self._settings = AccountSettings(
             self._orders, self.algo, self.account, self.symbol_config
+        )
+        self._checks = OrderChecks(
+            self._orders, self.account, self.market, self.symbol_config, self._settings
         )
         self._forced_ids = itertools.count(1)
 

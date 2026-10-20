@@ -1,11 +1,11 @@
 # EPIC-037E — The fake exchange is demanding by default: faults, reorderings and invariants
 
-**Status:** 🔵 Planned — not started
+**Status:** 🟡 In progress — first slice delivered 2026-10-20 (the exchange's refusals); the rest moved to [EPIC-037G](EPIC-037G_seeded_faults_and_invariants.md)
 **Source:** the owner's systems-thinking review, 2026-10-09 (see the epic README for the quote)
 **Risk:** 🔴 — slower and potentially flaky integration tests; a new test dependency
 **Complexity:** L — a fault plan in the fake, seeds in CI and nightly, stateful invariant tests
 **Epic:** [EPIC-037](../README.md)
-**Depends on:** EPIC-037D (the parity families become the first fault scenarios)
+**Depends on:** EPIC-037D (the parity families become the first fault scenarios), for the part now in 037G
 
 ---
 
@@ -35,4 +35,20 @@ Fault injection in the spirit of Jepsen and stateful property testing. The fake 
 Integration tier; the two reproductions red on a pre-fix commit and green on master, recorded with their seeds. Flake check: 20 consecutive runs with fixed seeds.
 
 ## Implementation notes (written when done)
-Not started.
+**Slice 1, 2026-10-20 — the fake refuses what the real exchange refuses.** The owner's coordinator re-cut the task around what had hurt (BUG-147/CS-007, BUG-221, BUG-216, BUG-231); the seeded `FaultPlan`, the invariants runner and the nightly job (criteria 1–5 above) are 037G. Decisions: [`DECISION_2026-10-20_the_fake_refuses_by_default.md`](DECISION_2026-10-20_the_fake_refuses_by_default.md).
+
+| Refusal | Code | Default | Source | Test |
+| :--- | :--- | :--- | :--- | :--- |
+| Price off the tick; quantity off the step, past the maximum, zero; precision over the symbol's | `-4014`, `-4023`, `-4005`, `-4003`, `-1111` | on | USDⓈ-M error-code page, read 2026-10-20 | `tests/unit/fake_exchange/test_fake_futures_order_filters.py` |
+| Notional under the minimum (reduce-only exempt) | `-4164` | on | same page | same file |
+| Price outside `minPrice`/`maxPrice` | `-1013` "Filter failure: PRICE_FILTER" | on | not on the page; the shape `binance_error_translator.py` reads and the Spot log of `BUG-147` | same file |
+| Order's `positionSide` not the account's mode | `-4061` | on | same page | same file |
+| Timestamp outside `recvWindow` (5 000 ms) or ahead | `-1021` | **on** (was per test) | `BUG-221`, PR 615 | `test_fake_rate_limit.py` |
+| Past the weight limit: 429 with `-1003` and `Retry-After`, then 418 | `-1003` | opt-in (`urls.rate_limit.limit`) | general-info page for 429/418; `Retry-After` observed (`BUG-216`) | `test_fake_rate_limit.py` |
+Already there before this slice and left alone: reduce-only that cannot reduce (`-2022`, `-2022` on an excess), margin (`-2027`, `-2019`), `-2011` on a cancel of an unknown order, `-4067`/`-4068`, partial fills (`move_price(fill_at_most=)`), late fills (`faults.hold_fills`), duplicate reports, `reject_next_order` (any code, so `-2010`/`-2015`), a stale open-orders list.
+
+**Findings the stricter fake exposed (none in product code):**
+- `test_a_start_is_refused_when_the_venue_will_not_make_its_settings_the_bots` placed a 50 USDT resting order on a symbol whose minimum notional is 100: Binance refuses it with `-4164`. The order is now 100 USDT; the assertions are untouched.
+- `test_order_book_state.py` placed `0.002` ETHUSDT, off the `0.01` step. Fixed the same way.
+- `test_a_futures_run_that_began_a_moment_ago_is_read_whatever_the_clock_error` moves the exchange's clock between requests to stamp orders on either side of a run's start; with `-1021` on, the requests themselves fell outside the receive window. It sets `urls.clock.enforcing = False` with the reason: its subject is the history window, not the timestamp rule (which `test_a_stepped_clock_is_measured_again_on_the_first_rejected_timestamp.py` and the halt journey own).
+- `test_workbench_conformance[True-1024x700]` fails on a clean checkout of this container too (Qt offscreen); not caused by this change.

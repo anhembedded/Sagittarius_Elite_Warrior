@@ -23,6 +23,11 @@ def _place(state: OrderBookState, params: dict[str, str]) -> dict[str, Any]:
     return body
 
 
+#: A quantity on each symbol's step that clears its minimum notional (`EPIC-037E`: the fake now
+#: refuses `0.002` ETH, which Binance refuses too: the step is `0.01`).
+_QUANTITY = {"BTCUSDT": "0.002", "ETHUSDT": "0.01"}
+
+
 def _params(client_order_id: str, symbol: str = "BTCUSDT") -> dict[str, str]:
     return {
         "symbol": symbol,
@@ -30,7 +35,7 @@ def _params(client_order_id: str, symbol: str = "BTCUSDT") -> dict[str, str]:
         "type": "LIMIT",
         "price": "50000",
         "timeInForce": "GTC",
-        "quantity": "0.002",
+        "quantity": _QUANTITY[symbol],
         "newClientOrderId": client_order_id,
         "positionSide": "BOTH",
         "reduceOnly": "False",
