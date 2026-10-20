@@ -150,6 +150,50 @@ The ping proves the process and its alert worker are alive, not that each bot is
 heartbeat's body (`EPIC-036E`, after `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
 its grace, which is wanted while resting orders stay on the exchange.
 
+## Built: an early warning — the position nears liquidation, the stream stays down
+
+*What does the owner read before the bot halts?* Two facts that already happen and were only logged
+(`EPIC-036B1`, [decision](../../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-20_early_warnings.md)).
+
+```mermaid
+sequenceDiagram
+    participant G as GridRiskWatch (worker thread)
+    participant L as LiquidationAlertSource
+    participant S as Stream supervisor (trading)
+    participant T as StreamAlertSource
+    participant H as AlertHub
+    G->>L: BotRiskChangedEvent(level=WARN) once per transition
+    L->>L: WarningLatch.raise_(bot) - open? inside the cool-down?
+    L->>H: publish(LIQUIDATION_RISK, WARNING)
+    G->>L: BotRiskChangedEvent(level=SAFE)
+    L->>H: condition_cleared (one "Recovered" if a warning was sent and is older than the cool-down)
+    G->>L: BotChangedEvent (HALTED, ERROR, ... - the guard resets to SAFE silently there)
+    L->>L: forget the bot's latch quietly (STOPPED or removed: condition_cleared, "Recovered")
+    S->>T: UserStreamHealthEvent(RECONNECTING, since, attempt) per failed attempt
+    T->>T: outage older than 60 s? WarningLatch.raise_(venue)
+    T->>H: publish(USER_STREAM_DOWN, venue subject)
+    S->>T: UserStreamHealthEvent(CONNECTED)
+    T->>H: condition_cleared (one "Recovered")
+```
+
+A bot that leaves the states the guard judges (`bots/domain/bot_lifecycle_fsm_matrix.py` →
+`PRICE_STALENESS_HALTS`) is reset to `SAFE` by the guard without an event, so the source forgets its
+latch on any other state; otherwise a halt and a resume would leave the warning "open" and hold back
+every later one. A `SAFE` inside the cool-down leaves the warning open (no "Recovered" that a
+re-cross would make false), and a `WARN` on a warning still open after the cool-down is told again.
+
+The liquidation warning is raised on the **warning** distance and ended on the return to `SAFE`,
+which the classifier reaches only above `liq_warn_distance x liq_rearm_factor`
+(`bots/domain/grid/futures_risk_classifier.py` → `classify_risk`), so a mark price hovering on the
+line is one warning. The critical distance halts the bot and arrives as `BOT_HALTED`. The stream
+supervisor publishes one event per failed attempt, at most about a minute apart
+(`trading/adapters/binance/user_stream_supervisor.py` → `ReconnectPolicy`), so the outage is told at
+the first attempt after the grace without a timer; the bots halt at `UserStreamLimits.down_limit`
+(`bots/application/services/watches/user_stream_watch.py` → `UserStreamLimits`), after the notice. A
+stream that is silent while still reporting `CONNECTED` is not seen here: it is the periodic
+reconcile's to catch (`UserStreamLimits.reconcile_every`), and an alert for it is the follow-up in
+`EPIC-036B`. No text of the connection's failure and no key is copied into either alert.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when

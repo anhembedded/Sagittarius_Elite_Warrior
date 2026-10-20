@@ -27,6 +27,8 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | The dead man's switch pings; retries a failed ping; reports the monitor failing after | 5 min; 1 min; 3 failures in a row | `alerting/application/dead_mans_switch.py` → `PING_EVERY`, `RETRY_AFTER_FAILURE`, `FAILURES_BEFORE_ALERT` |
 | A worker that has not finished a pass is stalled, and the ping stops | 5 min | `alerting/adapters/worker_liveness.py` → `STALL_AFTER` |
 | The beacon asks whether a ping is due | 5 s | `alerting/composition/alerting_bindings.py` → `BEACON_SECONDS` |
+| A Futures bot's liquidation warning is raised at most once per | 10 min | `alerting/domain/alert_policies.py` → `EarlyWarningPolicy.liquidation_cooldown` |
+| A user-data stream down this long is told; a venue's outage is told at most once per | 60 s; 10 min | `alerting/domain/alert_policies.py` → `EarlyWarningPolicy.stream_down_grace`, `EarlyWarningPolicy.stream_cooldown` |
 | A CRITICAL asks for this many channels when the owner has them (N8) | 2 | `alerting/application/alert_router.py` → `CRITICAL_CHANNELS` |
 | Bots listed in a grouped alert, alerts listed in a summary, held alerts kept | 20; 20; 500 | `alert_coalescer.py` → `MAX_LISTED` · `quiet_hours_hold.py` → `MAX_LISTED`, `MAX_HELD` |
 | Open conditions remembered; fail-overs remembered; criticals scanned behind a wait | 1000; 1000; 20 | `condition_book.py` → `MAX_OPEN` · `channel_delivery.py` → `MAX_REMEMBERED`, `WAITING_SCAN` |

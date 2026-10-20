@@ -71,6 +71,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_aler
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_fill_alert_source import (
     BotFillAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidation_alert_source import (
+    LiquidationAlertSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_alert_source import (
+    StreamAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
@@ -220,6 +226,20 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(ICommandDispatcher),
             resolver.resolve(IAlertPublisher),
             resolver.resolve(IAlertClock),
+        ),
+    )
+    container.singleton(
+        LiquidationAlertSource,
+        lambda resolver: LiquidationAlertSource(
+            resolver.resolve(ICommandDispatcher),
+            resolver.resolve(IAlertPublisher),
+            resolver.resolve(IAlertClock),
+        ),
+    )
+    container.singleton(
+        StreamAlertSource,
+        lambda resolver: StreamAlertSource(
+            resolver.resolve(IAlertPublisher), resolver.resolve(IAlertClock)
         ),
     )
     container.singleton(
