@@ -16,6 +16,7 @@ not a list scrolling inside it.
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -145,7 +146,11 @@ class BotPlanPanel(QStackedWidget):
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
+        """The editor of the selected bot's kind: one built for this selection, deleted when the
+        next is shown (`BUG-242`)."""
         self._kind_panel = panel
+        if panel is not None:
+            panel.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         replace_in(self._panel_slot, panel)
 
     def _build(self) -> None:

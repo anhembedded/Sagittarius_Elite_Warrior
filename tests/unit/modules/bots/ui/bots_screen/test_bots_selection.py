@@ -39,7 +39,7 @@ def _shown_chart(screen: BotsScreen) -> ChartCard | None:
     cards = [
         card
         for card in screen.view.chart_area.findChildren(ChartCard)
-        if card.parent() is not None
+        if not card.isHidden()
     ]
     return cards[0] if len(cards) == 1 else None
 

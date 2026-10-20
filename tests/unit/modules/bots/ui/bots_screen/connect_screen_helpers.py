@@ -39,8 +39,7 @@ def select(screen: BotsScreen, bot_id: str) -> None:
 
 def chart_shown(screen: BotsScreen) -> bool:
     return any(
-        card.parent() is not None
-        for card in screen.view.chart_area.findChildren(ChartCard)
+        not card.isHidden() for card in screen.view.chart_area.findChildren(ChartCard)
     )
 
 
@@ -48,7 +47,7 @@ def locked_note(screen: BotsScreen) -> str:
     notes = [
         label.text()
         for label in screen.view.chart_area.findChildren(QLabel)
-        if label.objectName() == "lblBotsChartLocked"
+        if label.objectName() == "lblBotsChartLocked" and not label.isHidden()
     ]
     return notes[0] if notes else ""
 
