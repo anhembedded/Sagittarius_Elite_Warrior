@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.tests.unit.support.log_view import (
         (samples.ERROR_HEAD, "App.Shell", "ERROR"),
         (samples.DEBUG_LINE, "App.Chart", "DEBUG"),
     ],
+    ids=["exit-slice", "health", "boot-recovery", "error-head", "debug"],
 )
 def test_a_record_head_is_cut_at_its_three_separators(
     line: str, logger: str, level: str

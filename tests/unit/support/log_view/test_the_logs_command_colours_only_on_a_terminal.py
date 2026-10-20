@@ -232,3 +232,12 @@ def test_the_real_clock_is_aware_so_a_relative_since_works() -> None:
     )
     for since in ("2h", "today", "yesterday", "2026-10-20T01:00"):
         assert run_logs(_args("--since", since), env) is None
+
+
+def test_a_traceback_is_drawn_in_its_own_style_and_its_words_are_kept() -> None:
+    out = _Terminal()
+
+    _run(out, {"TERM": "xterm"})
+
+    assert "\x1b[2;31mTraceback (most recent call last):\x1b[0m" in out.getvalue()
+    assert "\x1b[2;31mValueError: boom\x1b[0m" in out.getvalue()

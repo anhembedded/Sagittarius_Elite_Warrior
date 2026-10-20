@@ -14,7 +14,7 @@
 
 On the VPS the owner follows `journalctl -u sew-run -o cat -f`; a WARNING, a tag and a `qty=… price=…` look alike. A viewer that sees only the final line cannot know which words the code substituted (Python keeps `msg` and `args` apart only until a handler formats the record, `logging` docs). `PRO-019` compares four ways under the fixed constraints (stored bytes, the CI scan, the journal and the Engine unchanged) and the owner chose C: a catalogue of every log call's template, read from the source by `ast`, matched to a plain line.
 
-Measured at `5477ce6b` (2026-10-20): 811 log calls (the extractor first missed 3 on receivers such as `_decision_log`; `.log(level, msg)` is read too); 618 `%`-style with arguments, 94 f-strings, 66 without params, 33 with a variable message.
+Measured at `5477ce6b` (2026-10-20): 811 log calls (the extractor first missed 9 calls, 3 on receivers such as `_decision_log` and 6 `.log(level, msg)`; both are read now); 618 `%`-style with arguments, 94 f-strings, 66 without params, 33 with a variable message.
 
 ## 2. Acceptance criteria
 - [x] `main.py logs` reads standard input or `--file` and writes each line; with colour off the output is the input, byte for byte (pipe, `NO_COLOR` non-empty, `TERM=dumb|unknown`, `--no-color`, `--color never`, `rich` missing).
