@@ -114,5 +114,9 @@ def _price(value: Decimal) -> str:
 
 
 def _distance(value: Decimal) -> str:
-    """A gap between two prices, to the cent: it is read, not placed (`BOT-209`)."""
-    return write_value(ColumnKind.MONEY, value)
+    """A gap between two prices, read and not placed (`BOT-209`): to the cent from one up, and
+    to two significant figures below it, so a gap of 0.0004 on a sub-cent symbol never reads
+    "0.00"."""
+    if abs(value) >= 1:
+        return write_value(ColumnKind.MONEY, value)
+    return write_value(ColumnKind.PRICE, round(value, 1 - value.adjusted()))

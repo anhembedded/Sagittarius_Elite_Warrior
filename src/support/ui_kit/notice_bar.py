@@ -1,4 +1,4 @@
-"""A notice above the Backtest figures: an icon, a message, and at most one
+"""A notice above a panel's content: an icon, a message, and at most one
 action (`EPIC-033L` stage 4).
 
 Built from stock parts: a styled-panel `QFrame`, the platform's own
@@ -77,10 +77,15 @@ class NoticeBar(QFrame):
     def kind(self) -> NoticeKind:
         return self._kind
 
-    def show_notice(self, kind: NoticeKind, text: str) -> None:
-        """Says `text` under `kind`'s icon; the icon's words go to a screen reader."""
+    def show_notice(
+        self, kind: NoticeKind, text: str, accessible_name: str = ""
+    ) -> None:
+        """Says `text` under `kind`'s icon. The icon's words go to a screen reader: the kit's
+        own ("Error" for a critical notice), or `accessible_name` where the consumer knows what
+        the notice means on its screen ("Blocks Start")."""
         self._kind = kind
         self._show_icon()
+        self._icon.setAccessibleName(accessible_name or _ACCESSIBLE_NAME[kind])
         self.text = text
 
     def _show_icon(self) -> None:
@@ -94,5 +99,5 @@ class NoticeBar(QFrame):
 _ACCESSIBLE_NAME = {
     NoticeKind.INFORMATION: "Information",
     NoticeKind.WARNING: "Warning",
-    NoticeKind.CRITICAL: "Blocks Start",
+    NoticeKind.CRITICAL: "Error",
 }

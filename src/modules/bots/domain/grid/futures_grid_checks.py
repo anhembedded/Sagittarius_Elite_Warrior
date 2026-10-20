@@ -58,8 +58,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
     PositionSide,
 )
 
-#: Every code `judge_futures_plan` can return: the screen's field map is held to it
-#: (`test_grid_field_errors.py`), so a new check cannot be added without deciding where it shows.
 #: `BOT-209` — what each risk verdict is called in a list of checks (a side, when the plan has
 #: two, is the verdict's `subject`).
 FUTURES_PLAN_TITLES: Mapping[str, str] = MappingProxyType(
@@ -77,20 +75,9 @@ FUTURES_PLAN_TITLES: Mapping[str, str] = MappingProxyType(
     }
 )
 
-FUTURES_PLAN_CODES = frozenset(
-    {
-        "CROSS_MARGIN_UNSUPPORTED",
-        "LEVERAGE_ABOVE_CEILING",
-        "LEVERAGE_HIGH",
-        "NOTIONAL_ABOVE_BRACKET",
-        "MARGIN_TOO_SMALL",
-        "LIQUIDATION_INSIDE_RANGE",
-        "STOP_LOSS_NEEDED",
-        "STOP_LOSS_AFTER_LIQUIDATION",
-        "STOP_LOSS_NEAR_LIQUIDATION",
-        "LIQUIDATION_ESTIMATE",
-    }
-)
+#: Every code `judge_futures_plan` can return: the screen's field map is held to it
+#: (`test_grid_field_errors.py`), so a new check cannot be added without deciding where it shows.
+FUTURES_PLAN_CODES = frozenset(FUTURES_PLAN_TITLES)
 
 _OK, _WARNING, _REFUSED = (
     VerdictSeverity.OK,

@@ -95,8 +95,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
-_MIN_GRIDS = MIN_GRIDS
-_MAX_GRIDS = MAX_GRIDS
 #: What a new Grid's count field starts at; the user changes it.
 _DEFAULT_GRIDS = 10
 
@@ -113,7 +111,7 @@ class GridPanel(BotKindPanel):
         self.upper_price = decimal_field("editGridUpper")
         self.grid_count = QSpinBox()
         self.grid_count.setObjectName("spinGridCount")
-        self.grid_count.setRange(_MIN_GRIDS, _MAX_GRIDS)
+        self.grid_count.setRange(MIN_GRIDS, MAX_GRIDS)
         self.grid_count.setValue(_DEFAULT_GRIDS)
         self.spacing = QComboBox()
         self.spacing.setObjectName("cmbGridSpacing")

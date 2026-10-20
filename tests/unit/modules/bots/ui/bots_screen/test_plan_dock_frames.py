@@ -10,8 +10,8 @@ sizes the workbench suite uses.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QRect
-from PySide6.QtWidgets import QLabel, QScrollArea
+from PySide6.QtCore import QModelIndex, QRect, Qt
+from PySide6.QtWidgets import QLabel, QScrollArea, QTreeView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import BotsView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks_view import (
     HEADING,
@@ -176,6 +176,38 @@ def test_nothing_overlaps_or_is_cut_at_the_three_window_sizes(
     last = plan.properties._proxy_index("last_price", 0)
     assert table.visualRect(last).bottom() <= table.viewport().height()
     if checks.isVisibleTo(plan):
-        last_check = checks.model().index(0, 0)
-        assert last_check.isValid()
-        assert checks.visualRect(last_check).bottom() <= checks.viewport().height()
+        plan.checks.open_passed(True)
+        qtbot.waitUntil(lambda: checks.height() >= checks.sizeHint().height() - 2)
+        assert _rows_not_cut(checks) == []
+
+
+def _visible_indexes(view: QTreeView, parent: QModelIndex | None = None):
+    parent = QModelIndex() if parent is None else parent
+    model = view.model()
+    for row in range(model.rowCount(parent)):
+        index = model.index(row, 0, parent)
+        yield index
+        if view.isExpanded(index):
+            yield from _visible_indexes(view, index)
+
+
+def _rows_not_cut(view: QTreeView) -> list[str]:
+    """Every visible row of `view` must be inside its viewport, and every cell tall enough for its
+    text wrapped to the cell's width (less its icon and margins): a row the list did not measure
+    keeps one line's height and the text is cut."""
+    problems = []
+    metrics = view.fontMetrics()
+    for index in _visible_indexes(view):
+        if view.visualRect(index).bottom() > view.viewport().height():
+            problems.append(f"{index.data()!r} runs past the bottom of the list")
+        for column in range(view.model().columnCount()):
+            cell = index.siblingAtColumn(column)
+            text = cell.data() or ""
+            rect = view.visualRect(cell)
+            room = rect.width() - (view.iconSize().width() if column == 0 else 0) - 8
+            needed = metrics.boundingRect(
+                QRect(0, 0, max(room, 1), 0), Qt.TextFlag.TextWordWrap, text
+            ).height()
+            if text and rect.height() < needed:
+                problems.append(f"{text!r}: {rect.height()} px for {needed} px of text")
+    return problems

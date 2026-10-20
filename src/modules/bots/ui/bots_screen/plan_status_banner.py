@@ -30,6 +30,7 @@ class PlanStatusBanner(NoticeBar):
         if status.kind is None:
             self.setVisible(False)
             return
-        self.show_notice(status.kind, status.text)
+        blocks = "Blocks Start" if status.kind is NoticeKind.CRITICAL else ""
+        self.show_notice(status.kind, status.text, blocks)
         self.setToolTip(status.text)
         self.setVisible(True)
