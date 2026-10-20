@@ -24,6 +24,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import (
+    QLabel,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -109,6 +110,14 @@ LOG_DOCK = "Log"
 #: The centre's two tabs (`EPIC-040E`): the bot's chart, and the sandbox of its parameters.
 LIVE_TAB = "Live"
 BACKTEST_TAB = "Backtest"
+
+
+def _note(text: str, name: str) -> QLabel:
+    """An instruction a slot shows while it has nothing else, deleted when the slot gives it up
+    (`widget_slot.replace_in`)."""
+    note = empty_page(text, name)
+    note.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+    return note
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,9 +227,7 @@ class BotsView(BaseView):
         self.fills.use_display_timezone(timezone)
 
     def set_chart(self, chart: QWidget | None) -> None:
-        replace_in(
-            self._chart_slot, chart or empty_page(NO_CHART_TEXT, "lblBotsNoChart")
-        )
+        replace_in(self._chart_slot, chart or _note(NO_CHART_TEXT, "lblBotsNoChart"))
 
     def status_widgets(self) -> Sequence[QWidget]:
         """`IStatusSource`: the selected bot's venue, in the status bar."""
@@ -228,13 +235,13 @@ class BotsView(BaseView):
 
     def lock_chart(self, reason: str) -> None:
         """The chart's place says why there is no chart yet (`EPIC-034D`)."""
-        replace_in(self._chart_slot, empty_page(reason, "lblBotsChartLocked"))
+        replace_in(self._chart_slot, _note(reason, "lblBotsChartLocked"))
 
     def set_backtest_page(self, page: QWidget | None, note: str) -> None:
         """The workbench of the selected bot's venue; `None` leaves `note` where it would be."""
         replace_in(
             self._backtest_slot,
-            page or empty_page(note or NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
+            page or _note(note or NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
         )
 
     def set_backtest_available(self, tab: TabAvailability) -> None:

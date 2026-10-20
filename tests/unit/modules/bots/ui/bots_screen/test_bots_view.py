@@ -127,7 +127,8 @@ def test_without_a_chart_the_centre_says_how_to_get_one(view) -> None:
     assert view.chart_area.isAncestorOf(chart)
 
     view.set_chart(None)
-    assert chart.parent() is None
+    # A widget the slot gave up leaves hidden, not as a window of its own (`BUG-242`).
+    assert chart.isHidden() and not chart.isWindow()
     # The "Grid not drawn" line above the chart is hidden until a reason exists.
     notes = [
         label.text()
