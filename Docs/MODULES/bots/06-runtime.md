@@ -54,9 +54,10 @@ the measurements are in the task file's §5a.)
   (2) A wait for the window blocks the bot's worker for at most one window: a Stop asked meanwhile is
   heard only after the wait, and the order that waited is still sent (`GridStartSequence._place` asks
   `stop_asked` before the wait, not after), then the stop cancels it with the rest of the ladder.
-  (3) Exits (`market_sell`, `market_reduce_only`) take no turn; a Spot exit counts in trading's window
-  and can meet `owner_budget_rate` right after a 60-order minute (`BUG-238` reviewer note, not changed
-  here). (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
+  (3) Exits (`market_sell`, `market_reduce_only`) take no turn: they are sent as a close, which trading
+  judges by the inventory or the exposure and not by the spacing or the rate that pace placements
+  (`BUG-241`; a Spot exit answers to the inventory check only), and it still counts in the window.
+  (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
   refusal as a `start_refused`; the margin exists to prevent it, and the integration test fails without it.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
