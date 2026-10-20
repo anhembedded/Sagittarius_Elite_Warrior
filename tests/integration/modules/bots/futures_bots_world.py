@@ -16,7 +16,7 @@ the world with `stream_up=False` and calls `deliver` when it wants the reports t
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
@@ -39,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    IOrderPacer,
+    OrderPacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_ticker import (
     FakeBotTicker,
@@ -71,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.kernel.app import App
 
@@ -160,7 +167,11 @@ class BootedFuturesBots:
 
 @contextmanager
 def booted_futures_bots(
-    exchange: FakeExchange, *, open_session: bool = True, stream_up: bool = True
+    exchange: FakeExchange,
+    *,
+    open_session: bool = True,
+    stream_up: bool = True,
+    pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> Iterator[BootedFuturesBots]:
     """The app with Futures Testnet on; its bots on the serial queue.
 
@@ -168,6 +179,8 @@ def booted_futures_bots(
     fake has no websocket for a real open to start).
     @param stream_up False is a user data stream that is down: the pacer delivers nothing, so
     the exchange's reports reach the app only when a test calls `deliver`.
+    @param pacers The venue pacers the bots take their turns on, when a journey is about the
+    pacing itself (`BUG-238`); the default hands the stream its reports and waits for nothing.
     """
     engine = create_app(app_config(exchange.tmp_path, FUTURES))
     container = engine.context.container
@@ -177,7 +190,9 @@ def booted_futures_bots(
 
     def executors(_container: IContainer) -> BotExecutors:
         deps = grid_executor_deps(
-            container, queues=lambda _name: queue, pacers=lambda _venue, _spacing: pacer
+            container,
+            queues=lambda _name: queue,
+            pacers=pacers or (lambda _venue, _spacing: pacer),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

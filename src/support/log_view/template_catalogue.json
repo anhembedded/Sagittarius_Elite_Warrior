@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 802, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 804, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -415,6 +415,8 @@
 ["ss", "Order ", " on ", ": the exchange holds no such order, not placed [order-not-placed]"],
 ["sss", "Order ", " on ", ": the submission's answer was unreadable, the exchange holds it as ", " [order-confirmed]"],
 ["sss", "Order cancelled on ", ": ", " ", ""],
+["df", "Order pacing: the venue's ", " orders per window are spent; the next order waits ", " s and the orders after it go at the budget's rate [order-pacing]"],
+["", "Order pacing: the window has room again; orders go at the spacing [order-pacing]"],
 ["sss", "Order panel ", " order failed (", "): ", ""],
 ["ss", "Order panel ", " order: ", ""],
 ["sss", "Order panel ", " price set to the best ", " ", ""],

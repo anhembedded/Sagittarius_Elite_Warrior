@@ -1,4 +1,5 @@
-"""`EPIC-029E` — a bot's orders keep the budget's spacing apart (ADR D6 check 4).
+"""`EPIC-029E` — a bot's orders keep the budget's spacing apart and inside its rate (ADR D6
+checks 4 and 5; `BUG-238`).
 
 The pacer runs on a clock the test moves; its sleep advances that clock, so
 what it waited is read back exactly and nothing really sleeps.
@@ -12,10 +13,19 @@ from datetime import timedelta
 from itertools import pairwise
 
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer import (
+    STAMP_JITTER,
     MonotonicOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    OrderPacing,
 )
 
 _SPACING = timedelta(milliseconds=250)
+_WINDOW = timedelta(minutes=1)
+_RATE = 60
+#: The window the pacer keeps: trading's, and the jitter trading's stamps may differ by.
+_KEPT_WINDOW = (_WINDOW + STAMP_JITTER).total_seconds()
+_PACING = OrderPacing(_SPACING, _RATE, _WINDOW)
 
 
 class _Clock:
@@ -32,7 +42,7 @@ class _Clock:
 
 
 def _pacer(clock: _Clock) -> MonotonicOrderPacer:
-    return MonotonicOrderPacer(_SPACING, clock.read, clock.sleep)
+    return MonotonicOrderPacer(_PACING, clock.read, clock.sleep)
 
 
 def test_the_first_turn_is_taken_at_once() -> None:
@@ -116,7 +126,7 @@ class _SteadyClock:
 def test_threads_asking_at_the_same_instant_each_reserve_a_turn_of_their_own() -> None:
     """Each bot's worker is its own thread; two never take the same slot."""
     clock = _SteadyClock()
-    pacer = MonotonicOrderPacer(_SPACING, clock.read, clock.sleep)
+    pacer = MonotonicOrderPacer(_PACING, clock.read, clock.sleep)
     workers = 8
     start = threading.Barrier(workers)
 
@@ -136,3 +146,66 @@ def test_threads_asking_at_the_same_instant_each_reserve_a_turn_of_their_own() -
     assert all(
         math.isclose(got, want) for got, want in zip(waits, expected, strict=True)
     )
+
+
+def _turns(pacer: MonotonicOrderPacer, clock: _Clock, count: int) -> list[float]:
+    taken: list[float] = []
+    for _ in range(count):
+        pacer.wait_turn()
+        taken.append(clock.now)
+    return taken
+
+
+def test_a_ladder_up_to_the_rate_goes_at_the_spacing_and_the_next_order_waits_for_the_window() -> (
+    None
+):
+    """`BUG-238`: the 61st order of a minute is the one trading refuses; it is held instead."""
+    clock = _Clock()
+    pacer = _pacer(clock)
+
+    taken = _turns(pacer, clock, _RATE + 1)
+
+    first, last_within_the_rate, over_the_rate = (
+        taken[0],
+        taken[_RATE - 1],
+        taken[_RATE],
+    )
+    assert math.isclose(last_within_the_rate - first, 0.25 * (_RATE - 1))
+    assert math.isclose(over_the_rate - first, _KEPT_WINDOW)
+
+
+def test_no_window_of_the_rate_holds_more_orders_than_the_rate() -> None:
+    clock = _Clock()
+    pacer = _pacer(clock)
+
+    taken = _turns(pacer, clock, 3 * _RATE)
+
+    window = _WINDOW.total_seconds()
+    for index, turn in enumerate(taken):
+        inside = [other for other in taken if turn - window < other <= turn]
+        assert len(inside) <= _RATE, (index, len(inside))
+
+
+def test_after_a_quiet_window_a_burst_goes_at_the_spacing_again() -> None:
+    clock = _Clock()
+    pacer = _pacer(clock)
+    _turns(pacer, clock, _RATE)
+    clock.now += _KEPT_WINDOW
+    before = len(clock.slept)
+
+    taken = _turns(pacer, clock, _RATE)
+
+    assert len(clock.slept) - before == _RATE - 1, "only the spacing waits, one a turn"
+    assert math.isclose(taken[-1] - taken[0], 0.25 * (_RATE - 1))
+
+
+def test_a_budget_of_one_order_a_window_holds_each_order_a_window_apart() -> None:
+    clock = _Clock()
+    pacer = MonotonicOrderPacer(
+        OrderPacing(_SPACING, 1, timedelta(seconds=10)), clock.read, clock.sleep
+    )
+
+    taken = _turns(pacer, clock, 3)
+
+    assert math.isclose(taken[1] - taken[0], 10 + STAMP_JITTER.total_seconds())
+    assert math.isclose(taken[2] - taken[1], 10 + STAMP_JITTER.total_seconds())
