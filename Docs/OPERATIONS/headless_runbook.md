@@ -90,7 +90,7 @@ The script **never restarts the service**. The running host keeps the old key un
 sudo systemctl restart sew-run
 ```
 
-After the restart every bot that was running comes back **RECOVERING**; resume each one yourself (§6): `bot resume <id>`, with `--confirm-venue <venue>` on a mainnet venue.
+After the restart every bot that was running comes back **RECOVERING**; resume each one yourself (§6): `bot resume <id>`, with `--confirm-venue <venue>` on a mainnet venue. Replacing a key on purpose, and what to do when one leaked, is §3c.
 
 `key check` can be run by itself to ask the question without writing anything: `printf '%s\n%s\n' "$KEY" "$SECRET" | $M key check` (`$M` as in §6), but a key then sits in a shell variable or the history; prefer `sudo sew-key add`, which refuses to write. It exits `0` the key is usable, `2` the input cannot be a key, `5` the key must be replaced (it can withdraw, may trade nothing, or the exchange refuses it), `6` an environment did not answer. `--json` prints `sew.key/1`. It never prints or logs the key or the secret.
 
@@ -149,7 +149,7 @@ read -rsp "Discord webhook URL: " v; echo
 printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_discord_webhook > /dev/null; unset v
 ```
 
-An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the Discord webhook credential (alerting_discord_webhook) does not hold a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
+An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the Discord webhook credential (alerting_discord_webhook) does not hold a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord; the order of the steps is in §3c): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
 
 ## 3b. The dead man's switch: be told when the host goes silent
 
@@ -172,6 +172,61 @@ Then `sudo systemctl restart sew-run`; systemd copies a credential at start.
 6. **If the monitor itself cannot be reached** the host logs `[dead-mans-switch] ping failed (n in a row)` and, after three in a row, sends one **Alert channel failing: dead_mans_switch** message to Discord, so a wrong URL (HTTP 404) or a service outage is not silent. It never delays another alert.
 
 A stop on purpose is also silence: the check fires after its grace, which is what you want while resting orders stay on the exchange (decision O1). **Pause the check in the monitor before a planned upgrade** (§8). A restart (`RestartSec=10`) is inside the grace and fires nothing. The Windows service reads the same name from its secret store; that route is unverified on a real service, as for the webhook (§0, §9).
+
+## 3c. Rotate a key, the webhook or the check-in URL
+
+`EPIC-026` must-have 8 of the [2026-10-20 review](../../Tasks/epics/EPIC-026_road_to_real_money/REVIEW_2026-10-20_what_is_still_missing.md). Two cases, and the order of the first step is the whole difference: **planned** (the new secret exists before the old one dies) and **after a suspected leak** (the old one dies first). `$M` is the prefix of §6.
+
+**What a restart does to the market.** `sudo systemctl restart sew-run` is a stop and a start. The stop leaves every resting order on the exchange (§0, decision O1) and takes up to 57 s; the start runs the pre-flight and restores the bots, so the host is down for about a minute. A Futures Grid Long or Short bot keeps its protective stop on the exchange meanwhile (`EPIC-039L`); a Spot bot has none, and nothing watches any stop loss or take profit while the host is down (§0). Orders may fill while it is down. Every bot that was RUNNING or PAUSED comes back **RECOVERING** and places nothing until you resume it: `Resume` reads the exchange by the bot's tag, not the file's memory of its orders (§6). A venue whose bots are RECOVERING starts no new bot (`VENUE_RECOVERING`, §8).
+
+### Planned rotation of a Binance key
+
+The old key stays valid until you delete it, so there is no gap: the new key must work **before** the old one goes.
+
+1. At the exchange, create the new key: bound to this server's address, **no withdrawal**, only the permissions the bots need (§3). Do not delete the old key yet.
+2. Store it. `add` asks the app whether the key is any good and refuses a key that can withdraw; it replaces the venue's two files in one rename each and does not touch the running host:
+
+```bash
+sudo sew-key add futures_mainnet      # or spot_mainnet, spot_testnet, futures_testnet
+sudo sew-key list                     # present, mode 0600, owner root; never a value
+```
+
+3. Restart, read the pre-flight, resume the bots. The host reads a credential only at start, so until the restart it still trades with the old key. A mainnet bot needs `--confirm-venue` (§6):
+
+```bash
+sudo systemctl restart sew-run
+systemctl status sew-run --no-pager
+journalctl -u sew-run -o cat --since "5 minutes ago" | grep '\[preflight\]'
+M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
+$M bot list                                              # every bot that was running reads RECOVERING
+$M bot resume 44wa1x --confirm-venue futures_mainnet     # one at a time; 44wa1x stands for each id from bot list
+$M status
+```
+
+   The pre-flight lines to read are `credentials-present`, `key-permissions`, `no-withdraw-permission` and `outbound-address` (§4): all four must pass for the new key. `systemctl status` says `active (running)` only after the pre-flight passed (`Type=notify`). Exit `5` (a rejected key, a key that can withdraw) is not restarted by the unit: the old key is still valid, so fix the cause, or `sudo sew-key add` the old key back, then `sudo systemctl reset-failed sew-run && sudo systemctl start sew-run`. Resting orders stay on the exchange the whole time, which is why the old key is not deleted yet.
+4. Only when the pre-flight passed and `bot list` shows the bots back on their feet, **delete the old key at the exchange**. The running host uses the new key, so nothing changes for it.
+
+### After a suspected leak
+
+The key is in a log, a chat, a screenshot, a shell history, or the server may be compromised. **Delete the key at the exchange first**; everything else waits for that, because only the exchange ends the other party's access. A key bound to this server's address is useless from any other address, and one without withdrawal (§3) cannot move money out; the danger is a key whose address binding you did not set, or someone on the server itself, who can place and cancel orders with it.
+
+1. At the exchange, **delete** the key (not only restrict it). Then read the account's order history, trade history and open orders for anything you did not place. If the server itself may be compromised (someone had a shell), rotate the Discord webhook and the check-in URL below as well and treat the root-only files in `/etc/sew` as seen.
+2. Stop the host, so it stops sending a rejected key (repeating one is how an IP gets banned, §2). Resting orders **stay on the exchange** and nothing watches them now: decide at the exchange's own web or app login whether to cancel them or to close a position; do not wait for the host.
+
+```bash
+sudo systemctl stop sew-run
+sudo sew-key remove futures_mainnet   # empty the leaked key's two files so the old value is gone from this disk; the venue then has no key
+```
+
+3. Create a new key at the exchange (step 1 of the planned rotation), `sudo sew-key add <venue>`, then `sudo systemctl start sew-run` and the pre-flight and resume lines of step 3 above. Do not resume a bot until you have looked at the exchange's open orders: a bot's resume reconciles by tag and does not know about an order someone else placed.
+4. Find where the old value went and remove it: your shell history, the chat or ticket it was pasted into. The archives of §8b hold no key, so there is nothing to purge from a backup made by the runbook; a provider snapshot of the VPS disk does hold `/etc/sew`.
+
+### The Discord webhook and the dead man's switch URL
+
+Both are secrets stored the way §3 and §3b describe, and both are read when the service starts, so **one restart covers a key and both of them**. Order, the same rule: planned, new before old; a leak, the old one deleted first.
+
+- **Discord webhook.** In Discord, the channel's **Edit Channel → Integrations → Webhooks**: create a new webhook (planned) and delete the old one only after the new one has delivered a test message; on a leak, delete the old one first, since anyone holding the URL can post to your channel. Write the new URL as §3 shows (`alerting_discord_webhook`), `sudo systemctl restart sew-run`, then send the test message of §5 (`alert test`). While the old webhook is deleted and the new one is not stored, halts reach nobody: watch the log (`[health]`, §6) yourself.
+- **Dead man's switch check-in URL.** At the monitor (§3b) make a **new check** with the same period (5 minutes) and grace (10 minutes) and the same notification channels, store its URL as §3b step 2 shows (`alerting_deadman_ping_url`), restart, and read `[dead-mans-switch] on:` (§3b step 3). When the new check is green, delete the old check: whoever holds the old URL can keep it green while the host is dead. A leak of this URL is lower stakes than a key (it cannot trade), but the old check must go all the same. The restart is inside the old check's grace and fires nothing.
 
 ## 4. Run the pre-flight
 
@@ -350,7 +405,7 @@ sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin
 # 2. Stop, and read that it drained: "DRAINING -> STOPPED" and "workers closed", exit 0.
 sudo systemctl stop sew-run
 journalctl -u sew-run -o cat -n 40
-# 3. Copy the state aside (the way back).
+# 3. Copy the state aside (the way back). Also take the dated, root-only archive of §8b: sudo sew-backup
 sudo cp -a /var/lib/sew/state "/var/lib/sew/state.before-$(date +%F)"
 # 4. Upgrade the code and its dependencies.
 sudo git -C /opt/sew/Sagittarius_Elite_Warrior fetch --tags
@@ -424,6 +479,183 @@ Bots run together on different venues (Spot or Futures, mainnet or testnet), and
 - **Emergency Stop and a rate limit act on one venue.** An Emergency Stop halts **every** bot of the venue it was given and none on the other. A rate limit (or the used weight reaching 70 % of the minute's) closes **that venue's** requests, for every caller, until the exchange's pause or the minute ends. Each bot that then needs an order halts `RATE_LIMITED` and resumes by itself at the pause's end (all of them at the same instant); a bot that only reads says so in the log and keeps its ladder; the other venue is unaffected. The venue's orders are also paced together (one 250 ms pacer per venue), so a ladder of 20 orders takes about 5 s and a neighbour's orders queue behind it. Only orders that build a ladder or open a position wait in that queue; a protective stop, a reduce-only close and a Spot exit never do.
 - **A refused bot file counts as active on every venue** (its venue is unknown): `status` and `bot list` name it, and no Start passes until it is dealt with.
 
+## 8b. Back up and restore the state
+
+`EPIC-026` must-have 8. Without `state/bots/` the exchange still holds the orders and positions the bots tagged, and no bot manages them. The data root is `/var/lib/sew` (`SEW_DATA_ROOT`, §1). Linux first; the Windows lines are at the end and not run.
+
+**What is in it, and what goes into the archive** (the paths are those the code writes, `core/repo_root.py` → `data_root`):
+
+| Path under the data root | Holds | In the archive |
+| :--- | :--- | :-: |
+| `state/bots/<bot id>.json` | every bot: parameters, state, run record, client order ids (`modules/bots/adapters/persistence/json_bot_store.py` → `JsonBotStore`, atomic write) | yes |
+| `state/bot_plan.json` | what `bot apply` recorded; `--start-planned` reads only this (`modules/bots/composition/state_bindings.py` → `_build_applied_plan_store`) | yes |
+| `state/loss_cap.json` | the account loss cap's trip record and day stamp (`modules/bots/composition/loss_cap_bindings.py` → `loss_cap_record_path`) | yes |
+| `state/trading/owner_inventory/`, `state/trading/owner_position/` | the budget checkpoints the bots' inventory is derived from (`modules/trading/composition/adapter_bindings.py`) | yes |
+| `state/alert_settings.json` | what you set per bot for alerts (`modules/alerting/composition/alerting_bindings.py` → `alert_settings_path`) | yes |
+| `plan.json` (if you made one, §8) | your plan file | yes |
+| `state/alerts.sqlite3` and its `-wal`, `-shm` | the alert outbox (`outbox_path`): queued alerts, stale by the time of a restore | no |
+| `state/health.json`, `state/instance.lock`, `state/control/` | the live snapshot, the single-instance lock, the command files (`modules/operations/module.py`, `shell/composition_root.py` → `instance_lock_file`, `adapters/control_directory.py`): all rewritten by the next start | no |
+| `database/`, `logs/` | the market-data cache, refetched from the exchange (`database_directory`); the CLI logs (§10); the journal is the host's log | no |
+
+The archive also carries three things outside the data root that you edited by hand: the unit's drop-in directory `/etc/systemd/system/sew-run.service.d` (for example `--start-planned`, §8), and `src/config/user_config.json` of the checkout (the `bots.account_loss_cap` figure, §6).
+
+**Secrets stay out of it.** `/etc/sew/sew.env` and `/etc/sew/credentials/` are not archived, on purpose. A key restored onto a new VPS is bound to the old address and would be rejected, so a new server gets a new key from the exchange in any case (§3c); an archive without keys can sit in a cloud drive or an e-mail account without being a second place to leak from. Keep the webhook URL and the check-in URL in your password manager (they can also be recreated, §3c). A provider snapshot of the whole disk does hold `/etc/sew`: treat it as a secret.
+
+**A consistent copy.** The safe copy is taken with the host **stopped**: every file is at rest, and the stop leaves the orders on the exchange (§0). A **hot copy**, with the host running, is also usable and is what the timer below takes: every file the host writes into the archive is written as a temporary file and renamed over the old one (the stores named above), so a copy never holds half a file; but two bot files may be seconds apart, and the archive is as old as its newest write. That is the state a crash leaves, and a restore comes back RECOVERING for the same reason (below). Take the stopped copy before the first real-money run, before an upgrade (§8) and before any `bot apply --prune`.
+
+**Install the script once** (a dated archive, mode `0600` in a `0700` root-only directory, written under a temporary name and renamed when it is whole and passes `gzip --test`; it keeps the last 30 days and prints the number of bot files it archived):
+
+```bash
+sudo tee /usr/local/sbin/sew-backup > /dev/null <<'EOF'
+#!/usr/bin/env bash
+# sew-backup - a dated, root-only archive of the host's state (runbook section 8b). Run as root.
+set -euo pipefail
+umask 077
+ROOT=${SEW_BACKUP_ROOT:-/}
+DEST=${SEW_BACKUP_DIR:-/var/backups/sew}
+KEEP_DAYS=${SEW_BACKUP_KEEP_DAYS:-30}
+
+[ "$(id -u)" = 0 ] || { echo "sew-backup: run this as root (sudo sew-backup)" >&2; exit 2; }
+[ -d "$ROOT/var/lib/sew/state" ] || { echo "sew-backup: $ROOT/var/lib/sew/state does not exist" >&2; exit 2; }
+if systemctl is-active --quiet sew-run 2>/dev/null; then
+  echo "sew-backup: the host is running; this is a hot copy (runbook section 8b)" >&2
+fi
+
+install -d -o root -g root -m 0700 "$DEST"
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+FINAL="$DEST/sew-state-$STAMP.tar.gz"
+PARTIAL="$DEST/.sew-state-$STAMP.partial"
+
+MEMBERS=(var/lib/sew/state)
+for p in var/lib/sew/plan.json etc/systemd/system/sew-run.service.d \
+         opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json; do
+  [ -e "$ROOT/$p" ] && MEMBERS+=("$p")
+done
+
+# Exit 1 from tar is "a file changed while it was read": a warning for a hot copy, not a failure.
+rc=0
+tar --create --gzip --file "$PARTIAL" --directory "$ROOT" \
+  --exclude='*.tmp' --exclude='var/lib/sew/state/alerts.sqlite3*' \
+  --exclude='var/lib/sew/state/health.json*' --exclude='var/lib/sew/state/instance.lock' \
+  --exclude='var/lib/sew/state/control' "${MEMBERS[@]}" || rc=$?
+if [ "$rc" -gt 1 ]; then rm -f -- "$PARTIAL"; echo "sew-backup: tar failed (exit $rc)" >&2; exit 1; fi
+
+gzip --test "$PARTIAL"
+mv -f -- "$PARTIAL" "$FINAL"
+echo "sew-backup: wrote $FINAL ($(du -h "$FINAL" | cut -f1)), $(tar -tzf "$FINAL" | grep -c 'state/bots/[^/]*\.json$') bot file(s)"
+find "$DEST" -maxdepth 1 -name 'sew-state-*.tar.gz' -mtime +"$KEEP_DAYS" -delete
+EOF
+sudo chmod 0750 /usr/local/sbin/sew-backup
+```
+
+**Take a backup** (the stopped copy; leave out the `stop` and `start` lines for a hot copy). Compare the bot-file count it prints with the number of rows of `bot list`:
+
+```bash
+sudo systemctl stop sew-run
+sudo sew-backup
+sudo systemctl start sew-run
+sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python \
+    /opt/sew/Sagittarius_Elite_Warrior/src/main.py bot list
+```
+
+**Keep a copy off the VPS.** An archive on the disk that failed is not a backup. Pull it from your own machine, so the server holds no credential to the backup store. The archive is root-only, so first hand the newest one to your login account for the length of the copy (`you@vps` is the account you log in with and may `sudo`):
+
+```bash
+sudo ls -t /var/backups/sew                       # newest first
+NAME=sew-state-YYYYMMDDTHHMMSSZ.tar.gz            # edit this line first
+sudo install -m 0600 -o "$USER" -g "$USER" "/var/backups/sew/$NAME" "$HOME/$NAME"
+```
+
+Then, on your own machine, fetch it, test it and remove the temporary copy on the VPS:
+
+```bash
+mkdir -p ~/sew-backups && chmod 0700 ~/sew-backups
+NAME=sew-state-YYYYMMDDTHHMMSSZ.tar.gz            # the same name
+scp you@vps:"$NAME" ~/sew-backups/ && gzip --test ~/sew-backups/"$NAME" && ssh you@vps "rm -f $NAME"
+ls -l ~/sew-backups
+```
+
+The archive holds your bots' parameters and order ids, not a key: keep it somewhere only you read, and encrypted if it goes to a shared drive (`gpg --symmetric <file>`).
+
+**How often.** Once before the first real-money run (checklist row 13); before every upgrade and every `bot apply` or `bot edit` (they change the files); and daily, which the timer does for the hot copy. The pull from your machine is the part that must also happen after a change you care about: a daily pull from `cron` or Task Scheduler there is enough.
+
+```bash
+sudo tee /etc/systemd/system/sew-backup.service > /dev/null <<'EOF'
+[Unit]
+Description=Back up the sew-run state (runbook section 8b)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sew-backup
+EOF
+sudo tee /etc/systemd/system/sew-backup.timer > /dev/null <<'EOF'
+[Unit]
+Description=Daily sew-run state backup
+
+[Timer]
+OnCalendar=*-*-* 03:17:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now sew-backup.timer
+systemctl list-timers sew-backup.timer --no-pager
+```
+
+### Restore
+
+Onto **the same VPS** (a bad edit, a wrong `--prune`, a damaged file) or onto **a new one**. Order matters:
+
+1. **A new VPS first needs §2** (the account, the directories, the checkout at the release that wrote the archive or a newer one: an older build refuses a newer bot file, §8), the keys of §3 (a **new** key bound to the new address, `sudo sew-key add`; empty credential files for the rest), and the unit. Do not start the service yet. Copy the archive onto the new server into `/var/backups/sew` (mode `0600` root).
+2. **Make sure no other host runs on the same exchange account.** The old VPS must be stopped (`sudo systemctl disable --now sew-run` there) or destroyed before a bot is resumed here. Two hosts acting on the same tagged orders would fight over them.
+3. **Restore.** The current state is moved aside, never deleted. Ownership and modes are set afterwards, because a new VPS may give the `sew` account another numeric id:
+
+```bash
+ARCHIVE=/var/backups/sew/sew-state-YYYYMMDDTHHMMSSZ.tar.gz   # edit this line first
+sudo systemctl stop sew-run || true
+sudo gzip --test "$ARCHIVE" && sudo tar --list --gzip --file "$ARCHIVE" | grep 'state/bots/[^/]*\.json$'
+[ -e /var/lib/sew/state ] && sudo mv /var/lib/sew/state "/var/lib/sew/state.replaced-$(date -u +%Y%m%dT%H%M%SZ)"
+sudo tar --extract --gzip --file "$ARCHIVE" --directory / --no-same-owner var/lib/sew
+if sudo tar --list --gzip --file "$ARCHIVE" | grep -q '^etc/systemd/system/sew-run.service.d/'; then
+  sudo tar --extract --gzip --file "$ARCHIVE" --directory / --no-same-owner etc/systemd/system/sew-run.service.d
+  sudo systemctl daemon-reload
+fi
+sudo chown -R sew:sew /var/lib/sew
+sudo chmod -R u+rwX,go-rwx /var/lib/sew
+# The edited config is not copied over the checkout (a release may have added keys): compare, then edit by hand.
+sudo tar --extract --gzip --file "$ARCHIVE" --to-stdout opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json \
+  | diff - /opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json
+```
+
+4. **Start, and check.** The start runs the pre-flight (§4) and restores the bots from the files:
+
+```bash
+sudo systemctl start sew-run
+journalctl -u sew-run -o cat --since "5 minutes ago" | grep -E '\[preflight\]|bot-files-readable|\[recovering\]|\[loss-cap\]'
+M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
+$M bot list                    # the same bot ids and names as before; every bot that was running reads RECOVERING
+$M status                      # exit 0; the "loss_cap" section shows the figure and whether it is tripped
+$M bot order 44wa1x            # an id from bot list: the orders the restored file records, to compare with the exchange
+```
+
+   The restored bots are as old as the archive. Fills, stops and starts since then are not in the files; `bot order` is what the **file** believes, the exchange is the truth. Compare the open orders at the exchange with each bot before you resume it. A `loss_cap.json` restored from a tripped moment is tripped (no bot starts until `bot loss-cap-ack`, §6); one from an earlier UTC day counts again from zero today.
+5. **Resume each bot yourself** (§6): `$M bot resume <bot id>`, with `--confirm-venue <venue>` on mainnet, or restart once with `--resume-recovering`. A bot never resumes by itself after a restore.
+6. **Check the dead man's switch and the alert channel** (§3b step 3, §5 `alert test`), which a new VPS has stored fresh.
+
+**A lost state with no usable archive.** The orders and positions of the bots are still on the exchange, tagged, and nothing adopts them. Look at the open orders and positions in the exchange's own app, cancel the orders and close the positions you do not want, and rebuild the bots from your plan file (`bot apply`, §8) or the Bots tab. This is the case the archive exists to avoid.
+
+**Windows** (not run on a machine, like §9). The state is `C:\ProgramData\sew\state` and the same table applies. From an elevated PowerShell, with the folder `C:\ProgramData\sew-backup` open to Administrators only:
+
+```powershell
+nssm stop sew-run
+Compress-Archive -Path C:\ProgramData\sew\state -DestinationPath "C:\ProgramData\sew-backup\sew-state-$(Get-Date -Format 'yyyyMMdd-HHmmss').zip"
+nssm start sew-run
+```
+
+Restore is the reverse: stop the service, move `state` aside, `Expand-Archive` into `C:\ProgramData\sew`, give the service account modify on the folder again (§9), start, and resume the bots. Copy the archive off the machine as above.
+
 ## 9. Install on Windows (NSSM)
 
 *Not run on a Windows machine by its author; §11 is how it is proven.* Decision O5: NSSM is documented as an external tool, Task Scheduler as the stated fallback; neither is a dependency of the app.
@@ -489,12 +721,13 @@ Testnet only. Two machines: a fresh Linux VPS and a fresh Windows server. **Not 
 | 10 | Upgrade per §8 to the next commit and back (rollback) | the bots return as RECOVERING; the state copy restores them | ☐ | ☐ |
 | 11 | Set `log.file` to `/var/log/sew/sew.log` (Linux), install the `logrotate` stanza of [`LOGGING.md`](LOGGING.md) §2, run `logrotate -f` | the file rotates, the app keeps writing to it, nothing is lost beyond the documented `copytruncate` window; then remove `log.file` | ☐ | n/a |
 | 12 | With the check green (§3b), `systemctl stop` the host and wait the period plus the grace | the monitor alerts you within about 15 minutes; after the start the check recovers | ☐ | ☐ |
+| 13 | **One backup taken before the first real-money run** (§8b): the stopped copy, then the pull to your own machine | `sew-backup` printed a bot-file count equal to the rows of `bot list`; `gzip --test` passes on your machine's copy; the date and the file name are written here: ____________ | ☐ | ☐ |
 
 Signed: ____________________ date: ____________ machine: ____________________
 
 ## 12. What is proven mechanically, and what is not
 
-Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the credential names are the ones the store reads; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
+Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the credential names are the ones the store reads; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. The `sew-backup` script of §8b was run for real by its author against a stand-in root and the restore block against a stand-in `/var/lib/sew`; neither is a test in the suite, and neither has run on a VPS under a real systemd. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
 
 **Not proven**: `alert test` through `systemd-run` and a message reaching a real Discord channel (the owner's run, recorded in `EPIC-036G`), the unit under a running systemd (no systemd was PID 1 where it was written), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
 
