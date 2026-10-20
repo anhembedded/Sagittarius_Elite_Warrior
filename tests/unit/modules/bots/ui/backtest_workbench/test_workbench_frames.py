@@ -125,3 +125,22 @@ def test_the_figures_tab_shows_its_figures_whole_beside_a_wide_chart(
     assert isinstance(pane, QScrollArea)
     assert pane.viewport().width() >= view.summary.sizeHint().width()
     view.shutdown()
+
+
+@pytest.mark.parametrize(
+    "name", ["spot_result", "futures_result", "futures_liquidated"]
+)
+def test_a_result_never_raises_the_floor_of_the_empty_page(
+    qtbot: Any, name: str
+) -> None:
+    """A dozen figures and their caveats scroll in their own pane; they do not make the page, and so
+    the Bots mode, taller than before a run (PR #361; the Grid page's own test before `EPIC-040F`)."""
+    empty = build_frame("idle_ready")
+    qtbot.addWidget(empty)
+    shown = build_frame(name)
+    qtbot.addWidget(shown)
+
+    assert shown.minimumSizeHint().height() <= empty.minimumSizeHint().height()
+    assert shown.minimumSizeHint().width() <= empty.minimumSizeHint().width()
+    empty.shutdown()
+    shown.shutdown()

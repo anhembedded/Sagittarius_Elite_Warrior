@@ -1,6 +1,6 @@
 """`EPIC-040D` — the Backtest workbench with the Grid as its one kind, one frame per state worth looking at.
 
-Offline, like `preview_frames.py` (`EPIC-040A`, the Grid's own page, which it replaces in `EPIC-040F`).
+Offline, as the Grid's own page frames were (`EPIC-040A`; the page and its frames went in `EPIC-040F`).
 Every frame is the real workbench driven through its public surface (`follow` and a click on its own
 buttons) over a held thread pool, so each sentence and each enabled button is the one a user sees; the
 frames are the same states under the same names, so the owner can lay a 040A frame beside its workbench
