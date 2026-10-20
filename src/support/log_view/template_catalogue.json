@@ -562,7 +562,7 @@
 ["s", "[alert-source] account loss cap tripped (", "): alert published"],
 ["ss", "[alert-source] bot ", ": ", " published"],
 ["s", "[alert-source] bot ", ": LIQUIDATION_RISK published"],
-["s", "[alert-source] bot ", ": liquidation warning held back (open, or inside the cool-down)"],
+["s", "[alert-source] bot ", ": liquidation warning held back (inside the cool-down)"],
 ["ss", "[alert-source] bot ", ": order ", " filled, published"],
 ["s", "[alert-source] venue ", ": USER_STREAM_DOWN published"],
 ["ds", "[alert-source] watching ", " bot(s); an alert on entering ", " and when a stop gives up"],

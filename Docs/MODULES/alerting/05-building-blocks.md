@@ -74,7 +74,8 @@ The walking skeleton (`EPIC-036G`) added:
   `LiquidationAlertSource`; `EPIC-036B1`), the early warning of a Futures bot: `on_risk_changed` raises
   one `LIQUIDATION_RISK` WARNING when the guard's level becomes `WARN`, with the mark price, the
   exchange's liquidation price and the distance, and ends it on `SAFE`; `on_bot_changed` ends it when
-  the bot reaches `STOPPED` or is removed. `CRITICAL` and `UNKNOWN` raise nothing here: the bot halts
+  the bot reaches `STOPPED` or is removed (with "Recovered"), and forgets it quietly in any state the
+  guard does not judge, where the guard resets to `SAFE` without an event. `CRITICAL` and `UNKNOWN` raise nothing here: the bot halts
   and the halt is the alert. The distances are the bot's (`FuturesGridThresholds`); this source holds
   none.
 - **`StreamAlertSource`** (`alerting/application/sources/stream_alert_source.py` →
@@ -86,7 +87,8 @@ The walking skeleton (`EPIC-036G`) added:
   **`EarlyWarningPolicy`** (`alerting/domain/alert_policies.py` → `EarlyWarningPolicy`): one open
   warning per key and a cool-down between two raises, so a condition that flips between raised and
   cleared (the hub forgets its dedup window on a clear) sends one pair per cool-down and not one per
-  flap. Both early sources hold one.
+  flap. Both early sources hold one; the liquidation source's defers a clear that comes inside the
+  cool-down (`defer_clear`), so no "Recovered" is sent that a re-cross would make false.
 - **`BotFillAlertSource`** (`alerting/application/sources/bot_fill_alert_source.py` →
   `BotFillAlertSource`; BOT-189), the second source at the edge: `on_order_filled` words one INFO
   `ORDER_FILLED` alert per `BotOrderFilledEvent` (`bot_fill_alert_source.py` → `fill_line`: symbol,

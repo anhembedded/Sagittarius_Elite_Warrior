@@ -78,12 +78,11 @@ class StreamAlertSource:
         subject = AlertSubject.venue_wide(venue)
         if event.state is UserStreamState.CONNECTED:
             with self._lock:
-                was_open = self._outages.clear(venue)
-            if was_open:
-                self._publisher.condition_cleared(
-                    Alert.condition_key(AlertKind.USER_STREAM_DOWN, subject),
-                    self._clock.now(),
-                )
+                now = self._clock.now()
+                if self._outages.clear(venue, now):
+                    self._publisher.condition_cleared(
+                        Alert.condition_key(AlertKind.USER_STREAM_DOWN, subject), now
+                    )
             return
         if event.state is UserStreamState.STOPPED:
             return
@@ -91,25 +90,24 @@ class StreamAlertSource:
         down_for = now - _aware(event.since)
         if down_for < self._grace:
             return
-        with self._lock:
-            raised = self._outages.raise_(venue, now)
-        if not raised:
-            return
         detail = (
             f"The {event.venue.display_name} account stream has been down for "
             f"{int(down_for.total_seconds())} s (attempt {event.attempt}). The app cannot see "
             "its resting orders fill meanwhile, and its bots on this venue halt if the stream "
             "stays down much longer. The app keeps reconnecting by itself."
         )
-        self._publisher.publish(
-            Alert.raised(
-                AlertKind.USER_STREAM_DOWN,
-                subject,
-                f"{label_of(AlertKind.USER_STREAM_DOWN)}: {event.venue.display_name}",
-                detail,
-                now,
+        with self._lock:
+            if not self._outages.raise_(venue, now):
+                return
+            self._publisher.publish(
+                Alert.raised(
+                    AlertKind.USER_STREAM_DOWN,
+                    subject,
+                    f"{label_of(AlertKind.USER_STREAM_DOWN)}: {event.venue.display_name}",
+                    detail,
+                    now,
+                )
             )
-        )
         logger.info("[alert-source] venue %s: USER_STREAM_DOWN published", venue)
 
 

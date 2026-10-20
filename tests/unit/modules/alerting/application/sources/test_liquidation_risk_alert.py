@@ -75,19 +75,30 @@ def test_a_warning_level_is_one_warning_alert_about_the_bot_with_the_figures() -
     assert "distance 9.50%" in alert.detail
 
 
-def test_a_second_warning_while_the_first_stands_is_not_told_again() -> None:
+def test_a_second_warning_inside_the_cooldown_is_not_told_again() -> None:
     source, published, clock = _world()
     source.on_risk_changed(_event(RiskLevel.WARN))
-    clock.advance(timedelta(hours=2))
+    clock.advance(timedelta(minutes=5))
 
     source.on_risk_changed(_event(RiskLevel.WARN))
 
     assert len(published.published) == 1
 
 
-def test_the_return_to_safe_clears_the_warning_once() -> None:
-    source, published, _ = _world()
+def test_a_warning_still_standing_after_the_cooldown_is_told_again() -> None:
+    source, published, clock = _world()
     source.on_risk_changed(_event(RiskLevel.WARN))
+    clock.advance(timedelta(minutes=11))
+
+    source.on_risk_changed(_event(RiskLevel.WARN))
+
+    assert len(published.published) == 2
+
+
+def test_the_return_to_safe_after_the_cooldown_clears_the_warning_once() -> None:
+    source, published, clock = _world()
+    source.on_risk_changed(_event(RiskLevel.WARN))
+    clock.advance(timedelta(minutes=11))
 
     source.on_risk_changed(_event(RiskLevel.SAFE))
     source.on_risk_changed(_event(RiskLevel.SAFE))
@@ -104,30 +115,18 @@ def test_a_safe_reading_that_follows_no_warning_clears_nothing() -> None:
     assert published.published == []
 
 
-def test_a_mark_price_that_crosses_the_line_again_inside_the_cooldown_sends_no_pair() -> (
+def test_a_return_to_safe_inside_the_cooldown_sends_no_recovered_that_a_recross_would_falsify() -> (
     None
 ):
     source, published, clock = _world()
     source.on_risk_changed(_event(RiskLevel.WARN))
-    source.on_risk_changed(_event(RiskLevel.SAFE))
-    clock.advance(timedelta(minutes=5))
+    clock.advance(timedelta(minutes=2))
 
-    source.on_risk_changed(_event(RiskLevel.WARN))
     source.on_risk_changed(_event(RiskLevel.SAFE))
+    source.on_risk_changed(_event(RiskLevel.WARN))
 
     assert len(published.published) == 1
-    assert published.cleared == [_key()]
-
-
-def test_the_warning_is_raised_again_after_the_cooldown() -> None:
-    source, published, clock = _world()
-    source.on_risk_changed(_event(RiskLevel.WARN))
-    source.on_risk_changed(_event(RiskLevel.SAFE))
-    clock.advance(timedelta(minutes=11))
-
-    source.on_risk_changed(_event(RiskLevel.WARN))
-
-    assert len(published.published) == 2
+    assert published.cleared == []
 
 
 def test_the_critical_level_raises_nothing_of_its_own_because_the_halt_is_the_alert() -> (
@@ -141,25 +140,44 @@ def test_the_critical_level_raises_nothing_of_its_own_because_the_halt_is_the_al
     assert published.published == []
 
 
-def test_a_bot_that_stops_ends_its_open_warning_and_may_warn_afresh_later() -> None:
+def test_a_bot_that_stops_ends_its_open_warning_with_recovered() -> None:
     bots = Bots(entry())
     published = RecordingAlertPublisher()
     clock = FakeAlertClock()
     source = LiquidationAlertSource(bots, published, clock)
     source.on_risk_changed(_event(RiskLevel.WARN))
+    clock.advance(timedelta(minutes=11))
+
     bots.move("STOPPED")
     source.on_bot_changed(BotChangedEvent(bot_id=BOT))
-    assert _key() in published.cleared
 
-    clock.advance(timedelta(minutes=11))
+    assert published.cleared == [_key()]
+
+
+def test_a_halted_and_resumed_bot_warns_again_at_its_next_approach() -> None:
+    """Review of PR #613: the guard drops to SAFE without an event when the bot halts, so the
+    warning is forgotten there, not left open to hold back the next one."""
+    bots = Bots(entry())
+    published = RecordingAlertPublisher()
+    clock = FakeAlertClock()
+    source = LiquidationAlertSource(bots, published, clock)
+    source.on_risk_changed(_event(RiskLevel.WARN))
+
+    bots.move("HALTED")
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    bots.move("RUNNING")
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    clock.advance(timedelta(minutes=1))
     source.on_risk_changed(_event(RiskLevel.WARN))
 
     assert len(published.published) == 2
+    assert published.cleared == []
 
 
 def test_a_removed_bot_ends_its_open_warning() -> None:
-    source, published, _ = _world()
+    source, published, clock = _world()
     source.on_risk_changed(_event(RiskLevel.WARN))
+    clock.advance(timedelta(minutes=11))
 
     source.on_bot_changed(BotChangedEvent(bot_id=BOT, removed=True))
 
@@ -173,3 +191,17 @@ def test_a_bot_that_keeps_running_keeps_its_warning() -> None:
     source.on_bot_changed(BotChangedEvent(bot_id=BOT))
 
     assert published.cleared == []
+
+
+def test_a_write_while_no_warning_is_open_reads_no_status() -> None:
+    class _Refusing(Bots):
+        def dispatch(
+            self, handler_class: type, input_dto: object | None = None
+        ) -> object:
+            raise AssertionError("the store was read")
+
+    source = LiquidationAlertSource(
+        _Refusing(entry()), RecordingAlertPublisher(), FakeAlertClock()
+    )
+
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))

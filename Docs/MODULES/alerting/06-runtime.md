@@ -166,13 +166,21 @@ sequenceDiagram
     L->>L: WarningLatch.raise_(bot) - open? inside the cool-down?
     L->>H: publish(LIQUIDATION_RISK, WARNING)
     G->>L: BotRiskChangedEvent(level=SAFE)
-    L->>H: condition_cleared (one "Recovered" if a warning was sent)
+    L->>H: condition_cleared (one "Recovered" if a warning was sent and is older than the cool-down)
+    G->>L: BotChangedEvent (HALTED, ERROR, ... - the guard resets to SAFE silently there)
+    L->>L: forget the bot's latch quietly (STOPPED or removed: condition_cleared, "Recovered")
     S->>T: UserStreamHealthEvent(RECONNECTING, since, attempt) per failed attempt
     T->>T: outage older than 60 s? WarningLatch.raise_(venue)
     T->>H: publish(USER_STREAM_DOWN, venue subject)
     S->>T: UserStreamHealthEvent(CONNECTED)
     T->>H: condition_cleared (one "Recovered")
 ```
+
+A bot that leaves the states the guard judges (`bots/domain/bot_lifecycle_fsm_matrix.py` →
+`PRICE_STALENESS_HALTS`) is reset to `SAFE` by the guard without an event, so the source forgets its
+latch on any other state; otherwise a halt and a resume would leave the warning "open" and hold back
+every later one. A `SAFE` inside the cool-down leaves the warning open (no "Recovered" that a
+re-cross would make false), and a `WARN` on a warning still open after the cool-down is told again.
 
 The liquidation warning is raised on the **warning** distance and ended on the return to `SAFE`,
 which the classifier reaches only above `liq_warn_distance x liq_rearm_factor`

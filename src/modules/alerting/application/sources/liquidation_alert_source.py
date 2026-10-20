@@ -5,18 +5,23 @@ Reads `bots/contracts` only: `BotRiskChangedEvent`, published once per change of
 removed, and the one-bot `GetBotStatusReportQuery` for the bot's name.
 
   · `WARN` raises `LIQUIDATION_RISK` (WARNING) once, with the figures the exchange reported;
-  · `SAFE` ends it, so the hub sends one "Recovered"; the bot reaching `STOPPED` (its position
-    closed) or being removed ends it too;
+  · `SAFE` ends it, so the hub sends one "Recovered" - unless the warning is younger than the
+    cool-down, when it stays open rather than leave a "Recovered" that a re-cross would make false;
+    a still-open warning is told again by the next `WARN` after the cool-down;
+  · the bot reaching `STOPPED` (its position closed) ends it with "Recovered"; a bot leaving the
+    states the guard judges (halted, in error, awaiting recovery) or being removed ends it quietly,
+    because the guard resets to SAFE without an event there;
   · `CRITICAL` raises nothing of its own: the bot halts at that distance and the halt is the alert
     (`BotAlertSource`); `UNKNOWN` raises nothing: the bot halts if it stays blind too long.
 
-A `WarningLatch` keeps a mark price that crosses the line again from sending a pair each time
-(`EarlyWarningPolicy.liquidation_cooldown`). The distances are the bot's (`FuturesGridThresholds`);
+A `WarningLatch` (`defer_clear`) keeps a mark price that crosses the line again from sending a pair
+each time (`EarlyWarningPolicy.liquidation_cooldown`). The distances are the bot's (`FuturesGridThresholds`);
 this source holds no threshold of its own. Nothing in the alert is a key or a secret: the figures
 are the mark and liquidation prices and their distance.
 
 **Thread.** Risk events come from the bot's worker thread, `BotChangedEvent` from whichever thread
-wrote the bot; one lock covers the latch, and the bot store is read outside it.
+wrote the bot; one lock covers the latch and the hand-over to the hub, and the bot store is read
+outside it. A write while no warning is open (every booked fill) reads nothing.
 
 @par Extension cases
   · another early warning of a bot (margin low, once a reader exists) — a sibling handler here, with
@@ -72,6 +77,8 @@ logger = logging.getLogger("App.Alerting")
 
 #: `BotStatusEntry.state` of a bot whose position is closed and whose guard has ended.
 _STOPPED = "STOPPED"
+#: The states the liquidation guard judges (`PRICE_STALENESS_HALTS`, spelled as the report does).
+_JUDGED = frozenset({"STARTING", "RUNNING", "PAUSED", "RECOVERING"})
 
 
 class LiquidationAlertSource:
@@ -86,7 +93,7 @@ class LiquidationAlertSource:
         self._publisher = publisher
         self._clock = clock
         self._lock = threading.Lock()
-        self._warnings = WarningLatch(policy.liquidation_cooldown)
+        self._warnings = WarningLatch(policy.liquidation_cooldown, defer_clear=True)
 
     def on_risk_changed(self, event: BotRiskChangedEvent) -> None:
         if event.level is RiskLevel.SAFE:
@@ -94,43 +101,53 @@ class LiquidationAlertSource:
             return
         if event.level is not RiskLevel.WARN:
             return
-        with self._lock:
-            raised = self._warnings.raise_(event.bot_id, self._clock.now())
-        if not raised:
-            logger.info(
-                "[alert-source] bot %s: liquidation warning held back (open, or inside the cool-down)",
-                event.bot_id,
-            )
-            return
         subject = self._subject(event.bot_id)
-        self._publisher.publish(
-            Alert.raised(
-                AlertKind.LIQUIDATION_RISK,
-                subject,
-                f"{label_of(AlertKind.LIQUIDATION_RISK)}: {subject.bot_name or subject.bot_id}",
-                _detail(event),
-                self._clock.now(),
+        # The lock covers the latch and the hand-over, so a raise and a clear from two threads
+        # reach the hub in the order the latch decided (`publish` only records).
+        with self._lock:
+            now = self._clock.now()
+            if not self._warnings.raise_(event.bot_id, now):
+                logger.info(
+                    "[alert-source] bot %s: liquidation warning held back (inside the cool-down)",
+                    event.bot_id,
+                )
+                return
+            self._publisher.publish(
+                Alert.raised(
+                    AlertKind.LIQUIDATION_RISK,
+                    subject,
+                    f"{label_of(AlertKind.LIQUIDATION_RISK)}: {subject.bot_name or subject.bot_id}",
+                    _detail(event),
+                    now,
+                )
             )
-        )
         logger.info("[alert-source] bot %s: LIQUIDATION_RISK published", event.bot_id)
 
     def on_bot_changed(self, event: BotChangedEvent) -> None:
-        """A bot that stopped or was removed has no position to be liquidated: end its warning."""
-        if not event.removed and self._state_of(event.bot_id) != _STOPPED:
-            return
-        self._end(event.bot_id, forget=event.removed)
-
-    def _end(self, bot_id: str, forget: bool = False) -> None:
+        """The guard judges a bot only in `_JUDGED`; it drops back to SAFE without a word in any
+        other state, so a warning left open would hold back every later one. A stopped bot has no
+        position and its warning ends with "Recovered"; a halted or paused-out bot's ends quietly
+        (the halt is its own CRITICAL message)."""
         with self._lock:
-            was_open = self._warnings.clear(bot_id)
-            if forget:
-                self._warnings.forget(bot_id)
-        if not was_open:
+            if not event.removed and not self._warnings.is_open(event.bot_id):
+                return  # the usual write (a fill): no store read
+        state = None if event.removed else self._state_of(event.bot_id)
+        if state in _JUDGED:
             return
-        self._publisher.condition_cleared(
-            Alert.condition_key(AlertKind.LIQUIDATION_RISK, self._subject(bot_id)),
-            self._clock.now(),
-        )
+        if event.removed or state == _STOPPED:
+            self._end(event.bot_id)
+        with self._lock:
+            self._warnings.forget(event.bot_id)
+
+    def _end(self, bot_id: str) -> None:
+        subject = self._subject(bot_id)
+        with self._lock:
+            now = self._clock.now()
+            if not self._warnings.clear(bot_id, now):
+                return
+            self._publisher.condition_cleared(
+                Alert.condition_key(AlertKind.LIQUIDATION_RISK, subject), now
+            )
 
     def _subject(self, bot_id: str) -> AlertSubject:
         bots = self._report(bot_id).bots
