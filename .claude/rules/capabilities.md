@@ -50,7 +50,7 @@ paths:
 | A panel's page while it has nothing to show, framed like a filled view (also: empty state, EmptyStateStack, no data label, placeholder, instruction text) | `empty_page`, `frame_instruction_page` | `src/support/ui_kit/empty_page.py` | `src/modules/bots/ui/bots_screen/bot_plan_panel.py` |
 | Give every member of an enum a user-facing label (also: enum to text, display name, label table) | `EnumLabels` | `src/support/ui_kit/enum_labels.py` | `src/modules/backtesting/ui/logic/chart_controls.py` |
 | Show the which-funds-am-I-trading banner (also: banner, testnet warning, mainnet warning, environment strip) | `environment_banner_factory` | `src/support/ui_kit/environment_banner/environment_banner_factory.py` | `src/presentation/ui/app_bootstrapper.py` |
-| Colour something by meaning (good, bad, warning), never a hex (also: colour, red green, tone, palette, stylesheet) | `Tone`, `tone_colour` | `src/support/ui_kit/meaning_colours.py` | `src/modules/backtesting/ui/backtest_stat_row.py` |
+| Colour something by meaning (good, bad, warning), never a hex (also: colour, red green, tone, palette, stylesheet) | `Tone`, `tone_colour`, `sign_tone` | `src/support/ui_kit/meaning_colours.py` | `src/modules/backtesting/ui/backtest_stat_row.py` |
 | A message with a severity icon and at most one action, above a panel's content (also: banner, inline message, notice, status banner, info bar, warning bar) | `NoticeBar`, `NoticeKind` | `src/support/ui_kit/notice_bar.py` | `src/modules/bots/ui/bots_screen/plan_status_banner.py` |
 | Edit a strategy's parameters in the shared dialog (also: params dialog, strategy settings, parameter form) | `StrategyParamsDialog` | `src/support/ui_kit/param_form/strategy_params_dialog.py` | `src/modules/bots/ui/strategies/arm_strategy_dialog.py` |
 | Make a QLabel whose text is text, never markup (also: label, QLabel, setText, rich text) | `plain_label` | `src/support/ui_kit/plain_label.py` | `src/modules/backtesting/ui/_drawdown_chart_widget.py` |
@@ -64,7 +64,7 @@ paths:
 | Model rows for a table view (also: QAbstractTableModel, row model, table data) | `RowTableModel` | `src/support/ui_kit/table_model.py` | `src/modules/backtesting/ui/metric_comparison_model.py` |
 | Pick a start and an end time (also: date range, from and to, period) | `TimeRangePickerDialog` | `src/support/ui_kit/time_range_picker/dialog.py` | `src/modules/backtesting/ui/backtest_modals/time_range_picker_dialog.py` |
 | Hand a worker thread's answer to the UI thread (also: background thread, QThread, signal, async result, main thread) | `UiThreadRelay` | `src/support/ui_kit/ui_thread_relay.py` | `src/modules/bots/ui/bots_screen/fenced_reads.py` |
-| Write a price, number, percentage or time for display (also: format, decimals, number to text, f-string, round) | `APP_VALUE_FORMATTER`, `write_value` | `src/support/ui_kit/value_formatter.py` | `src/modules/backtesting/ui/coordinators/data_sync_coordinator.py` |
+| Write a price, number, percentage or time for display (also: format, decimals, number to text, f-string, round) | `APP_VALUE_FORMATTER`, `write_value`, `signed_key` | `src/support/ui_kit/value_formatter.py` | `src/modules/backtesting/ui/coordinators/data_sync_coordinator.py` |
 | Ask a risky action's question, answered with its own verbs (also: confirm, are you sure, QMessageBox, yes no dialog) | `VerbQuestion`, `ask_with_verbs` | `src/support/ui_kit/verb_confirmation.py` | `src/modules/trading/ui/desk/order_entry/order_entry_panel.py` |
 <!-- capabilities:end -->
 

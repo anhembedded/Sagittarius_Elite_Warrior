@@ -256,6 +256,6 @@ def test_the_bots_table_shows_grid_profit_and_cycles_before_the_total(qtbot) -> 
     model.set_rows([_running(_PRICED)])
     keys = [spec.key for spec in BotsTableModel.COLUMNS]
 
-    assert keys[-3:] == ["grid_profit", "cycles", "profit"]
+    assert keys[-3:] == ["grid_profit.signed", "cycles", "profit.signed"]
     cells = [model.index(0, keys.index(key)).data() for key in keys[-3:]]
     assert cells == [Decimal("12.5"), 3, Decimal(30)]

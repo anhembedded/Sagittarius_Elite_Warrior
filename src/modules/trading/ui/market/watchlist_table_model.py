@@ -3,10 +3,9 @@
 
 Colour on the `% Change` column is the one case
 `ui-presentation-rule.md` §1 already sanctions ("colour only where it
-carries meaning"): win/loss direction, the same `BULL_COLOR`/`BEAR_COLOR`
-pair every other trade/tick direction in this codebase already uses (chart
-markers, `dashboard_presenter.py`'s own WS status badge) — not a new
-stylesheet or a decorative choice.
+carries meaning"): win/loss direction, drawn by `Tone` on the application's
+palette (`EPIC-043C`) with an arrow and a sign beside it in the text; a
+change of exactly zero has neither colour nor arrow.
 """
 
 from __future__ import annotations
@@ -15,13 +14,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from PySide6.QtCore import QObject, Qt
-from PySide6.QtGui import QColor
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
+from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -45,15 +44,6 @@ class WatchlistRow:
     percent_change: float | None = None
     volume: float | None = None
 
-    @property
-    def is_bullish(self) -> bool | None:
-        """`None` before any tick has been seen — there is nothing to
-        colour yet, and painting one direction by default would claim
-        knowledge this row does not have."""
-        if self.percent_change is None:
-            return None
-        return self.percent_change >= 0.0
-
 
 class WatchlistTableModel(RowTableModel[WatchlistRow]):
     """@brief Table model backing the Watchlist screen's symbol table."""
@@ -64,7 +54,7 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
         ColumnSpec("symbol", "Symbol", ColumnKind.TEXT, stretch=True),
         ColumnSpec("last_price", "Last price", ColumnKind.PRICE),
-        ColumnSpec("change", "% Change", ColumnKind.PERCENT),
+        ColumnSpec(signed_key("change"), "% Change", ColumnKind.PERCENT),
         ColumnSpec("volume", "Volume", ColumnKind.QUANTITY),
     )
     #: A volume is a sum of the symbol's traded quantities, so its step.
@@ -133,11 +123,9 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
     def _symbol(self, row: WatchlistRow) -> str | None:
         return row.symbol
 
-    def _role_data(self, row: WatchlistRow, column: int, role: int) -> object:
+    def _tone(self, row: WatchlistRow, column: int) -> Tone:
+        """No tone before any tick has been seen: painting one direction by
+        default would claim knowledge this row does not have."""
         if column != self.PERCENT_CHANGE_COLUMN:
-            return None
-        if role != Qt.ItemDataRole.ForegroundRole:
-            return None
-        if row.is_bullish is None:
-            return None
-        return QColor(BULL_COLOR if row.is_bullish else BEAR_COLOR)
+            return Tone.NEUTRAL
+        return sign_tone(row.percent_change)

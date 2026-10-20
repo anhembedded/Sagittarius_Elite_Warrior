@@ -124,9 +124,9 @@ def test_what_is_not_known_is_a_blank_cell_never_a_zero(open_bots_screen) -> Non
 
     _select(screen, "a00001")
 
-    assert _text(screen, 0, "net") == ""
-    assert _text(screen, 0, "net_quote") == ""
-    assert _text(screen, 0, "gross_quote") != ""
+    assert _text(screen, 0, "net.signed") == ""
+    assert _text(screen, 0, "net_quote.signed") == ""
+    assert _text(screen, 0, "gross_quote.signed") != ""
     assert _text(screen, 0, "state") == "Not recorded"
     assert screen.view.ladder.summary.text().endswith("before fees (estimate)")
     assert "no maker rate is recorded" in screen.view.ladder.summary.toolTip()
@@ -139,9 +139,9 @@ def test_the_columns_say_where_each_figure_comes_from() -> None:
     columns = {spec.key: spec.title for spec in BotLadderTableModel.COLUMNS}
 
     assert "(designed)" in columns["step"]
-    assert "(designed)" in columns["net"]
-    assert "(estimate)" in columns["gross_quote"]
-    assert "(estimate)" in columns["net_quote"]
+    assert "(designed)" in columns["net.signed"]
+    assert "(estimate)" in columns["gross_quote.signed"]
+    assert "(estimate)" in columns["net_quote.signed"]
     assert "(recorded)" in columns["state"]
 
 

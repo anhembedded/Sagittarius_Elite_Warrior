@@ -21,7 +21,14 @@ one screen and four on another.
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
 | quantity under a `ratio_key` (a ratio: Sharpe, profit factor) | two decimals; infinity reads `∞` | `1.50`, `-63.24`, `∞` |
 | quantity in a `BYTES_KEY` column | a size in bytes, in the largest unit it fills | `512 B`, `3.20 MB` |
+| money or percent under a `signed_key` (a profit, a loss, a change) | an arrow and a sign; zero has neither | `▲ +12.50`, `▼ -9.00`, `▲ +1.25%`, `0.00` |
 | text, side, status | as given | `LONG` |
+
+A figure that says how a position or a bot is doing — a profit, a loss, a
+change — carries its direction in the text as well as in its colour
+(`ui-presentation-rule.md` §1: colour is never the only signal), so a column
+or read-out row whose key is a `signed_key` writes an arrow and a sign.
+Sorting is on the raw value and is unaffected.
 
 A size is a quantity of bytes, and the key says so as a timeframe's does:
 units step by 1 024 (`KB`, `MB`, `GB`), the way the platform's file manager
@@ -46,7 +53,7 @@ table whose rows carry no symbol) the magnitude rule above decides.
 
 Capability: Write a price, number, percentage or time for display
     Also: format, decimals, number to text, f-string, round
-    Use: APP_VALUE_FORMATTER, write_value
+    Use: APP_VALUE_FORMATTER, write_value, signed_key
     User: src/modules/backtesting/ui/coordinators/data_sync_coordinator.py
     Status: stable
 """
@@ -98,6 +105,37 @@ def ratio_key(name: str) -> str:
 
 def _is_ratio_key(key: str) -> bool:
     return key == RATIO_KEY or key.endswith(f".{RATIO_KEY}")
+
+
+#: The last part of the key of a column, or read-out row, that holds a figure
+#: whose direction matters: a profit, a loss, a change (`ColumnKind.MONEY` or
+#: `ColumnKind.PERCENT`). It reads with an arrow and a sign: `▲ +12.50`,
+#: `▼ -9.00`; a value that rounds to zero reads plain. A row says it with
+#: `signed_key("pnl")`, which is `"pnl.signed"`.
+SIGNED_KEY: Final = "signed"
+_UP_ARROW: Final = "▲"
+_DOWN_ARROW: Final = "▼"
+_SIGNED_KINDS: Final = frozenset({ColumnKind.MONEY, ColumnKind.PERCENT})
+
+
+def signed_key(name: str) -> str:
+    """The key of a column, or read-out row, named `name` that holds a signed figure."""
+    return f"{name}.{SIGNED_KEY}"
+
+
+def _is_signed_key(key: str) -> bool:
+    return key == SIGNED_KEY or key.endswith(f".{SIGNED_KEY}")
+
+
+def _signed_text(text: str, number: float) -> str:
+    """`text`, the figure written plainly, with its direction: an arrow, and a sign for a gain."""
+    if not math.isfinite(number):
+        return text
+    if not text.strip("-0.,%"):
+        return text.lstrip("-")
+    if number > 0:
+        return f"{_UP_ARROW} +{text}"
+    return f"{_DOWN_ARROW} {text}"
 
 
 _INFINITY: Final = "∞"
@@ -189,8 +227,12 @@ class AppValueFormatter:
             return _TIMEFRAME_CODES[int(value)]
         if isinstance(value, str | timedelta) or not kind.is_numeric:
             return self._plain.format(kind, value, context)
-        text = _number_text(kind, float(value), context)
-        return self._plain.format(kind, value, context) if text is None else text
+        number = float(value)
+        text = _number_text(kind, number, context)
+        written = self._plain.format(kind, value, context) if text is None else text
+        if kind in _SIGNED_KINDS and _is_signed_key(context.key):
+            return _signed_text(written, number)
+        return written
 
 
 #: The one instance every table and read-out of this application writes with.

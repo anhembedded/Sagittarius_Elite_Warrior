@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     TIMEFRAME_KEY,
     AppValueFormatter,
     ratio_key,
+    signed_key,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -245,3 +246,68 @@ def test_a_ratio_key_names_the_row_and_ends_in_the_rule():
         formatter.format(ColumnKind.QUANTITY, 3.14159, FormatContext("ratio_x"))
         == "3.14159"
     )
+
+
+_SIGNED = FormatContext(signed_key("pnl"))
+
+
+def _signed(kind: ColumnKind, value: object) -> str:
+    return AppValueFormatter().format(kind, value, _SIGNED)  # type: ignore[arg-type]
+
+
+def test_a_signed_key_names_itself_the_way_the_other_keys_do() -> None:
+    assert signed_key("pnl") == "pnl.signed"
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "expected"),
+    [
+        (ColumnKind.MONEY, 12.5, "▲ +12.50"),
+        (ColumnKind.MONEY, -9.0, "▼ -9.00"),
+        (ColumnKind.MONEY, 1234567.891, "▲ +1,234,567.89"),
+        (ColumnKind.MONEY, Decimal("-0.01"), "▼ -0.01"),
+        (ColumnKind.PERCENT, 1.25, "▲ +1.25%"),
+        (ColumnKind.PERCENT, -0.5, "▼ -0.50%"),
+    ],
+)
+def test_a_signed_figure_carries_an_arrow_and_a_sign(
+    kind: ColumnKind, value: object, expected: str
+) -> None:
+    assert _signed(kind, value) == expected
+
+
+@pytest.mark.parametrize(
+    ("kind", "value", "expected"),
+    [
+        (ColumnKind.MONEY, 0, "0.00"),
+        (ColumnKind.MONEY, 0.004, "0.00"),
+        (ColumnKind.MONEY, -0.004, "0.00"),
+        (ColumnKind.PERCENT, 0.0, "0.00%"),
+        (ColumnKind.PERCENT, -0.001, "0.00%"),
+    ],
+)
+def test_a_figure_that_rounds_to_zero_has_neither_arrow_nor_sign(
+    kind: ColumnKind, value: object, expected: str
+) -> None:
+    assert _signed(kind, value) == expected
+
+
+def test_a_figure_not_known_stays_an_empty_cell() -> None:
+    assert _signed(ColumnKind.MONEY, None) == ""
+
+
+def test_only_a_signed_key_gets_an_arrow() -> None:
+    """The same value under an ordinary key reads as before."""
+    assert _text(ColumnKind.MONEY, 12.5) == "12.50"
+    assert _text(ColumnKind.MONEY, -9.0) == "-9.00"
+    assert (
+        AppValueFormatter().format(
+            ColumnKind.QUANTITY, 12.5, FormatContext(signed_key("size"))
+        )
+        == "12.5"
+    )
+
+
+def test_a_figure_that_is_not_finite_is_left_as_the_formatter_writes_it() -> None:
+    assert "▲" not in _signed(ColumnKind.MONEY, float("inf"))
+    assert "▼" not in _signed(ColumnKind.MONEY, float("-inf"))

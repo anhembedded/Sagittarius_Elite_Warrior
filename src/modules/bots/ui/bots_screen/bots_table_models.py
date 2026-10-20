@@ -16,8 +16,7 @@ from collections.abc import Sequence
 from decimal import Decimal
 from typing import ClassVar
 
-from PySide6.QtCore import QObject, Qt
-from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
 )
@@ -41,9 +40,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
-    tone_colour,
+    sign_tone,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -76,20 +76,6 @@ def state_tone(state: BotLifecycleState) -> Tone:
     return _STATE_TONES.get(state, Tone.NEUTRAL)
 
 
-def sign_tone(amount: Decimal | None) -> Tone:
-    """Profit, loss, or no verdict for zero and for a figure not known; the
-    figure's own digits and minus sign stay in the cell."""
-    if amount is None or amount == 0:
-        return Tone.NEUTRAL
-    return Tone.POSITIVE if amount > 0 else Tone.NEGATIVE
-
-
-def _foreground(tone: Tone) -> QColor | None:
-    """The tone's colour on the application's current palette (read at each
-    paint, so a change of the OS scheme is followed)."""
-    return tone_colour(tone, QGuiApplication.palette())
-
-
 def state_text(state: BotLifecycleState) -> str:
     """The state as the list and the header name it: `Running`, `Halted`."""
     return state.value.capitalize()
@@ -102,9 +88,9 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         ColumnSpec("venue", "Venue", ColumnKind.TEXT),
         ColumnSpec("symbol", "Symbol", ColumnKind.TEXT),
         ColumnSpec("state", "State", ColumnKind.STATUS),
-        ColumnSpec("grid_profit", "Grid profit", ColumnKind.MONEY),
+        ColumnSpec(signed_key("grid_profit"), "Grid profit", ColumnKind.MONEY),
         ColumnSpec("cycles", "Cycles", ColumnKind.QUANTITY),
-        ColumnSpec("profit", TOTAL_PNL_TITLE, ColumnKind.MONEY),
+        ColumnSpec(signed_key("profit"), TOTAL_PNL_TITLE, ColumnKind.MONEY),
     )
 
     def row_index_of(self, bot_id: str) -> int:
@@ -130,19 +116,15 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
     def _is_emphasised(self, row: BotSnapshot, column: int) -> bool:
         return column == self.column("state") and row.state in _ATTENTION_STATES
 
-    def _role_data(self, row: BotSnapshot, column: int, role: int) -> object:
-        if role != Qt.ItemDataRole.ForegroundRole:
-            return None
+    def _tone(self, row: BotSnapshot, column: int) -> Tone:
         if column == self.column("state"):
-            return _foreground(state_tone(row.state))
-        if column == self.column("grid_profit"):
+            return state_tone(row.state)
+        if column == self.column(signed_key("grid_profit")):
             progress = row.progress
-            return _foreground(
-                sign_tone(progress.realised_profit if progress else None)
-            )
-        if column == self.column("profit"):
-            return _foreground(sign_tone(_total_pnl(row)))
-        return None
+            return sign_tone(progress.realised_profit if progress else None)
+        if column == self.column(signed_key("profit")):
+            return sign_tone(_total_pnl(row))
+        return Tone.NEUTRAL
 
 
 def _total_pnl(row: BotSnapshot) -> Decimal | None:
@@ -239,12 +221,18 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
         ColumnSpec("sell", "Sell at", ColumnKind.PRICE),
         ColumnSpec("step", "Step (designed)", ColumnKind.PERCENT),
         ColumnSpec(
-            "gross_quote", "Per cycle, before fees (estimate)", ColumnKind.MONEY
+            signed_key("gross_quote"),
+            "Per cycle, before fees (estimate)",
+            ColumnKind.MONEY,
         ),
         ColumnSpec("state", "Now (recorded)", ColumnKind.TEXT),
-        ColumnSpec("net", "Net step, run-start rate (designed)", ColumnKind.PERCENT),
         ColumnSpec(
-            "net_quote",
+            signed_key("net"),
+            "Net step, run-start rate (designed)",
+            ColumnKind.PERCENT,
+        ),
+        ColumnSpec(
+            signed_key("net_quote"),
             "Per cycle, after fees at run-start rate (estimate)",
             ColumnKind.MONEY,
             stretch=True,
@@ -263,7 +251,11 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
         )
         return values[column]
 
-    def _role_data(self, row: LadderRow, column: int, role: int) -> object:
-        if role != Qt.ItemDataRole.ForegroundRole or column != self.column("net_quote"):
-            return None
-        return _foreground(sign_tone(row.net_quote))
+    def _tone(self, row: LadderRow, column: int) -> Tone:
+        if column == self.column(signed_key("gross_quote")):
+            return sign_tone(row.gross_quote)
+        if column == self.column(signed_key("net")):
+            return sign_tone(row.net_fraction)
+        if column == self.column(signed_key("net_quote")):
+            return sign_tone(row.net_quote)
+        return Tone.NEUTRAL

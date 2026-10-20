@@ -60,7 +60,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -77,7 +82,7 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         ColumnSpec("size", "Size", ColumnKind.QUANTITY),
         ColumnSpec("entry", "Entry", ColumnKind.PRICE),
         ColumnSpec("mark", "Mark", ColumnKind.PRICE),
-        ColumnSpec("pnl", "Unrealized PnL (USDT)", ColumnKind.MONEY),
+        ColumnSpec(signed_key("pnl"), "Unrealized PnL (USDT)", ColumnKind.MONEY),
         ColumnSpec("leverage", "Leverage (x)", ColumnKind.QUANTITY),
         ColumnSpec("liquidation", "Liquidation", ColumnKind.PRICE),
     )
@@ -103,9 +108,14 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         return row.symbol
 
     def _is_emphasised(self, row: PositionRow, column: int) -> bool:
-        """A losing position's PnL cell is bold. The one emphasis this table
-        carries, and it replaces a colour (ADR D21)."""
-        return column == self.column("pnl") and not row.pnl_is_profit
+        """A losing position's PnL cell is bold: the emphasis this table
+        carries, beside the tone, the arrow and the sign."""
+        return column == self.column(signed_key("pnl")) and not row.pnl_is_profit
+
+    def _tone(self, row: PositionRow, column: int) -> Tone:
+        if column == self.column(signed_key("pnl")):
+            return sign_tone(row.unrealized_pnl)
+        return Tone.NEUTRAL
 
 
 class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):

@@ -16,7 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     build_position_row,
 )
@@ -25,6 +25,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     PositionsTableModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text
 
@@ -101,19 +105,17 @@ class TestWhatTheUserSees:
 
         assert _texts(panel, "symbol") == ["ETHUSDT"]
 
-    def test_a_losing_position_is_marked_without_a_colour(self, qapp) -> None:
-        """ADR D21: colour comes from the OS palette, and Qt has no role
-        meaning "this position is losing money". The sign is in the text and
-        the cell is bold — the same substitution PR 0.4b made for a shard
-        with gaps."""
+    def test_a_losing_position_is_marked_beyond_its_colour(self, qapp) -> None:
+        """Colour is never the only signal: a losing PnL carries its arrow and
+        sign in the text and is bold, beside the tone (`EPIC-043C`)."""
         panel = _panel(qapp, position(pnl="-10.0"), position("ETHUSDT", pnl="10.0"))
         model = panel.table.model()
-        pnl = PositionsTableModel.column("pnl")
+        pnl = PositionsTableModel.column("pnl.signed")
 
         losing = model.index(0, pnl)
         winning = model.index(1, pnl)
 
-        assert _texts(panel, "pnl") == ["-10.00", "10.00"]
+        assert _texts(panel, "pnl.signed") == ["▼ -10.00", "▲ +10.00"]
         font = model.data(losing, Qt.ItemDataRole.FontRole)
         assert isinstance(font, QFont)
         assert font.bold() is True
@@ -127,7 +129,7 @@ class TestWhatTheUserSees:
             index = model.index(0, PositionsTableModel.column(key))
             return int(model.data(index, Qt.ItemDataRole.TextAlignmentRole))
 
-        assert alignment("pnl") & int(Qt.AlignmentFlag.AlignRight)
+        assert alignment("pnl.signed") & int(Qt.AlignmentFlag.AlignRight)
         assert alignment("symbol") & int(Qt.AlignmentFlag.AlignLeft)
 
     def test_every_value_is_written_by_its_kind(self, qapp) -> None:
@@ -162,7 +164,7 @@ class TestSorting:
         )
 
         panel.table.sortByColumn(
-            PositionsTableModel.column("pnl"), Qt.SortOrder.AscendingOrder
+            PositionsTableModel.column("pnl.signed"), Qt.SortOrder.AscendingOrder
         )
 
         assert _texts(panel, "symbol") == [
@@ -177,3 +179,19 @@ class TestSorting:
         index = source.index(0, PositionsTableModel.column("liquidation"))
 
         assert source.data(index, Qt.ItemDataRole.DisplayRole) == 32140.0
+
+
+def test_an_unrealized_pnl_is_toned_by_its_sign_beside_its_arrow(qapp) -> None:
+    """`EPIC-043C`: a position's PnL takes the meaning table's colour, and its arrow and sign
+    say the same in words."""
+    panel = _panel(qapp, position(pnl="-10.0"), position("ETHUSDT", pnl="10.0"))
+    model = panel.table.model()
+    column = PositionsTableModel.column("pnl.signed")
+    palette = QGuiApplication.palette()
+
+    losing = model.data(model.index(0, column), Qt.ItemDataRole.ForegroundRole)
+    winning = model.data(model.index(1, column), Qt.ItemDataRole.ForegroundRole)
+
+    assert losing == tone_colour(Tone.NEGATIVE, palette)
+    assert winning == tone_colour(Tone.POSITIVE, palette)
+    assert model.data(model.index(0, 0), Qt.ItemDataRole.ForegroundRole) is None
