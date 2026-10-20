@@ -21,7 +21,10 @@ published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_i
 per order that filled whole by `grid_fill_announcer.py` → `GridFillAnnouncer.announce`),
 `BotRangeChangedEvent` (`src/modules/bots/contracts/events/bot_range_changed_event.py` →
 `BotRangeChangedEvent`) and `BotProtectiveStopEvent`
-(`src/modules/bots/contracts/events/bot_protective_stop_event.py` → `BotProtectiveStopEvent`) — and no context imports its insides, so a new kind of
+(`src/modules/bots/contracts/events/bot_protective_stop_event.py` → `BotProtectiveStopEvent`) and, since `EPIC-026L`,
+`AccountLossCapTrippedEvent` (`src/modules/bots/contracts/events/account_loss_cap_tripped_event.py` →
+`AccountLossCapTrippedEvent`, published once per trip by `account_loss_cap.py` →
+`AccountLossCap._announce`) — and no context imports its insides, so a new kind of
 bot changes nothing here (N1). The shell lists `AlertingModule` with the other modules
 (`src/shell/modules.py` → `MODULES`). What crosses its edge:
 

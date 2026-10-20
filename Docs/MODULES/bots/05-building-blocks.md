@@ -152,6 +152,40 @@ What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery
 `bots/contracts/i_user_stream_status.py` → `IUserStreamStatus`, kept by
 `bots/application/services/watches/user_stream_status.py` → `UserStreamStatus`.
 
+## Built: the account-level loss cap's parts
+
+*Which component adds up the day's loss, which stops the bots, and where does the owner's figure
+sit?* (`EPIC-026L`, the owner's decision N3: one figure per host, in the owner's quote asset.) The
+sequence is in [`06-runtime.md`](06-runtime.md), the files in [`07-deployment.md`](07-deployment.md),
+the constants in [`10-quality.md`](10-quality.md).
+
+- **Pure rules** in `bots/domain/loss_cap/`: the owner's figure and its parser
+  (`loss_cap_figure.py` → `LossCapFigure`, `parse_loss_cap_figure`, `LossCapFigureError`), the day's
+  ledger of each bot's result since 00:00 UTC (`loss_cap_ledger.py` → `LossCapLedger`, `BotDayFigure`,
+  `BotObservation`, `day_start_of`) and when the cap trips (`loss_cap_policy.py` → `loss_reached`,
+  `unjudged_too_long`, `UNJUDGED_TRIP_AFTER`, `LossCapTrip`, `LossCapTripReason`, `LossCapRecord`).
+- **The service** in `bots/application/services/loss_cap/`: `account_loss_cap.py` →
+  `AccountLossCap` (the one object behind three narrow ports: `ILossCapHold`, `ILossCapStatus`,
+  `ILossCapAcknowledgement`, all in `bots/contracts/`), over `loss_cap_sampler.py` →
+  `LossCapSampler` (one read of the bots, through `GetBotStatusReportQuery`) and `loss_cap_stopper.py`
+  → `LossCapStopper` (a trip's `StopBotCommand` per bot not at rest, the Bots tab's own Stop).
+  `loss_cap_preflight_check.py` → `LossCapPreflightCheck` and `loss_cap_health_contributor.py` →
+  `LossCapHealthContributor` say what the owner reads.
+- **The record** is `bots/contracts/i_loss_cap_store.py` → `ILossCapStore`, kept by
+  `bots/adapters/file_loss_cap_store.py` → `FileLossCapStore`.
+- **Where it plugs in.** `BotRunner.start` and `BotRunner.resume` ask `ILossCapHold` first
+  (`bot_runner.py` → `BotRunner._loss_cap_refusal`), the one place every start and resume passes.
+  `writable_boot.py` → `boot_writable` registers `AccountLossCap.sample` on the bots ticker;
+  `bots/composition/loss_cap_bindings.py` → `bind_loss_cap` builds it from `bots.account_loss_cap`.
+  The owner's acknowledgement is `AcknowledgeLossCapForHostCommand`
+  (`bots/contracts/host_bot_requests.py`), answered by
+  `bots/application/use_cases/acknowledge_loss_cap_for_host/handler.py` →
+  `AcknowledgeLossCapForHostCommandHandler`, reached from the command line by
+  `bots/cli/bot_control_verbs.py` → `AcknowledgeLossCapVerb` and the host's command directory
+  (`operations/application/bot_host_command_executor.py`, `HostControlAction.ACKNOWLEDGE_LOSS_CAP`).
+- **The alert.** `alerting` turns `AccountLossCapTrippedEvent` into `AlertKind.ACCOUNT_LOSS_CAP_TRIPPED`
+  (`alerting/application/sources/bot_alert_source.py` → `BotAlertSource.on_account_loss_cap_tripped`).
+
 ## Planned
 
 | Change | Where | Task |

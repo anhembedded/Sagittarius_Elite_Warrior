@@ -19,6 +19,9 @@ class AlertKind(Enum):
     KEY_REJECTED = "key_rejected"
     STORAGE_FAILURE = "storage_failure"
     STOP_FAILED = "stop_failed"
+    #: `EPIC-026L`: the account-level loss cap tripped and every bot is stopping; the owner must
+    #: acknowledge before any bot starts again.
+    ACCOUNT_LOSS_CAP_TRIPPED = "account_loss_cap_tripped"
     #: A bot waiting in AWAITING_RECOVERY has waited longer than it should expect to (`EPIC-042`).
     BOT_RECOVERY_STALLED = "bot_recovery_stalled"
     #: A bot resumed itself after a transient halt (`EPIC-042`); one alert per recovery.

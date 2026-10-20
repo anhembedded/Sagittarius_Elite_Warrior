@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "start" | "edit"
+  action          "stop" | "pause" | "resume" | "start" | "edit" | "loss-cap-ack"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
@@ -27,6 +27,12 @@ the audit can say which command was refused.
   one of ..."): it audits that, removes the file and executes nothing, so the operator gets
   REJECTED and no bot changes. A new host reads every document an older host wrote.
 
+@par Older hosts (`EPIC-026L`)
+  `loss-cap-ack` is a new `action` word, as `start` was: an older host reads the document as
+  *malformed* ("action is not one of ..."), audits it and executes nothing, so the owner gets
+  REJECTED and the cap stays tripped. It names no bot: `bot_id` is `loss-cap`, `confirmed_venue`
+  is null and neither `close_position` nor `set` is present.
+
 @par Older hosts (`EPIC-038L`)
   `edit` is a new `action` word *and* `set` is a new key. An older host checks the keys first and
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
@@ -42,6 +48,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    LOSS_CAP_SUBJECT,
     HostControlAction,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
@@ -147,7 +154,9 @@ def _problem_of(document: dict[str, object]) -> str | None:
         return "close_position is not true or false"
     if close and action != "stop":
         return "close_position belongs to a stop"
-    problem = _edit_problem(document, action, venue)
+    problem = _edit_problem(document, action, venue) or _acknowledgement_problem(
+        document, action, venue, bot_id
+    )
     if problem is not None:
         return problem
     return _timestamp_problem(document.get("issued_at"))
@@ -184,6 +193,20 @@ def _edit_problem(
             _setting(key, value)
     except (TypeError, ValueError) as invalid:
         return f"set is not sound: {invalid}"
+    return None
+
+
+def _acknowledgement_problem(
+    document: dict[str, object], action: str, venue: object, bot_id: str
+) -> str | None:
+    """An acknowledgement is about the account and carries nothing a bot's command carries."""
+    named = bot_id == LOSS_CAP_SUBJECT
+    if action != HostControlAction.ACKNOWLEDGE_LOSS_CAP.value:
+        return "loss-cap is not a bot id" if named else None
+    if not named:
+        return f"a loss-cap-ack names no bot: bot_id is {LOSS_CAP_SUBJECT}"
+    if venue is not None or "close_position" in document or "set" in document:
+        return "a loss-cap-ack carries no venue, close_position or set"
     return None
 
 

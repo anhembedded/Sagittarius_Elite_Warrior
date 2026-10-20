@@ -10,29 +10,12 @@ its executor and queues the start, which lays the ladder.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
-    VenueFreshPriceReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
-    SpotGridBudgets,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
-    GridExecutorDeps,
-    GridExecutorFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_preconditions import (
     GridStartPreconditions,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
-    BotExecutors,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_runner import (
-    BotRunner,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_brackets import (
     BracketsUnavailableError,
@@ -47,18 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import Sto
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
     IGridBudgets,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
-    FakeBotClock,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry_scheduler import (
-    FakeBotRetryScheduler,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
-    FakeBotStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
-    FakeMonotonicClock,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -71,11 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
-    BestBidAsk,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudget,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
@@ -86,124 +53,28 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_resul
     SessionBlockReason,
     SessionReadyResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
-    FakeOrderEntryTerms,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
-    FakeTradingSession,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
-    CAP,
     CONFIG,
-    LAST_PRICE,
     SYMBOL,
-    CountingPacer,
-    InlineWorkQueue,
-    RecordingPublisher,
-    SimulatedActivity,
-    SimulatedBook,
-    SimulatedSubmission,
-    derive_inventory_from,
-    terms_entry,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.start_world import (
+    StartWorld,
+    start_world,
 )
 
 S = BotLifecycleState
 
 
-class _ClosableInlineQueue(InlineWorkQueue):
-    """Records the bot's stored state at the moment it is closed."""
-
-    def __init__(self, store: FakeBotStore) -> None:
-        self._store = store
-        self.closed_with: BotLifecycleState | None = None
-
-    def close(self) -> None:
-        self.closed_with = self._store.load(BotId(BOT)).bot.state
-
-
-@dataclass
-class _Start:
-    store: FakeBotStore
-    clock: FakeBotClock
-    session: FakeTradingSession
-    book: SimulatedBook
-    preconditions: GridStartPreconditions
-    runner: BotRunner
-    queues: list[_ClosableInlineQueue]
-
-
-def _start_world(
-    cap: Decimal = CAP, venue: TradingVenue = TradingVenue.SPOT_TESTNET
-) -> _Start:
-    book = SimulatedBook()
-    # Closed, as a fresh app boots: Start opens the session itself (`EPIC-034C`).
-    session = FakeTradingSession()
-    derive_inventory_from(book, session)
-    ports = FakeVenueTradingPorts(
-        fake_venue_ports(
-            TradingVenue.SPOT_TESTNET,
-            trading_session=session,
-            order_submission=SimulatedSubmission(book),
-            order_entry_terms=FakeOrderEntryTerms(
-                terms_entry(),
-                books={
-                    SYMBOL: BestBidAsk(
-                        SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1)
-                    )
-                },
-                notional_limit=cap,
-            ),
-            account_activity=SimulatedActivity(book),
-        )
-    )
-    store = FakeBotStore()
-    clock = FakeBotClock()
-    definition = BotDefinition("grid one", "grid", venue, SYMBOL, CONFIG)
-    store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
-    preconditions = GridStartPreconditions(
-        ports, SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS)
-    )
-    queues: list[_ClosableInlineQueue] = []
-
-    def queue(_name: str) -> _ClosableInlineQueue:
-        queues.append(_ClosableInlineQueue(store))
-        return queues[-1]
-
-    executors = BotExecutors(
-        GridExecutorFactory(
-            GridExecutorDeps(
-                ports,
-                store,
-                clock,
-                DEFAULT_OWNER_BUDGET_CAPS,
-                queue,
-                lambda _venue, _spacing: CountingPacer(),
-                FakeBotRetryScheduler(),
-                FakeMonotonicClock(),
-                VenueFreshPriceReader(ports),
-                RecordingPublisher(),
-                SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS),
-            )
-        )
-    )
-    runner = BotRunner(store, clock, preconditions, executors)
-    return _Start(store, clock, session, book, preconditions, runner, queues)
-
-
-def _bot(world: _Start) -> Bot:
+def _bot(world: StartWorld) -> Bot:
     return world.store.load(BotId(BOT)).bot
 
 
 def test_all_preconditions_held_register_the_budget_for_this_run() -> None:
-    world = _start_world()
+    world = start_world()
 
     assert world.preconditions.check(_bot(world), world.clock.now()) is None
 
@@ -220,7 +91,7 @@ def test_all_preconditions_held_register_the_budget_for_this_run() -> None:
 def test_start_opens_a_closed_session_before_anything_else() -> None:
     """`EPIC-034C` — no switch was turned on first: the start reconciles the
     account and opens the session itself, once."""
-    world = _start_world()
+    world = start_world()
     assert world.session.snapshot().enabled is False
 
     assert world.preconditions.check(_bot(world), world.clock.now()) is None
@@ -232,7 +103,7 @@ def test_start_opens_a_closed_session_before_anything_else() -> None:
 def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> None:
     """A position the app did not open refuses the start before a lease is
     claimed or a budget registered."""
-    world = _start_world()
+    world = start_world()
     world.session.ready_answers(
         SessionReadyResult(
             ready=False,
@@ -252,7 +123,7 @@ def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> 
 
 
 def test_a_symbol_held_by_another_owner_is_refused() -> None:
-    world = _start_world()
+    world = start_world()
     world.session.claim_symbol(SYMBOL, "strategy")
 
     refusal = world.preconditions.check(_bot(world), world.clock.now())
@@ -264,7 +135,7 @@ def test_a_symbol_held_by_another_owner_is_refused() -> None:
 
 
 def test_a_refused_budget_gives_the_lease_back() -> None:
-    world = _start_world()
+    world = start_world()
     world.session.register_owner_budget_answers(
         OwnerBudgetRegistrationResult(
             OwnerBudgetRefusal.ABOVE_GLOBAL_CAP, exceeded_cap="max_open_orders"
@@ -291,7 +162,7 @@ class _BudgetsThatCannotBeRead(IGridBudgets):
 def test_a_budget_that_cannot_be_read_refuses_the_start_and_claims_nothing() -> None:
     """Review of #490: `budget_of` ran after the symbol was claimed, so a read that failed
     left the lease with a bot that never started."""
-    world = _start_world()
+    world = start_world()
     preconditions = GridStartPreconditions(
         world.preconditions._ports, _BudgetsThatCannotBeRead()
     )
@@ -306,7 +177,7 @@ def test_a_budget_that_cannot_be_read_refuses_the_start_and_claims_nothing() -> 
 
 
 def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
-    world = _start_world()
+    world = start_world()
 
     result = world.runner.start(BOT)
 
@@ -317,7 +188,7 @@ def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
 
 
 def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
-    world = _start_world()
+    world = start_world()
     world.runner.start(BOT)
     world.runner.stop(BOT, ExposureHandling.KEEP)
     assert _bot(world).state is S.STOPPED
@@ -331,7 +202,7 @@ def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
 
 
 def test_a_refused_start_leaves_the_bot_a_draft() -> None:
-    world = _start_world()
+    world = start_world()
     world.session.ready_answers(
         SessionReadyResult(
             ready=False,
@@ -352,7 +223,7 @@ def test_a_refused_start_leaves_the_bot_a_draft() -> None:
 def test_starting_an_active_bot_is_an_invalid_transition(
     state: BotLifecycleState,
 ) -> None:
-    world = _start_world()
+    world = start_world()
     draft = _bot(world)
     world.store.save(
         StoredBot(
@@ -370,7 +241,7 @@ def test_a_definition_with_a_leverage_the_venue_does_not_allow_is_refused_before
     """`EPIC-039B` review: the check Start repeats refuses a Spot leverage above 1 itself,
     whatever readiness said a moment ago, and neither claims the symbol nor registers a
     budget at the multiplied capital."""
-    world = _start_world()
+    world = start_world()
     refused_config = {**CONFIG, "direction": "LONG", "leverage": "3"}
     bot = Bot.draft(
         BotId(BOT),
@@ -391,7 +262,7 @@ def test_a_definition_with_a_leverage_the_venue_does_not_allow_is_refused_before
 
 def test_start_opens_the_session_for_the_bot_it_starts() -> None:
     """`BOT-183`: a Start's opening is announced as the started bot's."""
-    world = _start_world()
+    world = start_world()
 
     assert world.preconditions.check(_bot(world), world.clock.now()) is None
 

@@ -6,6 +6,7 @@ import json
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    LOSS_CAP_SUBJECT,
     HostControlAction,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
@@ -273,3 +274,35 @@ def test_the_largest_edit_fits_the_commands_size_limit() -> None:
 
     assert len(text.encode("utf-8")) < MAX_COMMAND_BYTES
     assert parse_command(text) == biggest
+
+
+def test_an_acknowledgement_survives_the_round_trip() -> None:
+    sent = command(
+        action=HostControlAction.ACKNOWLEDGE_LOSS_CAP, bot_id=LOSS_CAP_SUBJECT
+    )
+
+    assert parse_command(encode_command(sent)) == sent
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"bot_id": "44wa1x"},
+        {"confirmed_venue": "spot_mainnet"},
+        {"close_position": True},
+        {"set": {"lower": "1"}},
+    ],
+    ids=["names a bot", "names a venue", "closes", "sets"],
+)
+def test_an_acknowledgement_names_no_bot_and_carries_nothing_a_bot_command_carries(
+    overrides: dict[str, object],
+) -> None:
+    document = {"action": "loss-cap-ack", "bot_id": LOSS_CAP_SUBJECT, **overrides}
+
+    assert isinstance(parse_command(_document(**document)), MalformedDocument)
+
+
+def test_the_subject_word_is_not_a_bot_id_for_any_other_action() -> None:
+    assert isinstance(
+        parse_command(_document(bot_id=LOSS_CAP_SUBJECT)), MalformedDocument
+    )

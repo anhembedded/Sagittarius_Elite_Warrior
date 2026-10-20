@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     ExitCode,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    LOSS_CAP_SUBJECT,
     HostControlAction,
     HostControlReply,
     HostControlRequest,
@@ -144,3 +145,17 @@ class EditBotVerb(_ControlVerb):
                 f"{', '.join(repeated)} is given more than once; set each parameter once",
             )
         return HostControlRequest(self.action, args.bot_id, settings=tuple(settings))
+
+
+class AcknowledgeLossCapVerb(_ControlVerb):
+    """`bot loss-cap-ack`: the owner accepts the day's loss and lets bots start again (`EPIC-026L`).
+
+    It names no bot; the request's `bot_id` is the fixed subject word. It starts nothing: each bot
+    is started or resumed afterwards by the owner, through the commands that always ask.
+    """
+
+    name = "loss-cap-ack"
+    action = HostControlAction.ACKNOWLEDGE_LOSS_CAP
+
+    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+        return HostControlRequest(self.action, LOSS_CAP_SUBJECT)

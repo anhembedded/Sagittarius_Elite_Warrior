@@ -41,4 +41,12 @@ check fails on it (`BotsModule.declare_operations`). The plan a user applies fro
 
 **The halt-recovery ledger** (`EPIC-042B`). The lifecycle of the bot record carries `recovery_attempts`, a list of `{code, at}`, one entry per automatic recovery attempt (`bots/adapters/persistence/bot_record_codec.py` → `encode`, `decode`; `bots/domain/bot.py` → `BotLifecycle`). It is written inside `lifecycle` with no new `schema_version` and read as empty when the key is missing; a damaged list refuses the file by name, because reading it as empty would hand a flapping bot a fresh budget. Entries older than the longest effective window are dropped on every write and the list is capped (`bots/domain/halt_recovery_policy.py` → `MAX_RECORDED_ATTEMPTS`). It is the bot's own account, kept with the bot and not in the Grid's runtime, because the mechanism is every kind's.
 
+**The loss cap's record** (`EPIC-026L`). `state/loss_cap.json`, schema `sew.loss-cap-record/1`: the UTC day, each
+bot's `{run_started_at, baseline, last, banked}` for that day (decimals as text) and, when the cap has
+tripped, the trip `{reason, at, day, loss, figure, detail}` (`bots/adapters/file_loss_cap_store.py` →
+`RECORD_SCHEMA`, `FileLossCapStore`). It holds the bots' day results, which the health snapshot must not
+(`LossCapStatus.payload` leaves them out), so the file is read by the host and by no report. A trip
+outlives the day: the owner's acknowledgement is what ends it. A record this build cannot read is
+refused by name with none of its content.
+
 **Planned.** `EPIC-040C` adds the sandbox copy of a plan; `EPIC-040G` the strategy bot's config.

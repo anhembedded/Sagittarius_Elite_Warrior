@@ -50,6 +50,11 @@ class BotRefusal(str, Enum):
     #: `EPIC-039H` (decision O8) — a Stop that would keep a position on a position venue:
     #: no exchange-side stop stands, so the bot closes it.
     EXPOSURE_MUST_CLOSE = "EXPOSURE_MUST_CLOSE"
+    #: `EPIC-026L` — the account-level loss cap is tripped: no bot starts or resumes until the
+    #: owner acknowledges it.
+    LOSS_CAP_TRIPPED = "LOSS_CAP_TRIPPED"
+    #: `EPIC-026L` — an acknowledgement of a cap that is not tripped.
+    LOSS_CAP_NOT_TRIPPED = "LOSS_CAP_NOT_TRIPPED"
 
 
 @dataclass(frozen=True, slots=True)

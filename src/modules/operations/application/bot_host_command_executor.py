@@ -1,7 +1,8 @@
 """A command file becomes the command the Bots tab dispatches (`EPIC-038J`).
 
 One row per action: the contract command the bots module answers by dispatching the screen's
-own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand`, `StartBotCommand` or `EditBotCommand`. So the file adds no
+own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand`, `StartBotCommand` or `EditBotCommand` (and,
+for the owner's `loss-cap-ack`, the acknowledgement of the account-level loss cap, `EPIC-026L`). So the file adds no
 way to stop, pause, resume, start or edit a bot; it only
 asks for one by name, and the lifecycle table, the read-only rule
 and the real-money question apply as on the screen.
@@ -26,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    AcknowledgeLossCapForHostCommand,
     EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
@@ -51,6 +53,10 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     HostControlAction.RESUME: "the bot is resuming (see `bot show`)",
     HostControlAction.START: "the bot is STARTING (see `bot show`)",
     HostControlAction.EDIT: "the bot's parameters were changed and it is DRAFT (see `bot show`)",
+    HostControlAction.ACKNOWLEDGE_LOSS_CAP: (
+        "the loss cap is acknowledged: bots may start again, and the day's loss is counted "
+        "again from now"
+    ),
 }
 
 type _Request = Callable[[HostCommand], object]
@@ -67,6 +73,9 @@ _REQUESTS: dict[HostControlAction, _Request] = {
         c.bot_id, c.confirmed_venue
     ),
     HostControlAction.EDIT: lambda c: EditBotForHostCommand(c.bot_id, c.settings),
+    HostControlAction.ACKNOWLEDGE_LOSS_CAP: lambda _c: (
+        AcknowledgeLossCapForHostCommand()
+    ),
 }
 
 

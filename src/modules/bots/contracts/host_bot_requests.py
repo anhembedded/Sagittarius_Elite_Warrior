@@ -168,3 +168,11 @@ class ResumeHaltedResult:
     """One outcome per bot that was HALTED or AWAITING_RECOVERY; empty when none was."""
 
     bots: tuple[HaltedBotResumeOutcome, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AcknowledgeLossCapForHostCommand:
+    """The owner's `bot loss-cap-ack` (`EPIC-026L`): accept the account-level loss and let bots
+    start again. It clears a tripped cap and nothing else - no bot is started or resumed by it -
+    and counts the day's loss again from this moment, so the next trip needs a further loss of the
+    whole figure."""

@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    AcknowledgeLossCapVerb,
     EditBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
@@ -118,4 +119,5 @@ BOT_VERBS: tuple[IBotVerb, ...] = (
     ResumeBotVerb(),
     StartBotVerb(),
     EditBotVerb(),
+    AcknowledgeLossCapVerb(),
 )
