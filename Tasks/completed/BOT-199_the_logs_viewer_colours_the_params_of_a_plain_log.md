@@ -1,7 +1,6 @@
 # BOT-199 — `main.py logs` colours the values a log call substituted, from a plain log, and filters it
 
-**Status:** 🟡 In progress
-**Priority:** P2
+**Status:** ✅ Done (2026-10-20)
 **Board:** A viewer inside the app (`main.py logs`, from a pipe or `--file`) shows a plain log with each substituted value (bot id, quantity, reason) in its own colour, found exactly from a catalogue of every log call's template that a guard keeps current; `--level`, `--bot`, `--tag`, `--since`, `--follow`, `--no-color`; byte-identical when not on a terminal, stored records unchanged ([PRO-019](proposal/PRO-019.md)).
 **Source:** The owner, 2026-10-20, in Vietnamese: *"cac log ma co [Param] thi param phai co mau luon ban, ... vao tat ca cac log, neu can thi build log manager"* ("logs that carry a param must colour the param ... across all the logs, and build a log manager if needed"); then *"parm y toi la khi ban in log. vi du: \"This bot name {$bot.name}\" thi bot.name la parm, tui ki vong cai do phai khac mau"* (a param is the value substituted into the message; it must be a different colour); then *"đồng ý, làm theo đề xuất C"* (agreed, build option C of PRO-019).
 **Risk:** 🟢 — a new command that reads text; no trading, order, stop/close or Engine code, no emitted record changes. The one risk is a wrong colour (a guess shown as exact), which the tests and the `GUESS` style address.
@@ -129,3 +128,6 @@ The 94 f-string and 33 variable calls are the whole of the viewer's inexactness;
 
 ## Implementation notes (written when done)
 Filled when the pull request is ready.
+
+## Delivery
+Merged as PR 599 (`8e61852`) after four review rounds (PASS at `e707f75`); `ci-local.ps1 -Full`, `gate (Unit)` and `gate (Rest)` green on that head with clean job logs. The f-string and variable-message calls in the survey above stay a follow-up, not filed.
