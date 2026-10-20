@@ -78,11 +78,11 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
 from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
-from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
-    NotificationEventHandler,
-)
 from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_pages
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
+from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import (
+    SystemFailureRelay,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     environment_banner_factory,
 )
@@ -265,9 +265,9 @@ def build(instance: IInstanceAccess | None = None) -> AppRuntime:
         INavigationService, window.navigation_service
     )
 
-    # `BOT-018` — the UI toast channel needs the window above; the handler
-    # itself is built in `create_app()` with its headless Telegram channel only.
-    app_engine.context.container.resolve(NotificationEventHandler).add_channel(
+    # `BOT-018` — the UI toast channel needs the window above; the relay itself is built in
+    # `create_app()` (`EPIC-036B`) and already feeds the alert module.
+    app_engine.context.container.resolve(SystemFailureRelay).add_channel(
         UiToastNotificationChannel(window)
     )
 

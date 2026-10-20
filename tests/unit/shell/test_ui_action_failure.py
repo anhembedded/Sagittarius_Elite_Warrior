@@ -9,10 +9,13 @@ with the same assertions, against the same two sinks.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
-    NotificationEventHandler,
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_system_failure_reporter import (
+    ISystemFailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import (
+    SystemFailureRelay,
+)
 from Sagittarius_Elite_Warrior.src.shell.ui_action_failure import (
     UiActionFailureSubscriber,
     from_ui_action_failed,
@@ -20,7 +23,6 @@ from Sagittarius_Elite_Warrior.src.shell.ui_action_failure import (
 from Sagittarius_Elite_Warrior.tests.unit.shell.failure_doubles import (
     RecordingChannel,
     RecordingLogger,
-    SynchronousTaskManager,
 )
 from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
     UiActionFailedEvent,
@@ -37,6 +39,14 @@ def _failed_slot() -> UiActionFailedEvent:
     )
 
 
+class _RecordingReporter(ISystemFailureReporter):
+    def __init__(self) -> None:
+        self.reports: list[tuple[str, str]] = []
+
+    def report_failure(self, source: str, summary: str) -> None:
+        self.reports.append((source, summary))
+
+
 class _Subscribed:
     """The subscriber built over the real sinks, as `add_gui_wiring` builds it."""
 
@@ -44,12 +54,11 @@ class _Subscribed:
         self.bus = MemoryEventBus()
         self.logger = RecordingLogger()
         self.channel = RecordingChannel()
-        notifications = NotificationEventHandler(
-            self.bus, RecordingLogger(), SynchronousTaskManager()
-        )
-        notifications.add_channel(self.channel)
+        self.reporter = _RecordingReporter()
+        relay = SystemFailureRelay(self.bus, lambda: self.reporter, RecordingLogger())
+        relay.add_channel(self.channel)
         self.subscriber = UiActionFailureSubscriber(
-            self.bus, SystemFailureLog(self.bus, self.logger), notifications
+            self.bus, SystemFailureLog(self.bus, self.logger), relay
         )
 
 
@@ -112,12 +121,16 @@ def test_a_failing_ui_slot_notifies_with_the_same_summary_the_log_gets() -> None
     assert "Traceback" not in wired.channel.sent[0]
 
 
-def test_an_identical_repeated_ui_failure_is_debounced_in_the_channels() -> None:
-    """The handler's debounce still applies to the event it no longer hears
-    itself: the subscriber goes through `notify()`, not around it."""
+def test_a_failing_ui_slot_reaches_the_alert_module_with_the_slot_as_its_source() -> (
+    None
+):
+    """The relay is what the UI subscriber calls, so the alert module hears a UI failure
+    through the same port as a failed task; the traceback stays in the log."""
     wired = _Subscribed()
 
     wired.bus.emit(_failed_slot())
-    wired.bus.emit(_failed_slot())
 
-    assert len(wired.channel.sent) == 1
+    [(source, summary)] = wired.reporter.reports
+    assert source == "_on_start_clicked"
+    assert "AttributeError" in summary
+    assert "Traceback" not in summary

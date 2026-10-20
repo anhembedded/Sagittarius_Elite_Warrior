@@ -1,6 +1,6 @@
 """Real-interface doubles for the failure sinks' tests (`CS-001`).
 
-Shared by `test_system_failure_log.py`, `test_notification_event_handler.py` and
+Shared by `test_system_failure_log.py`, `test_system_failure_relay.py` and
 `tests/unit/shell/test_ui_action_failure.py` (`EPIC-038A` moved the
 UI-failure subscription from the shell sinks to the GUI wiring, so the same
 sinks are now exercised from two directories). Each subclasses the interface it

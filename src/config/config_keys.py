@@ -173,8 +173,8 @@ class ConfigKeys(str, Enum):
         "trading.position_refresh_interval_seconds"
     )
 
-    # `BOT-018` — Telegram notification channel, opt-in: `NotificationEventHandler`
-    # skips sending whenever either key reads empty (the default), so a fresh
-    # `user_config.json` sends nothing rather than fail loudly.
+    # `BOT-018` — Telegram notification channel, opt-in: `EPIC-036B` unwired it from the
+    # composition root (the channel's file stays until `EPIC-036C` moves Telegram into
+    # `alerting` and migrates the token), so these keys are read by nothing until then.
     NOTIFICATIONS_TELEGRAM_BOT_TOKEN = "notifications.telegram.bot_token"  # noqa: S105 - config key name, not a secret value
     NOTIFICATIONS_TELEGRAM_CHAT_ID = "notifications.telegram.chat_id"
