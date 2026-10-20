@@ -9,26 +9,24 @@ Stop use case nor any bot's lifecycle; a bot the host did not wait for stays in
 the ledger with the state it was last seen in, and the host names it.
 
 A Stop the lifecycle refuses (the table has no such row for the bot's state) is a
-WARNING and the bot is left; a bot already STOPPING is waited for, not asked again.
+WARNING and the bot is left; a bot already STOPPING is waited for, not asked again
+(`HostBotStopper`, shared with `LeaveOrdersResting`'s close of an uncovered position).
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-from typing import cast
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
-    BotCommandResult,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    ExposureHandling,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
-    BotStatusEntry,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
-    StopBotForHostCommand,
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_bot_stopper import (
+    DEFAULT_POLL_SECONDS,
+    HostBotStopper,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.bots_status_read import (
     active_bots,
@@ -42,10 +40,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_shutdown_polic
 logger = logging.getLogger("App.Operations.StopPolicy")
 
 NAME = "stop-bots"
-_STOPPING = "STOPPING"
-_STOPPED = "STOPPED"
-#: How long between two reads of the bots while waiting for their stops.
-DEFAULT_POLL_SECONDS = 0.5
 
 
 class StopBotsFirst(IShutdownPolicy):
@@ -55,7 +49,7 @@ class StopBotsFirst(IShutdownPolicy):
         self, dispatcher: ICommandDispatcher, poll_s: float = DEFAULT_POLL_SECONDS
     ) -> None:
         self._dispatcher = dispatcher
-        self._poll_s = poll_s
+        self._stopper = HostBotStopper(dispatcher, NAME, ExposureHandling.KEEP, poll_s)
 
     def apply(self, ledger: StopLedger, give_up: threading.Event) -> None:
         active = active_bots(read_bot_status(self._dispatcher))
@@ -64,44 +58,5 @@ class StopBotsFirst(IShutdownPolicy):
             NAME,
             len(active),
         )
-        waiting = [bot.bot_id for bot in active if self._begin(bot, ledger)]
-        while waiting and not give_up.is_set():
-            waiting = self._after_a_read(waiting, ledger)
-            if waiting:
-                give_up.wait(self._poll_s)
-
-    def _begin(self, bot: BotStatusEntry, ledger: StopLedger) -> bool:
-        """Ask for the stop; True when the bot is now stopping and worth waiting for."""
-        ledger.begin(bot.bot_id, bot.state, bot.resting_orders)
-        if bot.state == _STOPPING:
-            logger.info("[stop-policy] %s: %s is already stopping", NAME, bot.bot_id)
-            return True
-        result = cast(
-            BotCommandResult,
-            self._dispatcher.dispatch(
-                StopBotForHostCommand, StopBotForHostCommand(bot.bot_id)
-            ),
-        )
-        if result.accepted:
-            logger.info("[stop-policy] %s: stop requested for %s", NAME, bot.bot_id)
-            return True
-        note = f"the stop was refused: {result.message}"
-        ledger.update(bot.bot_id, bot.state, note)
-        logger.warning(
-            "[stop-policy] %s: %s (%s) was left: %s", NAME, bot.bot_id, bot.state, note
-        )
-        return False
-
-    def _after_a_read(self, waiting: list[str], ledger: StopLedger) -> list[str]:
-        """The bots still not STOPPED after one more read of their states."""
-        states = {b.bot_id: b.state for b in read_bot_status(self._dispatcher).bots}
-        still: list[str] = []
-        for bot_id in waiting:
-            state = states.get(bot_id)
-            if state == _STOPPED:
-                logger.info("[stop-policy] %s: %s stopped", NAME, bot_id)
-                ledger.finish(bot_id)
-            else:
-                ledger.update(bot_id, state or "unknown")
-                still.append(bot_id)
-        return still
+        waiting = [bot.bot_id for bot in active if self._stopper.begin(bot, ledger)]
+        self._stopper.wait(waiting, ledger, give_up)

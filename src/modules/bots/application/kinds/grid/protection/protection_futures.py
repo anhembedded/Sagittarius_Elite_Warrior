@@ -43,8 +43,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protectio
     covers,
     wanted_stops,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.stop_words import (
-    stop_words,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.stop_coverage_reader import (
+    StopCoverageReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_stop_event import (
     BotProtectiveStopEvent,
@@ -94,6 +97,9 @@ class ProtectiveStopService(IExposureProtection):
         self._context = context
         self._marks = marks
         self._book = ProtectiveStopBook(context)
+        self._coverage = StopCoverageReader(
+            context, lambda: self._book.stops, self._open_stops
+        )
 
     def protect(self, plan: GridPlan) -> bool:
         wanted = wanted_stops(self._context.params)
@@ -149,18 +155,10 @@ class ProtectiveStopService(IExposureProtection):
         return ProtectionVerdict.OK
 
     def describe_stop(self) -> str:
-        open_stops = self._open_stops()
-        position = self._context.gateway.position()
-        if open_stops is None or position is None:
-            return stop_words(self._book.stops, None, set())
-        if position == 0:
-            return ""
-        covering = {
-            stop.client_order_id
-            for stop in self._book.stops
-            if covers(self._context.params, stop.side, position)
-        }
-        return stop_words(self._book.stops, set(open_stops), covering)
+        return self._coverage.describe()
+
+    def read_coverage(self) -> StopCoverageReading:
+        return self._coverage.read()
 
     def release(self) -> bool:
         released = True

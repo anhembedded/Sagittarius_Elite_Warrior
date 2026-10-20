@@ -30,6 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverage,
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     HaltedBotResumeOutcome,
     ResumeHaltedForHostCommand,
@@ -134,6 +138,9 @@ class _Runner(IBotRunner):
 
     def has_resume_proposal(self, bot_id: str) -> bool:
         raise AssertionError("the proposal is asked of the screen's Confirm")
+
+    def stop_coverage(self, bot_id: str) -> StopCoverageReading:
+        return StopCoverageReading(StopCoverage.NOT_APPLICABLE)
 
 
 class _World:

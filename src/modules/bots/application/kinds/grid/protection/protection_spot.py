@@ -6,6 +6,10 @@ so a Spot Grid's start, stop and reconcile are byte for byte what they were.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverage,
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
     IExposureProtection,
     ProtectionVerdict,
@@ -22,6 +26,9 @@ class NoProtection(IExposureProtection):
 
     def describe_stop(self) -> str:
         return ""
+
+    def read_coverage(self) -> StopCoverageReading:
+        return StopCoverageReading(StopCoverage.NOT_APPLICABLE)
 
     def release(self) -> bool:
         return True

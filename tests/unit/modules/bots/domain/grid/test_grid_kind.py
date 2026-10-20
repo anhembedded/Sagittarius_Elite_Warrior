@@ -13,6 +13,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
     PriceTick,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverage,
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
     IBotExecutor,
@@ -65,6 +69,9 @@ class _Executor(IBotExecutor):
     @property
     def facts(self) -> IBotFacts:
         return _Facts()
+
+    def stop_coverage(self) -> StopCoverageReading:
+        return StopCoverageReading(StopCoverage.NOT_APPLICABLE)
 
 
 class _Facts(IBotFacts):

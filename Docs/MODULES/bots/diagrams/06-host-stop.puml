@@ -1,0 +1,29 @@
+' Question: what does the headless host do to a Futures bot when it stops (systemctl stop, sew-update, restart)? (EPIC-038M, owner question O12)
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-host-stop
+participant "RunHost\n(drain, --stop-timeout)" as H
+participant "LeaveOrdersResting\n(stop policy)" as P
+participant "bots\n(GetBotStopCoverageQuery)" as B
+participant "Grid executor\n(IExposureProtection)" as G
+participant "exchange" as X
+
+H -> P : apply(ledger, give_up) on a daemon worker
+loop each active bot, within READ_SHARE of --stop-timeout
+  P -> B : coverage of bot?
+  alt Spot (inventory venue)
+    B --> P : NOT_APPLICABLE, no exchange read
+  else Futures
+    B -> G : read_coverage() (not queued behind the worker)
+    G -> X : open protective orders, position, open ladder orders
+    G --> P : COVERED / NOTHING_EXPOSED / UNCOVERED / UNREAD
+  end
+  alt left standing (COVERED, NOTHING_EXPOSED, NOT_APPLICABLE)
+    note over P : INFO: leaves the bot, its stop stays
+  else UNCOVERED, UNREAD, or the read budget is spent
+    P -> B : StopBotForHostCommand(CLOSE_AT_MARKET)\n(WARNING; the bot enters the ledger)
+    B -> X : cancel the ladder, reduce-only market close
+  end
+end
+P -> P : wait until each closed bot reads STOPPED,\nor give_up (the host's timeout, a second signal)
+P --> H : returns; the ledger names every bot not finished
+@enduml

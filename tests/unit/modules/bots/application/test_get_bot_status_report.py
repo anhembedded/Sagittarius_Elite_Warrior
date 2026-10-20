@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     RuntimeLevel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers import seed
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
     BOTS_DIRECTORY,
@@ -226,3 +229,26 @@ def test_the_at_rest_states_are_the_lifecycles() -> None:
     """The report spells states as strings; the host decides what a stop leaves by
     them. The constant must say what the bots' close objection says."""
     assert {state.value for state in _AT_REST} == AT_REST_STATES
+
+
+@pytest.mark.parametrize(
+    ("venue", "holds_a_position"),
+    [
+        (TradingVenue.SPOT_TESTNET, False),
+        (TradingVenue.SPOT_MAINNET, False),
+        (TradingVenue.FUTURES_TESTNET, True),
+        (TradingVenue.FUTURES_MAINNET, True),
+    ],
+)
+def test_the_report_says_whether_a_bots_venue_holds_a_position_from_the_venue_profile(
+    venue: TradingVenue, holds_a_position: bool
+) -> None:
+    """`EPIC-038M`: the host closes only a bot whose venue can hold a position; it reads it here."""
+    store = FakeBotStore()
+    seed(store, "aaaaaa", BotLifecycleState.RUNNING, venue=venue)
+
+    report = _report(BotQueryDispatcher(store))
+
+    (entry,) = report.bots
+    assert entry.may_hold_position is holds_a_position
+    assert "may_hold_position" not in entry.payload()

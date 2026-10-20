@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverage,
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -58,6 +62,9 @@ class _CountingRunner(IBotRunner):
 
     def has_resume_proposal(self, bot_id: str) -> bool:
         return False
+
+    def stop_coverage(self, bot_id: str) -> StopCoverageReading:
+        return StopCoverageReading(StopCoverage.NOT_APPLICABLE)
 
 
 def _start(

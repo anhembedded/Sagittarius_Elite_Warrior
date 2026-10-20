@@ -21,6 +21,9 @@ from abc import ABC, abstractmethod
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
@@ -61,3 +64,8 @@ class IBotRunner(ABC):
     def has_resume_proposal(self, bot_id: str) -> bool:
         """The bot's executor holds a resume proposal to confirm. A proposal
         lives in memory only: after a restart there is none."""
+
+    @abstractmethod
+    def stop_coverage(self, bot_id: str) -> StopCoverageReading:
+        """Whether a stop on the exchange covers what the bot holds, read from the exchange now
+        (`EPIC-038M`). A read, not a command: nothing is queued and nothing changes."""
