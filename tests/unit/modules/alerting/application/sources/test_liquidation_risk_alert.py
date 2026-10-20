@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_subj
     subject_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidation_alert_source import (
+    _JUDGED as JUDGED_STATES,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidation_alert_source import (
     LiquidationAlertSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
@@ -30,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_risk_change
     BotRiskChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import RiskLevel
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    PRICE_STALENESS_HALTS,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.application.sources.bot_source_world import (
     BOT,
     Bots,
@@ -205,3 +211,8 @@ def test_a_write_while_no_warning_is_open_reads_no_status() -> None:
     )
 
     source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+
+def test_the_states_the_source_treats_as_judged_are_the_guards_own() -> None:
+    """The guard resets silently outside `PRICE_STALENESS_HALTS`; the source spells the set by name."""
+    assert {state.name for state in PRICE_STALENESS_HALTS} == JUDGED_STATES
