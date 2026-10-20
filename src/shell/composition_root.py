@@ -113,6 +113,9 @@ from Sagittarius_Elite_Warrior.src.shell.operations_registry import OperationsRe
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
 from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import SystemFailureRelay
+from Sagittarius_Elite_Warrior.src.shell.telegram_pause_notice import (
+    warn_when_telegram_is_configured,
+)
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
     TerminalAwareTextRenderer,
 )
@@ -301,6 +304,8 @@ def create_app(
             app_logger,
         ),
     )
+
+    warn_when_telegram_is_configured(container.resolve(IConfigReader), app_logger)
 
     # `PRO-014`: the registry is built when a chart first asks, not at every boot.
     container.singleton(IndicatorScriptRegistry, lambda _: _INDICATOR_SCRIPTS())

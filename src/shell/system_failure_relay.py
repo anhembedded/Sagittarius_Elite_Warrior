@@ -77,7 +77,9 @@ class SystemFailureRelay:
             return
         self.relay(
             SystemErrorReport(
-                source=f"data sync {event.symbol} ({event.interval})",
+                # One condition for the whole sync: a network outage fails every pair, and N pairs
+                # must be one loud alert, not N. The pair stays in the summary.
+                source="data sync",
                 summary=(
                     f"Data sync failed — {event.symbol} ({event.interval}): "
                     f"{event.message}"

@@ -21,22 +21,22 @@ _CLOSES = [100.0 + (index % 17) - 8 + index * 0.05 for index in range(260)]
 
 _SINGLE_COLOUR_LINES = [
     (Ema20Script, {"EMA 20": "#e74c3c"}),
-    (Ema50Script, {"EMA 50": "#e67e22"}),
-    (Ema100Script, {"EMA 100": "#00bcd4"}),
+    (Ema50Script, {"EMA 50": "#df7619"}),
+    (Ema100Script, {"EMA 100": "#00a1b5"}),
     (Ema200Script, {"EMA 200": "#3498db"}),
     (
         EmaRibbonScript,
         {
             "EMA 20": "#e74c3c",
-            "EMA 50": "#e67e22",
-            "EMA 100": "#00bcd4",
+            "EMA 50": "#df7619",
+            "EMA 100": "#00a1b5",
             "EMA 200": "#3498db",
         },
     ),
-    (Rsi14Script, {"RSI 14": "#8e44ad"}),
+    (Rsi14Script, {"RSI 14": "#984bb8"}),
     (
         MacdFullScript,
-        {"MACD": "#2980b9", "Signal": "#e67e22", "Histogram": "#848E9C"},
+        {"MACD": "#2980b9", "Signal": "#df7619", "Histogram": "#848E9C"},
     ),
 ]
 
@@ -60,7 +60,7 @@ def test_the_trend_scripts_flip_between_the_up_and_down_colours(make_candle) -> 
             script.compute(make_candle(close, index))
             seen.update(script.line_colors().values())
 
-        assert {"#0ECB81", "#F6465D"} <= seen
+        assert {"#0ca76a", "#F6465D"} <= seen
 
 
 def test_the_dev_script_draws_its_neutral_and_accent_lines_in_their_colours(
@@ -73,4 +73,4 @@ def test_the_dev_script_draws_its_neutral_and_accent_lines_in_their_colours(
     colours = script.line_colors()
 
     assert colours["WMA 20"] == "#848E9C"
-    assert colours["Widening band"] == "#F3BA2F"
+    assert colours["Widening band"] == "#bb880b"

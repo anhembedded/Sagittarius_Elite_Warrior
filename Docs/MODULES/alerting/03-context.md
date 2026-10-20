@@ -38,7 +38,10 @@ bot changes nothing here (N1). The shell lists `AlertingModule` with the other m
 
 - in: `IAlertPublisher` (`publish`, `condition_cleared`, `alerting/contracts/i_alert_publisher.py` →
   `IAlertPublisher`), called by the module's own sources (`BotAlertSource`, `BotFillAlertSource`,
-  `LiquidationAlertSource`, `StreamAlertSource`) and by every source `EPIC-036B` adds;
+  `LiquidationAlertSource`, `StreamAlertSource`, `SystemAlertSource`);
+- in: `ISystemFailureReporter` (`report_failure`, `alerting/contracts/i_system_failure_reporter.py` →
+  `ISystemFailureReporter`), called by the shell's `SystemFailureRelay` for a task that died, a failed
+  sync and a UI slot that raised, whose text only the shell normalises;
 - out: one `IAlertChannel.deliver(alert, loudness) -> DeliveryResult` per configured channel
   (`alerting/contracts/i_alert_channel.py` → `IAlertChannel.deliver`); the one channel is Discord,
   over `IWebhookTransport` (`alerting/contracts/i_webhook_transport.py` → `IWebhookTransport`), with

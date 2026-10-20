@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
     CriticalErrorDialog,
 )
+from Sagittarius_Elite_Warrior.src.shell.appearance_options.appearance_options_page import (
+    AppearanceOptionsPage,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -54,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.environment
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form.strategy_params_dialog import (
     StrategyParamsDialog,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_preference import (
+    ColourSchemePreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPickerOverlay,
 )
@@ -61,8 +67,14 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
     TimeRangePickerDialog,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
+    SCHEMES,
     SCREENSHOT_DIR_ENV,
+    apply_scheme,
     is_blank,
+    restore_scheme,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.options_dialog import (
+    OptionsDialog,
 )
 
 
@@ -212,4 +224,32 @@ def test_each_dialog_and_banner_is_pictured(qapp, name: str, tmp_path: Path) -> 
     finally:
         widget.close()
         widget.deleteLater()
+        QApplication.processEvents()
+
+
+@pytest.mark.parametrize("scheme", SCHEMES)
+def test_the_appearance_page_is_pictured_in_each_scheme(
+    qapp, scheme: str, tmp_path: Path
+) -> None:
+    """`EPIC-043B`: Tools → Options → Appearance, the choice that draws the others."""
+    out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    apply_scheme(qapp, scheme)
+    dialog = OptionsDialog((AppearanceOptionsPage(ColourSchemePreference()),))
+    try:
+        dialog.resize(dialog.sizeHint().expandedTo(dialog.minimumSizeHint()))
+        dialog.show()
+        for _ in range(3):
+            QApplication.processEvents()
+        picture = dialog.grab()
+        state = "" if scheme == "light" else f"~{scheme}"
+        path = out_dir / f"dialog~options-appearance{state}.png"
+        assert picture.save(str(path)), f"could not write {path}"
+
+        assert not is_blank(picture.toImage())
+        assert _clipped(dialog) == []
+    finally:
+        dialog.close()
+        dialog.deleteLater()
+        restore_scheme(qapp)
         QApplication.processEvents()

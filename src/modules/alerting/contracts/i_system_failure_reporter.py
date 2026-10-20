@@ -17,5 +17,6 @@ class ISystemFailureReporter(ABC):
     @abstractmethod
     def report_failure(self, source: str, summary: str) -> None:
         """One failure: `source` names where it came from (a task or a slot name) in words
-        the owner recognises, `summary` is the one-line text. A traceback is not passed: it
-        stays in the run log, and no alert carries text a request could have shaped."""
+        the owner recognises, `summary` is the one-line text: the exception's type and message
+        are in it, so a source must not raise with a secret in its message. The traceback is not
+        passed; it stays in the run log. The channel sanitises what it posts (`EPIC-036C`)."""
