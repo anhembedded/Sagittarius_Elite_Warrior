@@ -4,18 +4,40 @@ hidden; and a window state saved before the change, with its Backtest dock, stil
 
 from __future__ import annotations
 
+from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QDockWidget, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_command_binding import (
+    bind_bots_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     BACKTEST_TAB,
     LIVE_TAB,
+    bots_commands,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
     TabAvailability,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
+    BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
+    StrategiesPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.strategies.strategy_fakes import (
+    VenueArming,
+    venue_strategies,
 )
 
 from .bots_screen_fixtures import stored
@@ -92,18 +114,58 @@ def test_view_backtest_is_off_with_the_tab_and_is_a_keyboard_shortcut(
 
 
 def test_a_window_state_saved_with_the_old_backtest_dock_still_loads(qapp) -> None:
-    """Before `EPIC-040E` Backtest was a bottom dock; Qt restores docks by object name and skips a
-    name the window no longer has, so the rest of the layout comes back."""
+    """Before `EPIC-040E` Backtest was a bottom dock tabbed with Orders, Ladder and Fills. Qt
+    restores docks by object name and skips a name the window no longer has, so what the person
+    arranged comes back: the tab group, a dock they had hidden, and the tabbed centre."""
     old = BotsView()
-    old.surface.place_widget(Place.CONSOLE, QWidget(), title="Backtest")
-    saved = old.surface.saveState()
-    titles = {dock.windowTitle() for dock in old.surface.findChildren(QDockWidget)}
-    assert "Backtest" in titles
+    stale = old.surface.place_widget(Place.CONSOLE, QWidget(), title="Backtest")
+    del stale
+    orders = old.surface.dock_of(old.orders)
+    backtest = next(
+        dock
+        for dock in old.surface.findChildren(QDockWidget)
+        if dock.windowTitle() == "Backtest"
+    )
+    old.surface.tabifyDockWidget(orders, backtest)
+    old.surface.dock_of(old.log).hide()
+    saved = old.surface.save_perspective()
+    assert backtest in old.surface.tabifiedDockWidgets(orders)
 
     fresh = BotsView()
-    assert fresh.surface.restoreState(saved)
+    assert fresh.surface.restore_perspective(saved)
 
-    restored = {dock.windowTitle() for dock in fresh.surface.findChildren(QDockWidget)}
-    assert "Backtest" not in restored
-    assert {"Bots", "Plan", "Orders", "Fills", "Log"} <= restored
+    docks = {
+        dock.windowTitle(): dock for dock in fresh.surface.findChildren(QDockWidget)
+    }
+    assert "Backtest" not in docks
+    assert docks["Log"].isHidden()
+    tabbed = {
+        dock.windowTitle()
+        for dock in fresh.surface.tabifiedDockWidgets(
+            fresh.surface.dock_of(fresh.orders)
+        )
+    }
+    assert {"Ladder", "Fills"} <= tabbed
     assert fresh.surface.centralWidget() is fresh.centre
+
+
+def test_a_tab_that_is_off_before_the_commands_are_bound_starts_off(qapp) -> None:
+    """The first bot followed may already be one the workbench cannot replay: the command takes
+    the tab's state at binding, not an assumed on."""
+    view = BotsView()
+    view.set_backtest_available(TabAvailability(False, "no"))
+    actions = bound_actions(
+        QObject(),
+        bots_commands(BOTS_ROUTE),
+        lambda binder: bind_bots_commands(
+            binder,
+            BotsViewModel(),
+            venue_strategies(
+                StrategiesPanel(), (VenueArming(TradingVenue.SPOT_TESTNET),)
+            ),
+            None,
+            view,
+        ),
+    )
+
+    assert not actions.action(BACKTEST_TAB).isEnabled()

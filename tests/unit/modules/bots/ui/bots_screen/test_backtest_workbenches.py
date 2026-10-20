@@ -8,6 +8,7 @@ whose kind has no backtest or whose venue the kind does not trade on."""
 from __future__ import annotations
 
 from dataclasses import replace
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -16,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier imp
     RecordingNotifier,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
+    PlannerMarket,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
@@ -33,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_answer 
     BacktestAnswer,
     BacktestCancelled,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -41,7 +48,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
     GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
+    BacktestWorkbench,
     WorkbenchPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
+    BacktestWorkbenchView,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.backtest_workbenches import (
     BacktestWorkbenches,
@@ -59,6 +70,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_can
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
     FakeMarketDataSources,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -67,6 +84,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_pref
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.plan.plan_world import (
     StubKind,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
+    BRACKETS,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.backtest.sandbox_fixtures import (
+    market as sandbox_market,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtures import (
     InlineThreadManager,
@@ -153,13 +176,21 @@ class _Host:
         self.built.append(made)
         return made
 
-    def follow(self, bot_id: str, venue: TradingVenue, kind: str = "grid") -> None:
+    def follow(
+        self,
+        bot_id: str,
+        venue: TradingVenue,
+        kind: str = "grid",
+        *,
+        market: PlannerMarket | None = None,
+        risk: PlanRiskFacts | None = None,
+    ) -> None:
         snapshot = replace(
             BotSnapshot.of(stored(bot_id, BotLifecycleState.DRAFT).bot, None),
             venue=venue,
             kind=kind,
         )
-        self.host.follow(SimpleNamespace(bot=snapshot, market=None, risk=None))  # type: ignore[arg-type]
+        self.host.follow(SimpleNamespace(bot=snapshot, market=market, risk=risk))  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -242,6 +273,36 @@ def test_the_tab_comes_back_on_for_a_bot_that_can_be_backtested(host: _Host) -> 
     assert host.pages[-1][0] is not None
 
 
+def _futures_facts() -> tuple[PlannerMarket, PlanRiskFacts]:
+    facts = PlanRiskFacts(
+        FuturesSymbolSetting("BTCUSDT", 3, MarginType.ISOLATED, Decimal(10**9)),
+        BRACKETS,
+    )
+    return sandbox_market(), facts
+
+
+def test_the_workbench_is_followed_with_the_bots_market_and_risk_facts(
+    host: _Host,
+) -> None:
+    """Run is off until the symbol's terms and, on a position venue, its leverage brackets are
+    read: both come from the selection, so dropping either leaves Run off."""
+    planner, facts = _futures_facts()
+
+    host.follow("a00001", _FUTURES)
+    page = host.pages[-1][0]
+    assert isinstance(page, BacktestWorkbenchView)
+    assert (
+        page.run_button.toolTip()
+        == "The market numbers for this symbol are still being read."
+    )
+
+    host.follow("a00001", _FUTURES, market=planner)
+    assert "leverage brackets" in page.run_button.toolTip()
+
+    host.follow("a00001", _FUTURES, market=planner, risk=facts)
+    assert page.run_button.isEnabled() and page.run_button.toolTip() == ""
+
+
 def test_the_workbench_comes_back_for_the_same_venue_after_a_note(host: _Host) -> None:
     """A page replaced by a note is put back when the next bot can be backtested, even on the
     venue the page was last shown for."""
@@ -256,13 +317,22 @@ def test_the_workbench_comes_back_for_the_same_venue_after_a_note(host: _Host) -
 
 
 def test_close_shuts_every_workbench_and_a_second_close_is_harmless(
-    host: _Host,
+    host: _Host, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     host.follow("a00001", _TESTNET)
     host.follow("a00003", _MAINNET)
+    shut: list[BacktestWorkbench] = []
+    real = BacktestWorkbench.shutdown
+
+    def record(workbench: BacktestWorkbench) -> None:
+        shut.append(workbench)
+        real(workbench)
+
+    monkeypatch.setattr(BacktestWorkbench, "shutdown", record)
 
     host.host.close()
     host.host.close()
 
+    assert len(shut) == 2  # each kept workbench once; a second close finds none
     host.follow("a00004", _TESTNET)
     assert len(host.built) == 3  # a closed venue is built again, not reused

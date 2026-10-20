@@ -70,6 +70,8 @@ _AREA = Qt.DockWidgetArea
 #: is left under the shell's menu bar, mode bar and toolbars and over its
 #: status bar, with room to spare for a platform style's taller rows.
 _MODE_HEIGHT_ROOM = 500
+#: A 1024-wide window less the window's own frame (the conformance suite's measure).
+_MODE_WIDTH_ROOM = 984
 
 
 @pytest.fixture
@@ -176,6 +178,12 @@ def test_the_mode_fits_a_small_window_with_a_grid_and_its_backtest_in_front(
     qtbot.waitUntil(lambda: screen.view.backtest.isVisible())
 
     assert screen.view.backtest.findChildren(BacktestWorkbenchView)
+    assert screen.view.minimumSizeHint().height() <= _MODE_HEIGHT_ROOM
+    # A tab widget asks for its widest page, shown or not: with a bot selected the mode fits the
+    # window's width with either tab in front (a one-row period and commands bar made it 1020 px).
+    assert screen.view.minimumSizeHint().width() <= _MODE_WIDTH_ROOM
+    screen.view.show_live()
+    assert screen.view.minimumSizeHint().width() <= _MODE_WIDTH_ROOM
     assert screen.view.minimumSizeHint().height() <= _MODE_HEIGHT_ROOM
 
 

@@ -105,8 +105,13 @@ venue the kind's `supported_profiles()` leaves out, turns the tab off with its r
 (`BotsView.set_backtest_available`, `TabAvailability`): disabled, never hidden. View → Live chart tab
 and View → Backtest tab (Ctrl+J) switch the tabs (`bots_command_binding.py`); the second follows the
 tab. A window state saved with the old Backtest dock still loads: Qt skips a dock name the window no
-longer has. The workbench's results are tabs (Replay, Equity, Figures, Fills) so that the page's
-minimum height leaves the mode a 1024×700 window.
+longer has. A run in flight when the selection moves to a bot of another venue keeps running on its
+hidden workbench (it is that bot's run); its result is there when the person comes back, and a run
+that fails still tells the person through the notifier, naming the action. The page keeps its
+minimum size inside the mode's: the period on one row and the commands with the status line on the
+next, and the results as tabs (Replay, Equity, Figures, Fills), so a tab widget, which asks for its
+widest and tallest page, leaves the mode a 1024×700 window (`test_bots_view.py` measures the width
+and the height with a bot selected, with either tab in front).
 
 The shell does not import a kind. Today's exceptions, files of the shell that still import Grid
 types, are listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt`, and the list

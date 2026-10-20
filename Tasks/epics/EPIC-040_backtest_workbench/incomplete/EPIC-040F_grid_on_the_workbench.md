@@ -50,7 +50,7 @@ After 040D and 040E, the workbench hosts the Grid through its backtester. The ol
 | File | Change |
 | :--- | :--- |
 | `src/modules/bots/ui/kinds/grid/backtest/*` | Delete the page, presenter, coordinator and moved panes; keep the registration and Grid-only extras |
-| `src/modules/bots/ui/kinds/kind_panels.py` | Registration through the new seam |
+| `src/modules/bots/ui/kinds/kind_panels.py` | Registration through the new seam. `EPIC-040E` left four symbols with no production caller: `backtest_for`, `backtest_supports`, `_BACKTESTS` and `_BACKTEST_PROFILES`, and two comments that still say the Backtest tab "stays hidden"; delete them here |
 | `Docs/SPEC/SPEC-014_run_a_grid_bot.md`, `Docs/HLD/11_desktop_workbench.md` | The two tabs and the sandbox |
 | `Tasks/epics/EPIC-040_backtest_workbench/README.md` | §2 metrics measured |
 

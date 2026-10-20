@@ -1,6 +1,10 @@
 """`EPIC-040D` — the Backtest workbench's page: a sandbox of the bot's plan, a period, Run, and what
 came out; the same for every kind of bot.
 
+Above the panes, the period on one row and the commands with the status line on the next, so the
+page's minimum width leaves the Bots mode a 1024-wide window and its height a 700-high one
+(`EPIC-040E`: the period and commands on one row were 850 px wide).
+
 Setup (left): the bot the sandbox was copied from, the kind's own editor (a second instance, never
 bound to the Bots menu's commands), what differs from the bot's plan, and the verdicts the symbol's
 rules gave it. Results (right), one tab each: the replayed candles with the plan's levels and the
@@ -250,6 +254,8 @@ class BacktestWorkbenchView(QWidget):
         ):
             period.addWidget(plain_label(label))
             period.addWidget(field)
+        period.addStretch(1)
+        commands = QHBoxLayout()
         for button in (
             self.run_button,
             self.cancel_button,
@@ -257,8 +263,8 @@ class BacktestWorkbenchView(QWidget):
             self.no_funding_button,
             self.reset_button,
         ):
-            period.addWidget(button)
-        period.addStretch(1)
+            commands.addWidget(button)
+        commands.addWidget(self.status, 1)
         answers = QHBoxLayout()
         answers.addWidget(self.replace_button)
         answers.addWidget(self.keep_button)
@@ -280,7 +286,7 @@ class BacktestWorkbenchView(QWidget):
         body.setStretchFactor(1, 1)
         layout = QVBoxLayout(self)
         layout.addLayout(period)
-        layout.addWidget(self.status)
+        layout.addLayout(commands)
         layout.addWidget(self.banner)
         layout.addWidget(body, 1)
 
