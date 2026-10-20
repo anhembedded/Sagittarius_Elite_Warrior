@@ -39,5 +39,10 @@ class OffLadderOrders:
     def is_exit(self, client_order_id: str) -> bool:
         return client_order_id in self._exits
 
+    @property
+    def exits_sent(self) -> int:
+        """How many exit slices the run has sent (`BOT-190`: an exit is told once, not once per fill)."""
+        return len(self._exits)
+
     def __contains__(self, client_order_id: object) -> bool:
         return client_order_id in self._ids

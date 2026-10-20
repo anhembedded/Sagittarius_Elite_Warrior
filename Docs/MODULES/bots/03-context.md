@@ -32,7 +32,9 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
   `BotStopGaveUpEvent`), `BotRecoveryStalledEvent` (`bots/contracts/events/bot_recovery_stalled_event.py` →
   `BotRecoveryStalledEvent`), `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py` →
   `BotAutoRecoveredEvent`), `BotOrderFilledEvent` (`bots/contracts/events/bot_order_filled_event.py` →
-  `BotOrderFilledEvent`, one per order that filled whole, `BOT-189`), `AccountLossCapTrippedEvent`
+  `BotOrderFilledEvent`, one per order that filled whole, `BOT-189`), `BotExitClosedEvent`
+  (`bots/contracts/events/bot_exit_closed_event.py` → `BotExitClosedEvent`, one per exit once its last
+  closing slice is booked, `BOT-190`), `AccountLossCapTrippedEvent`
   (`EPIC-026L`; `bots/contracts/events/account_loss_cap_tripped_event.py` → `AccountLossCapTrippedEvent`, the
   CRITICAL alert about the whole host) and the status report (`EPIC-036G`;
   [`../alerting/03-context.md`](../alerting/03-context.md)).

@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_bloc
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exit_report import (
+    GridExitReport,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
     GridFillAnnouncer,
 )
@@ -180,6 +183,7 @@ class GridFacts(IBotFacts):
         self._post = post
         self._forget_proposal = forget_proposal
         self._conversion = GridFillConversion(context)
+        self._exit_report = GridExitReport(context)
 
     def on_fill(self, fill: BotOrderFill) -> None:
         self._post(f"fill of {fill.client_order_id}", lambda: self._apply_fill(fill))
@@ -256,6 +260,8 @@ class GridFacts(IBotFacts):
                         level_fill.base_fee, level_fill.quote_fee, level_fill.price
                     )
                 )
+                if self._context.off_ladder.is_exit(fill.client_order_id):
+                    self._exit_report.after_exit_fill()
                 if self._is_protective_stop(fill.client_order_id):
                     # The exchange ran the stop that stands over the position: the look at
                     # the stops reads its status and the bot stops (`EPIC-039L`).

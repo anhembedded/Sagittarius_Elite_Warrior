@@ -97,9 +97,17 @@ The walking skeleton (`EPIC-036G`) added:
   number of cycles). Its dedup key is the order with the bot (`Alert.raised`'s `reason`),
   so a repeat of one fill is one message and two fills are two. The exits live in `BotAlertSource`: the
   entry into `STOPPING` with the reason `stop_loss`, `take_profit` or `range_exit` is one alert at once
-  (`bot_alert_source.py` → `EXIT_ON_STOP`, `BotAlertSource._alert_on_exit`); `on_range_changed` tells a
+  (`bot_exit_words.py` → `EXIT_ON_STOP`; `bot_alert_source.py` → `BotAlertSource._alert_on_exit`); `on_range_changed` tells a
   price outside the range of a bot that only holds (a bot that closes there is told by its stop) and
   is not told on the return (a price that flaps at the edge is bounded by the hub's 15 minute window, one message per side); `on_protective_stop` tells the exchange-side stop having run.
+- **`BotExitAlertSource`** (`alerting/application/sources/bot_exit_alert_source.py` →
+  `BotExitAlertSource`; BOT-190), the third source at the edge: `on_exit_closed` turns one
+  `BotExitClosedEvent` into one INFO `EXIT_CLOSED` alert with the run's result, worded by
+  `bot_exit_words.py` → `closed_detail` (the exit's name, the run's result, the profit of its completed
+  cycles and their number; a result the bot cannot judge reads `no price yet`, never zero). It tells
+  only the reasons in `EXIT_ON_STOP` (`stop_loss`, `take_profit`, `range_exit`), so a stop the owner
+  asked for sends none. Its dedup key is the run (`BotExitClosedEvent.run_id` as `Alert.raised`'s
+  `reason`): each run's result is its own message.
 - **`FillBacklog`** (`alerting/application/fill_backlog.py` → `FillBacklog`; BOT-189) bounds the fill
   messages waiting on one channel: after each is stored, `FillBacklog.trim` asks the outbox to drop the
   oldest past `DeliveryPolicy.fill_backlog` (`IOutbox.shed_surplus`, kept as `DROPPED`), and the
