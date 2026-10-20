@@ -63,3 +63,17 @@ def test_the_equity_curve_axis_reads_in_the_shared_display_zone(
     assert expected <= labels
     assert not absent & labels
     world.workbench.shutdown()
+
+
+def test_an_equity_curve_built_after_the_choice_reads_in_the_chosen_zone(
+    qtbot: Any,
+) -> None:
+    """The zone is already set when the workbench opens (a zone restored from saved state)."""
+    world = build_workbench(zone="Asia/Ho_Chi_Minh")
+    view = world.workbench.view
+    qtbot.addWidget(view)
+
+    labels = set(drawn_labels(view.equity.plot, utc_range(10, 2, 6)))
+
+    assert {"10:00", "12:00"} <= labels
+    world.workbench.shutdown()

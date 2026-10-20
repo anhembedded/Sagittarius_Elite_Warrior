@@ -88,3 +88,16 @@ def test_a_comparison_dialog_opened_after_the_choice_opens_in_the_chosen_zone(
     assert dialog._chart._plot_widget.getPlotItem().getAxis("bottom").display_zone == (
         "Asia/Ho_Chi_Minh"
     )
+
+
+def test_a_drawdown_panel_built_after_the_choice_reads_in_the_chosen_zone(
+    qapp: object,
+) -> None:
+    """The zone is already set when the panel is built (a zone restored from saved state)."""
+    view_model = BackTestViewModel()
+    view_model.time_range.set_display_timezone("Asia/Ho_Chi_Minh")
+
+    panels = build_panels(view_model)
+
+    labels = set(drawn_labels(panels.drawdown._plot_widget, utc_range(10, 2, 6)))
+    assert {"10:00", "12:00"} <= labels
