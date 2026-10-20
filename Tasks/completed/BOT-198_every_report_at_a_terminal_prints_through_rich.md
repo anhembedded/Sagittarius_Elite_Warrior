@@ -1,12 +1,11 @@
 # BOT-198 — At a terminal every report prints through `rich`: a wide report wraps its long cells and never falls back to plain text
 
-**Status:** 🟡 In progress
-**Priority:** P2
-**Board:** At an interactive terminal the report always prints through `rich` (a long Ladder or Recovery cell wraps instead of the whole report falling back to plain text); a missing `rich` at a terminal says so on stderr; a failed command's sentence is red there; every non-terminal byte is unchanged ([BOT-195](completed/BOT-195_rich_tables_and_colour_for_the_human_bot_report.md), [PRO-017](proposal/PRO-017.md)).
+**Status:** ✅ Done (2026-10-20)
+**Board:** At an interactive terminal every report prints through `rich`: the old width fallback (the ~200-character Ladder row of `bot show` exceeded the terminal) is gone, long cells wrap, a table too wide for even its longest words prints one block per row, a missing `rich` says so on stderr, a failed command's sentence, BUY/SELL/LONG/SHORT and order states are coloured; every non-terminal byte is unchanged ([BOT-195](completed/BOT-195_rich_tables_and_colour_for_the_human_bot_report.md), [PRO-017](proposal/PRO-017.md)).
 **Source:** The owner, 2026-10-20, on the VPS over SSH: *"Tui ki vao la tat ca cac output len cua VPS phai duoc output rich chu"* ("every output of the VPS must come out as rich"). They ran `$M bot show uie03d` at an interactive terminal and got plain text, no colour and no table, although `BOT-195` is meant to render it.
 **Risk:** 🟢 — presentation only, at a terminal only; the plain bytes are pinned by the existing golden tests, unchanged.
 **Complexity:** S — one renderer rewrite of two column options, one chooser branch, one 20-line error styler, tests and docs.
-**Depends on:** [BOT-195](completed/BOT-195_rich_tables_and_colour_for_the_human_bot_report.md) merged (58eca01).
+**Depends on:** [BOT-195](BOT-195_rich_tables_and_colour_for_the_human_bot_report.md) merged (58eca01).
 
 ---
 
@@ -67,5 +66,9 @@ Unit tier. A `bot show` layout like the real one (a 200+ character Ladder, two R
 ## 6. Docs touched
 `Docs/OPERATIONS/headless_runbook.md` §6; `Tasks/proposal/PRO-017.md` §6. `Docs/MODULES/`: none, because `shell` and the CLI host have no module folder.
 
-## Resume
-Pushed for review; waiting for the reviewer comment and a green `ci-local.ps1 -Full` on the head.
+## Implementation notes
+- **Cause of the owner's plain `bot show`:** the width fallback. `COLUMNS` does not survive `sudo -u sew env ...`, so the real terminal width was read and the Ladder row exceeded it. Rich missing in `/opt/sew/venv` or a checkout older than 58eca01 could not be told from code; the stderr note covers the first.
+- **Layout:** fixed column widths (`_share_of`: longest word per column, slack to the column furthest from its natural width) because rich shrinks columns below `min_width` and crops them (the round-1 review blocker); when the longest words do not fit, one label/value block per row.
+- **Survey result:** every `bot` verb answer, `status`, `preflight`, `alert`, `exchange-status` and `order-preview` already end in a `Report`, so they are rich. Uncoloured free text remains in the older `sync`/`stream` handlers, `trade-once`/`order-dry-run` (trading, out of scope), the banner and the interactive shell; recommendation in section 3: convert them to `Report` in a separate task.
+- **Colour added on the way:** failed-command sentence (bold red), BUY/LONG green, SELL/SHORT red, FILLED green, CANCELLED/EXPIRED yellow, REJECTED red. `wants_colour` is the one colour policy.
+- **Verification:** `ci-local.ps1 -Full` green on c198ef6c (gate (Unit) and gate (Rest) logs: RESULT PASS, FAILED_STEPS none, no FAILED/ERROR/Traceback/ResourceWarning); reviewer round 2 PASS; pseudo-terminal check with `script`. Open, non-blocking: `_style_of` takes five arguments.
