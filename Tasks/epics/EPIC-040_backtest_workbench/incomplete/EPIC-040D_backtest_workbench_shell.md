@@ -6,7 +6,7 @@
 **Complexity:** L — a presenter trio, a coordinator for the run, four result panes
 **Epic:** [EPIC-040](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-040B](EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](EPIC-040C_sandbox_parameters.md)
+**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](EPIC-040C_sandbox_parameters.md)
 
 ---
 
@@ -62,6 +62,8 @@ Today they live under `ui/kinds/grid/backtest/` (`grid_backtest_view.py`, `grid_
 - **Feature loss in the move.** Mitigated by 040A's tests re-run here.
 - **Futures-only controls leaking into Spot.** "Run without funding" appears only when the refusal says funding is missing; the venue profile decides, as in 039J.
 - **Chart cost.** Reuse `BotChart`; a second drawer is banned by ADR D16.
+
+**From `040B` (review of PR #627).** The outcome's `figures` carry a `FigureTone` that the workbench maps to the meaning colours (`Tone`); the Grid sets none. The neutral dispatching query (`RunBacktestQuery`: kind id and request in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) is written here, where its first caller is. The trades pane pairs the labelled `fills`, since the outcome has no trade record.
 
 ## 3a. Reuse
 - **Charts:** used `BotChart`, `IBotKind.overlay` and the equity chart, moved from `grid/backtest/equity_chart.py`.

@@ -43,8 +43,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exec
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exposures import (
     GridExposures,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_kind_backtester import (
+    GridKindBacktester,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_preconditions import (
     GridStartPreconditions,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
+    RunGridBacktestQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
@@ -235,9 +241,13 @@ def _build_price_watch(container: IContainer) -> BotPriceWatch:
 
 
 def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
-    """The kinds the Bots tab offers (`EPIC-029F`). Grid only for now."""
+    """The kinds the Bots tab offers (`EPIC-029F`), each with its backtest (`EPIC-040B`). Grid only
+    for now."""
+    grid_backtester = GridKindBacktester(
+        RunGridBacktestQueryHandler(container.resolve(IMarketDataSources))
+    )
     return BotKindCatalog(
-        [GridKind(_grid_executor_factory(container), GridThresholds())]
+        [GridKind(_grid_executor_factory(container), GridThresholds(), grid_backtester)]
     )
 
 

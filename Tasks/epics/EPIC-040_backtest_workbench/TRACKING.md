@@ -44,7 +44,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-040A | [Pin the Grid backtest page](completed/EPIC-040A_pin_grid_backtest_behaviour.md) | `claude/epic-040a-pin-grid-backtest` | 🟢 | ✅ Done | 2026-10-20 |
-| EPIC-040B | [Kind-neutral result and simulator port](incomplete/EPIC-040B_kind_neutral_backtest_contract.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-040B | [Kind-neutral result and simulator port](completed/EPIC-040B_kind_neutral_backtest_contract.md) | `claude/epic-040b-kind-neutral-backtest` | 🟡 | ✅ Done | 2026-10-20 |
 | EPIC-040C | [Sandbox parameters](incomplete/EPIC-040C_sandbox_parameters.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040D | [Backtest workbench shell](incomplete/EPIC-040D_backtest_workbench_shell.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040E | [Live and Backtest centre tabs](incomplete/EPIC-040E_live_and_backtest_tabs.md) | — | 🟡 | 🔵 Planned | — |
@@ -60,6 +60,7 @@ gantt
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
 | 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
 | 2026-10-20 | Start | Un-parked by the owner; phase 1 (`040A`–`040C`) first. |
+| 2026-10-20 | 040B | Kind-neutral outcome, port and the Grid's adapter; nothing draws the outcome yet. |
 | 2026-10-20 | 040A | Thirteen frames and one test per state of the Grid backtest page; no behaviour changed. |
 
 ---

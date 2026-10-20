@@ -2,8 +2,8 @@
 
 `validate` and `overlay` delegate to `evaluate_grid` and `grid_overlay`;
 nothing is computed here.
-The executor factory is given to the kind, not built by it: the executor is
-`EPIC-029E`'s, and the kind is constructed where that factory exists.
+The executor factory and the backtester are given to the kind, not built by it: the executor is
+`EPIC-029E`'s and the backtester `EPIC-040B`'s, and the kind is constructed where they exist.
 """
 
 from __future__ import annotations
@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     IBotExecutorFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
+    IKindBacktester,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     FUTURES_MARKETS,
     SPOT_MARKETS,
@@ -61,10 +64,14 @@ class GridKind(IBotKind):
     """A ladder of resting orders across a price range."""
 
     def __init__(
-        self, executor_factory: IBotExecutorFactory, thresholds: GridThresholds
+        self,
+        executor_factory: IBotExecutorFactory,
+        thresholds: GridThresholds,
+        backtester: IKindBacktester | None = None,
     ) -> None:
         self._executor_factory = executor_factory
         self._thresholds = thresholds
+        self._backtester = backtester
 
     @property
     def kind_id(self) -> str:
@@ -102,3 +109,6 @@ class GridKind(IBotKind):
 
     def executor_factory(self) -> IBotExecutorFactory:
         return self._executor_factory
+
+    def backtester(self) -> IKindBacktester | None:
+        return self._backtester

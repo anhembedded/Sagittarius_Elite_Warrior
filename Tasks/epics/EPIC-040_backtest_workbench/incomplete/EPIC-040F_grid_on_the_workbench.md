@@ -40,6 +40,8 @@ After 040D and 040E, the workbench hosts the Grid through its backtester. The ol
 - **A Futures-only line lost on Spot or shown on Spot.** Mitigation: 040A pinned both venues.
 - **Docs drift.** SPEC-014 and HLD §11 are updated in the same PR.
 
+**From `040B` and `040A` (reviews of PR #624 and #627).** Drop the Grid's duplicate records (`PriceBar`, `EquityPoint`, `BacktestFill`, `BacktestProvenance`, `DataWindow`; `BacktestBar` repeats `PriceBar`) once the 039B oracle's imports are retargeted. Fix the status line (`show_idle("")` writes none: it leaves "Backtest done." after another bot, "Backtesting…" after a mid-run switch, "Select a bot…" once ready) and pin it. A late *refusal* after a mid-run bot switch is not framed in `040A`: add that frame when the fence moves.
+
 ## 3a. Reuse
 - **Results and workbench:** used `BacktestOutcome` from 040B and the workbench from 040D.
 - **New code:** none, because this task deletes and rewires.

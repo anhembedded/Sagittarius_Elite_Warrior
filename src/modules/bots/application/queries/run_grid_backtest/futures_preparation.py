@@ -15,9 +15,6 @@ import logging
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.futures_backtest_terms import (
     futures_run_terms,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
-    FundingRequirement,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.query import (
     RunGridBacktestQuery,
 )
@@ -26,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     plan_market_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirement import (
+    FundingRequirement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding import (
     FundingSchedule,

@@ -68,6 +68,5 @@ through as opaque data, and only the parser asks `IBotKindCatalog`
   has lasted `stalled_after`, and `AccountLossCapTrippedEvent` once per trip of the account-level loss cap
   (`EPIC-026L`).
 
-**Planned.** `EPIC-040B` gives the backtest a kind-neutral result and simulator port. **Built:**
-`EPIC-039L`'s exchange-side stop order still goes through `trading`, as every order does (see
+**Built:** `EPIC-039L`'s exchange-side stop order still goes through `trading`, as every order does (see
 [`06-runtime.md`](06-runtime.md)).

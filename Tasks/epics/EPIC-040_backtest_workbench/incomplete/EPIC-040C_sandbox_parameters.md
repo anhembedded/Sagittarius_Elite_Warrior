@@ -5,7 +5,7 @@
 **Risk:** 🟡 — the boundary between a simulation and a real bot; a leak either way is a real-money defect
 **Complexity:** M — a small model, the kind's existing editor reused, one wording path
 **Epic:** [EPIC-040](../README.md)
-**Depends on:** [EPIC-040A](EPIC-040A_pin_grid_backtest_behaviour.md)
+**Depends on:** [EPIC-040A](../completed/EPIC-040A_pin_grid_backtest_behaviour.md)
 
 ---
 

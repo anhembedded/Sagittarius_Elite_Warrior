@@ -5,7 +5,7 @@
 **Risk:** 🔴 — real orders driven by strategy code; a backtest that differs from live, or a strategy fault that takes the host down, costs money
 **Complexity:** L — a second `IBotKind`, a position executor, warm-up and recovery, a backtester adapter, migration of saved strategy configs
 **Epic:** [EPIC-040](../README.md)
-**Depends on:** [EPIC-040B](EPIC-040B_kind_neutral_backtest_contract.md) (the port this kind's backtest answers through), [EPIC-040F](EPIC-040F_grid_on_the_workbench.md) (the workbench proven on the Grid first)
+**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md) (the port this kind's backtest answers through), [EPIC-040F](EPIC-040F_grid_on_the_workbench.md) (the workbench proven on the Grid first)
 
 ---
 
@@ -41,6 +41,8 @@
 2. **Where warm-up history comes from.** It comes from the market-data module through its published port, both live and in the backtest. The bot never fetches history directly.
 3. **Position executor scope.** It is one position per bot. Whether trailing stops and re-entry are in the first slice is decided then; reversal on Futures needs the 039L protective stop first.
 4. **What fault isolation runs.** Strategy calls run inside a boundary that catches, logs and halts. Whether strategy code also gets a time budget per call is decided then.
+
+**From `040B` (review of PR #627).** The outcome reports entries and exits as labelled `fills`; it has no trade record (entry, exit, profit, holding time). Decide here whether the kind adds one beside `fills` or the workbench pairs the fills. The stub adapter of `040B` cannot test that nothing before `start` is reported (warm-up is replayed but never traded): the parity suite of this task carries that assertion.
 
 ## 3a. Reuse
 To be filled when the task starts. Expected uses: `IBotKind`, `IBotKindCatalog`, `IStrategyEngineFactory`, the venue profile, `IRiskGuard`, `IExposureBook`, `IOrderPacer`, the plan document, and `040B`'s `IKindBacktester`.

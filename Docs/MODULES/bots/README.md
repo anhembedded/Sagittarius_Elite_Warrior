@@ -45,4 +45,5 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | `run --resume-halted`: the host gives a person's Resume and Confirm to every HALTED or AWAITING_RECOVERY bot | **Built** | `EPIC-042E` ([`06-runtime.md`](06-runtime.md)) |
 | The grid's rate-limit auto-resume is one reason of the halt-recovery mechanism, its probe the pause's end; the consecutive counter and the timer are retired | **Built** | `EPIC-042F` ([`06-runtime.md`](06-runtime.md)) |
 | The account-level loss cap: one figure per host, every bot stopped through the existing Stop, none restarts until the owner acknowledges (`bot loss-cap-ack`) | **Built** | `EPIC-026L` ([`06-runtime.md`](06-runtime.md)) |
-| The kind-neutral backtest result and simulator port; the strategy kind | Planned | `EPIC-040B`, `EPIC-040G` |
+| The kind-neutral backtest result and simulator port, with the Grid answering through it | **Built** | `EPIC-040B` ([`05-building-blocks.md`](05-building-blocks.md)) |
+| The workbench that draws any kind's outcome; the strategy kind | Planned | `EPIC-040D`, `EPIC-040G` |
