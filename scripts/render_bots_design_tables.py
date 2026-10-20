@@ -234,6 +234,24 @@ TIMING: tuple[TimingRow, ...] = (
         _each,
     ),
     TimingRow(
+        "Account-level loss cap: the bots are sampled every; it trips when it cannot judge for; "
+        "the price a bot saves to its file is at most this old",
+        (
+            Constant(
+                f"{_BOTS}/application/services/loss_cap/account_loss_cap.py",
+                "SAMPLE_EVERY_SECONDS",
+            ),
+            Constant(
+                f"{_BOTS}/domain/loss_cap/loss_cap_policy.py", "UNJUDGED_TRIP_AFTER"
+            ),
+            Constant(
+                f"{_BOTS}/application/kinds/grid/watch/grid_price_reaction.py",
+                "MARK_PRICE_SAVE_SECONDS",
+            ),
+        ),
+        _each,
+    ),
+    TimingRow(
         "Order pacer default caps: open orders, spacing, orders per minute",
         (
             Constant(

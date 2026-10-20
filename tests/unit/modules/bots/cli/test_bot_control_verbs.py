@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     ExitCode,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    LOSS_CAP_SUBJECT,
     HostControlAction,
     HostControlReply,
     HostControlRequest,
@@ -23,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    AcknowledgeLossCapVerb,
     EditBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
@@ -320,3 +322,22 @@ def test_the_help_of_edit_tells_the_operator_the_plan_file_is_theirs_to_update()
     assert "plan file" in edit["help"] and "bot apply" in edit["help"]
     assert "NOT updated" in edit["help"]
     assert edit["read_only"] is True
+
+
+def test_loss_cap_ack_asks_the_host_to_acknowledge_without_naming_a_bot() -> None:
+    host = RecordingHostControl()
+
+    _run(AcknowledgeLossCapVerb(), host, wait=2.0, bot_id=None)
+
+    assert host.sent == [
+        (
+            HostControlRequest(
+                HostControlAction.ACKNOWLEDGE_LOSS_CAP, LOSS_CAP_SUBJECT
+            ),
+            2.0,
+        )
+    ]
+
+
+def test_loss_cap_ack_is_a_verb_the_operator_can_type() -> None:
+    assert "loss-cap-ack" in {verb.name for verb in BOT_VERBS}

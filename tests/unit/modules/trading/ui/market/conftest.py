@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
@@ -47,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_s
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.rsi_14_script import (
     Rsi14Script,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import SymbolPreferences
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
     QueuedThreads,
     RecordingCandleFeed,
@@ -110,6 +114,8 @@ def _deps(
     *,
     stream: IMarketStream | None = None,
     account=None,
+    catalog=None,
+    preferences=None,
     symbols=SYMBOLS,
     state=None,
     params_store=None,
@@ -131,6 +137,8 @@ def _deps(
             else (lambda _key: None)
         ),
         account=account or FakeAccountSnapshot(status=CONNECTED),
+        catalog=catalog or FakeSymbolCatalog(),
+        preferences=preferences or SymbolPreferences(),
         symbols=symbols,
         interval=interval,
         state=state,

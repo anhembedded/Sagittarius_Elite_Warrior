@@ -6,7 +6,7 @@ bot or an armed strategy streaming the same symbol holds its own."""
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -24,6 +24,7 @@ WATCHLIST_STREAM_OWNER = "market.watchlist"
 #: The Watchlist's candles: a row's change is its minute's change.
 WATCHLIST_INTERVAL = TimeFrame.ONE_MINUTE
 _PAUSED = "Market data: paused while another mode shows."
+_EMPTY = "Market data: the Watchlist is empty."
 
 
 class WatchlistStream:
@@ -34,10 +35,12 @@ class WatchlistStream:
         view: MarketView,
         deps: MarketDependencies,
         market: Callable[[], MarketType],
+        symbols: Callable[[], Sequence[str]],
     ) -> None:
         self._view = view
         self._deps = deps
         self._market = market
+        self._symbols = symbols
         self._running = False
         self._filters = self._watchlist_filters()
 
@@ -62,14 +65,20 @@ class WatchlistStream:
     def start(self) -> None:
         """Streams the chosen market's symbols; a second start replaces the
         first (`IMarketStream.start`), so a new market needs no stop."""
-        symbols = list(self._deps.symbols)
+        symbols = list(self._symbols())
         self._running = True
+        if not symbols:
+            # Nothing to stream: release the owner so the last symbol's
+            # ticks stop, and say why the rows are still.
+            self._deps.stream.stop(WATCHLIST_STREAM_OWNER)
+            self._view.set_stream_text(_EMPTY)
+            return
         outcome = self._deps.stream.start(
             WATCHLIST_STREAM_OWNER, self._market(), symbols, WATCHLIST_INTERVAL
         )
         if outcome.success:
             if self._filters is not None:
-                self._filters.fetch(self._market(), self._deps.symbols)
+                self._filters.fetch(self._market(), tuple(symbols))
             self._view.set_stream_text("Market data: live")
             self._view.log.append(f"Live for {', '.join(symbols)}.")
             return
@@ -82,6 +91,14 @@ class WatchlistStream:
         )
         self._view.set_stream_text("Market data: failed to start")
         self._view.log.append(f"Failed to start stream: {outcome.message}", "error")
+
+    def track(self, symbols: Sequence[str]) -> None:
+        """The tracked list changed (`EPIC-033V`): the rows follow it, keeping
+        the prices they have, and once live the stream is asked again for the
+        new set (a second start replaces the first)."""
+        self._view.watchlist.track(symbols)
+        if self._running:
+            self.start()
 
     def pause(self) -> None:
         """Another mode took the window: release the Watchlist's owner."""

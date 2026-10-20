@@ -12,24 +12,18 @@ account's own connection state. Deciding *whether* to send an order — a signal
 a strategy, a backtest — belongs to another context and reaches this one
 through `contracts/`.
 
-@par `register()` binds this module's own adapters and handlers, since PR 4.4f-4
-PR 1.3b published the first three ports; PR 1.3c-3 added `IEquityCurve`. PR
-1.3c-4 split the one shared `ExchangeSessionFactory` into one factory per
-context (`FuturesSessionFactory` here, `MarketDataSessionFactory` in
-`market_data`), which is what let the rest of this module's registrations
-move at all — before that split, moving them meant either resolving
-`market_data`'s own factory instance from the container or building a second
-one, a behaviour change ADR D12 keeps out of a move. `EPIC-025E` PR 4.4f-4
-is that move: `composition/adapter_bindings.py` (the session factory,
-metadata provider/cache, credentials provider, account reader, equity
-recorder, user-data stream, trading-venue and trading-limits singletons),
-`composition/state_bindings.py` (`TradingSessionState`,
-`PositionRefreshService`), `composition/command_bindings.py` (the six
-trading commands) and `composition/query_bindings.py` (the three queries)
-all move in together — the last of `binance_bot_module.py`'s bindings that
-are genuinely this module's own; what remains there after this PR is the
-shared core engine-adapter ports and the indicator scripts, neither owned by
-any one module (`EPIC-025E_phase4_support_and_dissolve_common.md` §3.16).
+@par `register()` binds this module's own adapters and handlers (`EPIC-025E` PR 4.4f-4,
+after PR 1.3b published the first three ports and PR 1.3c-3 added `IEquityCurve`):
+`composition/adapter_bindings.py` (the session factory, metadata provider/cache,
+credentials provider, account reader, equity recorder, user-data stream, trading-venue
+and trading-limits singletons), `composition/state_bindings.py` (`TradingSessionState`,
+`PositionRefreshService`), `composition/command_bindings.py` and
+`composition/query_bindings.py`. PR 1.3c-4 had split the one shared
+`ExchangeSessionFactory` into one factory per context (`FuturesSessionFactory` here,
+`MarketDataSessionFactory` in `market_data`), which is what let these registrations move
+at all (ADR D12 keeps a behaviour change out of a move). What remains in
+`binance_bot_module.py` is the shared core engine-adapter ports and the indicator
+scripts, owned by no one module (`EPIC-025E_phase4_support_and_dissolve_common.md` §3.16).
 
 **No binding lives in `boot()` any more.** `ITradingClient` used to be bound
 there, conditionally on the one `TradingVenue`. `EPIC-028B` deleted that
@@ -39,14 +33,13 @@ that names the venue.
 
 **`contribute()` since PR 1.4c-4, and what it contributes.** One
 `DEV_PROBE`: the live trading session's own state, in the Developer mode
-(`EPIC-033P`) — the first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: this
-module's own credentials, order venue and connection check, split off the old
-monolithic Settings screen, and a page of Tools → Options since `EPIC-033E`.
+(`EPIC-033P`) — the first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a
+second: this module's own credentials, order venue and connection check, split off the
+old monolithic Settings screen, and a page of Tools → Options since `EPIC-033E`.
 
-**`subscribe()` not implemented, and why:** this context's Qt-side
-subscriptions still live in the two legacy Presenters, and they move with those
-screens. It is a default inherited from `BoundedContextModule`, so the absence
-is a statement, not an omission.
+**`subscribe()` not implemented, and why:** this context's Qt-side subscriptions still
+live in the two legacy Presenters, and they move with those screens. It is a default
+inherited from `BoundedContextModule`, so the absence is a statement, not an omission.
 """
 
 from __future__ import annotations
@@ -62,6 +55,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import
     ContributionDescriptor,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import ICliRegistry
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
@@ -81,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.operations_declarati
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.health.trading_health import (
     TradingHealth,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.cli.cli_declarations import (
+    declare_trading_cli,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
@@ -270,6 +267,9 @@ class TradingModule(BoundedContextModule):
             *trade_commands(TRADE_ROUTE, self._venues),
         ):
             registry.contribute_command(command)
+
+    def declare_cli(self, registry: ICliRegistry) -> None:
+        declare_trading_cli(registry, self.module_id)
 
     def declare_operations(self, registry: IOperationsRegistry) -> None:
         """The pre-flight checks, the stream section and the clock probe

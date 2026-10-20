@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_hold import (
+    ILossCapHold,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RESUME_PROPOSES_STATES,
@@ -57,14 +60,19 @@ class BotRunner(IBotRunner):
         clock: IBotClock,
         preconditions: GridStartPreconditions,
         executors: BotExecutors,
+        loss_cap: ILossCapHold,
     ) -> None:
         self._store = store
         self._clock = clock
         self._lookup = BotLookup(store)
         self._preconditions = preconditions
         self._executors = executors
+        self._loss_cap = loss_cap
 
     def start(self, bot_id: str) -> BotCommandResult:
+        held = self._loss_cap_refusal(bot_id)
+        if held is not None:
+            return held
         found = self._lookup.find(bot_id)
         if isinstance(found, BotCommandResult):
             return found
@@ -92,6 +100,9 @@ class BotRunner(IBotRunner):
         self._executor(bot_id).pause()
 
     def resume(self, bot_id: str) -> BotCommandResult:
+        held = self._loss_cap_refusal(bot_id)
+        if held is not None:
+            return held
         found = self._lookup.find(bot_id)
         if isinstance(found, BotCommandResult):
             return found
@@ -113,6 +124,14 @@ class BotRunner(IBotRunner):
 
     def has_resume_proposal(self, bot_id: str) -> bool:
         return self._executor(bot_id).has_resume_proposal()
+
+    def _loss_cap_refusal(self, bot_id: str) -> BotCommandResult | None:
+        """`EPIC-026L`: a tripped account-level loss cap holds every bot down until the owner
+        acknowledges it; the one place every start and every resume passes."""
+        sentence = self._loss_cap.restart_refusal()
+        if sentence is None:
+            return None
+        return BotCommandResult.refused(BotRefusal.LOSS_CAP_TRIPPED, sentence, bot_id)
 
     def _executor(self, bot_id: str) -> GridExecutor:
         """@raise BotNotFoundError The bot is gone (the use case found it a

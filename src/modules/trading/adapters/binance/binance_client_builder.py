@@ -14,6 +14,10 @@ both the `testnet` flag and which API family measures the server's clock.
   threshold `recvWindow` does not widen, so a machine whose clock merely runs fast
   fails every signed call). Spot measures with `get_server_time()`, Futures with
   `futures_time()`.
+- **Every signed REST request carries an explicit `recvWindow`** (`EPIC-026I`):
+  `SIGNED_REQUEST_RECV_WINDOW_MS`, set here on the client for Spot and Futures alike, so no
+  call site passes one (python-binance would overwrite it) and none relies on the library's
+  own 10000 ms.
 - **Unsigned** (`credentials` is `None`): for the public endpoints (`exchangeInfo`,
   `bookTicker`, `premiumIndex`); no key, no measurement.
 - **The construction-time ping** is only wanted by a signed Spot session
@@ -44,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.redacting_ht
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     REQUEST_TIMEOUT_SECONDS,
+    SIGNED_REQUEST_RECV_WINDOW_MS,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -73,6 +78,7 @@ def new_client(
     # Before the clock is measured: the first request already goes through it.
     _mount_redaction(client)
     if credentials is not None:
+        client.REQUEST_RECVWINDOW = SIGNED_REQUEST_RECV_WINDOW_MS
         sync_timestamp_offset(client, futures)
     return client
 

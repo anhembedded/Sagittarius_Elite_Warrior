@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
     refusal_words,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 
 logger = logging.getLogger("App.CommandHandler")
 
@@ -173,7 +176,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
 
         # `EPIC-034C` — arming starts trading: the order session opens here,
         # after every refusal that costs nothing and before anything is claimed.
-        opened = trading_session.ensure_ready()
+        opened = trading_session.ensure_ready(OpenedByPerson.PERSON)
         if not opened.ready:
             return ArmStrategyResult(
                 armed=False,

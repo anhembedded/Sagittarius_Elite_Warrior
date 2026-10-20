@@ -76,6 +76,8 @@ _READ_ONLY = {
     ("bot", "start"),
     # `EPIC-038L` - the same: a command file for the host, which changes the bot, never this process.
     ("bot", "edit"),
+    # `EPIC-026L` - the same again: a command file for the host, which clears the cap, never this process.
+    ("bot", "loss-cap-ack"),
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),
@@ -83,6 +85,7 @@ _READ_ONLY = {
     ("order-dry-run", None),
     # `EPIC-036G` - sends a test message through each channel; writes no outbox.
     ("alert", "test"),
+    ("key", "check"),
 }
 #: Writable on purpose (`EPIC-038C` note 15): they write market data, open the
 #: live feed, or place real orders, which a read-only copy refuses.

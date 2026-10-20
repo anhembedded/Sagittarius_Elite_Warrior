@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
     FakeMonotonicClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.free_loss_cap_hold import (
+    FreeLossCapHold,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -149,7 +152,10 @@ def _world(state: BotLifecycleState) -> _World:
         ports, SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS)
     )
     return _World(
-        store, session, executors, BotRunner(store, clock, preconditions, executors)
+        store,
+        session,
+        executors,
+        BotRunner(store, clock, preconditions, executors, FreeLossCapHold()),
     )
 
 
