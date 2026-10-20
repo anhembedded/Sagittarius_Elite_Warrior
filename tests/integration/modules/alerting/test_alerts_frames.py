@@ -1,5 +1,5 @@
 """`EPIC-036D2` — the Alerts screen as the owner meets it: light and dark at the three window
-sizes the workbench suite uses, drawn by `QWidget.grab()` (no display needed). With
+sizes the workbench suite uses, drawn by `QWidget.grab()` (no display needed); an integration test so the `Rest` part of the gate keeps them. With
 `SEW_UI_SCREENSHOTS` set the pictures are kept for the owner to look at (the CI artifact
 `ui-screenshots`); the checks are the measurable half: not blank, the table fits its width
 (no horizontal scroll bar), and the failing-channel notice is shown, whole."""
@@ -53,7 +53,9 @@ def test_the_alerts_screen_fits_and_reads_in_both_schemes(
         out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV, tmp_path))
         out_dir.mkdir(parents=True, exist_ok=True)
         size = QSize(*width_height)
-        assert image.save(str(out_dir / screenshot_name("alerts", size, scheme)))
+        assert image.save(
+            str(out_dir / screenshot_name("alerts_preview", size, scheme))
+        )
 
         assert not is_blank(image)
         table = view.history_table.view

@@ -23,8 +23,8 @@ class ChannelOutcome:
 
 @dataclass(frozen=True, slots=True)
 class AlertHistoryRow:
-    """One stored alert. `count` is how many times it happened in its window; `at` is the
-    time it was last seen."""
+    """One stored alert. `at` is when it was first raised (the rows are in that order);
+    `count` is how many times it happened in its window."""
 
     alert_id: int
     at: datetime
@@ -38,8 +38,9 @@ class AlertHistoryRow:
 
 @dataclass(frozen=True, slots=True)
 class ChannelHealth:
-    """One channel this run has. `failing` when its newest delivery did not get through
-    (retrying, failed or expired); `waiting` is how many deliveries are still open."""
+    """One channel this run has. `failing` when its newest real delivery did not get through
+    (failed, expired, or retrying after a failed try); `waiting` is how many deliveries are
+    still open."""
 
     channel_id: str
     failing: bool

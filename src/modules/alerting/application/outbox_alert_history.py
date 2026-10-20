@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
+    DeliveryRecord,
     HistoryEntry,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
@@ -25,10 +26,8 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import
     DeliveryState,
 )
 
-#: A delivery in one of these states did not get through (yet).
-_NOT_THROUGH = frozenset(
-    {DeliveryState.RETRYING, DeliveryState.FAILED, DeliveryState.EXPIRED}
-)
+#: A delivery in one of these states did not get through.
+_NOT_THROUGH = frozenset({DeliveryState.FAILED, DeliveryState.EXPIRED})
 APP_SUBJECT = "Application"
 
 
@@ -50,17 +49,26 @@ class OutboxAlertHistory(IAlertHistory):
     def _health_of(
         self, channel_id: str, entries: tuple[HistoryEntry, ...]
     ) -> ChannelHealth:
-        newest = _newest_delivery_state(channel_id, entries)
+        newest = _newest_delivery(channel_id, entries)
         return ChannelHealth(
             channel_id,
-            failing=newest in _NOT_THROUGH,
+            failing=newest is not None and _did_not_get_through(newest),
             waiting=self._outbox.pending_count(channel_id),
         )
 
 
-def _newest_delivery_state(
+def _did_not_get_through(delivery: DeliveryRecord) -> bool:
+    """Failed or expired; or retrying after a real failed try. A delivery asked to wait (a rate
+    limit, the channel's own pacing) is `RETRYING` with no attempt used, and is not a failure: a
+    burst must not raise the notice."""
+    if delivery.state in _NOT_THROUGH:
+        return True
+    return delivery.state is DeliveryState.RETRYING and delivery.attempts >= 1
+
+
+def _newest_delivery(
     channel_id: str, entries: tuple[HistoryEntry, ...]
-) -> DeliveryState | None:
+) -> DeliveryRecord | None:
     """Entries are newest first, so the first delivery found on the channel is its newest.
     A dropped or still-pending delivery says nothing about whether the channel works, so
     the search goes on past it."""
@@ -70,7 +78,7 @@ def _newest_delivery_state(
                 DeliveryState.PENDING,
                 DeliveryState.DROPPED,
             ):
-                return delivery.state
+                return delivery
     return None
 
 
@@ -78,7 +86,7 @@ def _row_of(entry: HistoryEntry) -> AlertHistoryRow:
     alert = entry.record.alert
     return AlertHistoryRow(
         entry.record.alert_id,
-        entry.record.last_at,
+        alert.at,
         alert.kind,
         alert.severity,
         _subject_text(

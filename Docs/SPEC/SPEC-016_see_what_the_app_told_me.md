@@ -19,9 +19,9 @@ Status: Current
 ## 3. Main flow
 
 1. The owner opens the Alerts mode.
-2. The app reads the stored alerts off the UI thread and shows them newest first: time, severity in words (Info, Warning, Critical), what it was about, the alert's title (with how many times it happened when more than once) and, per channel, where it stands: delivered, waiting, retrying ×n, failed ×n, expired or dropped.
+2. The app reads the stored alerts off the UI thread and shows them newest first: the time it was first raised, severity in words (Info, Warning, Critical), what it was about, the alert's title (with how many times it happened when more than once) and, per channel, where it stands: delivered, waiting, retrying ×n, failed ×n, expired or dropped.
 3. Above the table one line names every configured channel as working or failing, with how many deliveries are waiting.
-4. When a channel's newest delivery did not get through, a notice says which channel and points to Tools → Options → Alerts.
+4. When a channel's newest real delivery did not get through (failed, expired, or retrying after a failed try; a wait the platform or the pacing asked for is not a failure), a notice says which channel and points to Tools → Options → Alerts.
 5. The owner narrows the list with the severity filter (All, Warning and above, Critical only); no second read is made.
 6. The list is read again every fifteen seconds and when the owner presses Refresh.
 
@@ -55,7 +55,7 @@ The owner can say, from the screen alone, which alerts were raised, which channe
 | :--- | :--- | :--- |
 | The history read model, channel health | `tests/unit/modules/alerting/application/test_outbox_alert_history.py` | unit |
 | The screen: words, filter, notice, failed read, stale answer | `tests/unit/modules/alerting/ui/history/test_alerts_screen.py` | unit |
-| The frames, light and dark, three window sizes | `tests/unit/modules/alerting/ui/history/test_alerts_frames.py` | unit |
+| The frames, light and dark, three window sizes | `tests/integration/modules/alerting/test_alerts_frames.py` | integration |
 | The module contributes the screen; the surface is the shell's | `tests/unit/modules/alerting/test_alerting_module.py` | unit |
 | The workbench rules hold with the mode present | `tests/integration/presentation/ui/test_workbench_conformance.py` | integration |
 | **The user runs it:** store a Discord webhook the network cannot reach, let any alert be raised (a bot halting), open Alerts and see the Discord line say failing, the notice name Discord and the alert's Delivery cell say retrying or failed | — | manual |

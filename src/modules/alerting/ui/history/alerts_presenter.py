@@ -83,19 +83,31 @@ class AlertsPresenter(BasePresenter):
         """Another mode may have taken the window since: nothing reads while the list cannot be
         seen."""
         if self._view.isVisible():
-            self.refresh()
+            self._start_read()
 
     @Slot()
     @safe_ui_action
     def refresh(self) -> None:
+        """A read the owner asked for (Refresh, or the mode shown): says it is reading and
+        greys the button. The timer's reads are silent, so the list does not jump every 15 s."""
+        if self._reading:
+            return
+        self._view.refresh_button.setEnabled(False)
+        self._view.show_history_note(history_words.READING)
+        self._start_read()
+
+    def _start_read(self) -> None:
         """Asks for a fresh read unless one is already out."""
         if self._reading:
             return
         self._reading = True
         action = self._tracker.begin_action(_READ, None, None)
-        self._view.refresh_button.setEnabled(False)
-        self._view.show_history_note(history_words.READING)
-        self._thread_manager.submit(self._read_history_on_pool, action.action_id)
+        try:
+            self._thread_manager.submit(self._read_history_on_pool, action.action_id)
+        except Exception:
+            self._reading = False
+            self._view.refresh_button.setEnabled(True)
+            raise
 
     def shutdown(self) -> None:
         """Answers still in flight are dropped, and none is delivered after this."""

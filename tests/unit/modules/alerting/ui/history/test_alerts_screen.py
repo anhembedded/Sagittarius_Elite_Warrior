@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.history.alerts_wor
     AlertsScreen,
     build_screen,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_page_world import (
+    InlineThreads,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
     an_alert,
     bot_subject,
@@ -202,3 +205,40 @@ def test_nothing_is_read_until_the_mode_is_shown_and_nothing_while_it_is_hidden(
     screen.view.show()
     screen.presenter._refresh_if_visible()
     assert history.reads == 2
+
+
+def test_the_timers_read_is_silent_and_a_refresh_the_owner_asked_for_is_not(
+    screen: AlertsScreen,
+) -> None:
+    """No flash of a status line and no greyed button four times a minute."""
+    screen.view.show()
+    screen.threads.held = []
+
+    screen.presenter._refresh_if_visible()
+
+    assert len(screen.threads.held) == 1
+    assert screen.view.history_note == ""
+    assert screen.view.refresh_button.isEnabled()
+    screen.threads.held[0]()  # the answer arrives
+    screen.threads.held = []
+
+    screen.refresh()
+
+    assert screen.view.history_note == history_words.READING
+    assert not screen.view.refresh_button.isEnabled()
+
+
+def test_a_pool_that_refuses_the_read_does_not_leave_the_screen_stuck(
+    screen: AlertsScreen,
+) -> None:
+    class _Refusing(InlineThreads):
+        def submit(self, task, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("pool is shut down")
+
+    screen.presenter._thread_manager = _Refusing()
+
+    with pytest.raises(RuntimeError):
+        screen.presenter._start_read()
+
+    assert screen.view.refresh_button.isEnabled()
+    assert not screen.presenter._reading

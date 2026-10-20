@@ -14,12 +14,12 @@
 A failure to deliver was a log line: the owner could not see what was sent, to which channel, or that one channel had stopped working (`EPIC-036` README, "Today" table). `IOutbox.history` already stores it all.
 
 ## 2. Acceptance criteria
-- [x] **A read model** answers the newest alerts with, per alert, where it stands on each channel, and a health per channel (failing when its newest real delivery is retrying, failed or expired; pending and dropped say nothing). (`test_outbox_alert_history.py`, over the real hub, worker and outbox)
-- [x] **The Alerts mode** lists the alerts newest first in words (time, severity, about, alert with its count, delivery per channel); an alert that reached no channel says so. (`test_alerts_screen.py`)
+- [x] **A read model** answers the newest alerts with, per alert, where it stands on each channel, and a health per channel (failing when its newest real delivery is failed, expired, or retrying after a failed try; pending, dropped and a wait the platform or the pacing asked for say nothing: `test_a_newer_alert_still_waiting_does_not_hide_a_failure` and its siblings, mutation-checked). (`test_outbox_alert_history.py`, over the real hub, worker and outbox)
+- [x] **The Alerts mode** lists the alerts newest first in words (the time it was first raised, severity, about, alert with its count, delivery per channel); an alert that reached no channel says so. (`test_alerts_screen.py`)
 - [x] **A channel line** names every channel working or failing with how many deliveries wait, and a **notice** appears only while a channel fails, naming it; it goes when the channel recovers. (`test_a_failing_channel_gets_a_notice_that_names_it`, `test_the_notice_goes_when_the_channel_recovers`)
 - [x] **A severity filter** narrows the rows without a second read. (`test_the_filter_narrows_what_is_shown_without_reading_again`; mutation: `>=` to `>` turns it red)
-- [x] **The read runs off the UI thread**, one at a time, fenced, dropped after `shutdown()`, and a failed read keeps the list and says the exception's type only. (`test_a_read_in_flight_is_not_asked_twice`, `test_an_answer_after_shutdown_is_dropped`, `test_an_answer_for_a_read_that_is_no_longer_current_is_dropped` (mutation: fence removed turns it red), `test_a_failed_read_is_told_by_type_and_keeps_the_screen_alive`)
-- [x] **Frames**: light and dark at 1024×700, 1366×768 and 1920×1080, not blank, no horizontal scroll, the notice shown whole. (`test_alerts_frames.py`; the pictures are kept in the CI artifact `ui-screenshots`)
+- [x] **The read runs off the UI thread**, when the mode is shown and then every 15 s while it is visible, silently, one at a time, fenced, dropped after `shutdown()`, and a failed read keeps the list and says the exception's type only. (`test_a_read_in_flight_is_not_asked_twice`, `test_an_answer_after_shutdown_is_dropped`, `test_an_answer_for_a_read_that_is_no_longer_current_is_dropped` (mutation: fence removed turns it red), `test_a_failed_read_is_told_by_type_and_keeps_the_screen_alive`)
+- [x] **Frames**: light and dark at 1024×700, 1366×768 and 1920×1080, not blank, no horizontal scroll, the notice shown whole. (`tests/integration/modules/alerting/test_alerts_frames.py`, an integration test so the `Rest` part keeps the pictures in the CI artifact `ui-screenshots`, named `alerts_preview…`)
 - [x] **Wired**: the module contributes the screen, the shell declares the surface and the view's copy equals it, `IAlertHistory` is bound. (`test_alerting_module.py`; the workbench conformance suite passes with the mode present, except the `[True-1024x700]` case that fails on `master-warrior` too)
 - [ ] **The owner's look at the real window** (SPEC-016 §8, "the user runs it"): not run.
 
@@ -47,7 +47,7 @@ Checked `.claude/rules/capabilities.md`: `used SpecTable`, `RowTableModel`, `Wor
 | `Docs/HLD/11_desktop_workbench.md`, `Docs/SPEC/SPEC-016…`, `Docs/MODULES/alerting/*` | the mode, the journey, the design |
 
 ## 5. Testing
-Unit: `test_outbox_alert_history.py`, `test_alerts_screen.py`, `test_alerts_frames.py`, `test_alerting_module.py`. Architecture guards (incl. the duplication ratchet and the preview rule) and the workbench conformance suite run locally; the full gate is GitHub Actions'. Not run: the real window by the owner.
+Unit: `test_outbox_alert_history.py`, `test_alerts_screen.py`, `test_alerting_module.py`; integration: `test_alerts_frames.py`. Architecture guards (incl. the duplication ratchet and the preview rule) and the workbench conformance suite run locally; the full gate is GitHub Actions'. Not run: the real window by the owner.
 
 ## 6. Docs touched
 `Docs/MODULES/alerting/` README, 05-building-blocks, 06-runtime, 10-quality; `Docs/HLD/11_desktop_workbench.md` (the mode table and the View menu row); `Docs/SPEC/SPEC-016` and the SPEC index.
