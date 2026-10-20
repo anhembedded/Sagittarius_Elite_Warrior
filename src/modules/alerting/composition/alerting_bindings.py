@@ -84,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidat
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_alert_source import (
     StreamAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.system_alert_source import (
+    SystemAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
@@ -114,6 +117,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_wakeup 
     IDeliveryWakeup,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_system_failure_reporter import (
+    ISystemFailureReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
 )
@@ -259,6 +265,12 @@ def bind_alerting(container: IContainer) -> None:
     container.singleton(
         StreamAlertSource,
         lambda resolver: StreamAlertSource(
+            resolver.resolve(IAlertPublisher), resolver.resolve(IAlertClock)
+        ),
+    )
+    container.singleton(
+        ISystemFailureReporter,
+        lambda resolver: SystemAlertSource(
             resolver.resolve(IAlertPublisher), resolver.resolve(IAlertClock)
         ),
     )

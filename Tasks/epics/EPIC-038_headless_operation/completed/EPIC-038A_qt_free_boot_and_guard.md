@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** [SPEC-011](../../../../Docs/SPEC/SPEC-011_start_the_app_and_choose_developer_mode.md) is read for the GUI boot journey this must not change; SPEC-015 (new, written by 038D) covers the headless one.
 **Design:** [DESIGN §1, §3, §13](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§16](../RESEARCH_2026-10-09_headless_operation.md)
-**Depends on:** owner decisions O6 (a headless requirements file is a dependency change) and O7 (no Engine change). Coordinates with [`EPIC-036B`](../../EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md), which deletes `notification_event_handler.py`.
+**Depends on:** owner decisions O6 (a headless requirements file is a dependency change) and O7 (no Engine change). Coordinates with [`EPIC-036B`](../../EPIC-036_alerting_module/completed/EPIC-036B_alert_sources.md), which deletes `notification_event_handler.py`.
 
 ---
 

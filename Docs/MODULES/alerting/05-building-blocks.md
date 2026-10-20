@@ -181,6 +181,16 @@ The Options page (`EPIC-036D1`) added:
   (`alerting/adapters/worker_liveness.py` → `WorkerLiveness`, `STALL_AFTER`) is the one stamp per
   worker thread that `ThreadedDeliveryHost` touches after each pass.
 
+- **The app's own failures** (`EPIC-036B`): `SystemAlertSource`
+  (`alerting/application/sources/system_alert_source.py` → `SystemAlertSource`,
+  `SystemAlertSource.report_failure`) implements `ISystemFailureReporter`
+  (`alerting/contracts/i_system_failure_reporter.py`). It does not subscribe: a task failure, a
+  failed sync and a UI slot's error are no module's contract event, and their text is
+  normalised once in the shell (`shell/system_error_report.py`), so the shell's `SystemFailureRelay`
+  (`shell/system_failure_relay.py` → `SystemFailureRelay`) hears them and calls the port. One
+  `APP_FAILURE` alert, CRITICAL, subject `app`, deduped by the failing source's name so a loop is
+  one record with a counter. The in-app toast is a second consumer of the relay, not an
+  `IAlertChannel`: a notice inside the app, with no use for an outbox that holds 24 h.
 - **The heartbeat and the daily summary** (`EPIC-036E`): `HeartbeatService`
   (`alerting/application/heartbeat_service.py` → `HeartbeatService`, `HeartbeatService.tick`) runs on the
   housekeeping thread, before the hub's flush (`alerting_bindings.py` → `_housekeeping_of`). It asks
@@ -199,7 +209,6 @@ and the switch's among them.
 
 | Class | Where | Task |
 | :--- | :--- | :--- |
-| `SystemAlertSource` (replaces `NotificationEventHandler`), the market-data stream's `PRICE_FEED_STALE`, the rate-limit pause, the revoked key and the storage pause as kinds of their own, the full (state, reason) table | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

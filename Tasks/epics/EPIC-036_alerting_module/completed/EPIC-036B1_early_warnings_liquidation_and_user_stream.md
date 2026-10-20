@@ -4,7 +4,7 @@
 **Source:** the coordinator session `session_016sGQHsRy729Fp4cY1cTXfu`, 2026-10-20: decision N5 and 026N of [`REVIEW_2026-10-20_what_is_still_missing.md`](../../EPIC-026_road_to_real_money/REVIEW_2026-10-20_what_is_still_missing.md) — liquidation warnings below `CRITICAL` and `UserStreamWatch`'s own alert belong to `EPIC-036B`; the owner runs bots unattended on a VPS and early warnings were only in the log.
 **Risk:** 🟢 — reads two events that exist; no order, stop or close path, no new setting or dependency
 **Complexity:** S
-**Epic:** [EPIC-036](../README.md); split from [EPIC-036B](../incomplete/EPIC-036B_alert_sources.md), which keeps the rest of the sources
+**Epic:** [EPIC-036](../README.md); split from [EPIC-036B](../completed/EPIC-036B_alert_sources.md), which keeps the rest of the sources
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (the journey row for the warnings)
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md); the decision is [`DECISION_2026-10-20_early_warnings.md`](../DECISION_2026-10-20_early_warnings.md) (an agent decision the owner may veto)
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md); reads `BotRiskChangedEvent` (`EPIC-039F`) and `UserStreamHealthEvent` (`EPIC-035B`)

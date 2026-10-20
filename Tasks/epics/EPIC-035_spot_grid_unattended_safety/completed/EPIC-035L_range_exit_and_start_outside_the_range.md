@@ -6,7 +6,7 @@
 **Complexity:** M — two verdicts, their wording in the Plan panel, one alert, SPEC
 **Epic:** [EPIC-035](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task
-**Depends on:** [EPIC-036B](../../EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) (which superseded the cancelled [EPIC-035K](../cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md)) for the range-exit alert only; the two Start verdicts depend on nothing and may land first as their own PR
+**Depends on:** [EPIC-036B](../../EPIC-036_alerting_module/completed/EPIC-036B_alert_sources.md) (which superseded the cancelled [EPIC-035K](../cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md)) for the range-exit alert only; the two Start verdicts depend on nothing and may land first as their own PR
 
 ---
 

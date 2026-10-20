@@ -380,7 +380,7 @@ The bot's context menu in the Bots list gains **Alerts: On / Critical only / Off
 
 | # | Decision | Task |
 | :--- | :--- | :--- |
-| N1 | A module `src/modules/alerting`; Telegram moves into it; the in-app `INotifier` stays | [036A](completed/EPIC-036A_alerting_core.md), [036B](incomplete/EPIC-036B_alert_sources.md) |
+| N1 | A module `src/modules/alerting`; Telegram moves into it; the in-app `INotifier` stays | [036A](completed/EPIC-036A_alerting_core.md), [036B](completed/EPIC-036B_alert_sources.md) |
 | N2 | A persistent outbox (SQLite in `data_root/state`); alerts older than 24 h expire | 036A |
 | N3 | The Telegram token moves to the keyring (migrated once from config); the Discord webhook in the keyring only | [036A](completed/EPIC-036A_alerting_core.md), [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) |
 | N4 | Defaults: CRITICAL loud, WARNING silent, heartbeat 6 h, no quiet-hours preset | 036A, [036E](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
@@ -392,7 +392,7 @@ The bot's context menu in the Bots list gains **Alerts: On / Critical only / Off
 ## 14. Task split
 Each task is one pull request, in dependency order:
 1. [036A](completed/EPIC-036A_alerting_core.md) — the core: module, `Alert`, `IAlertChannel`, `AlertHub`, outbox, worker, `ISecretStore` to core; proved by a `FakeChannel`.
-2. [036B](incomplete/EPIC-036B_alert_sources.md) — the sources; `SystemAlertSource` replaces `NotificationEventHandler`.
+2. [036B](completed/EPIC-036B_alert_sources.md) — the sources; `SystemAlertSource` replaces `NotificationEventHandler`.
 3. [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) — Discord, Telegram moved, token to the keyring, no secret in any log.
 4. [036D](incomplete/EPIC-036D_alerts_ui.md) — Options page, dock, indicator, per-bot mute, previews.
 5. [036E](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) — heartbeat, dead man's switch, summary; with or after `EPIC-035W`.

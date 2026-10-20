@@ -4,11 +4,13 @@
 skinparam componentStyle rectangle
 left to right direction
 [shell] as SH
+[shell:\nSystemFailureRelay] as SR
 [bots/contracts] as BC
 [operations:\nAlertingAlertChannels] as OA
 actor Owner as O
 [alerting] as A
 SH --> A : lists AlertingModule
+SR --> A : ISystemFailureReporter\nreport_failure
 A ..> BC : reads BotChangedEvent,\nBotStopGaveUpEvent,\nGetBotStatusReportQuery
 OA --> A : IAlertingStatus\ncarries_bot_events
 O --> A : `alert test`,\nhealth snapshot

@@ -42,7 +42,7 @@
 
 ## 8. Grid bots fail silently on stops
 - A Gainium grid bot's stop loss did not execute because of an exchange-specific bug (Binance US); stopping a grid bot left the deal open with no prompt.
-- **Design consequence:** `AlertKind.STOP_FAILED` (CRITICAL) fires when a Stop or stop loss does not complete, or leaves orders or balance behind. The owner hit this class of defect on 2026-10-08 (`BUG-191`, a stop loss missed on a wick). → 036A, [036B](incomplete/EPIC-036B_alert_sources.md)
+- **Design consequence:** `AlertKind.STOP_FAILED` (CRITICAL) fires when a Stop or stop loss does not complete, or leaves orders or balance behind. The owner hit this class of defect on 2026-10-08 (`BUG-191`, a stop loss missed on a wick). → 036A, [036B](completed/EPIC-036B_alert_sources.md)
 - Sources: https://community.gainium.io/t/stop-loss-in-grid-bot-not-executing-binanceus/1079 · https://community.gainium.io/t/grid-bot-failed-to-close-the-deal-when-you-stop-the-bot/1965 · https://intercom.help/pionex/en/articles/15500905-grid-trading-bot-faq
 
 ## 9. Alert fatigue
