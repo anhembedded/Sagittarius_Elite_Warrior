@@ -2,7 +2,7 @@
 
 Capability: Show a time in the user's display timezone
     Also: timezone, utc offset, local time, datetime format
-    Use: get_display_timezone_label, get_supported_timezones, format_display_datetime, get_utc_offset_seconds, to_display_time, display_zone_name
+    Use: get_display_timezone_label, system_zone_name_at, get_supported_timezones, format_display_datetime, get_utc_offset_seconds, to_display_time, display_zone_name
     User: src/modules/backtesting/ui/view_models/time_range_view_model.py
     Status: stable
 """
@@ -73,10 +73,12 @@ def _offset_text(offset: timedelta) -> str:
     return f"UTC{sign}{hours:02d}:{rest:02d}"
 
 
-def get_system_timezone_name() -> str:
-    """The machine's zone as it is now, for a label: the platform's name and the UTC offset
-    (`EDT, UTC-04:00`; `UTC+07:00` when the platform's name is the offset itself)."""
-    local = to_display_time(datetime.now(UTC), SYSTEM_TIMEZONE_KEY)
+def system_zone_name_at(moment: datetime) -> str:
+    """The machine's zone as it reads at `moment`, for a text that shows that moment: the
+    platform's name and the UTC offset in force then (`EST, UTC-05:00` in January, `EDT,
+    UTC-04:00` in July; `UTC+07:00` when the platform's name is the offset itself). The name
+    comes from the same conversion that wrote the time (`BUG-239`)."""
+    local = to_display_time(moment, SYSTEM_TIMEZONE_KEY)
     offset = local.utcoffset()
     if offset is None:
         return DEFAULT_TIMEZONE
@@ -88,11 +90,18 @@ def get_system_timezone_name() -> str:
     return f"{abbreviation}, {_offset_text(offset)}"
 
 
-def display_zone_name(tz_name: str) -> str:
-    """The zone `tz_name` really shows times in, by name ("UTC" when it cannot be resolved): a
-    text that names its zone must name the one it was written in."""
+def get_system_timezone_name() -> str:
+    """The machine's zone as it is now: the label of the *setting* in a picker, which names
+    the zone the person is in today. A text that shows a moment uses `system_zone_name_at`."""
+    return system_zone_name_at(datetime.now(UTC))
+
+
+def display_zone_name(tz_name: str, moment: datetime) -> str:
+    """The zone `tz_name` shows `moment` in, by name ("UTC" when it cannot be resolved): a
+    text that names its zone must name the one it was written in, and under "System" the
+    offset is the one in force at `moment`, not today's."""
     if tz_name == SYSTEM_TIMEZONE_KEY:
-        return get_system_timezone_name()
+        return system_zone_name_at(moment)
     return _named_zone(tz_name).key
 
 
