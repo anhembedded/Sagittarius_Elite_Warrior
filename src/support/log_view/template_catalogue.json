@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 801, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 802, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -70,6 +70,7 @@
 ["sss", "Armed live strategy '", "' on ", " ", "."],
 ["s", "Background failure with no message bar to show it: ", " [notice-unhosted]"],
 ["ss", "Background failure, shown in the ", " message bar: ", " [notice-bar]"],
+["ss", "Backtest ", " ended with an answer nobody reads: ", ""],
 ["sssss", "Backtest ", ": ", " ", " ", " to ", ""],
 ["ss", "Backtest ", ": syncing ", ""],
 ["s", "Backtest chart host initialized for symbol '", "'."],

@@ -8,6 +8,7 @@ account. It knows nothing of a run; the presenter asks it what the sandbox is an
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
@@ -38,18 +39,26 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class KindSources:
+    """Where the workbench finds a kind and its editor: by the id the catalog knows it by."""
+
+    kind: Callable[[str], IBotKind]
+    #: A new instance of the kind's parameter editor.
+    editor: Callable[[str], BotKindPanel]
+
+
 class SandboxEditing:
     """@brief The sandbox, its editor and its verdicts."""
 
     def __init__(
         self,
         view: BacktestWorkbenchView,
-        kinds: Callable[[str], IBotKind],
-        editors: Callable[[str], BotKindPanel],
+        kinds: KindSources,
     ) -> None:
         self._view = view
-        self._kinds = kinds
-        self._editors = editors
+        self._kinds = kinds.kind
+        self._editors = kinds.editor
         self._session = SandboxSession()
         self._editor_kind = ""
         self.verdicts: tuple[Verdict, ...] = ()
@@ -65,6 +74,17 @@ class SandboxEditing:
 
     def follow(self, selection: WorkbenchSelection) -> SandboxFollow:
         return self._session.follow(selection.bot)
+
+    def copies(self, selection: WorkbenchSelection) -> bool:
+        """Whether `selection` is the bot this sandbox was copied from, as it is now: its market
+        numbers are then the ones the sandbox is judged by."""
+        bot, plan = selection.bot, self._session.plan
+        return (
+            bot is not None
+            and plan is not None
+            and (bot.bot_id, bot.venue, bot.symbol)
+            == (plan.source_bot_id, plan.venue, plan.symbol)
+        )
 
     def show_copy(self) -> None:
         """Puts the kind's editor, venue profile and the copy's parameters in the setup column."""

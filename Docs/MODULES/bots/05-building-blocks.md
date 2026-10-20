@@ -82,7 +82,8 @@ kind's backtester through `bots/application/queries/run_backtest/` → `RunBackt
 `backtest_workbench_presenter.py` → `BacktestWorkbenchPresenter` owns one fence for the page's
 background work (`ActionOwnershipTracker`); `backtest_run_coordinator.py` →
 `BacktestRunCoordinator` runs the query or the candle sync off the UI thread and answers with the
-action's id; `sandbox_editing.py` → `SandboxEditing` holds the `SandboxSession`, the editor and the
+action's id (the page is handed `WorkbenchPorts.run_query`, a function of the one query, never a
+dispatcher, so no command is in reach by type); `sandbox_editing.py` → `SandboxEditing` holds the `SandboxSession`, the editor and the
 verdicts; what the page says is one value, `workbench_state.py` → `WorkbenchState`, which the view
 applies (`controls_of`). The run's lifecycle is `backtest_run_fsm_matrix.py` → `RunActivity`,
 `RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The page is not yet shown

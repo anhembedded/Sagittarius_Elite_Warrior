@@ -143,3 +143,9 @@ class FillsTableModel(RowTableModel[BacktestFill]):
             "Resting" if row.maker else "Market",
         )
         return values[column]
+
+
+def missing_candles(outcome: BacktestOutcome | None) -> int:
+    """How many candles of the period the replay found not stored (`0` for none, or no outcome)."""
+    window = outcome.provenance.window if outcome is not None else None
+    return window.missing_candles if window is not None else 0

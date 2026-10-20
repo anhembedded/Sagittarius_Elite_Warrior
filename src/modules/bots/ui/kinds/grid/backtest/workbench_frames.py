@@ -22,12 +22,10 @@ import sys
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import cast
 
 from PySide6.QtCore import QDateTime, QTimeZone
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
 )
@@ -52,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_answer import (
+    BacktestAnswer,
     BacktestRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -118,17 +117,15 @@ _CREATED = datetime(2026, 9, 1, tzinfo=UTC)
 _PRICE = Decimal(65000)
 
 
-class _Scripted(ICommandDispatcher):
+class _Scripted:
     """Answers each backtest with the next canned answer; a callable is given the query."""
 
     def __init__(self, *answers: _Answer) -> None:
         self._answers = list(answers)
 
-    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+    def __call__(self, query: RunBacktestQuery) -> BacktestAnswer:
         answer = self._answers.pop(0)
-        if callable(answer) and isinstance(input_dto, RunBacktestQuery):
-            return answer(input_dto)
-        return answer
+        return cast(BacktestAnswer, answer(query) if callable(answer) else answer)
 
 
 def candles_refusal(query: RunBacktestQuery) -> object:

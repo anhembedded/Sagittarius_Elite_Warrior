@@ -5,12 +5,19 @@ the judge; this pins them through the page)."""
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
+from decimal import Decimal
 from typing import Any
 
 import pytest
 from PySide6.QtCore import Qt
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
+    WorkbenchSelection,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.backtest.sandbox_fixtures import (
     SAVED,
+    bot,
+    market,
 )
 
 from .workbench_fixtures import WorkbenchWorld, build_workbench, selection
@@ -172,3 +179,79 @@ def test_the_page_says_whose_fees_a_run_charges(world: WorkbenchWorld) -> None:
 
     assert "your account's fees" in world.workbench.view.source.text()
     assert "maker 0.10%, taker 0.10%" in world.workbench.view.source.text()
+
+
+def _other_symbol_selection(bot_id: str) -> WorkbenchSelection:
+    other = replace(bot(bot_id), symbol="ETHUSDT")
+    planner = market()
+    terms = replace(planner.terms, maker_fee=Decimal("0.002"), min_notional=Decimal(7))
+    return WorkbenchSelection(other, replace(planner, terms=terms))
+
+
+def test_keeping_edits_across_another_bot_keeps_the_sandbox_with_its_own_markets_numbers(
+    world: WorkbenchWorld, qtbot: Any
+) -> None:
+    """The sandbox copies bot A; bot B's symbol has other tick, step, notional and fees. The run is
+    A's symbol, so it is judged and replayed by A's numbers, not B's."""
+    view = world.workbench.view
+    first = selection("a3f9c1")
+    world.workbench.follow(first)
+    _edit(world, upper="71000")
+    world.workbench.follow(_other_symbol_selection("b7e2d4"))
+    qtbot.mouseClick(view.keep_button, Qt.MouseButton.LeftButton)
+    world.workbench.follow(_other_symbol_selection("b7e2d4"))
+
+    qtbot.mouseClick(view.run_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+
+    sent = world.dispatcher.queries[-1].request
+    assert sent.symbol == "BTCUSDT" and sent.terms == first.market.terms
+    assert "maker 0.10%" in view.source.text()
+
+
+def test_a_run_in_flight_when_the_question_opens_finishes_for_the_sandboxs_own_bot(
+    world: WorkbenchWorld, qtbot: Any
+) -> None:
+    view = world.workbench.view
+    first = selection("a3f9c1")
+    world.workbench.follow(first)
+    _edit(world, upper="71000")
+    qtbot.mouseClick(view.run_button, Qt.MouseButton.LeftButton)
+
+    world.workbench.follow(_other_symbol_selection("b7e2d4"))
+    world.pool.run_all()
+
+    assert view.question.isVisibleTo(view) and not view.run_button.isEnabled()
+    assert view.status.text() == "Backtest done."
+    assert view.summary_text()["candles"] == "96"
+    assert world.dispatcher.queries[-1].request.terms == first.market.terms
+
+
+def test_replacing_the_edits_takes_the_new_bots_market_numbers(
+    world: WorkbenchWorld, qtbot: Any
+) -> None:
+    view = world.workbench.view
+    world.workbench.follow(selection("a3f9c1"))
+    _edit(world, upper="71000")
+    other = _other_symbol_selection("b7e2d4")
+    world.workbench.follow(other)
+
+    qtbot.mouseClick(view.replace_button, Qt.MouseButton.LeftButton)
+    qtbot.mouseClick(view.run_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+
+    sent = world.dispatcher.queries[-1].request
+    assert sent.symbol == "ETHUSDT" and sent.terms == other.market.terms
+    assert "maker 0.20%" in view.source.text()
+
+
+def test_the_same_bot_id_on_another_symbol_is_not_the_sandboxs_source(
+    world: WorkbenchWorld,
+) -> None:
+    first = selection("a3f9c1")
+    world.workbench.follow(first)
+    _edit(world, upper="71000")
+
+    world.workbench.follow(_other_symbol_selection("a3f9c1"))
+
+    assert "maker 0.10%" in world.workbench.view.source.text()

@@ -310,3 +310,33 @@ def test_a_sync_that_raised_is_told_as_a_sync_failure(qtbot: Any) -> None:
     assert (notice.kind, notice.cause) == (FailureKind.COMMAND, "bots.backtest.sync")
     assert "sync" in notice.headline and "timed out" not in notice.headline
     world.workbench.shutdown()
+
+
+def test_cancel_with_nothing_running_does_nothing(world: WorkbenchWorld) -> None:
+    """A shortcut or a menu command can reach Cancel while the button is off."""
+    world.workbench.follow(selection())
+
+    world.workbench.view.cancel_requested.emit()
+
+    assert world.workbench.view.status.text() == ""
+    assert _buttons(world.workbench.view) == {"Run backtest": True, "Cancel": False}
+
+
+def test_a_run_without_funding_that_needs_a_sync_runs_again_without_funding(
+    qtbot: Any,
+) -> None:
+    world = build_workbench(stored=False, storing_sync=True)
+    view = world.workbench.view
+    qtbot.addWidget(view)
+    world.workbench.follow(selection())
+    view.run_without_funding_requested.emit()
+    world.pool.run_all()
+
+    qtbot.mouseClick(view.sync_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+
+    assert [q.request.funding for q in world.dispatcher.queries] == [
+        FundingRequirement.OPTIONAL,
+        FundingRequirement.OPTIONAL,
+    ]
+    world.workbench.shutdown()

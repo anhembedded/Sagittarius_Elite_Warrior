@@ -6,7 +6,9 @@ whose action is no longer the current one is dropped and logged. So:
 · **Cancel** invalidates the action before it stops the worker: a cancelled run publishes nothing, and
   the last result stays on screen (the state before the run, never a blank).
 · **Another bot selected** ends the run the same way and clears the result: a result is only ever shown
-  beside the bot it was run for. A bot whose edits would be thrown away asks first (`SandboxSession`).
+  beside the bot it was run for. A bot whose edits would be thrown away asks first (`SandboxSession`);
+  until the answer the sandbox stays the source bot's, judged and replayed with the market numbers
+  that bot came with (`_world`), and a run in flight finishes for it.
 · **Sync** (offered only after a refusal for candles that are not stored, `BUG-107`) fetches the
   period's candles and its 1-second klines, then runs the same backtest again; "Stop" leaves what it
   stored.
@@ -19,18 +21,15 @@ a plan the symbol's rules refuse is not replayed.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
-    FailureKind,
-    FailureNotice,
     INotifier,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
     KindBacktestRequest,
 )
@@ -59,8 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench import (
     workbench_words as words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_run_coordinator import (
-    SYNCED,
     BacktestRunCoordinator,
+    RunAnswer,
+    Synced,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_run_fsm_matrix import (
     RunActivity,
@@ -69,28 +69,33 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_r
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
     BacktestWorkbenchView,
+    OutcomeShown,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.outcome_view import (
     chart_candles,
     figure_readout,
+    missing_candles,
     result_overlay,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.run_gate import (
+    reason_run_is_off,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.sandbox_editing import (
+    KindSources,
     SandboxEditing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.source_line import (
     source_text,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_failure import (
+    failure_notice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,
-    needs_brackets,
     sync_requests,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_state import (
     WorkbenchState,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
-    BotKindPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -110,16 +115,19 @@ class BacktestWorkbenchPresenter(QObject):
         view: BacktestWorkbenchView,
         coordinator: BacktestRunCoordinator,
         notifier: INotifier,
-        kinds: Callable[[str], IBotKind],
-        editors: Callable[[str], BotKindPanel],
+        kinds: KindSources,
     ) -> None:
         super().__init__(view)
         self._view = view
         self._coordinator = coordinator
         self._notifier = notifier
         self._tracker: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
-        self._sandbox = SandboxEditing(view, kinds, editors)
+        self._sandbox = SandboxEditing(view, kinds)
         self._selection = WorkbenchSelection()
+        #: The selection the sandbox's source bot came with: the market numbers and risk facts it is
+        #: judged and replayed by. Another bot's numbers never replace them while the sandbox keeps
+        #: this bot's edited plan (review of `EPIC-040D`, round 1).
+        self._world = WorkbenchSelection()
         self._activity = RunActivity.IDLE
         self._last: RunBacktestQuery | None = None
         self._outcome: BacktestOutcome | None = None
@@ -140,9 +148,13 @@ class BacktestWorkbenchPresenter(QObject):
         """The Bots screen calls this on every refresh of the selection (its clock, each planner
         answer), so only a new source (another bot, the same bot saved anew) restarts the page."""
         self._selection = selection
-        if self._sandbox.follow(selection) is SandboxFollow.COPIED:
+        followed = self._sandbox.follow(selection)
+        if followed is SandboxFollow.COPIED:
+            self._world = selection
             self._restart()
-        self._sandbox.judge(selection)
+        elif self._sandbox.copies(selection):
+            self._world = selection
+        self._sandbox.judge(self._world)
         self._refresh()
 
     def shutdown(self) -> None:
@@ -163,18 +175,19 @@ class BacktestWorkbenchPresenter(QObject):
     def _on_config_edited(self, config: Mapping[str, str]) -> None:
         if self._sandbox.plan is not None:
             self._sandbox.edit(config)
-            self._sandbox.judge(self._selection)
+            self._sandbox.judge(self._world)
             self._refresh()
 
     def _on_reset(self) -> None:
         self._sandbox.reset()
-        self._sandbox.judge(self._selection)
+        self._sandbox.judge(self._world)
         self._refresh()
 
     def _on_replace_edits(self) -> None:
         self._sandbox.confirm_switch()
+        self._world = self._selection
         self._restart()
-        self._sandbox.judge(self._selection)
+        self._sandbox.judge(self._world)
         self._refresh()
 
     def _on_keep_edits(self) -> None:
@@ -226,6 +239,8 @@ class BacktestWorkbenchPresenter(QObject):
         self._coordinator.start_sync(action.action_id, sync_requests(query.request))
 
     def _on_cancel_requested(self) -> None:
+        if not self._busy():
+            return  # a shortcut or a menu command can reach this with nothing running
         label = self._active_label()
         self._stop(RunEvent.CANCELLED)
         self._refusal = None
@@ -234,7 +249,7 @@ class BacktestWorkbenchPresenter(QObject):
 
     # -- answers -------------------------------------------------------------- #
 
-    def _on_finished(self, action_id: int, answer: object, detail: str) -> None:
+    def _on_finished(self, action_id: int, answer: RunAnswer, detail: str) -> None:
         if not self._tracker.is_current_pending(action_id, _KIND):
             self._tracker.log_stale_callback("_on_finished", action_id, _KIND)
             return
@@ -248,10 +263,10 @@ class BacktestWorkbenchPresenter(QObject):
         )
         if failed:
             self._refusal = BacktestRefusal(words.RUN_FAILED)
-            self._report_failure(label, detail)
-        elif answer == SYNCED:
+            self._notifier.report_failure(failure_notice(label, detail))
+        elif isinstance(answer, Synced):
             self._refresh()
-            self._on_run_requested()
+            self._rerun_after_sync()
             return
         elif isinstance(answer, BacktestOutcome):
             self._show_outcome(answer)
@@ -259,20 +274,24 @@ class BacktestWorkbenchPresenter(QObject):
             self._refusal = answer
         elif isinstance(answer, BacktestCancelled):
             self._note = words.CANCELLED
+        else:
+            logger.error(
+                "Backtest %s ended with an answer nobody reads: %r", action_id, answer
+            )
+            self._refusal = BacktestRefusal(words.RUN_FAILED)
         self._refresh()
 
-    def _report_failure(self, label: str, detail: str) -> None:
-        headline = words.FAILED_HEADLINES.get(label, words.FAILED_HEADLINES["backtest"])
-        self._notifier.report_failure(
-            FailureNotice(
-                FailureKind.COMMAND, f"bots.backtest.{label}", headline, detail=detail
-            )
-        )
+    def _rerun_after_sync(self) -> None:
+        """The same query again with the funding the person chose for it: a run they started
+        without funding is not turned back into one that demands it."""
+        query = self._last
+        if query is not None:
+            self._start_run(query.request.funding)
 
     def _show_outcome(self, outcome: BacktestOutcome) -> None:
         self._outcome, self._refusal, self._note = outcome, None, ""
         query, plan = self._last, self._sandbox.plan
-        market = self._selection.market
+        market = self._world.market
         kind = self._sandbox.kind()
         if query is None or plan is None:
             return
@@ -281,12 +300,14 @@ class BacktestWorkbenchPresenter(QObject):
             overlay = result_overlay(kind, plan, market.terms, outcome)
         request = query.request
         self._view.show_outcome(
-            chart_candles(outcome, request.symbol, request.interval),
-            overlay,
-            outcome.equity,
-            figure_readout(outcome),
-            outcome.notes,
-            outcome.fills,
+            OutcomeShown(
+                chart_candles(outcome, request.symbol, request.interval),
+                overlay,
+                outcome.equity,
+                figure_readout(outcome),
+                outcome.notes,
+                outcome.fills,
+            )
         )
 
     # -- what the page says ---------------------------------------------------- #
@@ -296,7 +317,7 @@ class BacktestWorkbenchPresenter(QObject):
         has_sandbox = self._selection.bot is not None and plan is not None
         pending = self._sandbox.pending_copy
         refusal, outcome = self._refusal, self._outcome
-        missing = _missing_candles(outcome)
+        missing = missing_candles(outcome)
         return WorkbenchState(
             activity=self._activity,
             reason=self._why_not(),
@@ -305,9 +326,7 @@ class BacktestWorkbenchPresenter(QObject):
             offer_without_funding=bool(refusal and refusal.funding_unavailable),
             has_sandbox=has_sandbox,
             changed_fields=plan.changed_fields() if plan is not None else (),
-            source_text=source_text(plan, self._selection.market)
-            if has_sandbox
-            else "",
+            source_text=source_text(plan, self._world.market) if has_sandbox else "",
             question=words.DISCARD_QUESTION if pending is not None else "",
             verdict_lines=tuple(
                 sandbox_line(v)
@@ -334,23 +353,10 @@ class BacktestWorkbenchPresenter(QObject):
 
     def _why_not(self) -> str:
         """Why Run is off; `""` when it is on."""
-        selection, plan = self._selection, self._sandbox.plan
-        if selection.bot is None or plan is None:
-            return words.NO_BOT
-        if self._sandbox.pending_copy is not None:
-            return words.ANSWER_FIRST
-        market = selection.market
-        if market is None or market.terms is None:
-            return words.NO_TERMS
-        if needs_brackets(plan.venue) and (
-            selection.risk is None or selection.risk.brackets is None
-        ):
-            return words.NO_BRACKETS
-        refused = next((v for v in self._sandbox.verdicts if v.refuses), None)
-        return words.refused_plan(refused.reason) if refused is not None else ""
+        return reason_run_is_off(self._selection, self._world, self._sandbox)
 
     def _build_request(self, funding: FundingRequirement) -> KindBacktestRequest | None:
-        plan, market = self._sandbox.plan, self._selection.market
+        plan, market = self._sandbox.plan, self._world.market
         if plan is None or market is None or market.terms is None:
             return None
         start, end = self._view.chosen_period()
@@ -358,7 +364,7 @@ class BacktestWorkbenchPresenter(QObject):
             self._refusal = BacktestRefusal(words.PERIOD_ORDER)
             self._refresh()
             return None
-        risk = self._selection.risk
+        risk = self._world.risk
         return KindBacktestRequest(
             plan.symbol,
             plan.config,
@@ -386,8 +392,3 @@ class BacktestWorkbenchPresenter(QObject):
             self._tracker.invalidate_active()
             self._coordinator.stop()
         self._activity = next_activity(self._activity, event)
-
-
-def _missing_candles(outcome: BacktestOutcome | None) -> int:
-    window = outcome.provenance.window if outcome is not None else None
-    return window.missing_candles if window is not None else 0

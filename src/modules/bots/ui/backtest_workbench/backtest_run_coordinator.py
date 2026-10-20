@@ -17,15 +17,15 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from PySide6.QtCore import QObject, Signal
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_answer import (
+    BacktestAnswer,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
@@ -35,8 +35,20 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.Bots.Backtest")
 
-#: A sync finished: what the coordinator answers in place of a result.
-SYNCED = "synced"
+
+@dataclass(frozen=True, slots=True)
+class Synced:
+    """A candle sync finished: what the coordinator answers in place of a result."""
+
+
+SYNCED = Synced()
+
+#: What `finished` carries: a kind's answer, a finished sync, or `None` when the work raised.
+type RunAnswer = BacktestAnswer | Synced | None
+
+#: The one query the workbench runs; the host binds it to the dispatcher, so the workbench holds no
+#: way to dispatch anything else (`test_backtest_workbench_reaches_no_order_or_account.py`).
+type BacktestRunner = Callable[[RunBacktestQuery], BacktestAnswer]
 
 
 class BacktestRunCoordinator(QObject):
@@ -48,12 +60,12 @@ class BacktestRunCoordinator(QObject):
     def __init__(
         self,
         threads: IThreadManager,
-        dispatcher: ICommandDispatcher,
+        run_query: BacktestRunner,
         sync: IMarketDataSync,
     ) -> None:
         super().__init__()
         self._threads = threads
-        self._dispatcher = dispatcher
+        self._run_query = run_query
         self._sync = sync
         self._cancel = threading.Event()
         self._closed = threading.Event()
@@ -61,8 +73,8 @@ class BacktestRunCoordinator(QObject):
     def start_backtest(self, action_id: int, query: RunBacktestQuery) -> None:
         cancel = self._fresh_cancel()
         run = replace(query, request=replace(query.request, cancelled=cancel.is_set))
-        dispatcher = self._dispatcher
-        self._submit(action_id, lambda: dispatcher.dispatch(RunBacktestQuery, run))
+        run_query = self._run_query
+        self._submit(action_id, lambda: run_query(run))
 
     def start_sync(
         self, action_id: int, requests: tuple[MarketDataSyncRequest, ...]
@@ -70,7 +82,7 @@ class BacktestRunCoordinator(QObject):
         cancel = self._fresh_cancel()
         sync = self._sync
 
-        def work() -> str:
+        def work() -> Synced:
             for request in requests:
                 if cancel.is_set():
                     break
@@ -93,11 +105,11 @@ class BacktestRunCoordinator(QObject):
         self._cancel = threading.Event()
         return self._cancel
 
-    def _submit(self, action_id: int, work: Callable[[], object]) -> None:
+    def _submit(self, action_id: int, work: Callable[[], RunAnswer]) -> None:
         self._threads.submit(self._on_pool, action_id, work)
 
-    def _on_pool(self, action_id: int, work: Callable[[], object]) -> None:
-        answer: object = None
+    def _on_pool(self, action_id: int, work: Callable[[], RunAnswer]) -> None:
+        answer: RunAnswer = None
         detail = ""
         try:
             answer = work()

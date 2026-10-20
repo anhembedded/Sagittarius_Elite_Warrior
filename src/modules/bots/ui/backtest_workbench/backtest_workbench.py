@@ -12,9 +12,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
@@ -23,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_run_coordinator import (
     BacktestRunCoordinator,
+    BacktestRunner,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_presenter import (
     BacktestWorkbenchPresenter,
@@ -30,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
     DEFAULT_INTERVAL,
     BacktestWorkbenchView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.sandbox_editing import (
+    KindSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,
@@ -62,7 +63,9 @@ class WorkbenchPorts:
     read that venue's market."""
 
     thread_manager: IThreadManager
-    dispatcher: ICommandDispatcher
+    #: Runs `RunBacktestQuery` and nothing else: the host passes `lambda q: dispatcher.dispatch(
+    #: RunBacktestQuery, q)`, so the page can reach no command (`EPIC-040D`).
+    run_query: BacktestRunner
     sync: IMarketDataSync
     #: The venue's candle feed the result chart is built on (it only draws).
     feed: ICandleFeed
@@ -91,10 +94,13 @@ class BacktestWorkbench:
             )
         )
         coordinator = BacktestRunCoordinator(
-            ports.thread_manager, ports.dispatcher, ports.sync
+            ports.thread_manager, ports.run_query, ports.sync
         )
         self._presenter = BacktestWorkbenchPresenter(
-            self._view, coordinator, ports.notifier, ports.kinds, ports.editors
+            self._view,
+            coordinator,
+            ports.notifier,
+            KindSources(ports.kinds, ports.editors),
         )
 
     @property

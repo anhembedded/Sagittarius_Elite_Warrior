@@ -3,9 +3,12 @@
 The workbench holds the dispatcher (to run `RunBacktestQuery`) and an editor, so it sits one import
 from a command. Its sandbox core is guarded exactly (`test_sandbox_sends_no_command.py`); this guard
 covers the rest of the package and is an **allow-list over the sensitive families**: a project import
-under `modules/trading`, `modules/bots/application`, `modules/bots/adapters` or `modules/bots/composition`
-must be named in `ALLOWED_SENSITIVE_MODULES`. The runtime half is in the integration test (`EPIC-040C`):
-a sandbox run over watched ports.
+under `modules/trading`, `modules/bots/application`, `modules/bots/adapters`, `modules/bots/composition`,
+`support/binance_gateway`, the bot runner and executor ports, or the command dispatcher must be named in
+`ALLOWED_SENSITIVE_MODULES`. The authority the package holds is narrowed by type: it is handed a
+`Callable[[RunBacktestQuery], BacktestAnswer]`, never a dispatcher, so no command is in reach; and a
+syntax check bans the two things an `IBotKind` offers that start a bot (`executor_factory`,
+`recovery_layer`). The runtime half is the integration test (`EPIC-040C`): a sandbox run over watched ports.
 
 Retire when: never; the ban stays as long as the workbench is a simulation.
 """
@@ -27,7 +30,14 @@ _SENSITIVE = (
     "modules.bots.adapters.",
     "modules.bots.composition.",
     "infrastructure.",
+    "support.binance_gateway.",
+    "modules.bots.contracts.i_bot_executor",
+    "modules.bots.contracts.i_bot_runner",
+    "modules.bots.contracts.i_bot_store",
+    "core.contracts.i_command_dispatcher",
 )
+#: What a kind offers that starts or recovers a bot: never read by the workbench.
+BANNED_ATTRIBUTES = frozenset({"executor_factory", "recovery_layer"})
 
 #: The sensitive modules the workbench may import, and why each is safe.
 ALLOWED_SENSITIVE_MODULES = frozenset(
@@ -36,6 +46,8 @@ ALLOWED_SENSITIVE_MODULES = frozenset(
         "modules.bots.application.queries.get_planner_market.result",
         # the one query the workbench runs: it replays stored candles
         "modules.bots.application.queries.run_backtest",
+        # a value: which venue a bot trades on
+        "support.binance_gateway.contracts.trading_venue",
         # a value: the side of a replayed fill
         "modules.trading.contracts.order_side",
     }
@@ -76,22 +88,27 @@ def test_the_workbench_imports_no_order_account_or_command_code() -> None:
     )
 
 
-def test_the_workbench_dispatches_only_the_backtest_query() -> None:
-    dispatched = []
-    for path in _files():
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "dispatch"
-            ):
-                first = node.args[0] if node.args else None
-                dispatched.append(
-                    (path.name, first.id if isinstance(first, ast.Name) else "?")
-                )
+def _banned_uses(path: Path) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and (node.attr in BANNED_ATTRIBUTES or node.attr == "dispatch")
+    ]
 
-    assert dispatched, "the workbench dispatches nothing: the guard has no subject"
-    assert {name for _, name in dispatched} == {"RunBacktestQuery"}, dispatched
+
+def test_the_workbench_dispatches_nothing_and_never_starts_a_kinds_executor() -> None:
+    found = {
+        path.relative_to(_REPO_ROOT).as_posix(): uses
+        for path in _files()
+        if (uses := _banned_uses(path))
+    }
+
+    assert found == {}, (
+        f"the workbench calls {found}: it is handed the one query it runs, not a dispatcher, "
+        "and it never asks a kind for an executor (`EPIC-040D`)."
+    )
 
 
 def test_every_allowed_module_exists() -> None:
@@ -126,9 +143,27 @@ def test_a_probe_turns_the_scan_red(tmp_path: Path) -> None:
         "adapter.py": f"from {_PREFIX}modules.bots.adapters.venue_fresh_price_reader import VenueFreshPriceReader\n",
         "composition.py": f"import {_PREFIX}modules.bots.composition.executor_bindings\n",
         "handler.py": f"from {_PREFIX}modules.bots.application.queries.get_planner_market.handler import GetPlannerMarketQueryHandler\n",
+        "gateway.py": f"from {_PREFIX}support.binance_gateway.adapters.binance_client import BinanceClient\n",
+        "executor.py": f"from {_PREFIX}modules.bots.contracts.i_bot_executor import IBotExecutor\n",
+        "dispatcher.py": f"from {_PREFIX}core.contracts.i_command_dispatcher import ICommandDispatcher\n",
     }
     for name, source in probes.items():
         probe = tmp_path / name
         probe.write_text(source, encoding="utf-8")
 
         assert unlisted_sensitive_imports(probe) != [], name
+
+
+def test_a_probe_turns_the_attribute_scan_red(tmp_path: Path) -> None:
+    clean = tmp_path / "clean.py"
+    clean.write_text("kind.validate(inputs)\nkind.backtester()\n", encoding="utf-8")
+    assert _banned_uses(clean) == []
+    for name, source in {
+        "executor.py": "kind.executor_factory()\n",
+        "recovery.py": "kind.recovery_layer\n",
+        "dispatch.py": "dispatcher.dispatch(StartBotCommand, command)\n",
+    }.items():
+        probe = tmp_path / name
+        probe.write_text(source, encoding="utf-8")
+
+        assert _banned_uses(probe) != [], name

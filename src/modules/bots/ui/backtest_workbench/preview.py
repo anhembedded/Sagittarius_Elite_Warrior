@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
     BacktestWorkbenchView,
+    OutcomeShown,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_state import (
     WorkbenchState,
@@ -90,7 +91,9 @@ def build_preview() -> QWidget:
     )
     view.show_state(WorkbenchState(status=DONE))
     view.show_outcome(
-        candles, BotOverlay(), equity, readout, ("A sample, not a replay.",), ()
+        OutcomeShown(
+            candles, BotOverlay(), equity, readout, ("A sample, not a replay.",), ()
+        )
     )
     view.setWindowTitle("Backtest workbench — sample result")
     return view

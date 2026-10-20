@@ -204,7 +204,7 @@ def build_workbench(
     workbench = BacktestWorkbench(
         WorkbenchPorts(
             pool,
-            dispatcher,
+            lambda query: dispatcher.dispatch(RunBacktestQuery, query),
             sync,
             feed,
             notifier,

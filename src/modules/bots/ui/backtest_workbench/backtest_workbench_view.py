@@ -13,6 +13,7 @@ Stock controls, no style sheet, no fixed sizes (`ui-presentation-rule.md`).
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import QDateTime, Qt, QTimeZone, Signal
@@ -73,6 +74,18 @@ INTERVALS = (
 DEFAULT_INTERVAL = TimeFrame.FIFTEEN_MINUTES
 _DEFAULT_DAYS = 7
 _UTC = QTimeZone.utc()
+
+
+@dataclass(frozen=True, slots=True)
+class OutcomeShown:
+    """Everything the result panes draw for one outcome."""
+
+    candles: Sequence[MarketData]
+    overlay: BotOverlay
+    equity: Sequence[EquityPoint]
+    readout: Readout
+    notes: Sequence[str]
+    fills: Sequence[BacktestFill]
 
 
 class BacktestWorkbenchView(QWidget):
@@ -196,21 +209,13 @@ class BacktestWorkbenchView(QWidget):
             self._editor_layout.addWidget(editor)
             editor.config_changed.connect(self.config_edited)
 
-    def show_outcome(
-        self,
-        candles: Sequence[MarketData],
-        overlay: BotOverlay,
-        equity: Sequence[EquityPoint],
-        readout: Readout,
-        notes: Sequence[str],
-        fills: Sequence[BacktestFill],
-    ) -> None:
-        self.chart.draw_history(candles)
-        self.chart.show_overlay(overlay)
-        self.equity.show_equity(equity)
-        self.summary.show_readout(readout)
-        self.notes.setText("\n".join(notes))
-        self.fills_model.set_rows(list(fills))
+    def show_outcome(self, shown: OutcomeShown) -> None:
+        self.chart.draw_history(shown.candles)
+        self.chart.show_overlay(shown.overlay)
+        self.equity.show_equity(shown.equity)
+        self.summary.show_readout(shown.readout)
+        self.notes.setText("\n".join(shown.notes))
+        self.fills_model.set_rows(list(shown.fills))
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
