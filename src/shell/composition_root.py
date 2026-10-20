@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Collection
+from importlib import import_module
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
@@ -143,6 +144,12 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 from sagittarius_engine.middleware.pydantic_validation_middleware import (
     PydanticValidationMiddleware,
 )
+
+# `BUG-237`: the middleware import above leaves `pydantic` half-loaded (it loads lazily), and
+# PySide6's import hook, installed later, reads `__wrapped__` of pydantic modules it has not
+# seen, which re-enters `pydantic._internal._validators` mid-import. Finish loading pydantic
+# here, before anything can import PySide6. Guard: `test_pydantic_is_whole_before_pyside_loads`.
+import_module("pydantic.fields")
 
 _INDICATOR_SCRIPTS: Deferred[IndicatorScriptRegistry] = Deferred(
     "Sagittarius_Elite_Warrior.src.shell.indicator_scripts:build_indicator_script_registry"
