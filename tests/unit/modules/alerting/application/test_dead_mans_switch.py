@@ -4,9 +4,11 @@ until a check-in URL is stored, and never names that URL."""
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from collections.abc import Mapping
+from datetime import datetime, timedelta
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch import (
     DEAD_MANS_SWITCH_ID,
     DEAD_MANS_SWITCH_SECRET,
@@ -16,10 +18,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch
     DeadMansSwitch,
     is_check_in_url,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
+    IAlertClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_follow_up import (
     IDeliveryFollowUp,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
+    IWebhookTransport,
     WebhookResponse,
     WebhookUnreachableError,
 )
@@ -267,3 +273,90 @@ def test_the_log_lines_name_the_credential_the_switch_reads(
     [record] = [r for r in caplog.records if "[dead-mans-switch]" in r.getMessage()]
     assert DEAD_MANS_SWITCH_SECRET in record.getMessage()
     assert record.levelno == level
+
+
+class _BreakingTransport(IWebhookTransport):
+    """A transport that breaks the port's promise: it raises something that is not
+    `WebhookUnreachableError`, with the URL in the message as `http.client.InvalidURL` does."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def post_json(self, url: str, body: Mapping[str, JsonValue]) -> WebhookResponse:
+        self.calls += 1
+        raise ValueError(f"URL can't contain control characters: {url}")
+
+
+def test_any_other_transport_error_is_a_failed_ping_and_never_quotes_the_url(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    world = _World()
+    breaking = _BreakingTransport()
+    world.switch = DeadMansSwitch(
+        world.secrets, breaking, world.clock, world.liveness, world.follow_up
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="App.Alerting"):
+        for _ in range(FAILURES_BEFORE_ALERT + 2):
+            world.switch.tick()  # raises nothing
+            world.clock.advance(RETRY_AFTER_FAILURE)
+
+    assert breaking.calls == FAILURES_BEFORE_ALERT + 2  # retried at the 1-minute rhythm
+    [(channel, reason)] = world.follow_up.failing
+    assert channel == DEAD_MANS_SWITCH_ID
+    assert "ValueError" in reason
+    assert CHECK_ID not in reason + caplog.text
+
+
+def test_a_failed_ping_waits_before_the_next_try_whatever_the_error() -> None:
+    world = _World()
+    breaking = _BreakingTransport()
+    world.switch = DeadMansSwitch(
+        world.secrets, breaking, world.clock, world.liveness, world.follow_up
+    )
+
+    world.switch.tick()
+    for _ in range(100):
+        world.switch.tick()  # the clock has not moved: no retry storm
+
+    assert breaking.calls == 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://hc-ping.com/abc def",
+        "https://hc-ping.com/abc\ndef",
+        "https://hc-ping.com/\x00",
+    ],
+    ids=["space", "newline", "nul"],
+)
+def test_a_url_with_whitespace_or_control_characters_is_not_a_check_in_url(
+    value: str,
+) -> None:
+    assert is_check_in_url(value) is False
+
+
+class _SettableClock(IAlertClock):
+    """A wall clock a test can step back, as a clock jump at boot does."""
+
+    def __init__(self, at: datetime) -> None:
+        self.at = at
+
+    def now(self) -> datetime:
+        return self.at
+
+
+def test_a_clock_that_steps_back_does_not_postpone_the_next_ping() -> None:
+    world = _World()
+    clock = _SettableClock(world.clock.now())
+    world.switch = DeadMansSwitch(
+        world.secrets, world.transport, clock, world.liveness, world.follow_up
+    )
+    world.switch.tick()
+    assert world.pings() == 1
+
+    clock.at -= timedelta(hours=1)
+    world.switch.tick()
+
+    assert world.pings() == 2

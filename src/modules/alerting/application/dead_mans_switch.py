@@ -62,7 +62,10 @@ _ON, _OFF, _INVALID = "on", "off", "invalid"
 
 
 def is_check_in_url(value: str) -> bool:
-    """An `https` URL with a host: the only shape a check-in URL has."""
+    """An `https` URL with a host and no whitespace or control character: the only
+    shape a check-in URL has (the transport refuses the rest with an error that quotes it)."""
+    if any(char.isspace() or not char.isprintable() for char in value):
+        return False
     parts = urlsplit(value)
     return parts.scheme == "https" and bool(parts.hostname)
 
@@ -82,6 +85,7 @@ class DeadMansSwitch:
         self._liveness = liveness
         self._follow_up = follow_up
         self._next_at: datetime | None = None
+        self._last_at: datetime | None = None
         self._failures = 0
         self._announced: str | None = None
         self._wedged_logged = False
@@ -90,8 +94,12 @@ class DeadMansSwitch:
         """Ping if a ping is due and the worker is alive. Called from one thread,
         often; does no I/O until a ping is due."""
         now = self._clock.now()
-        if self._next_at is not None and now < self._next_at:
+        # A clock that stepped back (`now < _last_at`) must not postpone the next ping by
+        # the size of the step: that is a false alarm at the monitor.
+        stepped_back = self._last_at is not None and now < self._last_at
+        if self._next_at is not None and now < self._next_at and not stepped_back:
             return
+        self._last_at = now
         if not self._liveness.is_alive():
             if not self._wedged_logged:
                 self._wedged_logged = True
@@ -117,6 +125,10 @@ class DeadMansSwitch:
             response = self._transport.post_json(url, {})
         except WebhookUnreachableError as error:
             self._failed(f"the monitor did not answer ({error})", now)
+            return
+        except Exception as error:  # noqa: BLE001 - the port promises one error, a transport may break it; any other is a failed ping too
+            # Only the type: the message of a transport error can carry the check-in URL.
+            self._failed(f"the ping failed ({type(error).__name__})", now)
             return
         if not response.accepted:
             self._failed(f"the monitor refused the ping (HTTP {response.status})", now)
