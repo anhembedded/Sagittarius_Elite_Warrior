@@ -2,7 +2,6 @@
 
 **Status:** ✅ Done (2026-10-20) — the heartbeat and the daily summary; the dead man's switch was split off as [`EPIC-036E1`](EPIC-036E1_dead_mans_switch.md) and done earlier. The per-bot health inside the heartbeat waits for [`EPIC-035W`](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md), which the owner asked not to start
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N4, N7), relayed by the coordinator session. Absorbs the heartbeat criterion of [`EPIC-035K`](../../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) ("the heartbeat's absence is itself the alert").
-**Board:** A silent INFO heartbeat every 6 h and one daily summary after 01:00 UTC reach the alert channels from the bots' status report; neither `036C` nor `035W` was needed to build them.
 **Risk:** 🟡 — a timer on the alert path
 **Complexity:** M
 **Epic:** [EPIC-036](../README.md)
@@ -50,10 +49,11 @@ Unit over the real hub and outbox with a fake clock and a fake report (`tests/un
 
 - **Dependencies, checked against the tree first.** `036C` (Telegram, embeds, migration) is not in the heartbeat's path: Discord delivers plain text since `036G`. `035W` is not needed to build it: the status report is the model this task was written to read, with a `health` slot reserved. So both are skipped here, not built.
 - **Where it runs.** `HeartbeatService.tick` (`alerting/application/heartbeat_service.py`) is called once a second by the housekeeping thread before the hub's flush (`alerting_bindings.py` → `_housekeeping_of`), so a failing flush cannot hold a heartbeat back and a tick never raises.
-- **Survives a restart** by reading the newest 500 alerts of the outbox; on a day busier than that a restart may repeat one heartbeat (recorded in the class docstring).
-- **Chosen defaults the owner may veto:** the summary hour is **01:00 UTC** (`HeartbeatPolicy.summary_at`; 08:00 in UTC+7), and a summary the app missed is not sent late. The heartbeat period is N4's 6 h. A UI for both belongs to `036D`.
+- **Survives a restart** by asking the outbox (`IOutbox.latest_alert_at`, `has_alert_keyed`) and the summary's alert counts are `alert_counts_since`: exact, not bounded by a history window (three new queries on the port; `SqliteOutbox` is its only implementer). Review round 1 found the first version read the newest 500 rows and so lost the last heartbeat on a busy day.
+- **Chosen constants the owner may change** (implementation constants, reversible, not owner decisions): the summary hour is **01:00 UTC** (`HeartbeatPolicy.summary_at`; 08:00 in UTC+7), and a summary the app missed after a restart is not sent late (a process that keeps running across the hour while stalled still sends it late). The heartbeat period is N4's 6 h. A UI for both belongs to `036D`.
 - **What the message contains** is in `heartbeat_text.py`: counts by state, then each active bot's line; the summary adds earnings (`grid_profit`, cycles, `total_pnl` as the record has them, "not priced yet" when `None`) and the alerts of the last 24 h by kind, heartbeats and summaries excluded.
-- The traceback or error text is never in these messages; an unreadable report names only the error's type.
+- The traceback or error text is never in these messages; an unreadable report names only the error's type, and the run log holds the error with its traceback.
+- **Round 1 of the review changed:** the summary is exempt from quiet hours (held, it arrived as a title in the digest); the counts, unreadable files and alert counts come before the per-bot list and the whole stays under `MAX_DETAIL` (Discord cuts from the end); errors are logged; the integration tests that count one alert wait for that alert's kind.
 
 Not run: a heartbeat and a summary received in the owner's Discord from the VPS.
 

@@ -166,16 +166,18 @@ its grace, which is wanted while resting orders stay on the exchange.
 ## Built: the heartbeat and the daily summary (`EPIC-036E`)
 Once a second the housekeeping thread calls `HeartbeatService.tick` and then the hub's flush
 (`alerting_bindings.py` → `_housekeeping_of`; `heartbeat_service.py` → `HeartbeatService.tick`).
-The first tick of a process reads the newest 500 alerts of the outbox to learn when a heartbeat was
-last sent and which days have a summary (`HeartbeatService._prime`); a process started after the
-day's summary time marks that day done, so a summary is missed rather than sent late. A heartbeat is
+The first tick of a process asks the outbox when a heartbeat was last sent
+(`SqliteOutbox.latest_alert_at`); a summary is looked up by its key for the day
+(`has_alert_keyed`), and a process started after the day's summary time marks that day done, so
+a summary is missed rather than sent late. A heartbeat is
 due when none was sent or `heartbeat_every` has passed; it asks the bots' status report through
 `ICommandDispatcher` and publishes one INFO `HEARTBEAT` (`HeartbeatService._send_heartbeat`). A
 report that cannot be read still produces a heartbeat that says so, with only the error's type. The
-summary adds the last day's alerts counted from the same history
-(`heartbeat_text.py` → `summary_text`) and is keyed by its date, so it never meets the quiet-hours
+summary adds the last day's alerts counted by the outbox
+(`SqliteOutbox.alert_counts_since`, `heartbeat_text.py` → `summary_text`) and is keyed by its date, so it never meets the quiet-hours
 digest, which is keyed by its instant. Both go through `IAlertPublisher.publish`, so routing,
-loudness (silent by default) and quiet hours treat them like any other INFO alert.
+loudness (silent by default) and quiet hours treat them like any other INFO alert, except that the
+summary is never held (`QuietHoursHold.holds`): held, it would arrive as a title in the digest.
 
 ## Built: an early warning — the position nears liquidation, the stream stays down
 

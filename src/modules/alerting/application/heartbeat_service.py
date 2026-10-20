@@ -5,22 +5,25 @@ app is up and what its bots are doing: each active bot's state, reason and resti
 the `health` snapshot of `EPIC-035W` verbatim once that task fills it. It reads the bots'
 status report (`GetBotStatusReportQuery`), the model the Bots tab and `status` read, so the
 message and the screen cannot disagree; nothing is recomputed here. A report that cannot be read
-is still a heartbeat, one that says so: a missing message would look like a dead app.
+is still a heartbeat, one that says so (and the run log holds the error): a missing message would
+look like a dead app. It obeys quiet hours like any INFO alert.
 
 **Daily summary.** One `DAILY_SUMMARY` a day, after `HeartbeatPolicy.summary_at` (UTC): the bots
-by state, each run's earnings as its record has them, and the alerts of the last day by kind.
-The quiet-hours digest (`QuietHoursHold`) is also a `DAILY_SUMMARY`; its key carries the instant
-it was released and this one's the date, so neither swallows the other.
+by state, each run's earnings as its record has them, and the alerts of the last day by kind,
+counted exactly by the outbox. It is the one INFO alert quiet hours do not hold
+(`QuietHoursHold.holds`): held, it would reach the owner as a title in the digest of held alerts
+and never as the summary. The digest is also a `DAILY_SUMMARY`; its key carries the instant it
+was released and this one's the date, so neither swallows the other.
 
 **Not the dead man's switch.** A heartbeat in Discord helps only if the owner notices its
 absence; an app that dies cannot send it. `DeadMansSwitch` (`EPIC-036E1`) is what tells the owner
 that.
 
-**Survives a restart.** What was last sent is read back from the outbox's history, so a crash
-loop sends one heartbeat per interval and not one per start. A summary is never sent late: an app
-started after the day's time has missed that day's, and the next is tomorrow's. The history is bounded, so on a
-busier day than `_HISTORY_READ` alerts a restart may repeat one message; that is the price of
-keeping no second store.
+**Survives a restart.** When the last heartbeat was sent and whether a day's summary exists are
+read from the outbox (`IOutbox.latest_alert_at`, `has_alert_keyed`), so a crash loop sends one
+heartbeat per interval and not one per start, whatever else was stored since. A summary is never
+sent late after a restart: an app started after the day's time has missed that day's, and the
+next is tomorrow's.
 
 Runs on the housekeeping thread (`ThreadedDeliveryHost`): publishing only records, so it never
 waits on a channel.
@@ -66,11 +69,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
 
 logger = logging.getLogger("App.Alerting")
 
-#: How many of the newest alerts are read to find what was last sent.
-_HISTORY_READ = 500
-
-_SUMMARY_KEY_PREFIX = f"{AlertKind.DAILY_SUMMARY.name}:app:daily-"
-
 
 class HeartbeatService:
     def __init__(
@@ -94,8 +92,8 @@ class HeartbeatService:
         """Send what is due. Never raises: a scheduler that dies is a silent app."""
         try:
             self._tick()
-        except Exception as error:  # noqa: BLE001 - the housekeeping thread must go on
-            logger.warning("[alert-heartbeat] pass failed (%s)", type(error).__name__)
+        except Exception:
+            logger.warning("[alert-heartbeat] pass failed", exc_info=True)
 
     def _tick(self) -> None:
         now = self._clock.now()
@@ -107,24 +105,16 @@ class HeartbeatService:
         day = f"{now:%Y-%m-%d}"
         if now.time() >= self._policy.summary_at and day not in self._summary_days:
             self._summary_days.add(day)
-            self._send_summary(now, day)
+            if not self._outbox.has_alert_keyed(_summary_key(day)):
+                self._send_summary(now, day)
 
     def _prime(self, now: datetime) -> None:
         self._primed = True
+        self._last_heartbeat = self._outbox.latest_alert_at(AlertKind.HEARTBEAT)
         if now.time() >= self._policy.summary_at:
             # Started after today's time: that summary is missed, not sent late (the way an
             # alert past its expiry is, N2), and a restart cannot send one twice.
             self._summary_days.add(f"{now:%Y-%m-%d}")
-        for entry in self._outbox.history(_HISTORY_READ):
-            alert = entry.record.alert
-            if alert.kind is AlertKind.HEARTBEAT and (
-                self._last_heartbeat is None or alert.at > self._last_heartbeat
-            ):
-                self._last_heartbeat = alert.at
-            elif alert.dedup_key.startswith(_SUMMARY_KEY_PREFIX):
-                self._summary_days.add(
-                    alert.dedup_key.removeprefix(_SUMMARY_KEY_PREFIX)
-                )
 
     def _heartbeat_due(self, now: datetime) -> bool:
         last = self._last_heartbeat
@@ -133,7 +123,11 @@ class HeartbeatService:
     def _send_heartbeat(self, now: datetime) -> None:
         try:
             report = self._report()
-        except Exception as error:  # noqa: BLE001 - say so, rather than send nothing
+        except Exception as error:
+            logger.warning(
+                "[alert-heartbeat] the bots' state could not be read for the heartbeat",
+                exc_info=True,
+            )
             detail = unreadable_report_text(error)
             title = f"{label_of(AlertKind.HEARTBEAT)}: bots unreadable"
         else:
@@ -155,11 +149,13 @@ class HeartbeatService:
         try:
             detail = summary_text(
                 self._report(),
-                self._outbox.history(_HISTORY_READ),
-                now,
+                self._outbox.alert_counts_since(now - self._policy.summary_window),
                 self._policy.summary_window,
             )
-        except Exception as error:  # noqa: BLE001 - say so, rather than send nothing
+        except Exception as error:
+            logger.warning(
+                "[alert-heartbeat] the daily summary could not be built", exc_info=True
+            )
             detail = unreadable_report_text(error)
         self._publisher.publish(
             Alert.raised(
@@ -180,3 +176,9 @@ class HeartbeatService:
                 GetBotStatusReportQuery, GetBotStatusReportQuery()
             ),
         )
+
+
+def _summary_key(day: str) -> str:
+    return Alert.condition_key(
+        AlertKind.DAILY_SUMMARY, AlertSubject.app(), f"daily-{day}"
+    )

@@ -1,4 +1,7 @@
-"""Quiet hours: INFO and WARNING wait, CRITICAL never does (design §7)."""
+"""Quiet hours: INFO and WARNING wait, CRITICAL never does (design §7).
+
+The daily summary (`EPIC-036E`) is the one exception below CRITICAL: it is silent already, and
+held it would reach the owner only as a title in the digest of held alerts."""
 
 from __future__ import annotations
 
@@ -32,6 +35,7 @@ class QuietHoursHold:
         return (
             quiet is not None
             and alert.severity < Severity.CRITICAL
+            and alert.kind is not AlertKind.DAILY_SUMMARY
             and quiet.contains(now)
         )
 

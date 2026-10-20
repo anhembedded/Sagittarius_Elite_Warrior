@@ -80,7 +80,8 @@ class HeartbeatPolicy:
     """`EPIC-036E`: how often the owner hears from the bots when nothing is wrong.
 
     The heartbeat every six hours is decision N4. The hour of the daily summary is a chosen
-    default, not a measured one (an agent decision the owner may veto, recorded in the task):
+    constant, not a measured one (an implementation constant the owner may change, recorded in
+    the task, not an owner decision):
     01:00 UTC, which is the start of the working day for the owner's own time zone. A UI to
     change both belongs to `EPIC-036D`.
     """

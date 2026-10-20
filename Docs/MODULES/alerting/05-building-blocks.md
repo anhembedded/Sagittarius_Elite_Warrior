@@ -200,7 +200,11 @@ The Options page (`EPIC-036D1`) added:
   (`alerting/domain/alert_policies.py` → `HeartbeatPolicy`). The texts are pure functions
   (`alerting/application/heartbeat_text.py` → `heartbeat_text`, `summary_text`); the report's `health`
   slot is printed verbatim and is empty until `EPIC-035W`. What was last sent is read back from the
-  outbox's history, so a restart repeats neither.
+  outbox (`IOutbox.latest_alert_at`, `has_alert_keyed`, `alert_counts_since`, exact and not bounded
+  by a history window), so a restart repeats neither. The counts, the unreadable files and the
+  alert counts are written before the per-bot lines, which are added while they fit
+  `MAX_DETAIL`; the summary is the one INFO alert quiet hours do not hold
+  (`quiet_hours_hold.py` → `QuietHoursHold.holds`).
 
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
 and the switch's among them.

@@ -1,37 +1,38 @@
 """What the heartbeat and the daily summary say (`EPIC-036E`).
 
 Pure functions over the bots' status report (`EPIC-038C`, the one read model the Bots tab,
-`status` and these messages share) and the outbox's history. Nothing is measured here: a figure
+`status` and these messages share) and the outbox's counts. Nothing is measured here: a figure
 the report does not carry is not printed, and the report's `health` slot (filled by `EPIC-035W`)
 is shown exactly as it comes, so a screen and this message cannot disagree.
+
+**The lines that matter come first.** A channel cuts a long message from the end (Discord at
+2000 characters, the head and the time stamp included), so the counts, the unreadable files and
+the alert counts are written before the per-bot lines, and those are added while they fit
+(`MAX_DETAIL`) and counted when they do not.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime, timedelta
+from collections.abc import Iterable, Mapping
+from datetime import timedelta
 
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
-    HistoryEntry,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
     BotStatusReport,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
-    RunEarnings,
-)
 
-#: The summary lists this many bots and counts the rest.
-MAX_BOTS_LISTED = 25
+#: The detail stays under this many characters: Discord refuses more than 2000 in a message and
+#: the head, the subject and the time stamp take about two hundred of them.
+MAX_DETAIL = 1700
 
 #: The scheduled messages themselves are not "alerts of the day".
 _NOT_COUNTED = frozenset({AlertKind.HEARTBEAT, AlertKind.DAILY_SUMMARY})
 
 
 def unreadable_report_text(error: Exception) -> str:
-    """Only the type: the message of an error can carry a path or a request."""
+    """Only the type: the message of an error can carry a path or a request. The error itself
+    is in the run log (`HeartbeatService`)."""
     return (
         "The app is running, but the bots' state could not be read "
         f"({type(error).__name__}); see the run log."
@@ -47,33 +48,49 @@ def counts_line(report: BotStatusReport) -> str:
 
 
 def heartbeat_text(report: BotStatusReport) -> str:
-    lines = ["The app is running.", counts_line(report)]
+    head = ["The app is running.", counts_line(report), *_unreadable_lines(report)]
     active = [bot for bot in report.bots if not bot.is_at_rest]
-    lines.extend(_bot_line(bot) for bot in active[:MAX_BOTS_LISTED])
-    if len(active) > MAX_BOTS_LISTED:
-        lines.append(f"... and {len(active) - MAX_BOTS_LISTED} more")
-    if report.unreadable:
-        lines.append(f"{len(report.unreadable)} bot file(s) could not be read.")
-    return "\n".join(lines)
+    return _with_listing(head, [_bot_line(bot) for bot in active])
 
 
 def summary_text(
-    report: BotStatusReport,
-    history: Sequence[HistoryEntry],
-    now: datetime,
-    window: timedelta,
+    report: BotStatusReport, counts: Mapping[AlertKind, int], window: timedelta
 ) -> str:
-    lines = [counts_line(report)]
-    earning = [(bot, bot.earnings) for bot in report.bots if bot.earnings is not None]
-    lines.extend(
-        _earnings_line(bot, earnings) for bot, earnings in earning[:MAX_BOTS_LISTED]
-    )
-    if len(earning) > MAX_BOTS_LISTED:
-        lines.append(f"... and {len(earning) - MAX_BOTS_LISTED} more")
-    if report.unreadable:
-        lines.append(f"{len(report.unreadable)} bot file(s) could not be read.")
-    lines.append(_alerts_line(history, now, window))
+    head = [
+        counts_line(report),
+        *_unreadable_lines(report),
+        _alerts_line(counts, window),
+    ]
+    earning = [_earnings_line(bot) for bot in report.bots if bot.earnings is not None]
+    return _with_listing(head, earning)
+
+
+def _unreadable_lines(report: BotStatusReport) -> list[str]:
+    if not report.unreadable:
+        return []
+    return [f"{len(report.unreadable)} bot file(s) could not be read."]
+
+
+def _with_listing(head: list[str], listing: Iterable[str]) -> str:
+    """`head`, then as many of `listing` as fit under `MAX_DETAIL`, then how many did not."""
+    lines = list(head)
+    size = len("\n".join(lines))
+    items = list(listing)
+    room = MAX_DETAIL - len(_more_line(len(items)))
+    shown = 0
+    for line in items:
+        if size + 1 + len(line) > room:
+            break
+        lines.append(line)
+        size += 1 + len(line)
+        shown += 1
+    if shown < len(items):
+        lines.append(_more_line(len(items) - shown))
     return "\n".join(lines)
+
+
+def _more_line(count: int) -> str:
+    return f"... and {count} more"
 
 
 def _bot_line(bot: BotStatusEntry) -> str:
@@ -87,7 +104,10 @@ def _bot_line(bot: BotStatusEntry) -> str:
     return "; ".join(parts)
 
 
-def _earnings_line(bot: BotStatusEntry, earnings: RunEarnings) -> str:
+def _earnings_line(bot: BotStatusEntry) -> str:
+    earnings = bot.earnings
+    if earnings is None:
+        return f"- {bot.name} ({bot.symbol}): no earnings recorded"
     total = (
         "total PnL not priced yet"
         if earnings.total_pnl is None
@@ -99,16 +119,11 @@ def _earnings_line(bot: BotStatusEntry, earnings: RunEarnings) -> str:
     )
 
 
-def _alerts_line(
-    history: Sequence[HistoryEntry], now: datetime, window: timedelta
-) -> str:
-    counted: dict[str, int] = {}
-    for entry in history:
-        alert = entry.record.alert
-        if alert.kind in _NOT_COUNTED or entry.record.last_at < now - window:
-            continue
-        counted[alert.kind.name] = counted.get(alert.kind.name, 0) + entry.record.count
+def _alerts_line(counts: Mapping[AlertKind, int], window: timedelta) -> str:
     hours = int(window.total_seconds() // 3600)
+    counted = {
+        kind.name: count for kind, count in counts.items() if kind not in _NOT_COUNTED
+    }
     if not counted:
         return f"No alerts in the last {hours} h."
     listing = ", ".join(f"{kind} x{count}" for kind, count in sorted(counted.items()))
