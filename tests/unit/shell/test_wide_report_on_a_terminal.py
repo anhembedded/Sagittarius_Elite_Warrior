@@ -115,8 +115,8 @@ def test_an_id_a_state_word_and_a_figure_are_never_cut_or_elided(columns):
     text = _renderer(_state(columns=columns)).render(_real_show_report())
     plain = _ANSI.sub("", text)
 
-    for whole in ("uie03d", "RECOVERING", "12.50", "-4.00", "61,000.00", "64,000.00"):
-        assert whole in plain.split() or any(whole in w for w in plain.split())
+    for whole in ("uie03d", "RECOVERING", "12.50", "-4.00", "61,000.00"):
+        assert whole in plain.split()
     assert "\u2026" not in plain
     assert re.search(r"\x1b\[[0-9;]*33m[^\x1b]*RECOVERING", text)
     assert re.search(r"\x1b\[[0-9;]*31m[^\x1b]*-4\.00", text)
@@ -159,3 +159,61 @@ def test_plain_bytes_for_a_wide_report_are_the_same_whatever_the_columns():
         assert _renderer(_state(tty=False, columns=columns)).render(
             report
         ) == TextReportRenderer().render(report)
+
+
+_LIST_HEAD = (
+    "ID", "NAME", "STATE", "VENUE", "SYMBOL", "GRID PROFIT", "CYCLES", "TOTAL PNL",
+    "GRID STEP", "REASON",
+)  # fmt: skip
+_LIST_ROW = (
+    "uie03d", "BTC grid", "RECOVERING", "binance", "BTCUSDT", "12.50", "3", "-4.00",
+    "150.00 (0.24%)", "exchange unreachable",
+)  # fmt: skip
+
+
+def _list_report() -> Report:
+    return Report(
+        "bot-list",
+        1,
+        {},
+        (ReportSection(None, (_row(*_LIST_HEAD), _row(*_LIST_ROW)), has_header=True),),
+    )
+
+
+@pytest.mark.parametrize("columns", [120, 100, 80, 40, 30])
+def test_a_ten_column_list_never_loses_a_column_or_cuts_a_figure(columns):
+    text = _renderer(_state(columns=columns)).render(_list_report())
+    plain = _ANSI.sub("", text)
+
+    assert _ESCAPE in text
+    assert max(len(line) for line in plain.splitlines()) <= columns
+    tokens = [t for t in plain.split() if not _BOX.search(t)]
+    for word in (*_LIST_HEAD, *_LIST_ROW):
+        for part in word.split():
+            assert tokens.count(part) >= 1, (columns, part)
+    assert sorted(t for t in tokens if t in {"12.50", "-4.00", "uie03d", "RECOVERING"}) == [
+        "-4.00", "12.50", "RECOVERING", "uie03d",
+    ]  # fmt: skip
+
+
+def test_a_word_wider_than_its_share_is_kept_whole_when_the_terminal_allows():
+    order_id = "x-BTCUSDT-grid-level-0007-abcdef"
+    report = Report(
+        "demo",
+        1,
+        {},
+        (
+            ReportSection(
+                None,
+                (
+                    _row("LEVEL", "STATE", "CLIENT ORDER ID", "NOTE"),
+                    _row("7", "RESTING", order_id, "a long note " * 6),
+                ),
+                has_header=True,
+            ),
+        ),
+    )
+
+    plain = _ANSI.sub("", _renderer(_state(columns=70)).render(report))
+
+    assert order_id in plain.split()

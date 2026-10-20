@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_report_renderer import (
     IReportRenderer,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
+from Sagittarius_Elite_Warrior.src.support.cli_host.error_message_style import (
+    wants_colour,
+)
 
 _DEFAULT_COLUMNS = 80
 _log = logging.getLogger("App.CliReport")
@@ -43,11 +46,7 @@ class TerminalState:
 
     @property
     def wants_colour(self) -> bool:
-        return (
-            self.is_terminal
-            and self.environment.get("TERM", "") != "dumb"
-            and "NO_COLOR" not in self.environment
-        )
+        return wants_colour(self.is_terminal, self.environment)
 
 
 def read_terminal_state() -> TerminalState:

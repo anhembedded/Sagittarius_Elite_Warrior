@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
@@ -9,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.error_message_style import (
     styled_error_message,
+    wants_colour,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_status import run_command
 
@@ -41,3 +44,32 @@ def test_a_failure_message_to_a_pipe_is_the_plain_bytes(
     run_command(lambda: CliOutcome(ExitCode.CONFIGURATION, "no key configured"))
 
     assert capsys.readouterr().err == "no key configured\n"
+
+
+class _TerminalStderr(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+def test_run_command_paints_a_failure_red_at_a_terminal_and_leaves_success_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TERM", "xterm")
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    failed = _TerminalStderr()
+    monkeypatch.setattr("sys.stderr", failed)
+    run_command(lambda: CliOutcome(ExitCode.CONFIGURATION, "no key configured"))
+    assert failed.getvalue() == "\x1b[1;31mno key configured\x1b[0m\n"
+
+    fine = _TerminalStderr()
+    monkeypatch.setattr("sys.stderr", fine)
+    run_command(lambda: CliOutcome(ExitCode.SUCCESS, "done"))
+    assert fine.getvalue() == "done\n"
+
+
+def test_the_one_colour_policy() -> None:
+    assert wants_colour(True, {"TERM": "xterm"})
+    assert not wants_colour(False, {"TERM": "xterm"})
+    assert not wants_colour(True, {"TERM": "dumb"})
+    assert not wants_colour(True, {"TERM": "xterm", "NO_COLOR": ""})

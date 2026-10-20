@@ -25,7 +25,7 @@
 ## 3. Design
 No design change: `src/shell` and the CLI host have no `Docs/MODULES/` folder; the seam (`IReportRenderer`, `TerminalAwareTextRenderer` over `RichTextReportRenderer`) is the one `BOT-195` made.
 
-**Wrap, not fall back.** Every column of a table keeps `min_width` = its longest word and `overflow="fold"`, so `rich` shrinks the widest free-text column first and breaks a line only at a space; the value column of a label/value block wraps and its label column does not. At 40 columns a 10-column table still renders through `rich` (an extreme width may fold a word; that is better than losing the table). Measuring (`_natural_width`) is deleted.
+**Wrap, not fall back.** A table keeps each column's longest word whole: `_share_of` gives every column its longest word and hands the slack, a column at a time, to the one furthest from its unwrapped width, then fixes those widths (`rich` shrinks columns past any `min_width` and crops them, so `min_width` alone does not hold; found in review). A long free-text cell (Ladder, Recovery, reason) wraps at spaces. When even the longest words do not fit (a 10-column `bot list` at 80 columns), the table is printed as one label/value block per row, so no column is dropped and no word is cut; a table with no header folds. The label column of a block folds too. Measuring (`_natural_width`) and `ReportTooWideError` are deleted.
 
 **The one remaining fallback at a terminal is a missing `rich`**, which is not the operator's choice, so it says so once on stderr (`RICH_MISSING_NOTE`). `NO_COLOR` and `TERM=dumb` are the operator's choice and stay silent.
 
@@ -33,7 +33,7 @@ No design change: `src/shell` and the CLI host have no `Docs/MODULES/` folder; t
 
 | Output | Where | Today | Can be coloured with the same meaning table? | Done here |
 | :--- | :--- | :--- | :--- | :--- |
-| A failed command's sentence (`CliOutcome.message`: usage, no such bot, refused, preflight failed, host unreachable) | stderr, `src/support/cli_host/exit_status.py::run_command` | plain | Yes: `ERROR` = bold red; only when stderr is a tty, `TERM` not `dumb`, `NO_COLOR` unset; bytes unchanged otherwise | **Built** (`error_message_style.py`, stdlib SGR because the host is stdlib-only, 3 tests) |
+| A failed command's sentence (`CliOutcome.message`: usage, no such bot, refused, preflight failed, host unreachable) | stderr, `src/support/cli_host/exit_status.py::run_command` | plain | Yes: `ERROR` = bold red; only when stderr is a tty, `TERM` not `dumb`, `NO_COLOR` unset; bytes unchanged otherwise | **Built** (`error_message_style.py`, stdlib SGR because the host is stdlib-only; its `wants_colour` is the one colour policy, shared with `TerminalState`) |
 | `rich` missing at a terminal | stderr | silent (INFO log) | n/a: a note | **Built** (criterion 4) |
 | Tracebacks of an unexpected failure | stderr, same function | plain | No: a traceback is read by a person and grepped by a supervisor | Left plain |
 | The application log (the `run` host, `bot` boot lines, journal) | stdout/stderr and the journal | plain | **No**: PRO-017 says `rich` is not used in logging; the journal and log files stay plain | Never |

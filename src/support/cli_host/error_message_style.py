@@ -2,7 +2,7 @@
 
 Capability: Colour a failed command's message on the error stream, only at a terminal
     Also: error colour, red error, NO_COLOR, TERM=dumb, stderr, CliOutcome message
-    Use: styled_error_message
+    Use: styled_error_message, wants_colour
     User: src/support/cli_host/exit_status.py
     Status: stable
 
@@ -22,6 +22,15 @@ _BOLD_RED = "\x1b[1;31m"
 _RESET = "\x1b[0m"
 
 
+def wants_colour(is_terminal: bool, environment: Mapping[str, str]) -> bool:
+    """The one colour policy: a terminal whose `TERM` is not `dumb`, with `NO_COLOR` unset."""
+    return (
+        is_terminal
+        and environment.get("TERM", "") != "dumb"
+        and "NO_COLOR" not in environment
+    )
+
+
 def styled_error_message(
     message: str,
     stream: TextIO,
@@ -29,7 +38,6 @@ def styled_error_message(
 ) -> str:
     """`message` wrapped in bold red when `stream` is a terminal that takes colour."""
     env = os.environ if environment is None else environment
-    wants_colour = (
-        stream.isatty() and env.get("TERM", "") != "dumb" and "NO_COLOR" not in env
-    )
-    return f"{_BOLD_RED}{message}{_RESET}" if wants_colour else message
+    if wants_colour(stream.isatty(), env):
+        return f"{_BOLD_RED}{message}{_RESET}"
+    return message
