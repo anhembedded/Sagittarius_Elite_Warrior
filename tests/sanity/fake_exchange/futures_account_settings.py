@@ -40,6 +40,11 @@ class AccountSettings:
         self._symbol_config = symbol_config
         self._dual_side = False
 
+    @property
+    def dual_side(self) -> bool:
+        """Whether the account is in Hedge mode (`EPIC-037E`: `-4061` reads it)."""
+        return self._dual_side
+
     def change_leverage(self, params: dict[str, str]) -> tuple[int, object]:
         """`POST /fapi/v1/leverage`."""
         symbol = params["symbol"]
