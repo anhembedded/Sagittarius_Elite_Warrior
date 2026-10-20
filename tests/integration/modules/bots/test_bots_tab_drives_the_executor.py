@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    ReadinessStep,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -51,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    step_key,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -251,10 +257,11 @@ def test_a_new_bot_goes_through_connect_design_and_run_to_a_running_bot(
     screen.qtbot.waitUntil(
         lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
     )
-    assert screen.view.plan.readiness_steps.text().splitlines() == [
-        "1. Connect: done",
-        "2. Design: done",
-        "3. Run: done",
+    plan = screen.view.plan
+    assert [plan.properties.shown_value(step_key(step)) for step in ReadinessStep] == [
+        "done",
+        "done",
+        "done",
     ]
 
     screen.press(BotAction.START)

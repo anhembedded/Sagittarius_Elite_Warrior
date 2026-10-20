@@ -49,7 +49,6 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
 from .bots_screen_fixtures import stored
 
 _CANDLE_TIME = datetime(2026, 10, 19, 12, 1, 30, tzinfo=UTC).timestamp()
-_SEVEN_HOURS = 7 * 3600
 
 
 def _machine_in_utc_plus_7(moment: datetime) -> datetime:
@@ -68,9 +67,8 @@ class _Open:
         self.card.crosshair._update_label(_CANDLE_TIME, 1.0)
         return self.readouts[-1]
 
-    def axis_offset(self) -> float:
-        axis = self.card.plot_layout.main_plot.getAxis("bottom")
-        return float(axis.utcOffset)
+    def axis_zone(self) -> str:
+        return self.card.plot_layout.main_plot.getAxis("bottom").display_zone
 
 
 @pytest.fixture
@@ -99,14 +97,14 @@ def opened(qapp, monkeypatch: pytest.MonkeyPatch) -> _Open:
 
 
 def test_the_chart_opens_in_utc_until_the_owner_chooses_another_zone(opened) -> None:
-    assert opened.axis_offset() == 0
+    assert opened.axis_zone() == service.DEFAULT_TIMEZONE
     assert "2026-10-19 12:01:30" in opened.crosshair_time()
 
 
 def test_the_chart_under_system_shows_the_machines_local_time_not_utc(opened) -> None:
     opened.preference.set_zone(service.SYSTEM_TIMEZONE_KEY)
 
-    assert opened.axis_offset() == _SEVEN_HOURS
+    assert opened.axis_zone() == service.SYSTEM_TIMEZONE_KEY
     assert "2026-10-19 19:01:30" in opened.crosshair_time()
 
 
@@ -118,13 +116,13 @@ def test_a_chart_built_after_the_choice_opens_in_the_chosen_zone(opened) -> None
 
     assert isinstance(card, ChartCard)
     axis = card.plot_layout.main_plot.getAxis("bottom")
-    assert axis.utcOffset == _SEVEN_HOURS
+    assert axis.display_zone == service.SYSTEM_TIMEZONE_KEY
 
 
 def test_an_iana_zone_is_followed_too(opened) -> None:
     opened.preference.set_zone("Asia/Tokyo")
 
-    assert opened.axis_offset() == 9 * 3600
+    assert opened.axis_zone() == "Asia/Tokyo"
     assert "2026-10-19 21:01:30" in opened.crosshair_time()
 
 
@@ -135,4 +133,4 @@ def test_the_chart_header_holds_a_selector_that_writes_the_shared_zone(opened) -
     combo.activated.emit(combo.findData("Asia/Tokyo"))
 
     assert opened.preference.zone == "Asia/Tokyo"
-    assert opened.axis_offset() == 9 * 3600
+    assert opened.axis_zone() == "Asia/Tokyo"

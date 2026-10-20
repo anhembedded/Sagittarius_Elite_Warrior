@@ -55,13 +55,13 @@ def to_display_time(moment: datetime, tz_name: str = DEFAULT_TIMEZONE) -> dateti
 
     "SYSTEM" is the machine's own time, converted instant by instant, never a zone looked up by
     name: the machine's zone has no IANA key we can read with the standard library."""
-    if tz_name != SYSTEM_TIMEZONE_KEY:
-        return moment.astimezone(_named_zone(tz_name))
     try:
+        if tz_name != SYSTEM_TIMEZONE_KEY:
+            return moment.astimezone(_named_zone(tz_name))
         return machine_local_time(moment)
     except (OSError, OverflowError, ValueError) as error:
         _fall_back_to_utc(
-            "The machine's time zone is unavailable", failure_detail(error)
+            "The moment or the zone cannot be converted", failure_detail(error)
         )
         return moment.astimezone(UTC)
 

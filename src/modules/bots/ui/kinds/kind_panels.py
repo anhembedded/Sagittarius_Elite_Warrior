@@ -1,53 +1,34 @@
-"""`EPIC-029F` — each kind's parameter editor and backtest, by `kind_id`.
+"""`EPIC-029F` — each kind's parameter editor, by `kind_id`.
 
-The one place the UI names a kind: a new kind adds its editor (and its
-backtest, if it has one, `EPIC-029D`) here and its `IBotKind` to the catalog,
-and the screen does not change.
+The one place the UI names a kind: a new kind adds its editor here and its `IBotKind` to the
+catalog, and the screen does not change. The backtest is no longer registered here
+(`EPIC-040F`): the kind-neutral workbench hosts every kind, so a new kind writes no page. The recipes:
+· a kind's backtest — its `IKindBacktester`, returned by `IBotKind.backtester()`, answering a
+  `BacktestOutcome` (`bots/contracts/i_kind_backtester.py`); the workbench draws it, and
+  `IBotKind.supported_profiles()` says which markets it replays;
+· a kind's parameter editor — one `BotKindPanel` entry in `_PANELS`;
+· a kind with no backtest — `IBotKind.backtester()` answers `None`, and the Backtest tab is off with
+  the reason in words (`bots_screen/backtest_workbenches.py`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     UnknownBotKindError,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    PROFILE_MARKETS,
-    VenueProfile,
-    is_in_markets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
-    BacktestPorts,
-    BotBacktest,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest import (
-    GridBacktest,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
 )
 
 _PANELS: Mapping[str, Callable[[], BotKindPanel]] = {GRID_KIND_ID: GridPanel}
-
-#: A kind with no entry has no backtest, and its Backtest tab stays hidden.
-_BACKTESTS: Mapping[str, Callable[[BacktestPorts], BotBacktest]] = {
-    GRID_KIND_ID: GridBacktest
-}
-
-#: The markets each kind's backtest can replay. On a venue outside its set the tab stays
-#: hidden rather than replaying another market's candles as the bot's own; the Futures
-#: backtest (funding and liquidation included, decision O9, `EPIC-039K`) is the Grid's too.
-_BACKTEST_PROFILES: Mapping[str, frozenset[MarketType]] = {
-    GRID_KIND_ID: PROFILE_MARKETS
-}
 
 #: What a kind is called, by `kind_id`.
 _KIND_NAMES: Mapping[str, str] = {GRID_KIND_ID: "Grid"}
@@ -69,16 +50,3 @@ def panel_for(kind_id: str) -> BotKindPanel:
         return _PANELS[kind_id]()
     except KeyError:
         raise UnknownBotKindError(kind_id) from None
-
-
-def backtest_supports(kind_id: str, profile: VenueProfile | None) -> bool:
-    """Whether `kind_id`'s backtest replays the market `profile` names. A venue with no
-    profile is judged as before profiles existed: it is not turned away here."""
-    markets = _BACKTEST_PROFILES.get(kind_id)
-    return markets is not None and (profile is None or is_in_markets(profile, markets))
-
-
-def backtest_for(kind_id: str, ports: BacktestPorts) -> BotBacktest | None:
-    """`kind_id`'s backtest built on `ports`; `None` when the kind has none."""
-    factory = _BACKTESTS.get(kind_id)
-    return factory(ports) if factory is not None else None

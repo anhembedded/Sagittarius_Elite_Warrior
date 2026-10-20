@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
     ReadinessFix,
     ReadinessItem,
+    ReadinessStep,
     StepReadiness,
     StepStatus,
 )
@@ -48,15 +49,15 @@ def header(readiness: BotReadiness, state: ReadinessState) -> str:
     return readiness.summary
 
 
-def step_lines(readiness: BotReadiness) -> tuple[str, ...]:
-    """One line per step, numbered, naming what each waits for."""
-    lines: list[str] = []
+def step_rows(readiness: BotReadiness) -> tuple[tuple[ReadinessStep, str], ...]:
+    """Each step, in order, with what it waits for: the Plan table's Readiness rows."""
+    rows: list[tuple[ReadinessStep, str]] = []
     open_before = ""
-    for number, step in enumerate(readiness.steps, start=1):
-        lines.append(f"{number}. {step.step.value}: {_step_words(step, open_before)}")
+    for step in readiness.steps:
+        rows.append((step.step, _step_words(step, open_before)))
         if step.status is StepStatus.OPEN and not open_before:
             open_before = step.step.value
-    return tuple(lines)
+    return tuple(rows)
 
 
 def _step_words(step: StepReadiness, open_before: str) -> str:

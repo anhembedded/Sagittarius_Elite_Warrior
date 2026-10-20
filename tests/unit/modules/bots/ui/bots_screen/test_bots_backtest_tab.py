@@ -35,7 +35,11 @@ def test_a_grid_bot_fills_the_backtest_tab_and_no_selection_leaves_a_note(
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
     assert _page(screen) is None
-    notes = [label.text() for label in screen.view.backtest.findChildren(QLabel)]
+    notes = [
+        label.text()
+        for label in screen.view.backtest.findChildren(QLabel)
+        if not label.isHidden()
+    ]
     assert notes == [NO_SELECTION_BACKTEST_TEXT]
     assert screen.view.centre.isTabEnabled(1)
 

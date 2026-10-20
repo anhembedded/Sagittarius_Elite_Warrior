@@ -28,8 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome
     BacktestBar,
     BacktestFill,
     BacktestOutcome,
-    BacktestProvenance,
-    DataWindow,
     EquityPoint,
     StopCause,
 )
@@ -78,7 +76,7 @@ def outcome_of(result: grid.GridBacktestResult) -> BacktestOutcome:
     """@brief A Grid replay in the kind-neutral shape; every field of the result lands in the
     outcome (the curves, the fills, the fees, the provenance) or in its `detail`."""
     return BacktestOutcome(
-        provenance=_provenance_of(result.provenance),
+        provenance=result.provenance,
         bars=tuple(
             BacktestBar(bar.time, bar.open, bar.high, bar.low, bar.close)
             for bar in result.bars
@@ -106,21 +104,4 @@ def outcome_of(result: grid.GridBacktestResult) -> BacktestOutcome:
         figures=grid_figures(result),
         notes=grid_notes(result),
         detail=result,
-    )
-
-
-def _provenance_of(provenance: grid.BacktestProvenance) -> BacktestProvenance:
-    window = provenance.window
-    return BacktestProvenance(
-        provenance.config,
-        provenance.maker_fee,
-        provenance.taker_fee,
-        provenance.first_candle,
-        provenance.last_candle,
-        provenance.fill_rule,
-        None
-        if window is None
-        else DataWindow(
-            window.start, window.end, window.expected_candles, window.stored_candles
-        ),
     )

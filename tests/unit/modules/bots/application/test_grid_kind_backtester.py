@@ -47,15 +47,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result
     GridBacktestResult,
     StopReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_figures import (
+    grid_figures,
+    grid_notes,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_simulator import (
     GridBacktestInputs,
     simulate_grid,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
-    summary_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler import (
     StoredKlinesReader,
@@ -145,18 +146,14 @@ def test_every_field_of_a_replay_lands_in_the_outcome_or_its_detail(index: int) 
     )
 
 
-def test_the_outcome_shows_the_figures_and_notes_the_grid_page_shows() -> None:
+def test_the_outcome_shows_every_figure_and_note_of_the_grid_result() -> None:
+    """The figures and caveats the Grid's own page showed (`EPIC-040A`), now the outcome's."""
     result = _replayed(0)
 
     outcome = outcome_of(result)
-    summary = summary_of(result)
 
-    assert [f.key for f in outcome.figures] == [s.key for s in summary.readout.specs]
-    assert [f.title for f in outcome.figures] == [
-        s.title for s in summary.readout.specs
-    ]
-    assert {f.key: f.value for f in outcome.figures} == dict(summary.readout.values)
-    assert outcome.notes == summary.notes
+    assert outcome.figures == grid_figures(result)
+    assert outcome.notes == grid_notes(result)
 
 
 def test_the_missing_funding_is_the_first_note_of_a_futures_outcome() -> None:

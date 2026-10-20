@@ -34,5 +34,5 @@ def test_the_ladder_preview_selects_a_running_bot_and_shows_its_grids(qtbot) -> 
     assert view.model.selected.state is BotLifecycleState.RUNNING
     assert isinstance(view.model.ladder, GridLadder)
     assert len(view.ladder.grids.rows) == len(view.model.ladder.rows) > 0
-    assert view.plan.facts.value_text("last_price") == "64,500.00, 2 min ago"
+    assert view.plan.properties.shown_value("last_price") == "64,500.00, 2 min ago"
     assert view.ladder.summary.text().startswith("Arithmetic spacing")

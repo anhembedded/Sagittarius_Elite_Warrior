@@ -1,6 +1,6 @@
 # BOT-205 — The Bots chart follows the display time zone the owner chooses, "System" included
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-20)
 **Board:** The selected bot's chart axis, crosshair label and Fills "Time" column follow one app-wide display time zone (UTC, System, or an IANA zone) that the Backtest screen now shares, instead of a Backtest-only setting.
 **Source:** the owner, 2026-10-20: "chart của bot, chưa có cơ chế chọn múi giờ. bên back test screen có cơ chế đó rùi, làm task luôn nhé" (the bot's chart has no way to choose the time zone; the Backtest screen already has one; create the task and do it).
 **Risk:** 🟡 — the Backtest screen's remembered zone moves from its own slice to a shared one; the first start adopts the old value, so no choice resets.
