@@ -116,14 +116,14 @@ def test_the_chart_says_why_no_grid_is_drawn(open_bots_screen) -> None:
     screen = _poor_draft(open_bots_screen)
     panel = _panel(screen)
 
-    panel.grid_count.lineEdit().setText("101")
-    panel.grid_count.lineEdit().textEdited.emit("101")
+    panel.grid_count.lineEdit().setText("151")
+    panel.grid_count.lineEdit().textEdited.emit("151")
     screen.presenter._refresh_detail()
 
     note = screen.view.chart_area.findChild(QLabel, "lblGridNotDrawn")
     assert note is not None and not note.isHidden()
     assert note.text().startswith("Grid not drawn: ")
-    assert "101" in note.text()
+    assert "151" in note.text()
 
 
 def test_the_chart_says_nothing_while_the_grid_is_drawn(open_bots_screen) -> None:

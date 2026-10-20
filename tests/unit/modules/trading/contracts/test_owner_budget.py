@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 )
 
 _AT_THE_CAPS = OwnerBudget(
-    max_open_orders=100,
+    max_open_orders=150,
     max_exposure_quote=Decimal(5000),
     min_order_spacing=timedelta(milliseconds=250),
     max_orders_per_window=60,
@@ -28,7 +28,7 @@ def test_a_budget_at_every_cap_fits() -> None:
 @pytest.mark.parametrize(
     ("change", "cap"),
     [
-        ({"max_open_orders": 101}, "max_open_orders"),
+        ({"max_open_orders": 151}, "max_open_orders"),
         ({"min_order_spacing": timedelta(milliseconds=249)}, "min_order_spacing"),
         ({"max_orders_per_window": 61}, "max_orders_per_minute"),
         (

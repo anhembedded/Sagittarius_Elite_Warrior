@@ -398,11 +398,13 @@ Every recommendation below was accepted. O1's caps and O5's per-order cap are co
 
 | # | Question | Recommendation | Blocks | Asked on |
 | :-- | :--- | :--- | :--- | :--- |
-| O1 | **Global caps on what an owner budget may declare.** These are new `app_config.json` keys: `trading.bot_limits.max_open_orders`, `.min_order_spacing_ms`, `.max_orders_per_minute`. | 100 open orders; 250 ms; 60 orders per minute. Checked in `EPIC-029A` against the venue's `ORDERS` rate limits. | `EPIC-029A` | 2026-10-03 |
+| O1 | **Global caps on what an owner budget may declare.** These are new `app_config.json` keys: `trading.bot_limits.max_open_orders`, `.min_order_spacing_ms`, `.max_orders_per_minute`. | 100 open orders (raised to 150 on 2026-10-20, see the revision below); 250 ms; 60 orders per minute. Checked in `EPIC-029A` against the venue's `ORDERS` rate limits. | `EPIC-029A` | 2026-10-03 |
 | O2 | **Resuming a Halted bot:** cancel its tagged orders, re-plan from the current price and derived inventory, and confirm; or rebuild the old ladder silently? | Cancel, re-plan, confirm (D13) | `EPIC-029E` | 2026-10-03 |
 | O3 | **Stop dialog default for the base asset:** keep it, or sell it at market? | Ask each time, with *keep* preselected | `EPIC-029E` | 2026-10-03 |
 | O4 | **Closing the app while a bot is Running:** warn that its orders stay on the exchange and its stop loss is not watched? | Warn, with Cancel | `EPIC-029F` | 2026-10-03 |
 | O5 | **Per-order notional for bots** (r1): keep today's `max_notional_per_order` (500) and slice the opening buy, or give bots their own cap? | Keep 500 and slice (D21). Capital per level is then at most 500. | `EPIC-029A`, `029C` | 2026-10-03 |
+
+**Revision 2026-10-20 (O1, `max_open_orders`).** The owner raised the open-order cap from 100 to 150 ("nâng lên 150", answering the delivery coordinator; `BOT-208`). Binance Spot allows about 200 resting orders per symbol (`MAX_NUM_ORDERS`), and 150 leaves room for exits and protective stops. `max_orders_per_minute` (60) and `min_order_spacing` (250 ms) are unchanged.
 
 ## 6. Implementation evidence
 
