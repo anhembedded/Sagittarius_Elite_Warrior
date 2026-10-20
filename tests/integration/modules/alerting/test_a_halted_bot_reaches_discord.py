@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
-from dataclasses import dataclass, replace
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -24,26 +23,12 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
     DISCORD_WEBHOOK_SECRET,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
-    WakeSignal,
-)
-from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
-    ChannelSecrets,
-)
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
-    IAlertClock,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
-    IWebhookTransport,
     WebhookResponse,
-)
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
-    FakeAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
@@ -63,20 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_risk_change
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import RiskLevel
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.contract_bot_store import (
-    sample_bot,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import BotLifecycle
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
-    IMarketDataSources,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
-    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
     IAlertChannels,
@@ -85,78 +59,23 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
     UserStreamHealthEvent,
     UserStreamState,
 )
-from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.integration.modules.bots.bots_module_world import (
-    GRID_CONFIG,
-)
-from Sagittarius_Elite_Warrior.tests.integration.modules.bots.grid_fake_exchange import (
-    FakeStreamSources,
+from Sagittarius_Elite_Warrior.tests.integration.modules.alerting.skeleton_world import (
+    TOKEN,
+    WEBHOOK,
+    Skeleton,
+    boot_skeleton,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
-from sagittarius_engine import App
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
-WAIT_S = 15.0
-_TOKEN = "Sk3l3t0n-T0ken_xyz"  # noqa: S105 - a made-up token the leak check looks for
-WEBHOOK = f"https://discord.com/api/webhooks/998877/{_TOKEN}"
 _RATE_LIMITED = WebhookResponse(429, {"Retry-After": "2"}, b'{"retry_after": 2}')
-
-
-@dataclass
-class Skeleton:
-    app: App
-    transport: FakeWebhookTransport
-    clock: FakeAlertClock
-
-    def save(self, state: BotLifecycleState) -> None:
-        """Write the sample bot in `state` through the bots' own store."""
-        stored = sample_bot()
-        definition = replace(stored.bot.definition, config=GRID_CONFIG)
-        bot = replace(stored.bot, definition=definition, lifecycle=BotLifecycle(state))
-        store = self.app.container.resolve(IBotStore)  # type: ignore[type-abstract]
-        store.save(replace(stored, bot=bot, runtime={}))
-
-    def wait_for_posts(self, count: int) -> None:
-        while len(self.transport.posts) < count:
-            self.transport.posted.clear()
-            if len(self.transport.posts) >= count:
-                return
-            assert self.transport.posted.wait(WAIT_S), f"no POST #{count}"
-
-    def nudge_after(self, wait: timedelta) -> None:
-        """Move the alert clock and wake the lanes, as their poll would."""
-        self.clock.advance(wait)
-        self.app.container.resolve(WakeSignal).notify()
-
-
-def _boot(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    store: InMemorySecretStore,
-    transport: FakeWebhookTransport,
-) -> Skeleton:
-    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
-    clock = FakeAlertClock()
-    transport.clock = clock.now
-    app = create_app(ConfigManager())
-    container = app.container
-    container.singleton(ChannelSecrets, ChannelSecrets(store))
-    container.singleton(IWebhookTransport, transport)
-    container.singleton(IAlertClock, clock)
-    real_sources = container.resolve(IMarketDataSources)  # type: ignore[type-abstract]
-    container.singleton(
-        IMarketDataSources, FakeStreamSources(real_sources, FakeMarketStream())
-    )
-    app.boot()
-    return Skeleton(app, transport, clock)
 
 
 @pytest.fixture
 def skeleton(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Skeleton]:
-    booted = _boot(
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -192,13 +111,13 @@ def test_a_halted_bot_reaches_discord_once_after_its_retry_after(
         for entry in outbox.history(10)
     ]
     assert history == [("BOT_HALTED", [DeliveryState.SENT])]
-    assert _TOKEN not in caplog.text
+    assert TOKEN not in caplog.text
 
 
 def test_an_error_and_a_stop_that_gave_up_each_reach_discord_once(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    booted = _boot(
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -221,12 +140,13 @@ def test_an_error_and_a_stop_that_gave_up_each_reach_discord_once(
     assert "Stop failed: grid one" in heads[1]
 
 
-def test_a_wait_that_stalled_reaches_discord_as_one_warning(
+def test_a_wait_that_stalled_reaches_discord_as_one_alert(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """`EPIC-042C`: the module subscribed the stalled event; a wait is silent on entry, so this
-    is the owner's only word of a feed that does not return (review of PR #552)."""
-    booted = _boot(
+    is the owner's only word of a recovery that does not come (review of PR #552). A reason that
+    has no kind of its own is the generic `BOT_RECOVERY_STALLED` warning."""
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -238,7 +158,7 @@ def test_a_wait_that_stalled_reaches_discord_as_one_warning(
         booted.save(BotLifecycleState.AWAITING_RECOVERY)
         events.publish(
             BotRecoveryStalledEvent(
-                bot_id="abc123", reason="price_feed_stale", waited_s=900
+                bot_id="abc123", reason="user_stream_down", waited_s=900
             )
         )
         booted.wait_for_posts(1)
@@ -256,7 +176,7 @@ def test_an_automatic_recovery_reaches_discord_as_one_warning(
 ) -> None:
     """`EPIC-042D`: the module subscribed the recovered event, so the owner on a headless host
     hears of each recovery with the budget it leaves."""
-    booted = _boot(
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -282,7 +202,7 @@ def test_a_liquidation_warning_reaches_discord_as_one_warning(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """`EPIC-036B1`: the module subscribed the risk event; the owner's VPS bot tells its approach."""
-    booted = _boot(
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -318,7 +238,7 @@ def test_a_user_stream_outage_reaches_discord_as_one_alert_about_the_venue(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """`EPIC-036B1`: the module subscribed trading's stream health; one message, not one per bot."""
-    booted = _boot(
+    booted = boot_skeleton(
         monkeypatch,
         tmp_path,
         InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
@@ -354,7 +274,7 @@ def test_without_a_webhook_nothing_is_posted_and_the_host_still_warns(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     transport = FakeWebhookTransport()
-    booted = _boot(monkeypatch, tmp_path, InMemorySecretStore(), transport)
+    booted = boot_skeleton(monkeypatch, tmp_path, InMemorySecretStore(), transport)
     alerts = booted.app.container.resolve(IAlertChannels)  # type: ignore[type-abstract]
     try:
         assert not alerts.carries_bot_events()

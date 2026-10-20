@@ -1,4 +1,4 @@
-"""Bots' facts become alerts at the module's edge (`EPIC-036G`; widened by `EPIC-036B`).
+"""Bots' facts become alerts at the module's edge (`EPIC-036G`; widened by `EPIC-036B2`).
 
 An anti-corruption layer: the source reads `bots/contracts` only — the
 `BotChangedEvent` the bot store publishes after every write, the
@@ -17,12 +17,12 @@ earlier run already reported halted.
 by themselves within minutes. The one alert is the stalled one, after the rule's `stalled_after`,
 and it ends when the bot leaves the state.
 
-**The skeleton's table.** Three kinds: `HALTED` → `BOT_HALTED`, `ERROR` →
-`BOT_ERROR`, a stop that gave up → `STOP_FAILED`. A return to `RUNNING` ends the
-first two conditions and a bot reaching `STOPPED` ends the third, through
-`condition_cleared`, so the hub sends one "Recovered" and the next halt is a new
-alert. `EPIC-036B` grows the table to every (state, reason) pair with a test
-that each reason is mapped or ignored on purpose.
+**The table.** Three kinds on the state alone: `HALTED` → `BOT_HALTED`, `ERROR` →
+`BOT_ERROR`, a stop that gave up → `STOP_FAILED`. The reason can say more
+(`bot_reason_routes.py`, `EPIC-036B2`): a rate limit, a rejected key and a storage pause are kinds of
+their own, and a wait stalled on a quiet price feed is `PRICE_FEED_STALE`. A return to `RUNNING` ends
+the halt, the error and those conditions and a bot reaching `STOPPED` ends the stop that gave up,
+through `condition_cleared`, so the hub sends one "Recovered" and the next halt is a new alert.
 
 **Thread.** Handlers run on whichever thread wrote the bot (the bus is
 synchronous); one lock covers the read of the bot, the compare with its last
@@ -40,6 +40,7 @@ second round's give-up is a new alert, not a count on the first.
 @par Extension cases
   · another state worth an alert — one entry in `ALERT_ON_ENTRY`;
   · a new bot kind — nothing: the source reads the kind-neutral contract;
+  · a reason that is its own condition — one row in `REASON_ROUTES`;
   · a source for another module (`StreamAlertSource`, `SystemAlertSource`,
     `EPIC-036B`) — a file beside this one, subscribed in `module.boot()`.
 """
@@ -56,8 +57,13 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_reason_routes import (
+    own_route_on_entry,
+    stalled_route,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_subject import (
     subject_of,
+    subject_or_bare,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
@@ -140,6 +146,10 @@ CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
             AlertKind.BOT_HALTED,
             AlertKind.BOT_ERROR,
             AlertKind.BOT_RECOVERY_STALLED,
+            AlertKind.RATE_LIMITED,
+            AlertKind.KEY_REJECTED,
+            AlertKind.STORAGE_FAILURE,
+            AlertKind.PRICE_FEED_STALE,
         ),
         "HALTED": (AlertKind.BOT_RECOVERY_STALLED,),
         "ERROR": (AlertKind.BOT_RECOVERY_STALLED,),
@@ -196,11 +206,7 @@ class BotAlertSource:
 
     def on_stop_gave_up(self, event: BotStopGaveUpEvent) -> None:
         entry = self._entry(event.bot_id)
-        subject = (
-            subject_of(entry)
-            if entry is not None
-            else AlertSubject.bot(event.bot_id, "", "", "", "")
-        )
+        subject = subject_or_bare(entry, event.bot_id)
         reason = entry.reason if entry is not None else ""
         detail = (
             f"The stop gave up after {event.retries} automatic retries and the bot "
@@ -240,13 +246,17 @@ class BotAlertSource:
     def on_recovery_stalled(self, event: BotRecoveryStalledEvent) -> None:
         """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""
         entry = self._entry(event.bot_id)
-        subject = (
-            subject_of(entry)
-            if entry is not None
-            else AlertSubject.bot(event.bot_id, "", "", "", "")
-        )
+        subject = subject_or_bare(entry, event.bot_id)
+        minutes = event.waited_s // 60
+        route = stalled_route(event.reason)
+        if route is not None and route.kind is not None:
+            # `EPIC-036B2`: a wait on a quiet price feed is its own condition, which the hub can
+            # group across bots and hide behind the venue's stream outage.
+            detail = f"{route.text} It has waited {minutes} minute(s).\n"
+            self._publish(route.kind, subject, detail + _reason_line(event.reason))
+            return
         detail = (
-            f"The bot has waited {event.waited_s // 60} minute(s) to recover and is still "
+            f"The bot has waited {minutes} minute(s) to recover and is still "
             "waiting, with its ladder off the exchange; it resumes by itself if the cause "
             "clears. Its stop loss and take profit are watched only while ticks arrive.\n"
             f"Reason: {event.reason}"
@@ -260,11 +270,7 @@ class BotAlertSource:
         not a count on the first.
         """
         entry = self._entry(event.bot_id)
-        subject = (
-            subject_of(entry)
-            if entry is not None
-            else AlertSubject.bot(event.bot_id, "", "", "", "")
-        )
+        subject = subject_or_bare(entry, event.bot_id)
         left = max(event.max_attempts - event.attempt, 0)
         detail = (
             f"The bot was halted by a transient cause and resumed itself: attempt "
@@ -283,7 +289,7 @@ class BotAlertSource:
         """`BOT-189`: the price left the range of a bot that holds its orders (a bot that closes
         there is told by its stop, `EPIC-036B`'s `RANGE_EXIT`); its return is not told."""
         entry = self._entry(event.bot_id)
-        subject = _subject_or_bare(entry, event.bot_id)
+        subject = subject_or_bare(entry, event.bot_id)
         if event.position.value == _INSIDE:
             # No "Recovered": a price that oscillates around a bound would send a pair for each
             # crossing, unbounded. The hub's window (15 min for a WARNING) keeps it to one message
@@ -304,7 +310,7 @@ class BotAlertSource:
         """`BOT-189`: the stop standing on the exchange ran, so the position is closed."""
         if event.change is not ProtectiveStopChange.TRIGGERED:
             return
-        subject = _subject_or_bare(self._entry(event.bot_id), event.bot_id)
+        subject = subject_or_bare(self._entry(event.bot_id), event.bot_id)
         detail = (
             "The stop standing on the exchange ran and closed the position; "
             f"the bot stops.\n{event.detail}"
@@ -327,6 +333,13 @@ class BotAlertSource:
         self._send(alert)
 
     def _alert_on_entry(self, entry: BotStatusEntry, previous: str | None) -> None:
+        own = own_route_on_entry(entry.state, entry.reason)
+        if own is not None and own.kind is not None:
+            # A reason that is its own condition: a fixed sentence, never the bot's detail, which
+            # carries the failure text of a request or of the disk (`bot_reason_routes`).
+            detail = f"{own.text}\n{_reason_line(entry.reason)}"
+            self._publish(own.kind, subject_of(entry), detail)
+            return
         kind = ALERT_ON_ENTRY.get(entry.state)
         if kind is None:
             return
@@ -374,13 +387,6 @@ class BotAlertSource:
         return cast(
             BotStatusReport, self._dispatcher.dispatch(GetBotStatusReportQuery, query)
         )
-
-
-def _subject_or_bare(entry: BotStatusEntry | None, bot_id: str) -> AlertSubject:
-    """The bot's subject, or a bare one when the report no longer lists the bot."""
-    if entry is not None:
-        return subject_of(entry)
-    return AlertSubject.bot(bot_id, "", "", "", "")
 
 
 def _reason_line(reason: str, detail: str = "") -> str:

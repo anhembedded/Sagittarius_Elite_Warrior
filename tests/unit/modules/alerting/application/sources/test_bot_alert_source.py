@@ -72,6 +72,11 @@ def _key(kind: AlertKind) -> str:
     return Alert.condition_key(kind, subject)
 
 
+def _cleared_by_running() -> list[str]:
+    """Every condition a return to RUNNING ends (`CLEARED_ON_ENTRY`), as hub keys."""
+    return [_key(kind) for kind in CLEARED_ON_ENTRY["RUNNING"]]
+
+
 def test_entering_halted_publishes_one_critical_alert() -> None:
     bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
@@ -134,9 +139,7 @@ def test_a_return_to_running_clears_the_condition() -> None:
 
     assert published.cleared == [
         _key(AlertKind.BOT_RECOVERY_STALLED),  # entering HALTED ends a wait
-        _key(AlertKind.BOT_HALTED),
-        _key(AlertKind.BOT_ERROR),
-        _key(AlertKind.BOT_RECOVERY_STALLED),
+        *_cleared_by_running(),
     ]
 
 
@@ -159,19 +162,19 @@ def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_no
     bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
 
-    bots.move("AWAITING_RECOVERY", "price_feed_stale")
+    bots.move("AWAITING_RECOVERY", "user_stream_down")
     source.on_bot_changed(_changed())
     assert published.published == [], "entering a wait is silent"
 
     source.on_recovery_stalled(
-        BotRecoveryStalledEvent(bot_id=BOT, reason="price_feed_stale", waited_s=900)
+        BotRecoveryStalledEvent(bot_id=BOT, reason="user_stream_down", waited_s=900)
     )
 
     [alert] = published.published
     assert alert.kind is AlertKind.BOT_RECOVERY_STALLED
     assert alert.severity is Severity.WARNING
     assert "15 minute(s)" in alert.detail
-    assert "price_feed_stale" in alert.detail
+    assert "user_stream_down" in alert.detail
 
 
 def test_each_automatic_recovery_is_its_own_alert_with_the_budget_it_leaves() -> None:
@@ -314,9 +317,7 @@ def test_a_second_writer_never_leaves_a_stale_remembered_state() -> None:
     assert [a.kind for a in published.published] == [AlertKind.BOT_HALTED]
     assert published.cleared == [
         _key(AlertKind.BOT_RECOVERY_STALLED),  # entering HALTED ends a wait
-        _key(AlertKind.BOT_HALTED),
-        _key(AlertKind.BOT_ERROR),
-        _key(AlertKind.BOT_RECOVERY_STALLED),
+        *_cleared_by_running(),
     ]
     bots.move("HALTED")
     source.on_bot_changed(_changed())

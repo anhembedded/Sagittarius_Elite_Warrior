@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (5/10) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1` and `036B1` done 2026-10-20
+- **Status:** 🟡 In progress (6/11) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1` and `036B2` done 2026-10-20
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -24,7 +24,8 @@ gantt
 
     section Phase 1 - Sources
     036B1 Early warnings                  :done, b1, after g, 1d
-    036B Alert sources, the rest          :b, after g, 3d
+    036B2 Reason alerts                   :done, b2, after b1, 1d
+    036B Alert sources, the rest          :b, after b2, 2d
 
     section Phase 2 - Real channels
     036C Discord and Telegram migration   :c, after g, 5d
@@ -48,6 +49,7 @@ gantt
 | EPIC-036A | [Alerting core](completed/EPIC-036A_alerting_core.md) | `claude/epic-036a-alerting-core` | 🟡 | ✅ Done (2026-10-13), awaiting merge | — |
 | EPIC-036G | [Walking skeleton: halt to one Discord webhook](completed/EPIC-036G_walking_skeleton_halt_to_discord.md) | — | 🟡 | ✅ Done (2026-10-16), awaiting merge of this record | — |
 | EPIC-036B1 | [Early warnings: liquidation, user-data stream](completed/EPIC-036B1_early_warnings_liquidation_and_user_stream.md) | `claude/epic-036b1-early-warnings` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036B2 | [Reason alerts: rate limit, key, storage, price feed](completed/EPIC-036B2_reason_alerts_rate_limit_key_storage_price_feed.md) | `claude/epic-036b2-system-sources` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036B | [Alert sources, the rest](incomplete/EPIC-036B_alert_sources.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D1 | [Options page: the Discord webhook, Send test](completed/EPIC-036D1_options_alerts_page_discord_webhook.md) | `claude/alerts-options-page-036d1` | 🟡 | ✅ Done (2026-10-16), awaiting merge of this record | — |
@@ -66,6 +68,7 @@ gantt
 | 2026-10-16 | 036G, 036D1 | Closed with the owner's recorded runs: `alert test` from the VPS and Send test from the Options page both reached Discord. No real halt on the VPS yet. |
 | 2026-10-16 | 036D1 | Slice of `036D` the owner asked for: Tools → Options → Alerts with the Discord webhook, Save, Remove and Send test. Built; waits for the owner's look at the real window. |
 | 2026-10-20 | 036E1 | The dead man's switch split off `036E` and built without `035W` ([decision](DECISION_2026-10-20_dead_mans_switch.md)); tests green; the owner's kill test on the VPS not run. |
+| 2026-10-20 | 036B2 | Slice of `036B`: a bot's reason chooses its alert — `RATE_LIMITED`, `KEY_REJECTED`, `STORAGE_FAILURE`, `PRICE_FEED_STALE` — and the reason table with its completeness test ([decision](DECISION_2026-10-20_reason_alerts.md)); tests green; `SystemAlertSource` stays in `036B`. |
 | 2026-10-15 | Design | The design moves to `Docs/MODULES/alerting/` (`EPIC-041`'s standard); walking skeleton `036G` added first, `036B`/`036C`/`036E` re-sequenced behind it ([decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). Documentation only. |
 | 2026-10-16 | 036G | Walking skeleton built and verified (unit, sanity, integration; a real `alert test` reached Discord and got its 404 for a webhook that does not exist); the owner's run on the VPS is the open criterion. |
 

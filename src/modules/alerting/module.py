@@ -2,8 +2,8 @@
 
 **The context's one question:** *when something the owner must know happens, how
 does it reach them, once, even if a channel is down or the app restarts?* It
-listens to `bots/contracts` (`EPIC-036G`; `EPIC-036B` adds `trading` and the
-system); only `operations` reads it, through `alerting/contracts`, so a new kind
+listens to `bots/contracts` (`EPIC-036G`), `trading`'s stream health (`EPIC-036B1`)
+and, with `EPIC-036B`, the system; only `operations` reads it, through `alerting/contracts`, so a new kind
 of bot changes nothing here.
 
 What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`):
@@ -17,7 +17,9 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
   - a health section: how many alerts wait and how long the oldest has;
   - the bot source: a bot entering HALTED or ERROR, or whose stop gave up, is one
     CRITICAL alert, and so are a stop loss or take profit that ran and a bot closing at a range
-    exit (a price outside the range of a bot that holds is a WARNING);
+    exit (a price outside the range of a bot that holds is a WARNING); a rate limit, a rejected
+    key, a storage pause and a wait stalled on a quiet price feed are kinds of their own
+    (`EPIC-036B2`, `application/sources/bot_reason_routes.py`);
   - early warnings (`EPIC-036B1`): a Futures bot inside its liquidation warning distance
     (`LIQUIDATION_RISK`) and a venue's user-data stream down past a grace (`USER_STREAM_DOWN`),
     each once per condition with a cool-down;
