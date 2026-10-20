@@ -72,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -187,6 +190,11 @@ class BotsView(BaseView):
     def show_ladder(self) -> None:
         """Brings the Ladder tab to the front of the bottom panels."""
         self.surface.dock_of(self._ladder_slot).raise_()
+
+    def use_display_timezone(self, timezone: DisplayTimezonePreference) -> None:
+        """The Fills table reads its Time column in the shared display zone (`BOT-205`); the
+        chart's own drop-down sits in its header, built with the chart."""
+        self.fills.use_display_timezone(timezone)
 
     def set_chart(self, chart: QWidget | None) -> None:
         replace_in(

@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
     StrategyChartOverlayService,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 
 
 def _make_dummy_trade(
@@ -75,8 +78,12 @@ def test_view_model_timezone_properties_and_signals(qtbot) -> None:
     assert vm.time_range.displayTimezoneLabel == "Asia/Ho_Chi_Minh"
 
 
-def _build_presenter(view: MagicMock) -> BackTestPresenter:
+def _build_presenter(
+    view: MagicMock, preference: DisplayTimezonePreference | None = None
+) -> BackTestPresenter:
     container = MagicMock()
+    if preference is not None:
+        container.registrations.return_value = {DisplayTimezonePreference: preference}
 
     strategy_registry = MagicMock()
     strategy_registry.available.return_value = {}
@@ -87,7 +94,9 @@ def _build_presenter(view: MagicMock) -> BackTestPresenter:
     config.get_all.return_value = {}
 
     container.resolve.side_effect = lambda key: (
-        strategy_registry
+        preference
+        if key is DisplayTimezonePreference
+        else strategy_registry
         if "StrategyRegistry" in str(key)
         else strategy_catalog
         if "IStrategyCatalog" in str(key)
@@ -237,3 +246,21 @@ def test_the_coordinators_read_the_zone_from_the_screens_view_model(qapp) -> Non
     assert presenter._chart_preview._format_coverage_message(coverage) == (
         f"Missing candles from 2026-08-15 16:30:00 {_VIETNAM}."
     )
+
+
+def test_the_backtest_follows_the_applications_display_zone_both_ways(qapp) -> None:
+    """`BOT-205` - the zone is one choice for every screen: a pick on the Bots chart reaches
+    the Backtest's view model and chart, and the Run setup's pick reaches the Bots chart."""
+    view = MagicMock()
+    preference = DisplayTimezonePreference()
+    preference.set_zone("Asia/Tokyo")
+    presenter = _build_presenter(view, preference)
+    time_range = presenter._view_model.time_range
+    assert time_range.displayTimezone == "Asia/Tokyo"
+
+    preference.set_zone("Europe/London")
+    assert time_range.displayTimezone == "Europe/London"
+    view.set_display_timezone.assert_called_with("Europe/London")
+
+    presenter._view_model.setDisplayTimezone("SYSTEM")
+    assert preference.zone == "SYSTEM"

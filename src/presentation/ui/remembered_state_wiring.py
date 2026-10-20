@@ -12,6 +12,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
@@ -82,3 +85,16 @@ def register_remembered_state(
         lambda: state_coordinator.mark_dirty(timeframe_pin_preferences)
     )
     container.singleton(TimeframePinPreferences, timeframe_pin_preferences)
+
+    # `BOT-205` - the display time zone, ONE choice for every screen that shows a time: the
+    # Backtest report and a bot's chart read the same clock.
+    display_timezone = DisplayTimezonePreference()
+    state_coordinator.restore_into(display_timezone)
+    display_timezone.set_on_changed(
+        lambda: state_coordinator.mark_dirty(display_timezone)
+    )
+    # The zone was the Backtest's own field before; adopt it once, so no owner's choice resets.
+    display_timezone.adopt_earlier_zone(
+        state_coordinator.read(StateScope(key="backtest")).get("timezone")
+    )
+    container.singleton(DisplayTimezonePreference, display_timezone)

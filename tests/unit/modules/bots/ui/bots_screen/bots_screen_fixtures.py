@@ -130,6 +130,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.strategies.strategy_fakes import (
     FakeVenueStrategyControls,
@@ -273,6 +276,7 @@ def open_screen(
     answers: Answers | None = None,
     venue_enabled: bool = True,
     instance: IInstanceAccess | None = None,
+    display_timezone: DisplayTimezonePreference | None = None,
 ) -> BotsScreen:
     pool = HeldPool()
     bus = MemoryEventBus()
@@ -325,6 +329,8 @@ def open_screen(
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
     container.singleton(IInstanceAccess, instance or InstanceAccess.unguarded())
+    if display_timezone is not None:
+        container.singleton(DisplayTimezonePreference, display_timezone)
     strategy = VenueArming(VENUE)
     container.singleton(
         IVenueStrategyControls,

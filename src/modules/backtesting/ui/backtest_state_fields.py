@@ -276,15 +276,6 @@ BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
     ),
     StateField("custom_start", "time_range.customStartText", _text),
     StateField("custom_end", "time_range.customEndText", _text),
-    StateField(
-        # Timezone options key their id as `"id"`, while the time-range preset
-        # options above use `"value"` — two different shapes for the same kind
-        # of list, which is why each row names its own key rather than the
-        # table assuming one convention.
-        "timezone",
-        "time_range.displayTimezone",
-        _among("time_range.displayTimezoneOptions", "id"),
-    ),
     StateField("extended_metrics", "showExtendedMetrics", _flag),
 )
 

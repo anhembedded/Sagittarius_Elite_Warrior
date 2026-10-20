@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 
 from PySide6.QtWidgets import QWidget
@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_stream_mirror import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .bots_commands import COMMAND_PREFIX
@@ -79,6 +82,11 @@ class BotChartPorts:
     ticks: BotTickFeed
     #: Where the chart tells a failed load or stream (`BOT-169`).
     notifier: INotifier
+    #: The display time zone the chart's axis and crosshair read in, the application's one
+    #: (`BOT-205`); a host built without it keeps its own, in UTC.
+    display_timezone: DisplayTimezonePreference = field(
+        default_factory=DisplayTimezonePreference
+    )
 
 
 class BotChartHost:
@@ -129,6 +137,7 @@ class BotChartHost:
             ),
             parent=card,
         )
+        chart.use_display_timezone(self._ports.display_timezone)
         self._ports.ticks.listen_to(bot.venue.market_data_venue, market_of(bot.venue))
         chart.attach_ticks(self._ports.ticks)
         chart.logged.connect(partial(self._on_chart_said, bot.bot_id))

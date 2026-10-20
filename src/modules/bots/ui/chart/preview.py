@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
+    DisplayTimezonePreference,
+)
 
 #: This file's parent directory is `chart`, a name another module's preview
 #: could share; the key is explicit (`scripts/preview_qml.py`).
@@ -96,6 +99,9 @@ def build_preview() -> QWidget:
         scope=BOTS_ROUTE,
     )
     chart = BotChart(card, ports, parent=card)
+    zone = DisplayTimezonePreference()
+    zone.set_zone("Asia/Ho_Chi_Minh")
+    chart.use_display_timezone(zone)
     chart.show_symbol(_SYMBOL)
     chart.show_overlay(grid_overlay(_sample_source()))
     card.setWindowTitle("Bot chart — sample Grid")
