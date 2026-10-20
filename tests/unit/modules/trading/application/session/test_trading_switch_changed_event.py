@@ -67,6 +67,28 @@ def test_a_committed_open_publishes_enabled() -> None:
     assert _switch(publisher) == (_FUTURES, True, TradingSwitchCause.ENABLED)
 
 
+def test_the_open_names_the_bot_it_was_for() -> None:
+    """`BOT-183`: the event says who the session was opened for, so a bot waiting for its own
+    resume can tell another bot's opening from its own."""
+    publisher = RecordingPublisher()
+    handler, _, _, _ = _enable_handler(publisher=publisher)
+
+    handler.execute(EnsureSessionReadyCommand(venue=_FUTURES, opened_for="bot-a"))
+
+    (event,) = publisher.of_type(TradingSwitchChangedEvent)
+    assert event.opened_for == "bot-a"
+
+
+def test_an_open_for_no_bot_names_none() -> None:
+    publisher = RecordingPublisher()
+    handler, _, _, _ = _enable_handler(publisher=publisher)
+
+    handler.execute(EnsureSessionReadyCommand(venue=_FUTURES))
+
+    (event,) = publisher.of_type(TradingSwitchChangedEvent)
+    assert event.opened_for is None
+
+
 def test_a_refused_open_publishes_nothing() -> None:
     publisher = RecordingPublisher()
     handler, _, _, _ = _enable_handler(

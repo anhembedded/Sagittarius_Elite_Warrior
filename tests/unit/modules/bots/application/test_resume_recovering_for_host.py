@@ -1,16 +1,27 @@
-"""`run --resume-recovering`: the host opens the order session the GUI opens (`EPIC-038D`, decision O2).
+"""`run --resume-recovering`: each RECOVERING bot gets its own Resume (`EPIC-038D`, decision O2, `BOT-183`).
 
-A restart leaves RUNNING and PAUSED bots RECOVERING until a deliberate action opens the
-venue's order session - that action reconciles every bot on the venue against the
-exchange (`BotEventRouter.on_switch`). The host's request is that action, nothing
-else: it asks `ITradingSession.ensure_ready()` for each venue that holds a RECOVERING
-bot, and for a mainnet venue only when the operator typed it.
+A restart leaves RUNNING and PAUSED bots RECOVERING until a person resumes them. The host's request
+is the screen's own `ResumeBotCommand` for every RECOVERING bot of a venue, so it no longer depends on
+the switch-on event a session opening publishes (an already open session publishes none, and an
+opening names the bot it was for): the bot's Resume opens the session for it and reconciles it. A
+mainnet venue is resumed only when the operator typed it, and one bot's refusal leaves the others
+resumed.
 """
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
+    ResumeBotCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_recovering_for_host import (
     ResumeRecoveringForHostCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotCommandResult,
+    BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     ResumeRecoveringForHostCommand,
@@ -35,13 +46,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
-    FakeTradingSession,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -74,73 +78,95 @@ def _bot(
     store.save(StoredBot(bot, {}))
 
 
+class _Dispatcher(ICommandDispatcher):
+    """Answers the screen's Resume as the command handler would: done, or the refusal a test sets."""
+
+    def __init__(self) -> None:
+        self.asked: list[ResumeBotCommand] = []
+        self.refuse: dict[str, str] = {}
+
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        assert isinstance(input_dto, ResumeBotCommand)
+        self.asked.append(input_dto)
+        reason = self.refuse.get(input_dto.bot_id)
+        if reason is not None:
+            return BotCommandResult.refused(
+                BotRefusal.VENUE_NOT_READY, reason, input_dto.bot_id
+            )
+        return BotCommandResult.done(input_dto.bot_id)
+
+
 class _World:
-    def __init__(self, *venues: TradingVenue) -> None:
-        self.sessions = {v: FakeTradingSession() for v in venues}
-        for session in self.sessions.values():
-            session.ready_answers(_OPEN)
-        self.ports = FakeVenueTradingPorts(
-            *(fake_venue_ports(v, trading_session=s) for v, s in self.sessions.items())
-        )
+    def __init__(self) -> None:
+        self.dispatcher = _Dispatcher()
         self.store = FakeBotStore()
 
     def resume(self, confirmed: str | None = None) -> ResumeRecoveringResult:
-        handler = ResumeRecoveringForHostCommandHandler(self.store, self.ports)
+        handler = ResumeRecoveringForHostCommandHandler(self.store, self.dispatcher)
         return handler.execute(ResumeRecoveringForHostCommand(confirmed))
 
-    def asked(self) -> dict[str, int]:
-        return {v.value: s.ready_requests for v, s in self.sessions.items()}
+    def resumed(self) -> list[str]:
+        return [command.bot_id for command in self.dispatcher.asked]
 
 
-def test_each_venue_with_a_recovering_bot_is_asked_once_to_open_its_session() -> None:
-    world = _World(SPOT_TESTNET, FUTURES_TESTNET)
+def test_every_recovering_bot_of_a_venue_gets_its_own_resume() -> None:
+    world = _World()
     _bot(world.store, "aaaaaa", SPOT_TESTNET, BotLifecycleState.RECOVERING)
     _bot(world.store, "bbbbbb", SPOT_TESTNET, BotLifecycleState.RECOVERING)
+    _bot(world.store, "cccccc", FUTURES_TESTNET, BotLifecycleState.RECOVERING)
 
     result = world.resume()
 
-    assert world.asked() == {"spot_testnet": 1, "futures_testnet": 0}
-    assert [(v.venue, v.opened) for v in result.venues] == [("spot_testnet", True)]
-    assert result.venues[0].bot_ids == ("aaaaaa", "bbbbbb")
+    assert sorted(world.resumed()) == ["aaaaaa", "bbbbbb", "cccccc"]
+    assert {v.venue: (v.opened, v.bot_ids) for v in result.venues} == {
+        "spot_testnet": (True, ("aaaaaa", "bbbbbb")),
+        "futures_testnet": (True, ("cccccc",)),
+    }
 
 
-def test_a_venue_whose_bots_are_not_recovering_is_not_touched() -> None:
-    world = _World(SPOT_TESTNET)
+def test_a_bot_that_is_not_recovering_is_not_resumed() -> None:
+    world = _World()
     _bot(world.store, "aaaaaa", SPOT_TESTNET, BotLifecycleState.RUNNING)
     _bot(world.store, "bbbbbb", SPOT_TESTNET, BotLifecycleState.HALTED)
     _bot(world.store, "cccccc", SPOT_TESTNET, BotLifecycleState.STOPPED)
 
     result = world.resume()
 
-    assert world.asked() == {"spot_testnet": 0}
+    assert world.resumed() == []
     assert result.venues == ()
 
 
-def test_a_session_the_exchange_refuses_is_reported_with_its_reason_not_hidden() -> (
+def test_a_bot_whose_resume_is_refused_is_named_and_the_others_are_still_resumed() -> (
     None
 ):
-    world = _World(SPOT_TESTNET)
-    world.sessions[SPOT_TESTNET].ready_answers(_REFUSED)
+    world = _World()
+    world.dispatcher.refuse["aaaaaa"] = "unexpected open positions"
     _bot(world.store, "aaaaaa", SPOT_TESTNET, BotLifecycleState.RECOVERING)
+    _bot(world.store, "bbbbbb", SPOT_TESTNET, BotLifecycleState.RECOVERING)
 
     (venue,) = world.resume().venues
 
+    assert sorted(world.resumed()) == ["aaaaaa", "bbbbbb"]
     assert venue.opened is False
+    assert "aaaaaa stays RECOVERING" in venue.note
     assert "unexpected open positions" in venue.note
+    assert "bbbbbb" not in venue.note
 
 
-def test_a_mainnet_venue_is_opened_only_when_the_operator_typed_it() -> None:
-    world = _World(SPOT_MAINNET)
+def test_a_mainnet_venue_is_resumed_only_when_the_operator_typed_it() -> None:
+    world = _World()
     _bot(world.store, "aaaaaa", SPOT_MAINNET, BotLifecycleState.RECOVERING)
 
     refused = world.resume()
-    assert world.asked() == {"spot_mainnet": 0}
+    assert world.resumed() == []
     assert refused.venues[0].opened is False
     assert "--confirm-venue spot_mainnet" in refused.venues[0].note
 
     world.resume(confirmed="spot_testnet")
-    assert world.asked() == {"spot_mainnet": 0}  # another venue typed
+    assert world.resumed() == []  # another venue typed
 
-    opened = world.resume(confirmed="spot_mainnet")
-    assert world.asked() == {"spot_mainnet": 1}
-    assert opened.venues[0].opened is True
+    resumed = world.resume(confirmed="spot_mainnet")
+    assert world.dispatcher.asked == [
+        ResumeBotCommand("aaaaaa", real_money_confirmed=True)
+    ]
+    assert resumed.venues[0].opened is True

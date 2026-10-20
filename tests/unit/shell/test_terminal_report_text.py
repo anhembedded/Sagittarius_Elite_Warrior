@@ -1,5 +1,5 @@
-"""`BOT-195`: `rich` draws the text report only for a person at a terminal; every other
-reader gets the plain bytes, and `--json` is another renderer altogether."""
+"""`BOT-195`, `BOT-198`: `rich` draws the text report whenever a person is at a terminal, however
+wide the report; every other reader gets the plain bytes, and `--json` is another renderer."""
 
 from __future__ import annotations
 
@@ -21,11 +21,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_report import (
     exchange_status_report,
 )
-from Sagittarius_Elite_Warrior.src.shell.rich_text_report_renderer import (
-    RichTextReportRenderer,
-)
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
-    ReportTooWideError,
+    RICH_MISSING_NOTE,
     TerminalAwareTextRenderer,
     TerminalState,
 )
@@ -133,12 +130,6 @@ def test_every_reader_but_a_person_at_a_terminal_gets_the_plain_bytes(state):
         assert _renderer(state).render(report) == TextReportRenderer().render(report)
 
 
-def test_a_terminal_too_narrow_for_the_table_gets_the_plain_bytes():
-    narrow = _renderer(_state(columns=20))
-
-    assert narrow.render(_list_report()) == TextReportRenderer().render(_list_report())
-
-
 def test_output_that_is_not_for_a_terminal_has_no_escape_and_no_box():
     text = _renderer(_state(tty=False)).render(_list_report())
 
@@ -185,17 +176,46 @@ def test_a_label_and_value_block_colours_state_and_loss_only():
     assert "free text" in plain
 
 
-def test_without_rich_the_plain_bytes_are_printed():
-    def missing(columns: int) -> IReportRenderer:
-        raise ModuleNotFoundError("No module named 'rich'", name="rich")
+def _no_rich(columns: int) -> IReportRenderer:
+    raise ModuleNotFoundError("No module named 'rich'", name="rich")
 
+
+def test_without_rich_the_plain_bytes_are_printed_and_stderr_says_why_once(capsys):
     renderer = TerminalAwareTextRenderer(
-        TextReportRenderer(), lambda: _state(), missing
+        TextReportRenderer(), lambda: _state(), _no_rich
     )
 
-    assert renderer.render(_list_report()) == TextReportRenderer().render(
-        _list_report()
-    )
+    first = renderer.render(_list_report())
+    renderer.render(_list_report())
+
+    assert first == TextReportRenderer().render(_list_report())
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == RICH_MISSING_NOTE + "\n"
+    assert "pip install -r requirements-headless.txt" in RICH_MISSING_NOTE
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        _state(tty=False),
+        _state(env={"NO_COLOR": "1"}),
+        _state(env={"TERM": "dumb"}),
+    ],
+    ids=["not-a-terminal", "no-color", "dumb"],
+)
+def test_the_missing_rich_note_is_only_for_a_terminal_that_wanted_colour(state, capsys):
+    renderer = TerminalAwareTextRenderer(TextReportRenderer(), lambda: state, _no_rich)
+
+    renderer.render(_list_report())
+
+    assert capsys.readouterr().err == ""
+
+
+def test_a_working_rich_prints_no_note(capsys):
+    _renderer(_state()).render(_list_report())
+
+    assert capsys.readouterr().err == ""
 
 
 def test_a_broken_rich_install_or_a_defect_is_not_hidden_behind_plain_text():
@@ -264,6 +284,66 @@ def test_the_default_registry_still_has_the_plain_text_renderer():
     assert isinstance(ReportFormats.default().get("text"), TextReportRenderer)
 
 
-def test_a_table_wider_than_the_terminal_is_refused_not_shortened():
-    with pytest.raises(ReportTooWideError, match="columns needed"):
-        RichTextReportRenderer(columns=20).render(_list_report())
+def _order_report() -> Report:
+    head = ("LEVEL", "SIDE", "PRICE", "STATE")
+    rows = [
+        ("1", "BUY", "61000", "FILLED"),
+        ("2", "SELL", "62000", "REJECTED"),
+        ("3", "LONG", "61500", "CANCELLED"),
+        ("4", "SHORT", "62500", "RESTING"),
+    ]
+    return Report(
+        "bot-order",
+        1,
+        {},
+        (
+            ReportSection(
+                None,
+                (_row(*head), *(_row(*cells) for cells in rows)),
+                has_header=True,
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("word", "code"),
+    [
+        ("BUY", "32"),
+        ("LONG", "32"),
+        ("SELL", "31"),
+        ("SHORT", "31"),
+        ("FILLED", "32"),
+        ("REJECTED", "31"),
+        ("CANCELLED", "33"),
+    ],
+)
+def test_a_side_and_an_order_state_are_coloured_and_still_printed(word, code):
+    text = _renderer(_state()).render(_order_report())
+
+    assert re.search(rf"\x1b\[[0-9;]*{code}m[^\x1b]*{word}", text)
+    assert word in _ANSI.sub("", text)
+
+
+def test_a_resting_order_is_not_coloured_and_sides_are_plain_off_a_terminal():
+    text = _renderer(_state()).render(_order_report())
+    resting = next(line for line in text.splitlines() if "RESTING" in line)
+    assert not re.search(r"\x1b\[[0-9;]*3[0-9]m[^\x1b]*RESTING", resting)
+
+    plain = _renderer(_state(tty=False)).render(_order_report())
+    assert plain == TextReportRenderer().render(_order_report())
+    assert _ESCAPE not in plain
+
+
+def test_a_side_label_in_a_block_is_coloured():
+    report = Report(
+        "demo",
+        1,
+        {},
+        (ReportSection(None, (_row("Side", "SHORT"), _row("Position side", "LONG"))),),
+    )
+
+    text = _renderer(_state()).render(report)
+
+    assert re.search(r"\x1b\[[0-9;]*31m[^\x1b]*SHORT", text)
+    assert re.search(r"\x1b\[[0-9;]*32m[^\x1b]*LONG", text)

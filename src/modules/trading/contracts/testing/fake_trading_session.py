@@ -69,6 +69,8 @@ class FakeTradingSession(ITradingSession):
         #: be able to see, and it looks nothing like calling `ensure_ready()` twice.
         self.snapshot_reads = 0
         self.ready_requests = 0
+        #: Who each `ensure_ready` call said it was for (`BOT-183`), in order.
+        self.opened_for: list[str | None] = []
         self.emergency_stops = 0
         #: `EPIC-025` PR 2.1f — the lease, kept the way the real state keeps
         #: it: **one symbol per owner**, so claiming a second releases the
@@ -150,8 +152,9 @@ class FakeTradingSession(ITradingSession):
         self.snapshot_reads += 1
         return self._snapshot
 
-    def ensure_ready(self) -> SessionReadyResult:
+    def ensure_ready(self, opened_for: str | None = None) -> SessionReadyResult:
         self.ready_requests += 1
+        self.opened_for.append(opened_for)
         if self._ready_error is not None:
             raise self._ready_error
         if self._ready_result is None:
