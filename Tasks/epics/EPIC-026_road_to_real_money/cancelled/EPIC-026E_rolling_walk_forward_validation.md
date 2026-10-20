@@ -1,6 +1,9 @@
 # EPIC-026E — Rolling walk-forward validation over stored history, on the existing out-of-sample split
 
-**Status:** 🔵 Backlog
+> **Cancelled 2026-10-20** (decision N4 in [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md), owner pre-approved the coordinator's recommendation): rolling walk-forward serves only the EMA strategy, which is not going live; reopen with EPIC-001B if it does.
+
+
+**Status:** ❌ Cancelled (2026-10-20)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.1; the user (2026-09-20): *"hãy cho lô
 trình để có thể giao dịch thật"*.
 **Risk:** 🟡 — new application code in `backtesting`; the static engine is reused unchanged, so a

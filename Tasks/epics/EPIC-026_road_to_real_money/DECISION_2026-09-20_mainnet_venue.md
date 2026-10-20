@@ -2,7 +2,7 @@
 
 **Epic:** [`EPIC-026`](README.md)
 **Date:** 2026-09-20
-**Status:** Proposed
+**Status:** Accepted (2026-10-20) with O1–O4 answered in §4a; the owner pre-approved the coordinator's recommendations on 2026-10-20 and may veto any of them
 **Decided by:** Pending — the user, under `ONBOARDING.md` §7 (a real-money venue is a change of
 direction and of the foundational safety type; neither is the agent's to decide). The agent's
 part, labelled 🤖 below, is delegated design under the same section: named patterns, precedent in
@@ -79,14 +79,27 @@ at each step is the user's.
 | O3 | The first mainnet stage: capital, leverage ceiling, notional cap per order, daily-loss cap. | Stage 3 (`EPIC-026Q`), stage 4 | 2026-09-20 |
 | O4 | Alerting channel: Telegram (recommended, `BOT-018`'s own choice) or another. | Stage 2 (`EPIC-026M`) | 2026-09-20 |
 
+## 4a. Answers (2026-10-20)
+
+The owner said on 2026-10-20, in Vietnamese: *"co gi can confirm thi cu lam theo de xuat cua ban"* (anything that needs confirming: go with your recommendation). The coordinator recorded the recommendations of [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md) §6 as the answers below; any of them is reverted by a veto.
+
+| # | Answer | Owner's input still needed |
+| :-: | :--- | :--- |
+| O1 | (b) For Grid bots, a checklist the owner signs once per bot design: the backtest beats buy-and-hold net of fees over the same window, and the 24 h testnet record sits within a tolerance of its backtest. The EMA thresholds (`EPIC-026D`) are cancelled. | The tolerance |
+| O2 | (c) A position the bot's tag owns is adopted on the owner's Resume, never automatically; transient halts recover by themselves (`EPIC-042`). Closed: it is what the code does (`EPIC-038` O2, `BOT-183`, `BOT-197`). | None |
+| O3 | (b) The per-bot budget, plus an account-level loss cap (review N3) and a leverage ceiling constant for the first bot; the first bot runs on Spot or on Futures at 1×. Venue caps and a typed acknowledgement (`EPIC-026Q`) are cancelled. | The first bot's budget, the leverage ceiling, the loss-cap figure |
+| O4 | Discord first (`EPIC-036` D1), Telegram later (`EPIC-036C`). Closed. | None |
+
+The review's new decisions are recorded the same way: N1 as `BOT-197` built it (merged in PR 603); N2 a Spot inventory may stay behind a dead host, the dead man's switch tells the owner; N3 the loss cap's shape as the review states it (one figure per host in the quote currency, realised plus unrealised loss since 00:00 UTC, every bot stopped through the existing stop path, no restart until the owner acknowledges); N4 `EPIC-026D`, `E`, `F`, `O`, `Q` cancelled, the epic kept open for must-haves 3, 4 and 8; N5 liquidation warnings below `CRITICAL` deferred to `EPIC-036B`.
+
 ## 5. Implementation evidence
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1, D2 | [`README.md`](README.md) §3–§4, [`TRACKING.md`](TRACKING.md) | Not started | Not yet verified |
 | D3, D4 | [`EPIC-026P`](incomplete/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | Not started | Not yet verified |
-| D5 | [`EPIC-026Q`](incomplete/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Not started | Not yet verified |
-| D6 | [`EPIC-026O`](incomplete/EPIC-026O_reconciliation_script_and_soak_report.md) | Not applicable: D6 rejected by the owner on 2026-10-07 | — |
+| D5 | [`EPIC-026Q`](cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Not started | Not yet verified |
+| D6 | [`EPIC-026O`](cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) | Not applicable: D6 rejected by the owner on 2026-10-07 | — |
 | D7 | [`EPIC-026G`](incomplete/EPIC-026G_trade_journal.md) | Not started | Not yet verified |
 | D8 | [`EPIC-026K`](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Not started | Not yet verified |
 | D9 | [`EPIC-026L`](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Not started | Not yet verified |

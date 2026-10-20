@@ -85,9 +85,9 @@ complexity; every task is one pull request unless its file says otherwise.
 | [EPIC-026B](incomplete/EPIC-026B_spec_007_emergency_stop.md) | `SPEC-007` — Emergency Stop, written and proven | Elite | None | 🟢 | Partly — code and tests exist; SPEC file not written |
 | [EPIC-026C](incomplete/EPIC-026C_spec_010_arm_and_disarm_a_strategy.md) | `SPEC-010` — arm a strategy on a symbol, and disarm it, written and proven | Elite | the user's `EPIC-025B`/`C` confirmation | 🟢 | Partly — code and tests exist; SPEC file not written |
 | **Stage 1 — the edge is real** | | | | | |
-| [EPIC-026D](incomplete/EPIC-026D_edge_thresholds_decision.md) | The acceptance thresholds for a live candidate, fixed before any run (ADR O1) | Elite | None (user decision) | 🟢 | No longer relevant as written (EMA candidate); see review O1 |
-| [EPIC-026E](incomplete/EPIC-026E_rolling_walk_forward_validation.md) | Rolling walk-forward validation over stored history, on the existing out-of-sample split | Elite | D | 🟡 | No longer relevant (Grid bots) |
-| [EPIC-026F](incomplete/EPIC-026F_live_candidate_report.md) | The candidate report: one strategy, one symbol, one timeframe, judged against D | Elite | E, `EPIC-001B` | 🟡 | No longer relevant; `EPIC-029H`'s comparison replaces it |
+| [EPIC-026D](cancelled/EPIC-026D_edge_thresholds_decision.md) | The acceptance thresholds for a live candidate, fixed before any run (ADR O1) | Elite | None (user decision) | 🟢 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
+| [EPIC-026E](cancelled/EPIC-026E_rolling_walk_forward_validation.md) | Rolling walk-forward validation over stored history, on the existing out-of-sample split | Elite | D | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
+| [EPIC-026F](cancelled/EPIC-026F_live_candidate_report.md) | The candidate report: one strategy, one symbol, one timeframe, judged against D | Elite | E, `EPIC-001B` | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | **Stage 2 — operations survive without a human** | | | | | |
 | [EPIC-026G](incomplete/EPIC-026G_trade_journal.md) | Trade journal: orders, fills, positions and breaker state in SQLite | Elite | None | 🔴 | Partly — per-bot JSON store; decision journal is `EPIC-035X` |
 | [EPIC-026I](incomplete/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | Partly — unknown outcome resolved, rate-limit pause built; explicit `recvWindow` not |
@@ -97,10 +97,10 @@ complexity; every task is one pull request unless its file says otherwise.
 | [EPIC-026L](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Daily-loss and drawdown circuit breaker that trips Emergency Stop and stays tripped | Elite | G | 🔴 | Missing — no account-level loss cap; must-have |
 | [EPIC-026M](incomplete/EPIC-026M_out_of_band_alerting.md) | Out-of-band alerting for trading events (delivers `BOT-018`; ADR O4) | Elite | None | 🟡 | Done for bot halts (Discord); heartbeat is `EPIC-036E` |
 | [EPIC-026N](incomplete/EPIC-026N_user_data_stream_watchdog.md) | User-data-stream watchdog: silence alerts, an exhausted reconnect budget disables trading | Elite | M | 🔴 | Done — `UserStreamWatch`; its own alert is `EPIC-036B` |
-| [EPIC-026O](incomplete/EPIC-026O_reconciliation_script_and_soak_report.md) | Journal-versus-exchange reconciliation script, and the 14-day Testnet soak report | Elite | G–N | 🟡 | No longer relevant (soak rejected, D6); reconcile lives in the bot |
+| [EPIC-026O](cancelled/EPIC-026O_reconciliation_script_and_soak_report.md) | Journal-versus-exchange reconciliation script, and the 14-day Testnet soak report | Elite | G–N | 🟡 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | **Stage 3 — mainnet exists and is locked** | | | | | |
 | [EPIC-026P](incomplete/EPIC-026P_mainnet_venue_member_and_factory_parameter.md) | `TradingVenue.FUTURES_MAINNET`, the factory parameter, separate credentials, the fourth alignment state (ADR D3, D4) | Elite | O, ADR accepted | 🔴 | Done — by `EPIC-034E` |
-| [EPIC-026Q](incomplete/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Mainnet caps with a hard ceiling, and a typed acknowledgement on enable (ADR D5, O3) | Elite | P | 🔴 | No longer relevant as written (D11); see review O3 |
+| [EPIC-026Q](cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md) | Mainnet caps with a hard ceiling, and a typed acknowledgement on enable (ADR D5, O3) | Elite | P | 🔴 | ❌ Cancelled 2026-10-20 (N4 of the 2026-10-20 review) |
 | [EPIC-026R](incomplete/EPIC-026R_mainnet_read_only_first_contact.md) | Mainnet read-only first contact with a restricted key: `exchange-status`, permissions checked | Elite | P | 🟡 | Done in code; the owner's own-key check is `EPIC-034E`'s last box |
 | **Stage 4 — capital is earned** | | | | | |
 | [EPIC-026S](incomplete/EPIC-026S_live_versus_backtest_report.md) | Live-versus-backtest report after each capital stage; the next increase is a user decision | Elite | Q, R | 🟡 | Missing — needs a live run first |
