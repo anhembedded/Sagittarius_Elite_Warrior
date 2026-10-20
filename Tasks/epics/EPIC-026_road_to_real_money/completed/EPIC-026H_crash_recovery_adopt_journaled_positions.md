@@ -1,6 +1,9 @@
 # EPIC-026H — Crash recovery: a position the journal recorded as ours is adopted on enable, a foreign one is still refused
 
-**Status:** 🔵 Backlog
+> **Closed 2026-10-20** per [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md) §3: done differently: a restored bot comes back RECOVERING and adopts its tagged position on the owner's Resume (decision O2 (c), §4a of the mainnet decision record; `bot_restore_service.py` → `BotRestoreService`).
+
+
+**Status:** ✅ Done (2026-10-20, closed by the coordinator from the 2026-10-20 review)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.2 row 1 and ADR `❓ O2`; the user
 (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"*.
 **Risk:** 🔴 — changes the one refusal that protects the account from adopting a stranger's
@@ -9,7 +12,7 @@ position; a wrong match adopts money that is not the strategy's.
 rule's proof, not its size.
 **Epic:** [`EPIC-026`](../README.md)
 **SPEC:** updates `SPEC-004` §3 step 5 and §5 (`UNEXPECTED_POSITIONS` splits in two).
-**Depends on:** [`EPIC-026G`](EPIC-026G_trade_journal.md); ADR `O2` answered (adopt, as
+**Depends on:** [`EPIC-026G`](../incomplete/EPIC-026G_trade_journal.md); ADR `O2` answered (adopt, as
 recommended, or refuse as today — if the user chooses refuse, this task closes as Cancelled with
 the reason at its top).
 

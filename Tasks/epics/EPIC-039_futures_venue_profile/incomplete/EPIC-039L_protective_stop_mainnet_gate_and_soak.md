@@ -1,6 +1,6 @@
 # EPIC-039L — A Futures position never stands bare: an exchange-side stop, the mainnet gate and the testnet soak
 
-**Status:** 🟡 In progress — C1 merged (#544); C2 merged (#545); C3 (#550) and C4-lite (#551) in review
+**Status:** 🟡 In progress — C1 merged (#544); C2 merged (#545); C3 (#550, `c24be86`) and C4-lite (#551, `42ca328`) merged; the owner's Futures testnet runs T1–T5 remain
 **Source:** the owner, 2026-10-10; the 2026-10-09 halt ([README §1](../README.md)); [DESIGN §8](../DESIGN_2026-10-10_futures_venue_profile.md); [`EPIC-026K`](../../EPIC-026_road_to_real_money/incomplete/EPIC-026K_exchange_side_protective_stop.md).
 **Risk:** 🔴 — a second live order per position; a stop on the wrong side closes nothing, a stop not cancelled on exit opens the opposite position (026K's own warning)
 **Complexity:** L — a stop life cycle owned by the bot, adoption on restart, the mainnet gate, a 14-day soak

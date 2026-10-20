@@ -10,7 +10,7 @@
 compares too little.
 **Complexity:** M — one script, one drill day, fourteen days of waiting, one report.
 **Epic:** [`EPIC-026`](../README.md)
-**Depends on:** [`EPIC-026G`](EPIC-026G_trade_journal.md) … [`EPIC-026N`](EPIC-026N_user_data_stream_watchdog.md),
+**Depends on:** [`EPIC-026G`](../incomplete/EPIC-026G_trade_journal.md) … [`EPIC-026N`](../completed/EPIC-026N_user_data_stream_watchdog.md),
 all merged; the candidate from [`EPIC-026F`](EPIC-026F_live_candidate_report.md) (the soak runs
 the strategy that will trade for real, or the reference strategy if gate 1 is not yet passed —
 the report says which).
