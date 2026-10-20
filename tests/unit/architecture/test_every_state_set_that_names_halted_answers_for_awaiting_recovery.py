@@ -49,10 +49,6 @@ _EXCEPTIONS: dict[tuple[str, str], str] = {
         "GridRateLimitPause.after_task",
     ): "schedules the pause's resume for the bot the limit halted; the wait is halted first",
     (
-        "modules/bots/application/kinds/grid/watch/grid_rate_limit_pause.py",
-        "GridRateLimitPause._resume_now",
-    ): "the timer resumes only a bot still HALTED for the limit (`EPIC-042F` revisits it)",
-    (
         "modules/bots/application/services/lifecycle/bot_boot_recovery.py",
         "BotBootRecovery.run",
     ): "pays the cancel a cut-short start owes at boot; only HALTED owes it",

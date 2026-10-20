@@ -38,6 +38,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
     GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    PAUSE_RULE,
+    RATE_LIMITED,
     RecoveryLayer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
@@ -49,10 +51,10 @@ GRID_KIND_ID = "grid"
 GRID_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
 
 
-#: The Grid's layer of the halt-recovery policy (`EPIC-042`). Empty today: the Grid recovers the
-#: common reasons only. `rate_limited` joins it when `EPIC-042F` moves the rate-limit resume
-#: onto the mechanism (until then `GridRateLimitPause` owns that reason).
-GRID_RECOVERY_LAYER = RecoveryLayer(GRID_KIND_ID)
+#: The Grid's layer of the halt-recovery policy (`EPIC-042`, `EPIC-042F`): the exchange's pause is a
+#: reason only the Grid has (it is the one kind that waits for one), recovered with the common
+#: budget and stalled alert and a dwell of the margin the first request waits after the pause.
+GRID_RECOVERY_LAYER = RecoveryLayer(GRID_KIND_ID, changes={RATE_LIMITED: PAUSE_RULE})
 
 
 class GridKind(IBotKind):

@@ -21,7 +21,7 @@ bad layer fails in a unit test and not at a halt.
 
 @par Extension cases
   · a new common reason — one entry in `COMMON_LAYER` and a probe;
-  · a reason only one kind has (the Grid's rate limit, `EPIC-042F`) — one entry in that
+  · a reason only one kind has (the Grid's rate limit, `EPIC-042F`, built) — one entry in that
     kind's layer;
   · opening Futures — delete `clears_lower_layers` from its venue layer;
   · another dwell for one reason on one venue — a `RuleChange` in that venue's layer.
@@ -47,6 +47,7 @@ MAX_RECORDED_ATTEMPTS = 16
 
 PRICE_FEED_STALE = HaltCode("price_feed_stale")
 USER_STREAM_DOWN = HaltCode("user_stream_down")
+RATE_LIMITED = HaltCode("rate_limited")
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,17 @@ class RuleChange:
                 rule.stalled_after if self.stalled_after is None else self.stalled_after
             ),
         )
+
+
+#: The dwell of the exchange's pause (`EPIC-042F`): the pause must be over, continuously, for this
+#: long before the attempt, so the first request after it is not the one the exchange still counts
+#: inside the pause. The retired timer waited the pause plus this same margin.
+PAUSE_DWELL = timedelta(seconds=2)
+
+#: How `rate_limited` is recovered wherever a layer declares it: the default budget and stalled
+#: alert, and the margin as the dwell. One value, so the Grid's layer and a Futures venue's, which
+#: clears every lower layer and lists only this, cannot drift apart.
+PAUSE_RULE = RuleChange(dwell=PAUSE_DWELL)
 
 
 @dataclass(frozen=True, slots=True)

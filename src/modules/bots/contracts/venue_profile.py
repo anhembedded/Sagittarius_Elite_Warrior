@@ -47,6 +47,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     COMMON_LAYER,
+    PAUSE_RULE,
+    RATE_LIMITED,
     EffectivePolicy,
     RecoveryLayer,
     effective_policy,
@@ -122,9 +124,14 @@ _FUTURES = VenueProfile(
     bot_directions=frozenset(TradeDirection),
     held_word="position",
     close_at_market_label="Close the position at market",
-    # Its halt closes the position and EPIC-039L governs it: nothing recovers by itself.
-    # Opening Futures to automatic recovery later deletes this one line (ADR 042 D5).
-    recovery_layer=RecoveryLayer("futures", clears_lower_layers=True),
+    # Its halt closes the position and EPIC-039L governs it: it clears every lower layer, so a
+    # quiet feed, a down stream and whatever a kind adds are not recovered by itself. It lists the
+    # one exception: the exchange's pause halts nothing and closes nothing, and a Futures bot
+    # always resumed from it by itself (`BUG-216`, `EPIC-042F`). Opening Futures to more reasons
+    # later deletes `clears_lower_layers` (ADR 042 D5).
+    recovery_layer=RecoveryLayer(
+        "futures", clears_lower_layers=True, changes={RATE_LIMITED: PAUSE_RULE}
+    ),
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.

@@ -4,8 +4,8 @@
     STARTING it writes `START_CUT_BY_SWITCH_OFF`: the partial ladder cannot be
     cancelled with the session closed, so the cancel is owed and paid when
     trading is enabled (`BUG-190`, as `EPIC-035C` does for a restart).
-  · `RATE_LIMITED` → `halt` naming the pause (`EPIC-035D`); the bot resumes by
-    itself when it ends (`GridRateLimitPause`).
+  · `RATE_LIMITED` → `pause_with`: the bot waits for the pause in AWAITING_RECOVERY and resumes by
+    itself when it ends (`EPIC-042F`; `GridRateLimitPause` holds the pause the probe reads).
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
@@ -25,6 +25,8 @@ boundary calls it, so no failure leaves a bot in a state with no reason.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_run_state import (
     BotRunState,
 )
@@ -38,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    too_long_to_wait_words,
 )
 
 #: The reason a refusal that names its cause records, whatever state it met.
@@ -70,7 +75,7 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
         else:
             _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
     elif outcome.kind is OrderOutcomeKind.RATE_LIMITED:
-        _apply(state, BotLifecycleEvent.HALT, GridReason.RATE_LIMITED, detail)
+        pause_with(state, outcome.retry_after, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
     else:
@@ -110,6 +115,21 @@ def fault_with(state: BotRunState, what: str, error: Exception) -> None:
 def halt_with(state: BotRunState, reason: GridReason, detail: str) -> None:
     """Halt for `reason`; the state decides whether the bot waits to recover (`EPIC-042C`)."""
     state.halt(reason, detail)
+
+
+def pause_with(state: BotRunState, retry_after: timedelta | None, detail: str) -> None:
+    """The exchange asked for a pause (`EPIC-042F`). A bot that places or waits to halts for it
+    and waits it out in AWAITING_RECOVERY, unless the pause is longer than any wait
+    (`MAX_AUTO_RESUME_WAIT`: HALTED for a person). A bot already waiting keeps its reason and its
+    rule, so a limit cannot shorten the dwell of a quiet feed; the pause joins what the wait
+    watches (`GridRateLimitPause`, `GridHaltProbe`)."""
+    if state.state is BotLifecycleState.AWAITING_RECOVERY:
+        return
+    state.halt(
+        GridReason.RATE_LIMITED,
+        detail,
+        plain_because=too_long_to_wait_words(retry_after),
+    )
 
 
 def _apply(

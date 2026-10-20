@@ -44,9 +44,10 @@ the measurements are in the task file's §5a.)
   `VenueOrderPacers` hands every bot of a venue the same `MonotonicOrderPacer`, which reserves a turn
   under a lock, so the venue's orders keep the budget's spacing whichever bot sends them. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
-  order halts `RATE_LIMITED` at that order and schedules its own resume; a neighbour that only reads
-  says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every halted bot resumes at
-  the same instant, the pause plus `AUTO_RESUME_MARGIN`.
+  order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
+  that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
+  bot of the venue attempts on the same beat of the price watch once the pause is over and the
+  `AUTO_RESUME_MARGIN` has passed (see "The exchange's pause" below).
 - **What caps it:** `other_active_bot` (one bot per venue and symbol), `venue_is_full` (at most
   `MAX_ACTIVE_BOTS_PER_VENUE`), `venue_recovering` (no Start while a bot of the venue waits to
   recover, because a Start opens the order session and the session's opening reconciles it).
@@ -255,7 +256,7 @@ bot's effective policy (`bots/contracts/venue_profile.py` → `recovery_policy_o
 and the venue's layers merged) has a rule for the reason, and the bot's ledger holds fewer attempts than
 the rule allows in its window; otherwise `halt`, and when the budget is what made it plain the reason
 says "the 3 automatic recoveries allowed in 24 h are used up". A `PAUSED` or `RECOVERING` bot halts
-plainly, and a Futures venue has no rule. The ladder comes off on entering the state
+plainly, and a Futures venue has no rule but the exchange's pause. The ladder comes off on entering the state
 (`.../kinds/grid/grid_task_guard.py` → `GridTaskGuard`). When that cancel fails the bot lands in plain
 `HALTED` instead (`GridTaskGuard._halt_unparked`): the wait presumes a ladder off the exchange, and
 `BOT_HALTED` then says the orders may still rest.
@@ -281,12 +282,37 @@ evidence, every tagged order cancelled, a ladder sized from the price now and th
 (4) publishes `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py`), which
 `alerting` carries to the owner from `EPIC-042D`; a wait that lasts `stalled_after` publishes
 `BotRecoveryStalledEvent` once, which `alerting` already carries as `BOT_RECOVERY_STALLED`. An attempt that meets a new cause (a moved price, a
-symbol that does not trade, a rate limit, a rejected key) ends in `HALTED` through `halt_with`; one that
+symbol that does not trade, a rejected key) ends in `HALTED` through `halt_with`; one that meets the
+exchange's pause goes back to waiting, for the pause (below); one that
 changes nothing (the budget registration refused, the price unreadable) leaves the bot waiting with the
 attempt spent, and with the budget spent it goes to `HALTED` with `budget_exhausted`. The run does
 nothing while a person's resume proposal is held, and a person's Resume, a Stop or an Emergency Stop
 moves the bot out and the next beat forgets the wait. The cancel in step (3) is also the retry of an
 entry park that failed during the outage: no ladder is laid over orders that may still rest.
+
+**The exchange's pause** (`EPIC-042F`). A rate limit is one more reason of the policy, `rate_limited`,
+declared in the Grid's layer (`GRID_RECOVERY_LAYER`) with a dwell of `AUTO_RESUME_MARGIN` and the common
+budget (three per rolling 24 h per bot, counted with every other reason) and stalled alert; a Futures
+venue clears the lower layers and lists it alone, so a Futures bot resumes from a pause as it always did
+(`BUG-216`). The halt reaches the mechanism from two doors that end in one function
+(`.../kinds/grid/grid_order_failure.py` → `pause_with`): an order the venue's gate refused (`fail_with`)
+and a read or cancel that raised (`GridRateLimitPause.halt`). A bot that places or waits to goes to
+`AWAITING_RECOVERY`, keeping its ladder (no cancel is sent into a pause, `GridTaskGuard`), unless the
+pause is longer than `MAX_AUTO_RESUME_WAIT` (`.../domain/grid/rate_limit_pause.py` →
+`too_long_to_wait_words`): that halt is plain and says "resume by hand". After the task,
+`GridRateLimitPause.after_task` records when the pause ends on the bot's monotonic clock; the probe
+(`GridHaltProbe`) says `rate_limited` is clear when it has ended (`GridRateLimitPause.holds`), so the
+run's dwell is the margin and its attempt is the person's own Resume, **with the exits re-checked on a
+fresh price first**: a stop loss crossed during the pause ends the bot as a Stop and no ladder is laid,
+which the retired timer never checked. A bot already waiting for another reason keeps that reason and its
+dwell; the pause only joins the causes the run samples (`GridHaltRecovery._every_cause_clear`), so a
+limit cannot shorten a quiet feed's 120 s. A limit met by an attempt costs that attempt, and the waiting
+bot attempts again after the pause; a spent budget ends the wait in `HALTED` (`budget_exhausted`). What
+the mechanism never recovers is left to a person and says so: a `PAUSED` or `RECOVERING` bot that meets a
+limit is `HALTED` (the owner's Pause is not undone by a machine), and so is a `HALTED` bot whose Resume met
+one (resume again once the pause ends). The pause's end is kept in memory: a restart ends the wait in
+`HALTED` like any other. All bots of a venue wait for the same instant (the gate is the venue's) and
+attempt on the same beat of the price watch, about a beat later than the old timer fired.
 
 **The long wait.** The wait has no limit. After the rule's `stalled_after` the run publishes
 `BotRecoveryStalledEvent` once (`bots/contracts/events/bot_recovery_stalled_event.py`), which `alerting`
