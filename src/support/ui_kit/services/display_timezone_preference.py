@@ -49,6 +49,8 @@ class DisplayTimezonePreference:
         """@param on_changed Called after a change, so the owner can mark this dirty with the
         state coordinator (the bootstrapper wires it with `set_on_changed`)."""
         self._zone = DEFAULT_TIMEZONE
+        #: Whether a restore found a zone of this setting's own.
+        self._remembered = False
         self._on_changed = on_changed
         self._listeners: list[Callable[[str], None]] = []
 
@@ -94,9 +96,21 @@ class DisplayTimezonePreference:
         """A remembered zone that is no longer offered degrades to the default, quietly: a
         restore announces nothing (`EPIC-010`), so no listener is called."""
         zone = data.get(_ZONE_KEY)
+        self._remembered = _is_offered(zone)
         self._zone = (
             zone if _is_offered(zone) and isinstance(zone, str) else DEFAULT_TIMEZONE
         )
+
+    def adopt_earlier_zone(self, zone: object) -> None:
+        """Starts from `zone`, the one a screen remembered before this setting existed, when
+        this setting has no value of its own yet; remembered from now on. Nothing else changes: a
+        zone no picker offers, or a setting that already has a value, is left as it is."""
+        if self._remembered or not _is_offered(zone) or not isinstance(zone, str):
+            return
+        self._zone = zone
+        self._remembered = True
+        if self._on_changed is not None:
+            self._on_changed()
 
 
 def find_display_timezone_preference(

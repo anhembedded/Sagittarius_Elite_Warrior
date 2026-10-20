@@ -33,7 +33,7 @@ from .i_state_contributor import (
 from .ports.i_state_store import (
     IStateStore,
 )
-from .state_scope import StateScope
+from .state_scope import StateData, StateScope
 
 logger = logging.getLogger("App.UiState")
 
@@ -92,6 +92,11 @@ class UiStateCoordinator(QObject):
         """
         data = self._store.read(contributor.state_scope)
         contributor.restore_state(data)
+
+    def read(self, scope: StateScope) -> StateData:
+        """Another contributor's slice as stored, for a one-time migration that moves a value
+        from one scope to another (`BOT-205`); it applies nothing."""
+        return self._store.read(scope)
 
     def mark_dirty(self, contributor: IStateContributor) -> None:
         """Records that `contributor` changed, and (re)starts the debounce window."""

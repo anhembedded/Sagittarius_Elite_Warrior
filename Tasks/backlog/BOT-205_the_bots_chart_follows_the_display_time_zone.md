@@ -3,7 +3,7 @@
 **Status:** 🟡 In progress
 **Board:** The selected bot's chart axis, crosshair label and Fills "Time" column follow one app-wide display time zone (UTC, System, or an IANA zone) that the Backtest screen now shares, instead of a Backtest-only setting.
 **Source:** the owner, 2026-10-20: "chart của bot, chưa có cơ chế chọn múi giờ. bên back test screen có cơ chế đó rùi, làm task luôn nhé" (the bot's chart has no way to choose the time zone; the Backtest screen already has one; create the task and do it).
-**Risk:** 🟡 — the Backtest screen's remembered zone moves from its own slice to a shared one, so a previous Backtest choice resets to UTC once.
+**Risk:** 🟡 — the Backtest screen's remembered zone moves from its own slice to a shared one; the first start adopts the old value, so no choice resets.
 **Complexity:** M — one shared preference, one selector on the Bots chart, the Fills table, and the Backtest following the shared value.
 **Depends on:** BUG-234 (#621): `to_display_time` and `display_zone_name` convert "System" through the OS.
 
@@ -27,7 +27,7 @@
 
 **Selector.** `DisplayTimezoneCombo` (`src/support/ui_kit/`) is a stock `QComboBox` fed by `get_supported_timezones` (short labels; the full label is each item's tooltip), shown in the chart card's own header (`ChartCard.add_to_header`), so the screen's layout does not move (EPIC-040 reshapes the centre in parallel; an extra row above the chart also broke the small-window height budget of `test_bots_view.py`). The Backtest keeps its Run setup combo, which is wired to the same shared setting.
 
-**What follows.** `BotChart.use_display_timezone` (`src/modules/bots/ui/chart/bot_chart.py`) sets the chart's zone, adds the selector to the card header and follows the shared setting until `shutdown`; `BotFillsPanel.use_display_timezone` writes the Fills "Time" column through `ZonedValueFormatter` and writes the rows again on a change. The Backtest follows the same setting through `follow_shared_display_timezone` (wired in `signal_wiring.connect_ui_signals`); its own `timezone` field left the Backtest state slice, so an owner's earlier Backtest choice resets to UTC once.
+**What follows.** `BotChart.use_display_timezone` (`src/modules/bots/ui/chart/bot_chart.py`) sets the chart's zone, adds the selector to the card header and follows the shared setting until `shutdown`; `BotFillsPanel.use_display_timezone` writes the Fills "Time" column through `ZonedValueFormatter` and writes the rows again on a change. The Backtest follows the same setting through `follow_shared_display_timezone` (wired in `signal_wiring.connect_ui_signals`); its own `timezone` field left the Backtest state slice. **No reset (coordinator decision, owner's standing pre-approval, 2026-10-20):** `DisplayTimezonePreference.adopt_earlier_zone`, called once in `remembered_state_wiring.py` with the Backtest slice's old `timezone` (read through `UiStateCoordinator.read`), starts the shared setting from that zone when it has no value of its own; a zone no picker offers is ignored. A silent reset to UTC is what BUG-234 was about.
 
 **Texts that do not follow.**
 - The Grid backtest page's result chart (`GridBacktestView`, under the Backtest tab) keeps UTC: its range editors are labelled UTC and EPIC-040 reshapes that page; it is a one-call follow-up (`BotChart.use_display_timezone`) once the page has settled.
@@ -57,6 +57,7 @@ Unit tier; QtWidgets offscreen.
 | :--- | :--- |
 | the Bots chart offers the zones | `test_bot_chart_display_timezone.py::test_the_chart_header_holds_a_selector_that_writes_the_shared_zone`; `test_display_timezone_combo.py` |
 | axis and crosshair follow; System with an injected UTC+7 machine shows local time | `test_bot_chart_display_timezone.py` (4 tests); red before: with the line that applies the zone removed, 3 of them fail with `assert 0.0 == 25200` (the axis stays at UTC) |
+| an earlier Backtest zone is adopted once, not reset | `test_display_timezone_adopts_the_backtest_zone.py` (red before: `'UTC' == 'Asia/Ho_Chi_Minh'`) |
 | one app-wide, remembered setting | `test_display_timezone_preference.py`; `test_shared_display_timezone.py`; `test_backtest_timezone_presenter.py::test_the_backtest_follows_the_applications_display_zone_both_ways` (fails with the wiring line removed) |
 | Fills "Time" column | `test_bot_fills_display_timezone.py` (the panel, and the screen over its own composition) |
 | Backtest unchanged | the existing Backtest suites, green |

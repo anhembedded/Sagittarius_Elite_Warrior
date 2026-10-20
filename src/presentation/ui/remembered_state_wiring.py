@@ -93,4 +93,8 @@ def register_remembered_state(
     display_timezone.set_on_changed(
         lambda: state_coordinator.mark_dirty(display_timezone)
     )
+    # The zone was the Backtest's own field before; adopt it once, so no owner's choice resets.
+    display_timezone.adopt_earlier_zone(
+        state_coordinator.read(StateScope(key="backtest")).get("timezone")
+    )
     container.singleton(DisplayTimezonePreference, display_timezone)
