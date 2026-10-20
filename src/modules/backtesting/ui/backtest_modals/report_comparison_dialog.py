@@ -137,6 +137,11 @@ class ReportComparisonDialog(QDialog):
 
     def _build_chart(self) -> None:
         self._chart = ReportComparisonChartWidget()
+        time_range = self._vm.time_range
+        self._chart.set_display_timezone(time_range.displayTimezone)
+        time_range.displayTimezoneChanged.connect(
+            lambda: self._chart.set_display_timezone(time_range.displayTimezone)
+        )
         self.body_layout.addWidget(self._chart, 1)
 
     def _build_buttons(self) -> QDialogButtonBox:

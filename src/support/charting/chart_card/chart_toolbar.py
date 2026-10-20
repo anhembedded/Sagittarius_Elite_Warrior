@@ -85,7 +85,7 @@ originally shipped, recorded here rather than silently rewritten
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
@@ -95,6 +95,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
     timeframe_or_fallback,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
     TimeframeActions,
@@ -134,18 +135,21 @@ class _ActiveTimeframe:
         self.code = code
 
 
-class _OfferedMarket:
-    """The market whose timeframes this toolbar offers, in one mutable box —
-    read by the selection's `get_codes` closure, written by `set_market`
-    (the same reason as `_ActiveTimeframe`). `None`: no market was told, so
-    every timeframe the domain declares is offered."""
+class _Offered:
+    """What this toolbar offers, in one mutable box — read by the selection's
+    `get_codes` closure, written by `set_market` (the same reason as
+    `_ActiveTimeframe`). `market` `None`: no market was told, so every timeframe
+    the domain declares is offered; `codes` `None`: the host named no subset."""
 
-    __slots__ = ("market",)
+    __slots__ = ("codes", "market")
 
-    def __init__(self) -> None:
+    def __init__(self, codes: Collection[str] | None) -> None:
         self.market: MarketType | None = None
+        self.codes = None if codes is None else frozenset(codes)
 
     def offers(self, code: str) -> bool:
+        if self.codes is not None and code not in self.codes:
+            return False
         return self.market is None or supports_timeframe(self.market, code)
 
 
@@ -173,6 +177,7 @@ class ChartToolbar(QToolBar):
         *,
         symbol: str | None = None,
         timeframe_pin_preferences: TimeframePinPreferences | None = None,
+        offered_codes: Collection[str] | None = None,
     ) -> None:
         """@param symbol / timeframe_pin_preferences Scope the pinned set to
         one chart. Both must be given together — `ChartCard` passes its own
@@ -180,7 +185,10 @@ class ChartToolbar(QToolBar):
         `ChartCard.__init__`). Either left as `None` (every existing bare
         `ChartToolbar()` caller: previews, unit tests) falls back to the
         private, unpersisted `PinnedTimeframes` this class has always used —
-        seeded from `timeframes`, exactly as before persistence existed."""
+        seeded from `timeframes`, exactly as before persistence existed.
+        @param offered_codes The only timeframes this toolbar offers, pinned or in the
+        picker, for a host whose data covers a subset (the backtest workbench's
+        intervals, `EPIC-040`); `None` offers every timeframe the market can load."""
         active_state = _ActiveTimeframe(
             active or (timeframes[0] if timeframes else None)
         )
@@ -204,7 +212,7 @@ class ChartToolbar(QToolBar):
         # module's docstring, "the one hard requirement". `get_codes` offers
         # every domain timeframe rather than the pinned/default subset, because
         # pinning and choosing both reach codes outside `DEFAULT_TIMEFRAMES`.
-        offered = _OfferedMarket()
+        offered = _Offered(offered_codes)
         selection = TimeframeSelection(
             get_codes=lambda: [
                 option.code for option in all_options() if offered.offers(option.code)
@@ -255,6 +263,11 @@ class ChartToolbar(QToolBar):
         self._active_state.code = code
         self.sig_timeframe_changed.emit(code)
 
+    @property
+    def active_timeframe(self) -> str | None:
+        """The timeframe highlighted now."""
+        return self._active_state.code
+
     def set_active(self, timeframe: str | None) -> None:
         """Highlights `timeframe` without emitting `sig_timeframe_changed`.
 
@@ -280,8 +293,8 @@ class ChartToolbar(QToolBar):
         self._offered.market = market
         self._selection.refresh()
         active = self._active_state.code
-        if active and not supports_timeframe(market, active):
-            fallback = timeframe_or_fallback(market, active)
+        if active and not self._offered.offers(active):
+            fallback = self._fallback_for(active, market)
             logger.info(
                 "[chart] timeframe %s is not offered on %s; falling back to %s",
                 active,
@@ -289,6 +302,25 @@ class ChartToolbar(QToolBar):
                 fallback,
             )
             self._selection.choose(fallback)
+
+    def _fallback_for(self, active: str, market: MarketType) -> str:
+        """The offered timeframe to move to when `active` no longer is: the market's own nearest, or,
+        when the host named a subset, the nearest of the subset the market loads."""
+        wanted = timeframe_or_fallback(market, active)
+        if self._offered.offers(wanted):
+            return wanted
+        offered = sorted(
+            (
+                TimeFrame(option.code)
+                for option in all_options()
+                if self._offered.offers(option.code)
+            ),
+            key=lambda timeframe: timeframe.to_seconds(),
+        )
+        target = TimeFrame(wanted).to_seconds()
+        return next(
+            (tf for tf in offered if tf.to_seconds() >= target), offered[-1]
+        ).value
 
     def _open_picker(self) -> None:
         """Opens the full timeframe picker, sharing this toolbar's own

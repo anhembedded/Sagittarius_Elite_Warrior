@@ -1,6 +1,6 @@
 # EPIC-040G — A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live
 
-**Status:** 🔵 Backlog — after `040F`; the per-file design is written when it starts, against the tree as it is then
+**Status:** ⏸ Parked by the owner, 2026-10-20 — the design is a Proposed decision record; no code until it is taken up
 **Source:** The owner, 2026-10-14: *"Bot theo strategy bạn nghĩ nó có nên là 1 loại bot riêng ko (loại bot này chuyển load strategy, tui nghĩ nó sẽ có nhiều cái thao tác xử lý phức tạp hơn grid bot và các bot nổi tiếng). nó cũng base vs bot grid"* (should a strategy bot be a kind of its own? It loads a strategy and will need more complex handling than the Grid and the well-known bots; it is also based on the Grid bot). Then: *"gộp ý vừa rồi vào epic tách bot common"* (merge that into the epic that makes bots common).
 **Risk:** 🔴 — real orders driven by strategy code; a backtest that differs from live, or a strategy fault that takes the host down, costs money
 **Complexity:** L — a second `IBotKind`, a position executor, warm-up and recovery, a backtester adapter, migration of saved strategy configs
@@ -56,3 +56,4 @@ Written when the task starts. Each criterion above maps to a unit or integration
 ## Implementation notes (written when done)
 
 ## Resume (optional; while unfinished)
+The design is the Proposed decision record [`DECISION_2026-10-20_strategy_bot_kind.md`](../DECISION_2026-10-20_strategy_bot_kind.md): five slices (shell generalised, strategy spec, backtester on the workbench, executor on Testnet, migration), four questions for the owner (O1–O4), unanswered: the owner parked the epic on 2026-10-20 (*"Epic này để đó, chưa cần làm"*). No code until it is taken up again.

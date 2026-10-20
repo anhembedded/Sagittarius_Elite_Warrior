@@ -189,7 +189,7 @@ class _Frame:
         )
         end = START + timedelta(hours=120)
         view.end.setDateTime(QDateTime.fromSecsSinceEpoch(int(end.timestamp()), utc))
-        view.interval.setCurrentIndex(view.interval.findData(INTERVAL.value))
+        view.interval.set_active(INTERVAL.value)
         self._futures = futures
 
     def select_bot(self, bot_id: str = "a3f9c1", *, terms: bool = True) -> _Frame:

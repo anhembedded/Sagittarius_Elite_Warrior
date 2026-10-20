@@ -121,7 +121,7 @@ class OwnerBudgetCaps:
 #: The caps the user approved (ADR O1, 2026-10-03), used when the
 #: configuration names none.
 DEFAULT_OWNER_BUDGET_CAPS = OwnerBudgetCaps(
-    max_open_orders=100,
+    max_open_orders=150,
     min_order_spacing=timedelta(milliseconds=250),
     max_orders_per_minute=60,
 )
