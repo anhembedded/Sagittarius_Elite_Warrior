@@ -6,7 +6,7 @@
 **Complexity:** L — a presenter trio, a coordinator for the run, four result panes
 **Epic:** [EPIC-040](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](EPIC-040C_sandbox_parameters.md)
+**Depends on:** [EPIC-040B](../completed/EPIC-040B_kind_neutral_backtest_contract.md), [EPIC-040C](../completed/EPIC-040C_sandbox_parameters.md)
 
 ---
 
@@ -64,6 +64,8 @@ Today they live under `ui/kinds/grid/backtest/` (`grid_backtest_view.py`, `grid_
 - **Chart cost.** Reuse `BotChart`; a second drawer is banned by ADR D16.
 
 **From `040B` (review of PR #627).** The outcome's `figures` carry a `FigureTone` that the workbench maps to the meaning colours (`Tone`); the Grid sets none. The neutral dispatching query (`RunBacktestQuery`: kind id and request in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) is written here, where its first caller is. The trades pane pairs the labelled `fills`, since the outcome has no trade record.
+
+**From `040C` (review of the design, 2026-10-20).** The sandbox model exists: `SandboxPlan`, `SandboxSession` (`ui/backtest/`), `judge_sandbox` and `sandbox_line`. The workbench binds its question ("discard your edits?") to `SandboxSession.confirm_switch` / `keep_current`. A second `BotKindPanel` for the sandbox must not be bound to the Bots menu's kind commands (`kind_command_binding.py` acts on the selected bot's panel), and takes `set_plan_facts(None, risk)`. The planner market read the sandbox reuses also reads the account's fee tier and the open orders on the symbol (not the balance); a terms-only read is the narrower option. The workbench says whose fees a run charges. On a position venue it passes the symbol's risk facts to `judge_sandbox`; without them the sandbox answers `LIQUIDATION_FACTS_NOT_READ` and the workbench should show that line rather than hide it.
 
 ## 3a. Reuse
 - **Charts:** used `BotChart`, `IBotKind.overlay` and the equity chart, moved from `grid/backtest/equity_chart.py`.
