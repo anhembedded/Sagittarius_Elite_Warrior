@@ -13,6 +13,7 @@ from typing import Any
 from ._drawdown_chart_widget import DrawdownChartWidget
 from ._monthly_returns_heatmap_widget import MonthlyReturnsHeatmapWidget
 from .view_models.run_result_view_model import RunResultViewModel
+from .view_models.time_range_view_model import TimeRangeViewModel
 
 
 def _points(run_result: RunResultViewModel) -> list[dict[str, float]]:
@@ -23,10 +24,16 @@ def _years(run_result: RunResultViewModel) -> list[dict[str, Any]]:
     return list(run_result.yearlyReturns)
 
 
-def drawdown_panel(run_result: RunResultViewModel) -> DrawdownChartWidget:
-    """The drawdown chart of the run on screen."""
+def drawdown_panel(
+    run_result: RunResultViewModel, time_range: TimeRangeViewModel
+) -> DrawdownChartWidget:
+    """The drawdown chart of the run on screen, its time axis in the screen's display zone."""
     panel = DrawdownChartWidget()
     panel.setObjectName("backtestDrawdown")
+    panel.set_display_timezone(time_range.displayTimezone)
+    time_range.displayTimezoneChanged.connect(
+        lambda: panel.set_display_timezone(time_range.displayTimezone)
+    )
     panel.set_points(_points(run_result))
     run_result.drawdownPointsChanged.connect(
         lambda: panel.set_points(_points(run_result))

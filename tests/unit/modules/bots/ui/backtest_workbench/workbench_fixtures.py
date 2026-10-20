@@ -179,6 +179,7 @@ def build_workbench(
     answers: tuple[object, ...] | None = None,
     kinds: Sequence[IBotKind] | None = None,
     editors: Callable[[str], BotKindPanel] = panel_for,
+    zone: str | None = None,
 ) -> WorkbenchWorld:
     repository = FakeMarketDataRepository()
     if stored:
@@ -205,6 +206,8 @@ def build_workbench(
     sync = StoringSync(repository) if storing_sync else FakeMarketDataSync()
     notifier = RecordingNotifier()
     preference = DisplayTimezonePreference()
+    if zone is not None:
+        assert preference.set_zone(zone)
     feed = MarketDataCandleFeed(
         sync, StoredKlinesReader(repository), FakeMarketStream(), MarketType.SPOT
     )

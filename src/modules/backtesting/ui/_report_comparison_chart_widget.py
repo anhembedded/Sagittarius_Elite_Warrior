@@ -6,7 +6,6 @@ two curves instead of one."""
 from __future__ import annotations
 
 from pyqtgraph import (  # type: ignore[import-untyped]
-    DateAxisItem,
     PlotCurveItem,
     PlotWidget,
     mkPen,
@@ -17,7 +16,13 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     TAKE_PROFIT_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.zoned_date_axis import (
+    ZonedDateAxisItem,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
 
 #: Series A ("current result") vs series B (the loaded file) — reusing the
 #: two colour constants `chart_card/theme.py` already exports, the one place
@@ -43,7 +48,7 @@ class ReportComparisonChartWidget(QWidget):
         layout.addWidget(self._empty_label)
 
         self._plot_widget = PlotWidget(
-            axisItems={"bottom": DateAxisItem(orientation="bottom")}
+            axisItems={"bottom": ZonedDateAxisItem(DEFAULT_TIMEZONE)}
         )
         self._plot_widget.setBackground("default")
         self._plot_widget.showGrid(x=True, y=True, alpha=0.15)
@@ -65,6 +70,12 @@ class ReportComparisonChartWidget(QWidget):
         self._plot_widget.addItem(self._curve_b)
         self._plot_widget.setVisible(False)
         layout.addWidget(self._plot_widget, 1)
+
+    def set_display_timezone(self, zone: str) -> None:
+        """The time axis reads in `zone` (`BUG-243`)."""
+        axis = self._plot_widget.getPlotItem().getAxis("bottom")
+        if isinstance(axis, ZonedDateAxisItem):
+            axis.set_display_zone(zone)
 
     def set_series(
         self, points_a: list[dict[str, float]], points_b: list[dict[str, float]]

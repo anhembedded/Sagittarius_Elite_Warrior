@@ -15,7 +15,7 @@ import sys
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from decimal import Decimal
@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+    OrderPacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
@@ -225,7 +226,13 @@ class BootedApp:
         self.deliver()
 
 
-def app_config(tmp_path: Path, venue: TradingVenue = SPOT) -> ConfigManager:
+def app_config(
+    tmp_path: Path,
+    venue: TradingVenue = SPOT,
+    overrides: Mapping[str, object] | None = None,
+) -> ConfigManager:
+    """The journeys' configuration: no spacing between orders unless `overrides` restore the
+    production limits (`BUG-241`), which they do key by key."""
     user_json = tmp_path / "user_config.json"
     user_json.write_text(json.dumps({}))
     config = ConfigManager()
@@ -236,6 +243,7 @@ def app_config(tmp_path: Path, venue: TradingVenue = SPOT) -> ConfigManager:
             "exchange.trading_venues": [venue.value],
             "bots.state_dir": str(tmp_path / "bots"),
             "trading.bot_limits.min_order_spacing_ms": 0,
+            **(overrides or {}),
         }
     )
     return config
@@ -254,6 +262,8 @@ def booted(
     open_session: bool = True,
     stream_up: bool = True,
     prepare: Callable[[IContainer], None] | None = None,
+    pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
+    limits: Mapping[str, object] | None = None,
 ) -> Iterator[BootedApp]:
     """The app with Spot Testnet on; its bots on the serial queue.
 
@@ -265,8 +275,13 @@ def booted(
     calls `BootedApp.deliver` (the stream coming back late).
     @param prepare Rebinds a container entry before the boot, as a journey must for a part the
     boot starts (a delivery lane reads its transport at boot, `BOT-189`).
+    @param pacers The venue pacers the bots take their turns on, when a journey is about the
+    pacing or the order rate itself (`BUG-238`, `BUG-241`); the default hands the stream its
+    reports and waits for nothing.
+    @param limits Configuration keys that replace the journeys' defaults, the trading limits a
+    journey is about (`trading.bot_limits.*`).
     """
-    engine = create_app(app_config(exchange.tmp_path))
+    engine = create_app(app_config(exchange.tmp_path, SPOT, limits))
     container = engine.context.container
     holder: list[BootedApp] = []
     queue = SerialQueue()
@@ -279,7 +294,7 @@ def booted(
             clock=container.resolve(IBotClock),
             caps=container.resolve(OwnerBudgetCaps),
             queues=lambda _name: queue,
-            pacers=lambda _venue, _spacing: pacer,
+            pacers=pacers or (lambda _venue, _spacing: pacer),
             retries=container.resolve(IBotRetryScheduler),
             monotonic=container.resolve(IMonotonicClock),
             prices=container.resolve(IFreshPriceReader),

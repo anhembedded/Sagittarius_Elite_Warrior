@@ -204,7 +204,7 @@ def test_a_symbol_not_quoted_in_usdt_is_refused() -> None:
 
 
 def test_a_budget_above_a_global_cap_is_refused_naming_it() -> None:
-    too_many = replace(_REGISTRATION.budget, max_open_orders=101)
+    too_many = replace(_REGISTRATION.budget, max_open_orders=151)
     result = _register(_handler(_enabled()), budget=too_many)
     assert (result.refusal, result.exceeded_cap) == (
         OwnerBudgetRefusal.ABOVE_GLOBAL_CAP,

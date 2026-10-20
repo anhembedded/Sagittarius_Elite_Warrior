@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D`, `040E` and `040F` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟢 `040A`–`040F` done 2026-10-20; `040G` parked by the owner 2026-10-20 (*"Epic này để đó, chưa cần làm"*, on the Proposed design record). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -55,7 +55,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | [EPIC-040D](completed/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040E](completed/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040F](completed/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | ✅ Done (2026-10-20) |
-| [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
+| [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | ⏸ Parked by the owner (2026-10-20); design is a Proposed record |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -71,6 +71,15 @@ The coordinator put the five decisions below to the owner, each summarised, with
 - **Simulator changes.** The Grid and Futures replays compute what they compute today.
 - **Colour and theme.** That is `PRO-009`.
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
+
+## Follow-ups (deferred from review, not dropped)
+Found while delivering `040D`–`040F` and the interval picker; none blocks a child, each needs a task or a decision.
+| # | Follow-up | Found in | Needs |
+| :-- | :--- | :--- | :--- |
+| F1 | **A Bots-mode menu command for the timeframe picker.** The Bots mode has no command named "More timeframes…", so the pinned timeframe actions of the Live chart's toolbar and of the workbench's interval toolbar are not reachable from the menu bar (`ui-presentation-rule.md` §6). The workbench's interval buttons take Tab focus meanwhile (PR #642). Pattern: Market and Backtest contribute `chart_commands` with a prefix and menu path and follow the chart in front (`ChartCommandMirror.follow_chart`). | PR #642, review round 1 | A BOT task |
+| F2 | **A conformance case with a backtestable bot selected.** `test_workbench_conformance.py` measures the Bots mode with no bot selected, so the workbench page (built on `follow()` with a bot) and its toolbars are never in the suite. The case seeds a bot, shows the Backtest tab, and measures menus, toolbars, size and scroll areas at the three window sizes. It would have caught F1. | PR #642, review round 1 | A BOT task |
+| F3 | **The Replay chart's own timeframe row.** The result chart keeps its pinned `1m 5m 15m 1h 1d` row beside the new interval picker: a second chooser that changes nothing the person ran, offers `1d`, and its empty text says "Pick another timeframe". Hide it for the result chart, or make it follow the interval. | PR #642, the author and its reviewer | An owner decision |
+| F4 | **Unpinning every interval in the picker's dialog** leaves the interval row with only "More timeframes…" while Run still replays the chosen one. Refuse the last unpin, or name the interval in the status. | PR #642, review round 1 (optional) | An owner decision |
 
 ## Resume
 

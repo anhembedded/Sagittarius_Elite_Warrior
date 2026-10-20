@@ -24,7 +24,9 @@ host's start, stop and resume) and hands it to `BotExecutors` (`.../bot_executor
 `BotExecutors`), which holds one executor per bot. For the Grid kind that is `GridExecutor`
 (`.../grid_executor.py` → `GridExecutor`), built by `GridExecutorFactory`
 (`.../grid_executor_factory.py` → `GridExecutorFactory`) with a `BotOrderGateway`
-(`.../bot_order_gateway.py` → `BotOrderGateway`), the bot's one way to `trading`. Every call to an
+(`.../bot_order_gateway.py` → `BotOrderGateway`), the bot's one way to `trading`; the requests it sends
+are built by `BotOrderRequests` (`.../bot_order_requests.py` → `BotOrderRequests`): a placement, or an
+exit sent as a close that trading judges by the inventory or exposure (`BUG-241`). Every call to an
 executor is queued and run in order on the bot's own worker ([`07-deployment.md`](07-deployment.md)).
 
 ## Built: an event's path
@@ -76,7 +78,7 @@ or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_
 backtest replays by its `offered_codes`) and the period, Run, Cancel (Stop while a sync runs), Sync candles and Run without funding, the sandbox's
 editor, the replay chart (`BotChart` with the kind's `IBotKind.overlay` plus the outcome's fills,
 `outcome_view.py` → `result_overlay`), the equity against buy and hold (`equity_pane.py` →
-`EquityPane`), the figures read-out and the fills table. The replay chart reads in the application's display time zone and offers its drop-down (`BOT-205`; `WorkbenchPorts.display_timezone`), like the Live chart it will sit beside. It names no kind: it asks the catalog for the
+`EquityPane`), the figures read-out and the fills table. The replay chart reads in the application's display time zone and offers its drop-down (`BOT-205`; `WorkbenchPorts.display_timezone`), like the Live chart it will sit beside; the equity pane's time axis follows the same setting (`BUG-243`; `equity_pane.py` → `EquityPane.follow_display_timezone`), without a drop-down of its own. It names no kind: it asks the catalog for the
 selected bot's kind and for a new instance of that kind's editor (`BotKindPanel`), and runs the
 kind's backtester through `bots/application/queries/run_backtest/` → `RunBacktestQuery`,
 `RunBacktestQueryHandler` (a kind that is unknown, or has no backtest, answers a `BacktestRefusal`).
