@@ -190,6 +190,29 @@ Then `sudo systemctl restart sew-run`; systemd copies a credential at start.
 
 A stop on purpose is also silence: the check fires after its grace, which is what you want while resting orders stay on the exchange (decision O1). **Pause the check in the monitor before a planned upgrade** (§8). A restart (`RestartSec=10`) is inside the grace and fires nothing. The Windows service reads the same name from its secret store; that route is unverified on a real service, as for the webhook (§0, §9).
 
+## 3b2. A second channel: Telegram
+
+`EPIC-036C1`. With a Telegram bot token and a chat id stored, every alert also goes to that chat; with both channels configured a CRITICAL goes to both (N8), and a silent message arrives without a push.
+
+1. **Make the bot and find the chat.** Talk to @BotFather (`/newbot`) for the token, **open your bot in Telegram and press Start** (a bot may not write first), and get your chat id (for example from @userinfobot, or `getUpdates` after sending the bot a message). A group's id is negative; a public channel can be `@name`.
+2. **Store both** the way §3 and §3b do, one file each, pasted without echo:
+
+```bash
+[ -e /etc/sew/credentials/alerting_telegram_bot_token ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_bot_token
+read -rsp "Bot token: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_bot_token > /dev/null; unset v
+```
+
+```bash
+[ -e /etc/sew/credentials/alerting_telegram_chat_id ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_chat_id
+read -rsp "Chat id: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_chat_id > /dev/null; unset v
+```
+
+Then `sudo systemctl restart sew-run`, and prove it: `alert test` sends one message to every configured channel and says, per channel, what happened. A refusal is turned into what to do: "chat not found" and a bot never started both read "Open the bot on Telegram and press Start, then check the chat id". Read the start line `journalctl -u sew-run | grep alert-channel`: `telegram is on` or `telegram is off: ...` (never the values).
+
+**On a desktop** an old install that kept the token in `user_config.json` (`notifications.telegram.bot_token`, `.chat_id`) is moved to the keyring at the next start and those two keys are cleared; the log says `[alert-migration] telegram: moved ...`, or why not (no keyring, or another store answered first), in which case the file is left as it was. On a server nothing is migrated automatically: provision the two credentials above.
+
 ## 3c. Rotate a key, the webhook or the check-in URL
 
 `EPIC-026` must-have 8 of the [2026-10-20 review](../../Tasks/epics/EPIC-026_road_to_real_money/REVIEW_2026-10-20_what_is_still_missing.md). Two cases, and the order of the first step is the whole difference: **planned** (the new secret exists before the old one dies) and **after a suspected leak** (the old one dies first). `$M` is the prefix of §6.

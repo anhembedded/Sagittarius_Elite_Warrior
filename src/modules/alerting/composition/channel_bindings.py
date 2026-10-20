@@ -1,7 +1,7 @@
 """Which channels this application has: the one list a channel is added to.
 
 A channel is one adapter file and one descriptor appended to `CHANNEL_DESCRIPTORS`
-(`EPIC-036G` added Discord; `EPIC-036C` adds Telegram here). The hub, the worker,
+(`EPIC-036G` added Discord; `EPIC-036C1` added Telegram here). The hub, the worker,
 the outbox and the module are not touched: that is the seam
 `test_a_second_channel_needs_no_application_change` locks.
 
@@ -34,6 +34,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_cha
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_catalog import (
     RegisteredChannelCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHANNEL_ID,
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
+    TelegramChannel,
+    is_bot_token,
+    is_chat_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel import (
     IAlertChannel,
@@ -95,8 +103,34 @@ def discord_channel(resolver: PortResolver) -> IAlertChannel | None:
     return DiscordWebhookChannel(secrets, resolver.resolve(IWebhookTransport))  # type: ignore[type-abstract]
 
 
+def telegram_channel(resolver: PortResolver) -> IAlertChannel | None:
+    """The Telegram channel, when a bot token and a chat id of the shape Telegram issues are
+    stored on this host (`EPIC-036C1`)."""
+    secrets = resolver.resolve(ChannelSecrets).store
+    token = (secrets.read(TELEGRAM_TOKEN_SECRET) or "").strip()
+    chat = (secrets.read(TELEGRAM_CHAT_SECRET) or "").strip()
+    # The credentials are named in the text, never passed to the logger (see above).
+    if not token or not chat:
+        logger.info(
+            "[alert-channel] telegram is off: the Telegram bot token and chat id "
+            "credentials (alerting_telegram_bot_token, alerting_telegram_chat_id) are not both stored"
+        )
+        return None
+    if not (is_bot_token(token) and is_chat_id(chat)):
+        logger.warning(
+            "[alert-channel] telegram is off: the stored Telegram bot token or chat id is "
+            "not of the shape Telegram issues"
+        )
+        return None
+    logger.info(
+        "[alert-channel] telegram is on: bot token and chat id read from the Telegram credentials"
+    )
+    return TelegramChannel(secrets, resolver.resolve(IWebhookTransport))  # type: ignore[type-abstract]
+
+
 CHANNEL_DESCRIPTORS: tuple[AlertChannelDescriptor, ...] = (
     AlertChannelDescriptor(DISCORD_CHANNEL_ID, discord_channel),
+    AlertChannelDescriptor(TELEGRAM_CHANNEL_ID, telegram_channel),
 )
 
 

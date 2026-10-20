@@ -44,7 +44,7 @@ EnvironmentFile=-/etc/sew/sew.env
 # directory loads whatever it holds. A file you have not created is a secret that is not set:
 # the venue or the feature is off and the host starts. The directory itself must exist.
 #   mainnet keys: futures_mainnet_api_key, futures_mainnet_api_secret, spot_mainnet_api_key, spot_mainnet_api_secret
-#   alerts: alerting_discord_webhook, alerting_deadman_ping_url (the Discord webhook; the dead man's switch's check-in URL)
+#   alerts: alerting_discord_webhook, alerting_deadman_ping_url, alerting_telegram_bot_token, alerting_telegram_chat_id (the Discord webhook; the dead man's switch's check-in URL; the Telegram bot token and chat id)
 # An empty file reads as not set too. The host warns at start when no channel carries bot events.
 LoadCredential=sew:/etc/sew/credentials
 # No log.file, no --dev, no --debug: the log is stdout, and the journal bounds it.

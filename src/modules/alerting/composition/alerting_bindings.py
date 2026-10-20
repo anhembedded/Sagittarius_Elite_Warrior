@@ -12,6 +12,8 @@ from pathlib import Path
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import IConfigReader
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -34,6 +36,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.sqlite_outbox impor
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.system_alert_clock import (
     SystemAlertClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_host import (
     ThreadedDeliveryHost,
@@ -86,6 +92,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_a
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.system_alert_source import (
     SystemAlertSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_config_migration import (
+    TelegramConfigMigration,
+    TelegramSecretNames,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
@@ -315,6 +325,15 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(IAlertClock),
             resolver.resolve(IWorkerLiveness),
             resolver.resolve(AlertHub),
+        ),
+    )
+    container.singleton(
+        TelegramConfigMigration,
+        lambda resolver: TelegramConfigMigration(
+            resolver.resolve(IConfigReader),
+            resolver.resolve(IConfigWriter),
+            resolver.resolve(ChannelSecrets).store,
+            TelegramSecretNames(TELEGRAM_TOKEN_SECRET, TELEGRAM_CHAT_SECRET),
         ),
     )
     container.singleton(

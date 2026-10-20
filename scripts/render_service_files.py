@@ -21,6 +21,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
     DISCORD_WEBHOOK_SECRET,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch import (
     DEAD_MANS_SWITCH_SECRET,
 )
@@ -95,9 +99,14 @@ def mainnet_credential_names() -> tuple[str, ...]:
 
 
 def alerting_credential_names() -> tuple[str, ...]:
-    """The secrets the alerting module reads (`EPIC-036G` D3, `EPIC-036E1`): the Discord
-    webhook and the dead man's switch's check-in URL."""
-    return (DISCORD_WEBHOOK_SECRET, DEAD_MANS_SWITCH_SECRET)
+    """The secrets the alerting module reads (`EPIC-036G` D3, `EPIC-036E1`, `EPIC-036C1`): the
+    Discord webhook, the dead man's switch's check-in URL, the Telegram bot token and chat id."""
+    return (
+        DISCORD_WEBHOOK_SECRET,
+        DEAD_MANS_SWITCH_SECRET,
+        TELEGRAM_TOKEN_SECRET,
+        TELEGRAM_CHAT_SECRET,
+    )
 
 
 def host_arguments(stop_timeout_s: float) -> str:
@@ -182,7 +191,7 @@ EnvironmentFile=-{paths.config_dir}/sew.env
 # directory loads whatever it holds. A file you have not created is a secret that is not set:
 # the venue or the feature is off and the host starts. The directory itself must exist.
 #   mainnet keys: {key_files}
-#   alerts: {alert_files} (the Discord webhook; the dead man's switch's check-in URL)
+#   alerts: {alert_files} (the Discord webhook; the dead man's switch's check-in URL; the Telegram bot token and chat id)
 # An empty file reads as not set too. The host warns at start when no channel carries bot events.
 LoadCredential={UNIT_CREDENTIAL_ID}:{paths.config_dir}/credentials
 # No log.file, no --dev, no --debug: the log is stdout, and the journal bounds it.
