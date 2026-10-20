@@ -255,3 +255,16 @@ def test_a_switch_on_leaves_a_draft_bot_alone() -> None:
     )
 
     assert parts.executors.get(BOT) is None
+
+
+def test_a_switch_on_opened_for_another_bot_leaves_a_recovering_bot_waiting() -> None:
+    """`BOT-183`: the event names who the session was opened for, and the router passes it on."""
+    world, parts = _routed(state=S.RECOVERING)
+
+    parts.router.on_switch(
+        TradingSwitchChangedEvent(
+            True, TradingSwitchCause.ENABLED, venue=VENUE, opened_for="another"
+        )
+    )
+
+    assert world.state() is S.RECOVERING

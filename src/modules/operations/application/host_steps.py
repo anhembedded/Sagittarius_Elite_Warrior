@@ -14,8 +14,8 @@ bots and money rather than about being a host:
     or AWAITING_RECOVERY bot, answered in advance on the command line (`EPIC-042E`);
   · `StartPlannedBots` - `--start-planned`: start what the plan wants running and
     is at rest, through the same Start the screen dispatches;
-  · `ResumeRecoveringBots` - `--resume-recovering`: open the order session the GUI
-    opens, which reconciles each RECOVERING bot with the exchange.
+  · `ResumeRecoveringBots` - `--resume-recovering`: each RECOVERING bot's own Resume, the one
+    the GUI sends, which opens its venue's order session and reconciles it with the exchange.
 
 Every request to the bots is a contract command (`host_bot_requests`) answered by
 the screen's own command, so the host adds no way to start, stop or resume a bot.
@@ -132,17 +132,15 @@ class ResumeRecoveringBots(IHostStep):
         for venue in result.venues:
             if venue.opened:
                 logger.info(
-                    "[resume-recovering] %s: the order session is open; reconciling %s "
-                    "with the exchange",
+                    "[resume-recovering] %s: resumed %s; each reconciles with the exchange",
                     venue.venue,
                     ", ".join(venue.bot_ids),
                 )
             else:
                 logger.warning(
-                    "[resume-recovering] %s: %s; %s stay RECOVERING",
+                    "[resume-recovering] %s: %s",
                     venue.venue,
                     venue.note,
-                    ", ".join(venue.bot_ids),
                 )
 
 

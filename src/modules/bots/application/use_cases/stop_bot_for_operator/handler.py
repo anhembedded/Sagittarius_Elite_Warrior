@@ -122,7 +122,7 @@ class StopBotForOperatorCommandHandler(
                     BotRefusal.REAL_MONEY_NOT_CONFIRMED,
                     f"The order session of {venue.display_name} is closed, and stopping bot "
                     f"{command.bot_id} needs it open (an Emergency Stop or a restart closes it). "
-                    f"Opening it uses real money's session{self._others_returning(command.bot_id, found)}: "
+                    f"Opening it uses real money's session{self._others_waiting(command.bot_id, found)}: "
                     f"type --confirm-venue {venue.value}.",
                     command.bot_id,
                 )
@@ -131,10 +131,11 @@ class StopBotForOperatorCommandHandler(
                 return opened
         return self._stop(command.bot_id, exposure)
 
-    def _others_returning(self, bot_id: str, stopping: StoredBot) -> str:
-        """What opening the session does to the venue's other bots, in words: it reconciles every bot
-        on the venue, and a RECOVERING one returns to the state it had before the restart (a RUNNING
-        bot trades again). The typed venue is the operator's consent to that, so it is said first."""
+    def _others_waiting(self, bot_id: str, stopping: StoredBot) -> str:
+        """What opening the session does to the venue's other bots, in words (`BOT-183`): nothing.
+        The opening is announced as opened for the stopped bot, so a RECOVERING one keeps waiting
+        for its own resume; the words say so, so the operator who typed the venue is not left
+        thinking the stop resumed it."""
         venue = stopping.bot.definition.venue
         others = sorted(
             stored.bot.bot_id.value
@@ -146,8 +147,8 @@ class StopBotForOperatorCommandHandler(
         if not others:
             return ""
         return (
-            f", and it also returns the other RECOVERING bot(s) on {venue.display_name} "
-            f"({', '.join(others)}) to the state they had before the restart"
+            f", and the other RECOVERING bot(s) on {venue.display_name} "
+            f"({', '.join(others)}) keep waiting for their own resume"
         )
 
     def _stop(self, bot_id: str, exposure: ExposureHandling) -> BotCommandResult:
