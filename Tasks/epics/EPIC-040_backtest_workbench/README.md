@@ -8,14 +8,15 @@
   - *"Bạn tạo epic luôn, viết từng task, đánh giá design từng task"* ("create the epic, write each task, assess each task's design");
   - later the same day, on bots that run a strategy: *"nó có nên là 1 loại bot riêng ko … nó sẽ có nhiều cái thao tác xử lý phức tạp hơn grid bot … nó cũng base vs bot grid"* ("should it be a bot kind of its own … it will need more complex handling than the Grid … it is also based on the Grid bot"), then *"gộp ý vừa rồi vào epic tách bot common"* ("merge that into the epic that makes bots common").
 - **North star:** `Docs/HLD/11_desktop_workbench.md` (the workbench layout) and the kind seam of `EPIC-029D` / `EPIC-029F` (`ui/kinds/bot_backtest.py`, `ui/kinds/bot_kind_panel.py`). This epic completes that seam; it adds no new architecture style.
-- **Decisions (optional):** pending the owner; see §1.
+- **Decisions (optional):** §1, approved by the owner on 2026-10-20.
 - **Dependencies:**
   - `EPIC-039`'s backtest pieces (`EPIC-039K`, `EPIC-039J`) are merged; this epic moves them, it does not change what they compute.
   - It is independent of `PRO-009` (colour and theme).
 
 ---
 
-## 1. Decisions proposed (pending the owner)
+## 1. Decisions (approved by the owner, 2026-10-20)
+The coordinator put the five decisions below to the owner, each summarised, with "approve all five" as its recommendation; the owner answered "Duyệt cả 5" (approve all five).
 1. **Two centre tabs on the Bots screen.**
    - **Live** is the running bot: chart, Plan, Orders/Fills/Log.
    - **Backtest** is a sandbox: its own parameters and results.
