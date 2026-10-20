@@ -14,10 +14,10 @@ def test_the_replay_chart_follows_the_shared_display_zone(qtbot: Any) -> None:
     qtbot.addWidget(view)
     world.workbench.follow(selection())
     plot = view.card.plot_layout.main_plot
-    before = float(plot.getAxis("bottom").utcOffset)
+    before = plot.getAxis("bottom").display_zone
 
     assert world.timezone.set_zone("Asia/Ho_Chi_Minh")
 
-    assert float(plot.getAxis("bottom").utcOffset) == 7 * 3600
-    assert before != 7 * 3600
+    assert plot.getAxis("bottom").display_zone == "Asia/Ho_Chi_Minh"
+    assert before != "Asia/Ho_Chi_Minh"
     world.workbench.shutdown()
