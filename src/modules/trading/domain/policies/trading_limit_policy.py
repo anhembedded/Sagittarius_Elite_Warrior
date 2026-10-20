@@ -21,6 +21,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetFacts,
@@ -124,8 +127,18 @@ class TradingLimitPolicy:
         # not a new trade to pace or to count among the open orders: it can add no
         # position, and refusing it for the spacing of the bot's own ladder would leave
         # the position bare. It still answers to the exposure checks.
-        if context.purpose.only_reduces and facts.position is not None:
-            return (notional, *_exposure_checks(facts, context.order_notional))
+        if context.purpose.only_reduces:
+            if facts.position is not None:
+                return (notional, *_exposure_checks(facts, context.order_notional))
+            # `BUG-241` — a Spot owner's SELL sent as a close sells the inventory it holds and
+            # nothing else: it answers to the inventory check (ADR D6 check 3), not to the
+            # open-order count, the spacing or the rate that pace new placements. A refusal by
+            # them would leave the base unsold behind the bot's own ladder.
+            if (
+                context.purpose is OrderPurpose.CLOSE
+                and facts.order_side is OrderSide.SELL
+            ):
+                return (notional, *_inventory_checks(facts, context.order_notional))
         return (notional, *_owner_budget_checks(facts, context.order_notional))
 
     def first_violation(

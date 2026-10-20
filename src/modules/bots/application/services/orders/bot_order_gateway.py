@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_history import (
     BotOrderHistory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_requests import (
+    BotOrderRequests,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_outcome import (
     SWITCH_OFF_GATES,
     OrderOutcome,
@@ -79,9 +82,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
     OrderNotPlacedError,
     OrderOutcomeUnknownError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
-    OrderPurpose,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
@@ -89,10 +89,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
     OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
-    TimeInForce,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -120,6 +116,7 @@ class BotOrderGateway:
         self._ports = ports
         self._identity = identity
         self._pacer = pacer
+        self._requests = BotOrderRequests(identity)
         self._history = BotOrderHistory(ports.account_activity, identity.symbol)
         self._reads = BotAccountReads(ports, identity)
         self._submissions = 0
@@ -154,29 +151,14 @@ class BotOrderGateway:
         """A LIMIT GTC order at `price`; `reduce_only` on a position venue's exits
         (`EPIC-039H`, `IOrderFlags`)."""
         return self._submit_paced(
-            self._request(
-                side,
-                OrderType.LIMIT,
-                quantity,
-                price,
-                TimeInForce.GTC,
-                reduce_only=reduce_only,
-            )
+            self._requests.limit(side, price, quantity, reduce_only=reduce_only)
         )
 
     def market_buy(self, quote: Decimal, reference_price: Decimal) -> OrderOutcome:
         """A market BUY spending `quote` (Spot `quoteOrderQty`)."""
-        request = OrderRequest(
-            symbol=self._identity.symbol,
-            side=OrderSide.BUY,
-            order_type=OrderType.MARKET,
-            quantity=quote / reference_price,
-            reference_price=reference_price,
-            owner_id=self._identity.owner_id,
-            quote_quantity=quote,
-            client_order_tag=self._identity.tag,
+        return self._submit_paced(
+            self._requests.market_buy_for_quote(quote, reference_price)
         )
-        return self._submit_paced(request)
 
     def market_base(
         self, side: OrderSide, quantity: Decimal, reference_price: Decimal
@@ -184,30 +166,34 @@ class BotOrderGateway:
         """A market order of `quantity` base on `side`: what a position venue's opening sends,
         where there is no quote-sized order (`EPIC-039H`; a SELL opens a short, `EPIC-039I`)."""
         return self._submit_paced(
-            self._request(side, OrderType.MARKET, quantity, reference_price)
+            self._requests.market(side, quantity, reference_price)
         )
 
     def market_sell(self, quantity: Decimal, reference_price: Decimal) -> OrderOutcome:
-        """A market SELL of `quantity` base."""
-        return self._submit(
-            self._request(OrderSide.SELL, OrderType.MARKET, quantity, reference_price)
-        )
+        """A market SELL of `quantity` base, a Spot exit. Sent as a close, so trading judges it by
+        the bot's inventory and not by the pacing of placements (`BUG-241`)."""
+        return self._exit(OrderSide.SELL, quantity, reference_price)
 
     def market_reduce_only(
         self, side: OrderSide, quantity: Decimal, reference_price: Decimal
     ) -> OrderOutcome:
         """A market order of `quantity` base on `side` that may only shrink the position:
         the exchange refuses it when it would grow or flip one (`EPIC-039H`), which is what
-        makes a close safe to send twice. Sent as `OrderPurpose.CLOSE`: the owner budget does not
-        count it among the bot's open orders, which a stop has just cancelled."""
+        makes a close safe to send twice."""
+        return self._exit(side, quantity, reference_price, reduce_only=True)
+
+    def _exit(
+        self,
+        side: OrderSide,
+        quantity: Decimal,
+        reference_price: Decimal,
+        *,
+        reduce_only: bool = False,
+    ) -> OrderOutcome:
+        """An exit slice: no pacer turn, so a stop never waits behind a ladder."""
         return self._submit(
-            self._request(
-                side,
-                OrderType.MARKET,
-                quantity,
-                reference_price,
-                reduce_only=True,
-                purpose=OrderPurpose.CLOSE,
+            self._requests.exit(
+                side, quantity, reference_price, reduce_only=reduce_only
             )
         )
 
@@ -297,30 +283,6 @@ class BotOrderGateway:
         (`EPIC-039L`): sent as a protective order, so the trading limits that pace new trades
         do not refuse it."""
         return self._submit(protective_stop_request(stop, self._identity))
-
-    def _request(
-        self,
-        side: OrderSide,
-        order_type: OrderType,
-        quantity: Decimal,
-        price: Decimal,
-        time_in_force: TimeInForce | None = None,
-        *,
-        reduce_only: bool = False,
-        purpose: OrderPurpose = OrderPurpose.ENTRY,
-    ) -> OrderRequest:
-        return OrderRequest(
-            symbol=self._identity.symbol,
-            side=side,
-            order_type=order_type,
-            quantity=quantity,
-            reference_price=price,
-            reduce_only=reduce_only,
-            purpose=purpose,
-            owner_id=self._identity.owner_id,
-            time_in_force=time_in_force,
-            client_order_tag=self._identity.tag,
-        )
 
     def _submit_paced(self, request: OrderRequest) -> OrderOutcome:
         """An order that builds a ladder or opens a position takes its turn on the venue's pacer.

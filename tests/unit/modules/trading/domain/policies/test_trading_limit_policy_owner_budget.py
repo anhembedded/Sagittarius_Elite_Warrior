@@ -192,3 +192,60 @@ def test_a_tagged_order_without_a_budget_is_refused_whatever_its_purpose() -> No
         _violation(facts=None, purpose=OrderPurpose.CLOSE)
         is TradingLimitViolation.OWNER_BUDGET_MISSING
     )
+
+
+class TestSpotExit:
+    """`BUG-241` — a Spot owner's SELL sent as a close is judged by the inventory it sells, not by
+    the open-order count, the spacing or the rate that pace new placements."""
+
+    #: Everything a placement would be refused for at once: the open orders are at their ceiling,
+    #: the last order was sent a moment ago and the minute's orders are spent.
+    _BUSY = replace(
+        _FACTS,
+        open_order_count=10,
+        time_since_last_order=timedelta(0),
+        orders_in_window=60,
+        inventory=OwnerInventory(Decimal("0.01"), Decimal(500)),
+        order_side=OrderSide.SELL,
+        order_quantity=Decimal("0.01"),
+    )
+
+    def test_a_sell_placement_is_refused_while_the_budget_is_busy(self) -> None:
+        assert _violation(self._BUSY) is TradingLimitViolation.OWNER_BUDGET_OPEN_ORDERS
+
+    def test_the_same_sell_sent_as_a_close_passes(self) -> None:
+        assert _violation(self._BUSY, purpose=OrderPurpose.CLOSE) is None
+
+    def test_a_close_still_answers_to_the_inventory_one_step_past_it(self) -> None:
+        facts = replace(self._BUSY, order_quantity=Decimal("0.011"))
+
+        assert (
+            _violation(facts, purpose=OrderPurpose.CLOSE)
+            is TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY
+        )
+
+    def test_a_close_counts_the_sells_already_resting_against_the_inventory(
+        self,
+    ) -> None:
+        facts = replace(self._BUSY, open_sell_quantity=Decimal("0.005"))
+
+        assert (
+            _violation(facts, purpose=OrderPurpose.CLOSE)
+            is TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY
+        )
+
+    def test_a_buy_sent_as_a_close_is_still_paced_like_a_placement(self) -> None:
+        facts = replace(self._BUSY, order_side=OrderSide.BUY)
+
+        assert (
+            _violation(facts, purpose=OrderPurpose.CLOSE)
+            is TradingLimitViolation.OWNER_BUDGET_OPEN_ORDERS
+        )
+
+    def test_the_per_order_cap_still_applies_to_a_close(self) -> None:
+        over = DEFAULT_TRADING_LIMITS.max_notional_per_order + 1
+
+        assert (
+            _violation(self._BUSY, notional=over, purpose=OrderPurpose.CLOSE)
+            is TradingLimitViolation.MAX_NOTIONAL_PER_ORDER
+        )

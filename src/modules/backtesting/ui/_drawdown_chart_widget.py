@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pyqtgraph import (  # type: ignore[import-untyped]
-    DateAxisItem,
     PlotCurveItem,
     PlotWidget,
     mkPen,
@@ -12,7 +11,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import BEAR_COLOR
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.zoned_date_axis import (
+    ZonedDateAxisItem,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
 
 #: Alpha (0-255) for the fill beneath the curve — visible as a tinted area
 #: without drowning the axis grid behind it.
@@ -46,7 +51,7 @@ class DrawdownChartWidget(QWidget):
         layout.addWidget(self._empty_label)
 
         self._plot_widget = PlotWidget(
-            axisItems={"bottom": DateAxisItem(orientation="bottom")}
+            axisItems={"bottom": ZonedDateAxisItem(DEFAULT_TIMEZONE)}
         )
         self._plot_widget.setBackground("default")
         self._plot_widget.showGrid(x=True, y=True, alpha=0.15)
@@ -59,6 +64,12 @@ class DrawdownChartWidget(QWidget):
         self._plot_widget.addItem(self._curve)
         self._plot_widget.setVisible(False)
         layout.addWidget(self._plot_widget, 1)
+
+    def set_display_timezone(self, zone: str) -> None:
+        """The time axis reads in `zone` (`BUG-243`)."""
+        axis = self._plot_widget.getPlotItem().getAxis("bottom")
+        if isinstance(axis, ZonedDateAxisItem):
+            axis.set_display_zone(zone)
 
     def set_points(self, points: list[dict[str, float]]) -> None:
         has_points = bool(points)

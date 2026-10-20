@@ -69,7 +69,7 @@ def build_panels(view_model: BackTestViewModel) -> BacktestPanels:
         run_setup=RunSetupPanel(view_model),
         metrics=BackTestTopPanel(view_model),
         trades=BackTestTradeLogsPanel(view_model),
-        drawdown=drawdown_panel(view_model.run_result),
+        drawdown=drawdown_panel(view_model.run_result, view_model.time_range),
         monthly_returns=monthly_returns_panel(view_model.run_result),
         monte_carlo=MonteCarloPanel(view_model),
     )

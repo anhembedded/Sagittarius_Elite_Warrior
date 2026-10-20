@@ -10,8 +10,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     MANUAL_OWNER,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
     TRIGGERED_ORDER_TYPES,
+    OrderType,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -55,12 +57,13 @@ class ExecuteOrderCommand:
         limits (`OrderPurpose.only_reduces`) but that could open a position:
         one that is not reduce-only, one on a venue whose exchange does not
         enforce reduce-only (only Futures does; the Spot mapper never sends
-        the flag), or a protective order that is not a triggered type."""
+        the flag), or a protective order that is not a triggered type. The one exit a
+        venue without reduce-only has is a budgeted owner's SELL (`is_inventory_exit`)."""
         if self.order_request.close_position and not self.purpose.only_reduces:
             raise ValueError(
                 "a close-position order only reduces: it is sent as protective or close"
             )
-        if not self.purpose.only_reduces:
+        if not self.purpose.only_reduces or self.is_inventory_exit:
             return
         request = self.order_request
         # `EPIC-039L` — a close-position order only reduces by its nature: the exchange
@@ -81,6 +84,23 @@ class ExecuteOrderCommand:
                 f"a protective order must be a triggered type, not "
                 f"{request.order_type.value}"
             )
+
+    @property
+    def is_inventory_exit(self) -> bool:
+        """`BUG-241` (ADR D6 check 3) — a budgeted owner's SELL sent as a close on a venue with no
+        reduce-only: it can reduce nothing but the inventory the owner holds, which the budget's
+        inventory check bounds, so it is judged by that check and not by the pacing of placements
+        (`TradingLimitPolicy`, which trusts this property). It is a **market** order, sent and
+        filled at once: a resting order would stay on the book beyond the open-order cap. A BUY, an
+        untagged order or a protective order is never one."""
+        request = self.order_request
+        return (
+            self.purpose is OrderPurpose.CLOSE
+            and request.client_order_tag is not None
+            and request.side is OrderSide.SELL
+            and request.order_type is OrderType.MARKET
+            and request.venue.market_type is not MarketType.FUTURES_USD_M
+        )
 
     @property
     def venue(self) -> TradingVenue:

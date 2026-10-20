@@ -16,7 +16,7 @@ the world with `stream_up=False` and calls `deliver` when it wants the reports t
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
@@ -172,6 +172,7 @@ def booted_futures_bots(
     open_session: bool = True,
     stream_up: bool = True,
     pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
+    limits: Mapping[str, object] | None = None,
 ) -> Iterator[BootedFuturesBots]:
     """The app with Futures Testnet on; its bots on the serial queue.
 
@@ -181,8 +182,9 @@ def booted_futures_bots(
     the exchange's reports reach the app only when a test calls `deliver`.
     @param pacers The venue pacers the bots take their turns on, when a journey is about the
     pacing itself (`BUG-238`); the default hands the stream its reports and waits for nothing.
+    @param limits Configuration keys that replace the journeys' defaults (`trading.bot_limits.*`).
     """
-    engine = create_app(app_config(exchange.tmp_path, FUTURES))
+    engine = create_app(app_config(exchange.tmp_path, FUTURES, limits))
     container = engine.context.container
     holder: list[BootedFuturesBots] = []
     queue = SerialQueue()
