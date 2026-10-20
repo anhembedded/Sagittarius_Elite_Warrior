@@ -49,7 +49,8 @@ the measurements are in the task file's §5a.)
   the same instant, the pause plus `AUTO_RESUME_MARGIN`.
 - **What caps it:** `other_active_bot` (one bot per venue and symbol), `venue_is_full` (at most
   `MAX_ACTIVE_BOTS_PER_VENUE`), `venue_recovering` (no Start while a bot of the venue waits to
-  recover, because a Start opens the order session and the session's opening reconciles it).
+  recover: its orders and budget are reconciled only by its own Resume, so nothing new starts beside that
+  unverified exposure; a Start's session opening resumes no other bot, `BOT-183`, `BOT-197`, `BOT-201`).
 
 ## Built: a fill
 
