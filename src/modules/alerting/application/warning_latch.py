@@ -41,12 +41,17 @@ class WarningLatch:
         self._raised_at[key] = now
         return True
 
-    def clear(self, key: str, now: datetime) -> bool:
+    def clear(self, key: str, now: datetime, final: bool = False) -> bool:
         """`True` when `key` was open and its recovery is due; `False` when it was not open, or
-        (with `defer_clear`) was raised less than a cool-down ago and so stays open."""
+        (with `defer_clear`) was raised less than a cool-down ago and so stays open. A `final`
+        clear (the subject is gone: a stopped or removed bot) is never deferred."""
         if key not in self._open:
             return False
-        if self._defer_clear and now - self._raised_at[key] < self._cooldown:
+        if (
+            self._defer_clear
+            and not final
+            and now - self._raised_at[key] < self._cooldown
+        ):
             return False
         self._open.discard(key)
         return True

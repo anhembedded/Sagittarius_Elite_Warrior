@@ -97,7 +97,7 @@ class LiquidationAlertSource:
 
     def on_risk_changed(self, event: BotRiskChangedEvent) -> None:
         if event.level is RiskLevel.SAFE:
-            self._end(event.bot_id)
+            self._end(event.bot_id, final=False)
             return
         if event.level is not RiskLevel.WARN:
             return
@@ -135,15 +135,15 @@ class LiquidationAlertSource:
         if state in _JUDGED:
             return
         if event.removed or state == _STOPPED:
-            self._end(event.bot_id)
+            self._end(event.bot_id, final=True)
         with self._lock:
             self._warnings.forget(event.bot_id)
 
-    def _end(self, bot_id: str) -> None:
+    def _end(self, bot_id: str, final: bool) -> None:
         subject = self._subject(bot_id)
         with self._lock:
             now = self._clock.now()
-            if not self._warnings.clear(bot_id, now):
+            if not self._warnings.clear(bot_id, now, final):
                 return
             self._publisher.condition_cleared(
                 Alert.condition_key(AlertKind.LIQUIDATION_RISK, subject), now

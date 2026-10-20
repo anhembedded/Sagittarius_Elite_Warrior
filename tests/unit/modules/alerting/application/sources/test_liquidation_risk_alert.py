@@ -216,3 +216,15 @@ def test_a_write_while_no_warning_is_open_reads_no_status() -> None:
 def test_the_states_the_source_treats_as_judged_are_the_guards_own() -> None:
     """The guard resets silently outside `PRICE_STALENESS_HALTS`; the source spells the set by name."""
     assert {state.name for state in PRICE_STALENESS_HALTS} == JUDGED_STATES
+
+
+def test_a_bot_stopped_inside_the_cooldown_still_gets_its_recovered() -> None:
+    bots = Bots(entry())
+    published = RecordingAlertPublisher()
+    source = LiquidationAlertSource(bots, published, FakeAlertClock())
+    source.on_risk_changed(_event(RiskLevel.WARN))
+
+    bots.move("STOPPED")
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    assert published.cleared == [_key()]
