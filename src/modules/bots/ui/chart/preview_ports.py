@@ -103,3 +103,25 @@ class CallingThread(IThreadManager):
 
     def shutdown(self, wait: bool = True) -> None:
         return None
+
+
+class HeldPool(IThreadManager):
+    """@brief Keeps each task until `run_all` runs it on the caller's thread, so a
+    test or a preview frame can cancel, or select another bot, while a run is in flight."""
+
+    def __init__(self) -> None:
+        self.pending: list[tuple[Callable[..., object], tuple[object, ...]]] = []
+
+    def submit(
+        self, task: Callable[..., object], *args: object, **kwargs: object
+    ) -> concurrent.futures.Future[object]:
+        self.pending.append((task, args))
+        return concurrent.futures.Future()
+
+    def run_all(self) -> None:
+        while self.pending:
+            task, args = self.pending.pop(0)
+            task(*args)
+
+    def shutdown(self, wait: bool = True) -> None:
+        self.pending.clear()

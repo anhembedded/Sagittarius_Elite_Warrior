@@ -61,10 +61,10 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports 
 #: share; the key is explicit (`scripts/preview_qml.py`).
 PREVIEW_KEY = "grid_backtest"
 
-_SYMBOL = "BTCUSDT"
-_INTERVAL = TimeFrame.ONE_HOUR
-_START = datetime(2026, 9, 28, tzinfo=UTC)
-_CONFIG = {
+SYMBOL = "BTCUSDT"
+INTERVAL = TimeFrame.ONE_HOUR
+START = datetime(2026, 9, 28, tzinfo=UTC)
+CONFIG = {
     "lower": "60000",
     "upper": "70000",
     "grid_count": "10",
@@ -73,7 +73,7 @@ _CONFIG = {
     "stop_loss": "percent:5",
     "take_profit": "percent:5",
 }
-_TERMS = ExchangeTerms(
+TERMS = ExchangeTerms(
     tick_size=Decimal("0.01"),
     step_size=Decimal("0.00001"),
     min_notional=Decimal(5),
@@ -88,9 +88,9 @@ def build_preview() -> QWidget:
     view = GridBacktestView(
         LiveChartPorts(
             thread_manager=CallingThread(),
-            feed=SampleCandleFeed(_START, _INTERVAL),
+            feed=SampleCandleFeed(START, INTERVAL),
             stream_owner="bots.backtest.preview",
-            interval=_INTERVAL.value,
+            interval=INTERVAL.value,
             market=BOT_MARKET,
             notifier=RecordingNotifier(),
             scope=BOTS_ROUTE,
@@ -99,7 +99,7 @@ def build_preview() -> QWidget:
     )
     result = sample_result()
     view.show_replay(
-        chart_candles(result, _SYMBOL, _INTERVAL),
+        chart_candles(result, SYMBOL, INTERVAL),
         result_overlay(result),
         result.equity,
         summary_of(result),
@@ -110,15 +110,15 @@ def build_preview() -> QWidget:
 
 def sample_result() -> GridBacktestResult:
     bars = tuple(
-        price_bar(sample_candle(_SYMBOL, _INTERVAL, _START, index))
+        price_bar(sample_candle(SYMBOL, INTERVAL, START, index))
         for index in range(SAMPLE_CANDLES)
     )
     replay = simulate_grid(
         GridBacktestInputs(
-            GridParams.from_config(_CONFIG),
-            _TERMS,
+            GridParams.from_config(CONFIG),
+            TERMS,
             bars,
-            timedelta(seconds=_INTERVAL.to_seconds()),
+            timedelta(seconds=INTERVAL.to_seconds()),
         )
     )
     if not isinstance(replay, GridBacktestResult):

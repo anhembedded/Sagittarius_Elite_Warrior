@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🔵 Planned. Scaffolded on 2026-10-14; the owner asked for the plan only: *"để đó, chưa cần làm"* ("leave it there, do not start yet").
+- **Status:** 🟡 In progress. Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -48,7 +48,7 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-040A](incomplete/EPIC-040A_pin_grid_backtest_behaviour.md) | The Grid's backtest page is pinned by tests and preview frames before anything moves | Elite | None | 🟢 | Planned |
+| [EPIC-040A](completed/EPIC-040A_pin_grid_backtest_behaviour.md) | The Grid's backtest page is pinned by tests and preview frames before anything moves | Elite | None | 🟢 | ✅ Done (2026-10-20) |
 | [EPIC-040B](incomplete/EPIC-040B_kind_neutral_backtest_contract.md) | One kind-neutral backtest result and simulator port; the Grid's replay answers through it | Elite | 040A | 🟡 | Planned |
 | [EPIC-040C](incomplete/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | Planned |
 | [EPIC-040D](incomplete/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | Planned |
@@ -72,6 +72,8 @@
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
 ## Notes (newest first)
+- **2026-10-20** — `040A` done: thirteen preview frames and one test per state, no behaviour changed. It found three status-line gaps (one cause) the Grid page has today; they are recorded in the child for `040F`.
+- **2026-10-20** — Un-parked by the owner. `040A`, then `040B` and `040C` one after the other, each from master once the last is merged; `040D`–`040G` wait for a later phase.
 - **2026-10-16** — The bots design is now the folder [`Docs/MODULES/bots/`](../../../Docs/MODULES/bots/README.md) (`EPIC-041E`), which replaces `bots.md`. A child changes the file that holds the fact it changes, and its pull request answers "Design in step" (`commit-rule.md` §1); its `Planned` rows name `040B`, `040C` and `040G`.
 - **2026-10-14** — Every child updates the views of `Docs/MODULES/bots.md` it changes, through its "Docs touched" section. The skeleton comes from [`EPIC-041A`](../EPIC-041_documentation_standard/completed/EPIC-041A_docs_skeleton.md), which runs first.
 - **2026-10-14** — Decision 5 and `040G` added: the strategy bot is a kind of its own on the shared shell, taken from `EPIC-029L`. `040B` now requires its port to fit that kind.
