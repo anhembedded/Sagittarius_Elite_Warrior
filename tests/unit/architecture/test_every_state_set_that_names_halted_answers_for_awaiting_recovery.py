@@ -56,6 +56,10 @@ _EXCEPTIONS: dict[tuple[str, str], str] = {
         "modules/alerting/application/sources/bot_alert_source.py",
         "<module>",
     ): "the entry into the wait is deliberately silent; its recovery and stall have their own events (`EPIC-042D`)",
+    (
+        "modules/alerting/application/sources/bot_reason_routes.py",
+        "<module>",
+    ): "the states a reason's own kind is raised on entry to; the wait is silent on entry and a wait on a quiet price feed is told by its stall (`EPIC-036B2`)",
 }
 
 _SET_LIKE = (ast.Set, ast.Compare, ast.Dict)

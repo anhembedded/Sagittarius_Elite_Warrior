@@ -70,6 +70,18 @@ The walking skeleton (`EPIC-036G`) added:
   whole app (`AlertSubject.app`, `BOT_EVENTS` group) with the figure, the loss, the count of bots being
   stopped and how to acknowledge; it has no recovery message, because the owner's acknowledgement ends it
   and a second trip is a new alert.
+- **The reason table** (`alerting/application/sources/bot_reason_routes.py` → `REASON_ROUTES`, `ReasonRoute`,
+  `own_route_on_entry`, `stalled_route`; `EPIC-036B2`): one row for every reason code of the bots' grid
+  (`GridReason.value`), saying whether it reaches the owner as its own kind on entry (`KEY_REJECTED` on `HALTED` or
+  `ERROR`, `STORAGE_FAILURE` on `PAUSED`), as its own kind when the wait stalls (`PRICE_FEED_STALE` and
+  `RATE_LIMITED`, in place of `BOT_RECOVERY_STALLED`; a rate limit that is a plain `HALTED` is the
+  generic halt, because a person must resume it), through the stop path
+  (`EXIT_ON_STOP`, the protective-stop event), as the state's generic kind, or never. `BotAlertSource`
+  asks it before `ALERT_ON_ENTRY` (`bot_alert_source.py` → `BotAlertSource._alert_on_entry`,
+  `BotAlertSource.on_recovery_stalled`); a reason it does not list is the generic halt, so a new bot kind
+  changes nothing here. The own kinds say a fixed sentence and the reason code and copy no detail of
+  the bot, which holds the failure text of a request or the disk; a return to `RUNNING` ends each
+  (`bot_alert_source.py` → `CLEARED_ON_ENTRY`).
 - **`LiquidationAlertSource`** (`alerting/application/sources/liquidation_alert_source.py` →
   `LiquidationAlertSource`; `EPIC-036B1`), the early warning of a Futures bot: `on_risk_changed` raises
   one `LIQUIDATION_RISK` WARNING when the guard's level becomes `WARN`, with the mark price, the
