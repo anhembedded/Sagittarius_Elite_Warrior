@@ -13,7 +13,12 @@ from datetime import UTC, datetime, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
+    BacktestRunConfig,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.run_texts import (
+    time_range_diff_text,
     zoned_moment_text,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services import (
@@ -121,3 +126,63 @@ def test_utc_machine_is_named_utc(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert service.get_system_timezone_name() == "UTC"
+
+
+_JANUARY_NOON = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
+_JULY_NOON = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+
+
+def _config(start: datetime, end: datetime) -> BacktestRunConfig:
+    return BacktestRunConfig(
+        strategy_key="ema_crossover",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=10_000.0,
+        start_time=start,
+        end_time=end,
+    )
+
+
+@pytest.mark.parametrize(
+    ("moment", "text"),
+    [
+        (_JANUARY_NOON, "2026-01-15 07:00:00 EST, UTC-05:00"),
+        (_JULY_NOON, "2026-07-15 08:00:00 EDT, UTC-04:00"),
+    ],
+)
+def test_a_text_names_the_offset_of_the_moment_it_shows_not_of_today(
+    monkeypatch: pytest.MonkeyPatch, moment: datetime, text: str
+) -> None:
+    """`BUG-239`: the label came from `now`, so a January moment read on an October day
+    claimed EDT. The machine is injected for every instant, "now" included."""
+    monkeypatch.setattr(service, "machine_local_time", _machine_in("America/New_York"))
+
+    assert zoned_moment_text(moment, service.SYSTEM_TIMEZONE_KEY) == text
+
+
+def test_a_range_across_a_daylight_saving_change_names_each_bound_in_its_own_offset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(service, "machine_local_time", _machine_in("America/New_York"))
+    before = _config(_JANUARY_NOON, _JANUARY_NOON)
+    after = _config(_JANUARY_NOON, _JULY_NOON)
+
+    text = time_range_diff_text(before, after, service.SYSTEM_TIMEZONE_KEY)
+
+    assert (
+        text == "Time range (2026-01-15 07:00:00 EST, UTC-05:00.."
+        "2026-01-15 07:00:00 EST, UTC-05:00 → 2026-01-15 07:00:00 EST, UTC-05:00.."
+        "2026-07-15 08:00:00 EDT, UTC-04:00)"
+    )
+
+
+def test_a_range_inside_one_offset_names_the_zone_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(service, "machine_local_time", _machine_in("America/New_York"))
+    before = _config(_JANUARY_NOON, _JANUARY_NOON)
+    after = _config(_JANUARY_NOON, datetime(2026, 2, 1, 12, 0, 0, tzinfo=UTC))
+
+    text = time_range_diff_text(before, after, service.SYSTEM_TIMEZONE_KEY)
+
+    assert text.endswith(" in EST, UTC-05:00")
+    assert text.count("EST") == 1

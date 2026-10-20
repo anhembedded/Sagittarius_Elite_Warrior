@@ -5,7 +5,7 @@ ceiling, only places them."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
@@ -29,10 +29,11 @@ def money_text(amount: float) -> str:
     return write_value(ColumnKind.MONEY, amount)
 
 
-def zone_name(time_zone: str) -> str:
-    """The zone `time_zone` really resolves to, by name ("UTC" when the setting cannot be
-    resolved): a text that names its zone must name the one it was written in."""
-    return display_zone_name(time_zone)
+def zone_name(time_zone: str, moment: datetime) -> str:
+    """The zone `time_zone` shows `moment` in, by name ("UTC" when the setting cannot be
+    resolved): a text that names its zone must name the one it was written in, with the
+    offset in force at `moment` (`BUG-239`)."""
+    return display_zone_name(time_zone, moment)
 
 
 def moment_in_zone(moment: datetime, time_zone: str = DEFAULT_TIMEZONE) -> str:
@@ -43,18 +44,20 @@ def moment_in_zone(moment: datetime, time_zone: str = DEFAULT_TIMEZONE) -> str:
     )
 
 
-def zone_suffix(time_zone: str, *, name_utc: bool = False) -> str:
-    """` <zone>` for a text that is not in UTC, else nothing (the text reads as it always did);
-    `name_utc` for a sentence that already said "UTC". A text is not rewritten when the person
-    changes the zone, so one written in another zone must name it to stay true."""
-    zone = zone_name(time_zone)
+def zone_suffix(time_zone: str, moment: datetime, *, name_utc: bool = False) -> str:
+    """` <zone>` for the text of `moment` when it is not in UTC, else nothing (the text reads as
+    it always did); `name_utc` for a sentence that already said "UTC". A text is not rewritten
+    when the person changes the zone, so one written in another zone must name it to stay true."""
+    zone = zone_name(time_zone, moment)
     return "" if zone == DEFAULT_TIMEZONE and not name_utc else f" {zone}"
 
 
 def zoned_moment_text(
     moment: datetime, time_zone: str = DEFAULT_TIMEZONE, *, name_utc: bool = False
 ) -> str:
-    return moment_in_zone(moment, time_zone) + zone_suffix(time_zone, name_utc=name_utc)
+    return moment_in_zone(moment, time_zone) + zone_suffix(
+        time_zone, moment, name_utc=name_utc
+    )
 
 
 def moment_text(
@@ -68,13 +71,38 @@ def time_range_diff_text(
     before: BacktestRunConfig, after: BacktestRunConfig, time_zone: str
 ) -> str:
     """`Time range (a..b → c..d)` for the config diff, in the display time zone, which it
-    names once, after the range, unless it is UTC (`BOT-162`). An open start reads "Start", an open end "Now"."""
+    names once, after the range, unless it is UTC (`BOT-162`). An open start reads "Start", an
+    open end "Now". A range whose bounds fall under different offsets (a daylight-saving change
+    between them, under "System") names each bound's own zone instead of one for all
+    (`BUG-239`)."""
+    bounds = [
+        moment
+        for moment in (
+            before.start_time,
+            before.end_time,
+            after.start_time,
+            after.end_time,
+        )
+        if moment
+    ]
+    suffixes = {zone_suffix(time_zone, moment) for moment in bounds}
+    each_bound_named = len(suffixes) > 1
+
+    def bound(moment: datetime | None, open_end: str) -> str:
+        if moment is None:
+            return open_end
+        text = moment_in_zone(moment, time_zone)
+        return text + zone_suffix(time_zone, moment) if each_bound_named else text
 
     def written(config: BacktestRunConfig) -> str:
-        start = moment_text(config.start_time, "Start", time_zone)
-        return f"{start}..{moment_text(config.end_time, 'Now', time_zone)}"
+        start = bound(config.start_time, "Start")
+        return f"{start}..{bound(config.end_time, 'Now')}"
 
-    suffix = zone_suffix(time_zone)
+    suffix = (
+        ""
+        if each_bound_named
+        else next(iter(suffixes), zone_suffix(time_zone, datetime.now(UTC)))
+    )
     named = f" in{suffix}" if suffix else ""
     return f"Time range ({written(before)} → {written(after)}){named}"
 

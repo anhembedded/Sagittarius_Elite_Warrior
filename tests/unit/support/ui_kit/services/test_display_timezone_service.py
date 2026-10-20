@@ -11,16 +11,18 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_serv
     get_utc_offset_seconds,
 )
 
+_MOMENT = datetime(2026, 8, 17, 4, 30, 0, tzinfo=UTC)
+
 
 def test_display_zone_name_defaults_and_fallbacks() -> None:
-    assert display_zone_name("UTC") == "UTC"
-    assert display_zone_name("") == "UTC"
-    assert display_zone_name("NonExistent/Timezone_Invalid") == "UTC"
-    assert display_zone_name("Asia/Ho_Chi_Minh") == "Asia/Ho_Chi_Minh"
+    assert display_zone_name("UTC", _MOMENT) == "UTC"
+    assert display_zone_name("", _MOMENT) == "UTC"
+    assert display_zone_name("NonExistent/Timezone_Invalid", _MOMENT) == "UTC"
+    assert display_zone_name("Asia/Ho_Chi_Minh", _MOMENT) == "Asia/Ho_Chi_Minh"
 
 
 def test_display_zone_name_system_names_the_machine_zone() -> None:
-    assert display_zone_name(SYSTEM_TIMEZONE_KEY)
+    assert display_zone_name(SYSTEM_TIMEZONE_KEY, _MOMENT)
 
 
 def test_format_display_datetime_utc() -> None:
