@@ -28,6 +28,14 @@ logger = logging.getLogger("App.ExchangeClient")
 #: agree on is vocabulary, which is what this package holds (HLD §8).
 REQUEST_TIMEOUT_SECONDS = 30.0
 
+#: The `recvWindow` every signed request carries (`EPIC-026I`): how long after its
+#: `timestamp` the exchange still accepts it. Binance recommends 5000 ms or less and caps it
+#: at 60000. python-binance sends its own 10000 ms when nothing is set, and a per-call
+#: `recvWindow` is overwritten by it, so the one place that sets it is `new_client`. The
+#: `timestamp` is already corrected by the measured clock offset, so this bounds the
+#: request's time in transit, not the machine's clock error (`BUG-111`, `BUG-221`).
+SIGNED_REQUEST_RECV_WINDOW_MS = 5000
+
 #: `python-binance`'s `Client(testnet=...)` is one flag that redirects every
 #: API family's host at once (`base_client.py`'s `_create_api_uri`/
 #: `_create_futures_api_uri` both check it) — there is no per-call override,

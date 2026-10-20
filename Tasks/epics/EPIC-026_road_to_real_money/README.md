@@ -87,7 +87,7 @@ complexity; every task is one pull request unless its file says otherwise.
 | [EPIC-026F](incomplete/EPIC-026F_live_candidate_report.md) | The candidate report: one strategy, one symbol, one timeframe, judged against D | Elite | E, `EPIC-001B` | 🟡 | Planned |
 | **Stage 2 — operations survive without a human** | | | | | |
 | [EPIC-026G](incomplete/EPIC-026G_trade_journal.md) | Trade journal: orders, fills, positions and breaker state in SQLite | Elite | None | 🔴 | Planned |
-| [EPIC-026I](incomplete/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | Planned |
+| [EPIC-026I](completed/EPIC-026I_resilient_submission.md) | Resilient submission: explicit `recvWindow`, timeout resolved by client order id, backoff on rate limits | Elite | None | 🔴 | ✅ Done (2026-10-20); the rest landed as `BUG-170` and `EPIC-035D` |
 | [EPIC-026H](incomplete/EPIC-026H_crash_recovery_adopt_journaled_positions.md) | Crash recovery: a position the journal recorded as ours is adopted on enable (ADR O2) | Elite | G | 🔴 | Planned |
 | [EPIC-026J](incomplete/EPIC-026J_leverage_and_margin_type_set_on_exchange.md) | Leverage and margin type set on the exchange on arm, and read back | Elite | I | 🟡 | Planned |
 | [EPIC-026K](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Exchange-side protective stop: reduce-only `STOP_MARKET` after each entry fill | Elite | G, I | 🔴 | Planned |

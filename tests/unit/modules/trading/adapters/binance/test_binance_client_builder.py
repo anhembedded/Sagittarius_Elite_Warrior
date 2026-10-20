@@ -9,6 +9,7 @@ from typing import Any, ClassVar
 
 import pytest
 import requests
+from binance.client import Client as RealClient
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance import (
     binance_client_builder,
 )
@@ -26,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_se
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     REQUEST_TIMEOUT_SECONDS,
+    SIGNED_REQUEST_RECV_WINDOW_MS,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -194,3 +196,71 @@ def test_a_futures_factory_refuses_a_spot_venue(venue: TradingVenue) -> None:
 def test_a_spot_factory_refuses_a_futures_venue(venue: TradingVenue) -> None:
     with pytest.raises(ValueError, match="not a Spot venue"):
         SpotSessionFactory(venue)
+
+
+# -- `EPIC-026I`: every signed request carries one explicit recvWindow --------
+
+
+class _Capture(requests.adapters.BaseAdapter):
+    """Stands in for the network: keeps the request the real `Client` built."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: list[requests.PreparedRequest] = []
+
+    def send(self, request: requests.PreparedRequest, **_: Any) -> requests.Response:
+        self.sent.append(request)
+        response = requests.Response()
+        response.status_code = 200
+        response._content = b"{}"
+        return response
+
+    def close(self) -> None:
+        return None
+
+
+def _real_signed_client(
+    monkeypatch: pytest.MonkeyPatch, venue: TradingVenue
+) -> tuple[Any, _Capture]:
+    monkeypatch.undo()  # the real `Client`, not the builder fixture's stand-in
+    monkeypatch.setattr(
+        binance_client_builder, "sync_timestamp_offset", lambda *_: None
+    )
+    monkeypatch.setattr(RealClient, "ping", lambda _self: {})  # a Spot open pings
+    client = new_client(venue, _KEYS)
+    capture = _Capture()
+    client.session.mount("https://", capture)  # type: ignore[attr-defined]
+    return client, capture
+
+
+def test_a_futures_signed_request_carries_the_explicit_recv_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, capture = _real_signed_client(monkeypatch, TradingVenue.FUTURES_TESTNET)
+
+    client.futures_create_order(  # type: ignore[attr-defined]
+        symbol="ETHUSDT", side="BUY", type="MARKET", quantity="1"
+    )
+    client.futures_cancel_order(symbol="ETHUSDT", orderId=1)  # type: ignore[attr-defined]
+    client.futures_account()  # type: ignore[attr-defined]
+
+    assert len(capture.sent) == 3
+    for request in capture.sent:
+        query = (request.url or "") + (request.body or "")
+        assert f"recvWindow={SIGNED_REQUEST_RECV_WINDOW_MS}" in query
+        assert query.count("recvWindow=") == 1
+
+
+def test_a_spot_signed_request_carries_the_explicit_recv_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, capture = _real_signed_client(monkeypatch, TradingVenue.SPOT_TESTNET)
+
+    client.get_account()  # type: ignore[attr-defined]
+
+    query = (capture.sent[0].url or "") + (capture.sent[0].body or "")
+    assert f"recvWindow={SIGNED_REQUEST_RECV_WINDOW_MS}" in query
+
+
+def test_the_window_is_binances_recommended_five_seconds_at_most() -> None:
+    assert 0 < SIGNED_REQUEST_RECV_WINDOW_MS <= 5000
