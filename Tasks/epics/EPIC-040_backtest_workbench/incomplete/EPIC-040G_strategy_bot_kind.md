@@ -56,3 +56,4 @@ Written when the task starts. Each criterion above maps to a unit or integration
 ## Implementation notes (written when done)
 
 ## Resume (optional; while unfinished)
+The design is the Proposed decision record [`DECISION_2026-10-20_strategy_bot_kind.md`](../DECISION_2026-10-20_strategy_bot_kind.md): five slices (shell generalised, strategy spec, backtester on the workbench, executor on Testnet, migration), four questions for the owner (O1–O4). No code before the owner answers.

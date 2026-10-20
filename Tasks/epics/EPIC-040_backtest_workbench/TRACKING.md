@@ -60,6 +60,7 @@ gantt
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
 | 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
 | 2026-10-20 | Start | Un-parked by the owner; phase 1 (`040A`–`040C`) first. |
+| 2026-10-20 | 040G | Design written as a Proposed decision record (five slices, backtest first, Testnet only); waits for the owner's answers O1–O4. |
 | 2026-10-20 | 040F | The Grid's own backtest page, presenter and coordinator are deleted; the Grid runs on the workbench alone (net −1,429 source lines). |
 | 2026-10-20 | 040E | The Bots centre's Live and Backtest tabs; one workbench per venue; the bottom Backtest dock is gone. |
 | 2026-10-20 | 040D | The workbench page for any kind, run through `RunBacktestQuery`; a stub second kind renders through it. Not on screen until `040E`. |
