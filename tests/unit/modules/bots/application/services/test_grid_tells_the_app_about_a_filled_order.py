@@ -84,7 +84,7 @@ def test_the_counter_sell_that_closes_the_cycle_carries_the_profit_the_run_booke
     assert sell.side == "SELL"
     assert sell.cycle_profit == Decimal("22.720")
     assert sell.cycle_profit == world.runtime().realised_profit
-    assert (sell.realised_total, sell.completed_cycles) == (Decimal("22.720"), 1)
+    assert (sell.grid_profit, sell.completed_cycles) == (Decimal("22.720"), 1)
     assert buy.cycle_profit is None
 
 

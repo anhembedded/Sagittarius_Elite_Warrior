@@ -132,8 +132,8 @@ def test_the_cap_counts_one_venue_and_only_active_bots() -> None:
 
 
 def test_a_recovering_bot_of_the_venue_is_named_whatever_its_symbol() -> None:
-    """Starting another bot opens the venue's session, whose switch-on reconciles every
-    RECOVERING bot of the venue (`EPIC-042E`), so the Start waits for them."""
+    """A RECOVERING bot is reconciled only by its own Resume (`BOT-183`, `BOT-201`), so a Start waits
+    for every one of the venue, whatever its symbol."""
     slots = [
         _slot("a", FUTURES, BTC, S.RECOVERING),
         _slot("c", FUTURES, ETH, S.RUNNING),

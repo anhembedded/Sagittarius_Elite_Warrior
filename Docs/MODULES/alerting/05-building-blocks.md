@@ -74,7 +74,8 @@ The walking skeleton (`EPIC-036G`) added:
   `BotFillAlertSource`; BOT-189), the second source at the edge: `on_order_filled` words one INFO
   `ORDER_FILLED` alert per `BotOrderFilledEvent` (`bot_fill_alert_source.py` → `fill_line`: symbol,
   side, quantity, price, level, and on the fill that closes a cycle the cycle's net profit, the run's
-  total and the number of cycles). Its dedup key is the order with the bot (`Alert.raised`'s `reason`),
+  **grid profit** (completed cycles only, never the Total PnL; `BotOrderFilledEvent.grid_profit`) and the
+  number of cycles). Its dedup key is the order with the bot (`Alert.raised`'s `reason`),
   so a repeat of one fill is one message and two fills are two. The exits live in `BotAlertSource`: the
   entry into `STOPPING` with the reason `stop_loss`, `take_profit` or `range_exit` is one alert at once
   (`bot_alert_source.py` → `EXIT_ON_STOP`, `BotAlertSource._alert_on_exit`); `on_range_changed` tells a

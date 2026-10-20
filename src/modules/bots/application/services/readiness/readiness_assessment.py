@@ -106,7 +106,8 @@ class RunFacts:
     #: the venue's cap; empty while there is room.
     venue_full_of: tuple[str, ...] = ()
     #: `EPIC-029J` J1b (`EPIC-042E`) — the ids of the other bots of the venue that wait to
-    #: recover: starting a bot opens the venue's session, which would resume them.
+    #: recover: they are reconciled with the exchange only by their own Resume, so no other bot
+    #: starts on the venue meanwhile (`other_active_bot.venue_recovering`, `BOT-201`).
     venue_recovering: tuple[str, ...] = ()
     #: Who else holds the symbol's lease.
     lease_holder: str = ""
@@ -315,8 +316,9 @@ def _run_items(inputs: ReadinessInputs, connected: bool) -> tuple[ReadinessItem,
             item(
                 "RUN_VENUE_RECOVERING",
                 f"{title} has {len(run.venue_recovering)} bot(s) waiting to recover "
-                f"({', '.join(run.venue_recovering)}); starting another opens the venue's "
-                "order session, which would resume them. Resume or stop them first",
+                f"({', '.join(run.venue_recovering)}); each is reconciled with the exchange only "
+                "when it is resumed, so no other bot starts on this venue until they are "
+                "resumed or stopped",
                 BotRefusal.VENUE_RECOVERING,
                 ReadinessFix.STOP_OTHER_BOT,
                 run.venue_recovering[0],
