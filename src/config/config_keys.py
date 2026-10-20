@@ -89,6 +89,12 @@ class ConfigKeys(str, Enum):
     #: `<repo root>/state/bots`; the sanity tier points it at a temporary
     #: directory so a test boot never rewrites a real bot (PR #318 review).
     BOTS_STATE_DIR = "bots.state_dir"
+    #: `EPIC-026L` — the account-level loss cap: the day's loss, summed over this host's bots, at
+    #: which every bot is stopped and none starts again until the owner acknowledges
+    #: (`bot loss-cap-ack`). Written as an amount and its quote asset, `"500 USDT"`. The figure is
+    #: the owner's and has no default: empty means the cap is off, and the pre-flight says so. A
+    #: set value that cannot be read stops the host from starting (`parse_loss_cap_figure`).
+    BOTS_ACCOUNT_LOSS_CAP = "bots.account_loss_cap"
     #: Blocks a single order whose notional exceeds this many USDT.
     TRADING_MAX_NOTIONAL_PER_ORDER_USDT = "trading.max_notional_per_order_usdt"
     #: Blocks a new order on a symbol that already has this many open

@@ -199,6 +199,7 @@ def test_the_composed_app_publishes_its_sections_and_all_answer(
         "alerting",
         "bots",
         "engine",
+        "loss_cap",
         "market_data",
         "trading",
     ]

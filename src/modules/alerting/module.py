@@ -81,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
     IAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
+    AccountLossCapTrippedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
     BotAutoRecoveredEvent,
 )
@@ -171,6 +174,7 @@ class AlertingModule(BoundedContextModule):
         bus.on(BotChangedEvent, source.on_bot_changed)
         bus.on(BotStopGaveUpEvent, source.on_stop_gave_up)
         bus.on(BotRecoveryStalledEvent, source.on_recovery_stalled)
+        bus.on(AccountLossCapTrippedEvent, source.on_account_loss_cap_tripped)
         bus.on(BotAutoRecoveredEvent, source.on_auto_recovered)
         bus.on(BotRangeChangedEvent, source.on_range_changed)
         bus.on(BotProtectiveStopEvent, source.on_protective_stop)

@@ -162,6 +162,7 @@ def test_the_verbs_are_a_table_not_a_chain() -> None:
         "resume",
         "start",
         "edit",
+        "loss-cap-ack",
     ]
 
 

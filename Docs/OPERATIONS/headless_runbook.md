@@ -199,6 +199,7 @@ Exit codes of `preflight`: `0` nothing failed (a WARN passes), `4` a check faile
 | `no-withdraw-permission` | the key can withdraw | create a new key without withdrawal; never run with this one |
 | `outbound-address` | the address the exchange sees is not the one the key is bound to, or could not be read | bind the key to the address shown, or fix the route |
 | `bot-files-readable` | WARN: a bot file in `state/bots/` was written by a newer build, or is damaged; its bot is **not loaded** and the file is left untouched | §8: roll back to the build that wrote it, or copy the file out if it is damaged; do not edit it |
+| `account-loss-cap` | FAIL: `bots.account_loss_cap` is set and cannot be read (exit 4, the host would not start). WARN: no figure and this host runs a mainnet venue (nothing stops the day's loss); the record cannot be read (the cap starts tripped); the cap is tripped (no bot starts or resumes) | Set `bots.account_loss_cap` to an amount and its quote asset, e.g. `500 USDT`, or empty it to switch the cap off (testnet); for a trip or an unreadable record see "The account-level loss cap" in §6 and run `bot loss-cap-ack` on the running host |
 
 `--skip <ids>` skips checks; `run --skip-preflight` skips them all and logs a WARNING. Neither belongs in the unit.
 
@@ -300,6 +301,27 @@ $M bot edit 44wa1x --set lower=81000 --set upper=90000   # a DRAFT or STOPPED bo
   - **It cannot race a start.** The edit runs under the same lock a Start holds while it reads the bots and moves one to STARTING, on the host's command thread like the other verbs: either the Start has moved the bot first (the edit is refused: it is STARTING) or the edit landed first (the Start reads the new parameters). A bot at rest has no worker and so no queue of its own; the write is the one the Bots tab's Save makes.
 - **Delete is not a running-host command.** `bot delete` was dropped from `EPIC-038K` by the owner (2026-10-17). A DRAFT or STOPPED bot is still deleted with the host stopped, by `bot apply --prune` (§8); there is no `delete` action word in the command file.
 - **To free the symbol for a new run:** `bot stop <id>` until `bot show` says STOPPED, then `bot start <id>` again (after `bot edit <id> --set ...`, the Bots tab, or applying a plan with the host stopped), or stop the host, `bot apply plan.json [--prune]` and start it with `--start-planned` (§8). `bot apply` itself still needs the host stopped.
+
+### The account-level loss cap (`bot loss-cap-ack`)
+
+`EPIC-026L`, decision N3 of the 2026-10-20 review. One figure for the whole host: the most the bots may lose in one UTC day, summed over all of them, realised plus unrealised, in one quote asset. At that figure the host stops **every** bot through the Stop the Bots tab uses, and **no bot starts or resumes** until you acknowledge it. The figure is yours; there is no default, and an unset figure means the cap is **off**.
+
+```bash
+# Set it in user_config.json, the file the owner's options live in (src/config/user_config.json of the install), then restart the host
+#   { "bots.account_loss_cap": "500 USDT" }      # amount, a space, the quote asset; empty or absent = off
+$M preflight --venue spot_mainnet               # the "account-loss-cap" line: set, off (WARN on mainnet), or tripped
+$M bot loss-cap-ack                             # after a trip: clear it so bots may start again
+$M status                                       # the "loss_cap" section: figure, tripped, why; never the day's loss
+```
+
+- **What it counts.** Each bot's own account (`bot list` shows it as its total), read at the price the bot last saved to its file, which is at most 30 s old, every 15 s. It starts counting at 00:00 UTC, or at the first sample after the host (or the bot) was first seen that day; a bot that began a new run keeps what its earlier run lost today. It is **not** your exchange equity, and between the trip and the last bot reaching STOPPED the market goes on.
+- **What a trip does.** In this order: it writes `state/loss_cap.json`, asks every bot that is not at rest to stop (a **Spot** bot cancels its orders and **keeps its coin**, so its loss can still move: selling it is your decision; a **Futures** bot cancels its orders and **closes its position at market**), then sends a CRITICAL alert to Discord and logs `[loss-cap] TRIPPED` at CRITICAL. It places no order of its own.
+- **What it refuses.** While tripped, `bot start`, `bot resume`, the Bots tab's Start and Resume, `run --start-planned` and `run --resume-recovering` are refused with the cap's sentence. A bot that gets going by a path that does not ask (an automatic recovery) is stopped again by the next sample. A restart, a day roll-over and removing the figure from the config do **not** clear it.
+- **Acknowledging.** `bot loss-cap-ack` goes through the same command directory as the other `bot` verbs (exit `10` when no host is running, `5` when this account has no control). It starts nothing: start each bot yourself afterwards. **The day's count is not reset:** it keeps adding up from 00:00 UTC, so the cap trips again at the figure. While today's loss is still at or above the figure the acknowledgement is **refused**, because clearing the trip would only trip it again: raise `bots.account_loss_cap` and restart the host, then acknowledge, or acknowledge after 00:00 UTC (the next UTC day starts from zero). It is also refused when the cap is not tripped.
+- **It fails closed.** If the cap cannot tell what the bots have lost for two minutes (the bots cannot be read, a bot file is refused, a running bot has no price yet or trades in another quote asset than the figure's), it **trips** and says why. A `bots.account_loss_cap` that is set and cannot be read stops the host from starting. A record that cannot be written is logged at ERROR and the trip holds in memory; a record that cannot be read at start-up starts the cap tripped.
+- **Fix the cause before you acknowledge a `not_judgeable` trip.** A refused bot file, or a running bot in another quote asset than the figure's, trips the cap again two minutes after every acknowledgement until it is gone.
+- **On the desktop there is no Acknowledge command yet** (the command directory is served by `run` alone). Stop the app and delete `state/loss_cap.json`: it is the same decision, taken by hand.
+- **An older host** reads `loss-cap-ack` as an unknown action: it audits the command `malformed`, executes nothing and the verb exits `1`; upgrade the host before using it.
 
 ## 7. What the exit codes mean for you
 

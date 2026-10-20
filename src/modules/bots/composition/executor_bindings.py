@@ -125,6 +125,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader i
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
     IGridBudgets,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_hold import (
+    ILossCapHold,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -373,4 +376,5 @@ def _build_executing_runner(container: IContainer) -> IBotRunner:
             container.resolve(IVenueTradingPorts), container.resolve(IGridBudgets)
         ),
         container.resolve(BotExecutors),
+        container.resolve(ILossCapHold),
     )

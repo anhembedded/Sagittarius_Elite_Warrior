@@ -43,6 +43,9 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.STOP_FAILED: KindProfile(
             AlertGroup.BOT_EVENTS, _CRITICAL, "Stop failed"
         ),
+        AlertKind.ACCOUNT_LOSS_CAP_TRIPPED: KindProfile(
+            AlertGroup.BOT_EVENTS, _CRITICAL, "Account loss cap tripped"
+        ),
         AlertKind.BOT_RECOVERY_STALLED: KindProfile(
             AlertGroup.BOT_EVENTS, _WARNING, "Bot recovery stalled"
         ),
