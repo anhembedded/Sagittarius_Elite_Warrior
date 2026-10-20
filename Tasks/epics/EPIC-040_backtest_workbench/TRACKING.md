@@ -1,7 +1,7 @@
 # EPIC-040 — Tracking
 
 - **Epic:** [EPIC-040](README.md)
-- **Status:** 🔵 Planned (not started at the owner's request)
+- **Status:** 🟡 In progress (phase 1: `040A`–`040C`; un-parked 2026-10-20)
 - **Target Completion:** not scheduled
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -43,7 +43,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-040A | [Pin the Grid backtest page](incomplete/EPIC-040A_pin_grid_backtest_behaviour.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-040A | [Pin the Grid backtest page](completed/EPIC-040A_pin_grid_backtest_behaviour.md) | `claude/epic-040a-pin-grid-backtest` | 🟢 | ✅ Done | 2026-10-20 |
 | EPIC-040B | [Kind-neutral result and simulator port](incomplete/EPIC-040B_kind_neutral_backtest_contract.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040C | [Sandbox parameters](incomplete/EPIC-040C_sandbox_parameters.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040D | [Backtest workbench shell](incomplete/EPIC-040D_backtest_workbench_shell.md) | — | 🟡 | 🔵 Planned | — |
@@ -59,6 +59,8 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
 | 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
+| 2026-10-20 | Start | Un-parked by the owner; phase 1 (`040A`–`040C`) first. |
+| 2026-10-20 | 040A | Thirteen frames and one test per state of the Grid backtest page; no behaviour changed. |
 
 ---
 
@@ -66,5 +68,5 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| The owner's go-ahead and the §1 decisions | All | The owner | 🟡 Open |
+| The §1 decisions (the owner un-parked the epic on 2026-10-20; the decisions still need the owner's word before `040D`) | 040D onward | The owner | 🟡 Open |
 | Whether the Engine's workbench region host offers a tabbed centre | 040E | Read the Engine's `WorkbenchSurface` first; a stock `QTabWidget` in the centre region otherwise | 🟡 Open |

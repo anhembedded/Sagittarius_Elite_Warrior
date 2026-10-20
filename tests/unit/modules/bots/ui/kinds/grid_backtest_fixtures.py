@@ -10,9 +10,7 @@ journey under test, writing the period's candles to the fake repository.
 
 from __future__ import annotations
 
-import concurrent.futures
 import math
-from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -30,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
     RunGridBacktestQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
+    HeldPool,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestContext,
@@ -66,7 +67,6 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_exampl
     CONFIG,
     TERMS,
 )
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 SYMBOL = "BTCUSDT"
 T0 = datetime(2026, 9, 1, tzinfo=UTC)
@@ -108,27 +108,6 @@ def swinging_candles() -> list[MarketData]:
             )
         )
     return candles
-
-
-class HeldPool(IThreadManager):
-    """Keeps each task until `run_all` runs it on the test's thread."""
-
-    def __init__(self) -> None:
-        self.pending: list[tuple[Callable[..., Any], tuple[Any, ...]]] = []
-
-    def submit(
-        self, task: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> concurrent.futures.Future[Any]:
-        self.pending.append((task, args))
-        return concurrent.futures.Future()
-
-    def run_all(self) -> None:
-        while self.pending:
-            task, args = self.pending.pop(0)
-            task(*args)
-
-    def shutdown(self, wait: bool = True) -> None:
-        self.pending.clear()
 
 
 def _never() -> bool:

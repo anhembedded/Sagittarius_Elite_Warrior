@@ -99,6 +99,9 @@ class OwnerBooks:
         self._lock = threading.Lock()
         self._by_tag: dict[str, IOwnerBook] = {}
         self._buffers: list[OwnerEventBuffer] = []
+        # Symbols a position owner left (its stop closed it) whose flat report from the
+        # exchange has not arrived yet (`BUG-233`).
+        self._departed: set[str] = set()
 
     def open_buffer(self, tag: str, symbol: str) -> OwnerEventBuffer:
         """@brief Starts holding `tag`'s fills and ends on `symbol` until the
@@ -128,16 +131,24 @@ class OwnerBooks:
                 held.replay_into(book, counted)
                 self._drop(held)
             self._by_tag[tag] = book
+            self._departed.discard(book.symbol)
 
     def clear(self) -> None:
         with self._lock:
             self._by_tag.clear()
+            self._departed.clear()
 
     def clear_owner(self, owner_id: str) -> None:
-        """@brief Drops `owner_id`'s books; another owner's stay."""
+        """@brief Drops `owner_id`'s books; another owner's stay.
+        @details `BUG-233` - the books of a position owner (Futures) are remembered by their
+        symbol until the exchange next reports it flat (`take_departure`): the stop that clears
+        a book has closed the position, and the closing fills and the account's flat report
+        reach the session after the book is gone."""
         with self._lock:
             for tag in [t for t, b in self._by_tag.items() if b.owner_id == owner_id]:
-                del self._by_tag[tag]
+                book = self._by_tag.pop(tag)
+                if book.held_position() is not None:
+                    self._departed.add(book.symbol)
 
     def holder_of(self, tag: str) -> str | None:
         with self._lock:
@@ -148,6 +159,18 @@ class OwnerBooks:
         """@brief Whether a budgeted owner has a book on `symbol`."""
         with self._lock:
             return any(book.symbol == symbol for book in self._by_tag.values())
+
+    def take_departure(self, symbol: str) -> bool:
+        """@brief Whether a position owner left `symbol` since the exchange last reported it
+        flat; consumed, so it answers for one flat report.
+        @details `BUG-233` - what the session learned of the owner's position from the exchange
+        ends with that flat report, so it corrects nothing the session was wrong about. The
+        price paid: a position the user closes by hand beside a departed owner's symbol is
+        quiet at `DEBUG` once, until a new book is installed on the symbol or the session ends."""
+        with self._lock:
+            departed = symbol in self._departed
+            self._departed.discard(symbol)
+            return departed
 
     def facts(
         self, tag: str, owner_id: str, order: Order, now: datetime

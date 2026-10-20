@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result
     GridBacktestCancelled,
     GridBacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview_frames import (
+    funding_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler import (
     StoredKlinesReader,
 )
@@ -273,6 +276,15 @@ def test_a_missing_funding_history_is_refused_by_default_and_says_why() -> None:
     assert refusal.funding_unavailable
     assert "The exchange could not be reached." in refusal.reason
     assert "flatters a leveraged grid" in refusal.reason
+
+
+def test_the_preview_frame_refuses_a_missing_funding_in_the_handlers_own_words() -> (
+    None
+):
+    """`EPIC-040A`: the Grid backtest page's `refused_funding` frame shows this sentence."""
+    reason = "The exchange could not be reached."
+
+    assert funding_refusal(reason) == _refusal(FakeFundingHistory(unavailable=reason))
 
 
 def test_a_missing_funding_history_can_be_replayed_without_and_the_result_says_so() -> (
