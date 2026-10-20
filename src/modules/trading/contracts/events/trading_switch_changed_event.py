@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -39,8 +42,8 @@ class TradingSwitchChangedEvent(BaseEvent):
     #: event (`EPIC-028C`).
     venue: TradingVenue = field(kw_only=True)
     #: `BOT-183` - who the session was opened for: the id of the bot whose Start, Resume or stop
-    #: needed it, or `None` for an opener that is no bot's (a manual order, a strategy, the
-    #: host's `--resume-recovering`, which wakes every RECOVERING bot of the venue by design).
-    #: A bot that is waiting for its own Resume acts on the event only when this names it or
-    #: is `None`: another bot's command must not put it back to work.
-    opened_for: str | None = field(default=None, kw_only=True)
+    #: needed it, `OpenedByPerson.PERSON` for a person's action that is no bot's (a manual order, a
+    #: strategy arm; `BOT-197`), or `None` when no opener is known. A bot that is waiting for its
+    #: own Resume acts on the event only when this names it or is `None`: another bot's command,
+    #: or a person's order, must not put it back to work.
+    opened_for: SessionOpener = field(default=None, kw_only=True)

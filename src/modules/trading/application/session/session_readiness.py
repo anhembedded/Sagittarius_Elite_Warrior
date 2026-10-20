@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    SessionOpener,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -73,12 +76,13 @@ class SessionReadiness:
         self._venue_locks: dict[TradingVenue, threading.Lock] = {}
 
     def ensure_ready(
-        self, venue: TradingVenue, opened_for: str | None = None
+        self, venue: TradingVenue, opened_for: SessionOpener = None
     ) -> SessionReadyResult:
         """@brief `venue`'s order session is open when this answers `ready`.
 
         @param opened_for The bot the opening is for, named on the event it publishes
-        (`BOT-183`); `None` when the opener is no bot's.
+        (`BOT-183`): a bot id, `OpenedByPerson.PERSON` for a person's action that is no bot's
+        (`BOT-197`), or `None` when no opener is known (still wakes a waiting bot).
 
         Network round trips on a closed session: call it from a worker thread.
         """
@@ -88,7 +92,7 @@ class SessionReadiness:
             return self._ensure_ready_serialised(venue, opened_for)
 
     def _ensure_ready_serialised(
-        self, venue: TradingVenue, opened_for: str | None
+        self, venue: TradingVenue, opened_for: SessionOpener
     ) -> SessionReadyResult:
         # `EPIC-028B` — everything below is `venue`'s own: its state,
         # connection, client and user data stream. Opening one venue's session
