@@ -1,10 +1,15 @@
 """`EPIC-040D` — the Backtest workbench's page: a sandbox of the bot's plan, a period, Run, and what
 came out; the same for every kind of bot.
 
+Above the panes, the period on one row and the commands with the status line on the next, so the
+page's minimum width leaves the Bots mode a 1024-wide window and its height a 700-high one
+(`EPIC-040E`: the period and commands on one row were 850 px wide).
+
 Setup (left): the bot the sandbox was copied from, the kind's own editor (a second instance, never
 bound to the Bots menu's commands), what differs from the bot's plan, and the verdicts the symbol's
-rules gave it. Results (right): the replayed candles with the plan's levels and the fills, then tabs
-for the equity against buy-and-hold, the figures with their caveats, and the fills.
+rules gave it. Results (right), one tab each: the replayed candles with the plan's levels and the
+fills, the equity against buy-and-hold, the figures with their caveats, and the fills. They are tabs,
+not a column, so the page's minimum height leaves the Bots mode a 1024×700 window (`EPIC-040E`).
 
 The view applies a `WorkbenchState` and forwards gestures: it decides nothing (`pitfalls/ui.md` §4).
 Stock controls, no style sheet, no fixed sizes (`ui-presentation-rule.md`).
@@ -249,6 +254,8 @@ class BacktestWorkbenchView(QWidget):
         ):
             period.addWidget(plain_label(label))
             period.addWidget(field)
+        period.addStretch(1)
+        commands = QHBoxLayout()
         for button in (
             self.run_button,
             self.cancel_button,
@@ -256,8 +263,8 @@ class BacktestWorkbenchView(QWidget):
             self.no_funding_button,
             self.reset_button,
         ):
-            period.addWidget(button)
-        period.addStretch(1)
+            commands.addWidget(button)
+        commands.addWidget(self.status, 1)
         answers = QHBoxLayout()
         answers.addWidget(self.replace_button)
         answers.addWidget(self.keep_button)
@@ -271,18 +278,15 @@ class BacktestWorkbenchView(QWidget):
         column.addWidget(self._scrolling(self._editor_host), 1)
         column.addWidget(self.changed)
         column.addWidget(self.verdicts)
-        results = QSplitter(Qt.Orientation.Vertical)
-        results.addWidget(self.card)
-        results.addWidget(self._result_tabs())
         body = QSplitter()
         body.setChildrenCollapsible(False)
         body.addWidget(setup)
-        body.addWidget(results)
+        body.addWidget(self._result_tabs())
         body.setStretchFactor(0, 0)
         body.setStretchFactor(1, 1)
         layout = QVBoxLayout(self)
         layout.addLayout(period)
-        layout.addWidget(self.status)
+        layout.addLayout(commands)
         layout.addWidget(self.banner)
         layout.addWidget(body, 1)
 
@@ -294,6 +298,7 @@ class BacktestWorkbenchView(QWidget):
         column.addWidget(self.summary)
         column.addWidget(self.notes)
         column.addStretch(1)
+        tabs.addTab(self.card, "Replay")
         tabs.addTab(self.equity, "Equity")
         tabs.addTab(self._scrolling(figures), "Figures")
         tabs.addTab(self.fills.body, "Fills")

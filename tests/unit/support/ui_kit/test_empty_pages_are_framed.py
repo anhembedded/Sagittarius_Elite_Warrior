@@ -15,8 +15,8 @@ import pytest
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QLabel, QStackedWidget, QTableView, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
-    NO_BACKTEST_TEXT,
     NO_CHART_TEXT,
+    NO_SELECTION_BACKTEST_TEXT,
     BotsView,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets.database_status_panel import (
@@ -105,7 +105,7 @@ _SITES = {
     "bots list": (_bots, _instruction_of("tblBotsBody")),
     "bots chart": (_bots, _by_text(NO_CHART_TEXT)),
     "bots plan": (_bots, _by_name("lblBotsEmpty")),
-    "bots backtest": (_bots, _by_text(NO_BACKTEST_TEXT)),
+    "bots backtest": (_bots, _by_text(NO_SELECTION_BACKTEST_TEXT)),
     "bots strategies": (_bots, _instruction_of("tblStrategiesBody")),
     "bots orders": (_bots, _instruction_of("tblBotOrdersBody")),
     "bots fills": (_bots, _instruction_of("tblBotFillsBody")),

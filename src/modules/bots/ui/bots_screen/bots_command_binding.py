@@ -24,16 +24,19 @@ from .bot_action_rules import BotAction, export_plan_availability
 from .bot_chart_host import BotChartHost
 from .bots_commands import (
     ARM_STRATEGY,
+    BACKTEST_TAB,
     DISARM_STRATEGY,
     EXPORT_PLAN,
     FIT_LEVELS,
     FIX_NEXT,
+    LIVE_TAB,
     NEW_BOT,
     REFRESH_EXCHANGE,
     REFRESH_FILLS,
     RETRY_CONNECTION,
     lifecycle_id,
 )
+from .bots_view import BotsView
 from .bots_view_model import BotsViewModel
 from .kind_command_binding import KindCommands
 
@@ -46,8 +49,11 @@ def bind_bots_commands(
     view_model: BotsViewModel,
     strategies: VenueStrategies,
     charts: BotChartHost | None = None,
+    view: BotsView | None = None,
 ) -> None:
     """What `BotsPresenter.bind_commands` binds."""
+    if view is not None:
+        _bind_centre_tabs(binder, view)
     idle = DerivedState(
         view_model.action_in_flight_changed,
         lambda: not view_model.action_in_flight,
@@ -191,3 +197,14 @@ def _keep_tip_in_step(
     view_model.actions_changed.connect(say)
     view_model.action_in_flight_changed.connect(say)
     say()
+
+
+def _bind_centre_tabs(binder: ICommandBinder, view: BotsView) -> None:
+    """View → Live chart and View → Backtest (`EPIC-040E`); the second follows the tab."""
+    binder.bind(LIVE_TAB, lambda _checked: view.show_live())
+    binder.bind(
+        BACKTEST_TAB,
+        lambda _checked: view.show_backtest(),
+        enabled=view.backtest_enabled_changed,
+        initially_enabled=view.backtest_enabled,
+    )

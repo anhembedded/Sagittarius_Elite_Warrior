@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
+    RunBacktestQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
 )
@@ -30,13 +33,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     plan_market_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
+    WorkbenchPorts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
     BotChartPorts,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
-    BacktestPorts,
-)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import panel_for
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -90,9 +94,9 @@ class BotsDependencies:
     #: Each bot venue's Spot candle feed, for a bot's chart (`BUG-172`): it
     #: shows the market the bot's orders fill in.
     feeds: Callable[[TradingVenue], ICandleFeed]
-    #: What a kind's backtest is built from, for a bot's venue: its sync and its
+    #: What the Backtest workbench is built from, for a bot's venue: its sync and its
     #: result chart read that venue's market (`BUG-172`).
-    backtest_ports: Callable[[TradingVenue], BacktestPorts]
+    workbench_ports: Callable[[TradingVenue], WorkbenchPorts]
     #: The Spot symbols New bot's picker lists (`BUG-155`).
     symbols: ISymbolCatalog
     #: Each served venue's tick and step sizes, which the selected bot's
@@ -123,19 +127,26 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
     commands = container.resolve(ICommandDispatcher)
     notifier = container.resolve(INotifier)
     candles = venue_candles(container)
+    catalog = container.resolve(IBotKindCatalog)
+    display_timezone = (
+        find_display_timezone_preference(container) or DisplayTimezonePreference()
+    )
     return BotsDependencies(
         threads=threads,
         commands=commands,
-        kinds=container.resolve(IBotKindCatalog),
+        kinds=catalog,
         venues=container.resolve(IVenueTradingPorts),
         contexts=container.resolve(IVenueContexts),
         feeds=lambda venue: candles(venue).feed,
-        backtest_ports=lambda venue: BacktestPorts(
+        workbench_ports=lambda venue: WorkbenchPorts(
             threads,
-            commands,
+            lambda query: commands.dispatch(RunBacktestQuery, query),
             candles(venue).sync,
             candles(venue).feed,
             notifier,
+            catalog.kind,
+            panel_for,
+            display_timezone,
             plan_market_of(venue),
         ),
         symbols=container.resolve(ISymbolCatalog),
@@ -147,8 +158,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
         instance=container.resolve(IInstanceAccess),
-        display_timezone=find_display_timezone_preference(container)
-        or DisplayTimezonePreference(),
+        display_timezone=display_timezone,
     )
 
 

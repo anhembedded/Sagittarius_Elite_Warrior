@@ -21,6 +21,9 @@ _CONTAINS = {
 _NOTES = {
     "futures_liquidated": ("Stopped by a liquidation", "forfeited"),
 }
+#: The page sits in the Bots centre between its docks, which leave a 1024-wide window less than
+#: 700 px; the page asks for less (`EPIC-040E`).
+_PAGE_WIDTH_ROOM = 640
 _WORDS = {
     "idle_no_bot": "Select a bot to backtest its parameters.",
     "idle_no_market_numbers": "The market numbers for this symbol are still being read.",
@@ -45,7 +48,8 @@ def test_a_frame_builds_and_fits_the_smallest_window(qtbot: Any, name: str) -> N
     view.show()
 
     minimum = view.minimumSizeHint()
-    assert minimum.width() <= 1024 and minimum.height() <= 700, QSize(minimum)
+    assert minimum.width() <= _PAGE_WIDTH_ROOM, QSize(minimum)
+    assert minimum.height() <= 700, QSize(minimum)
     view.shutdown()
 
 

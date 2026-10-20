@@ -86,11 +86,32 @@ action's id (the page is handed `WorkbenchPorts.run_query`, a function of the on
 dispatcher, so no command is in reach by type); `sandbox_editing.py` → `SandboxEditing` holds the `SandboxSession`, the editor and the
 verdicts; what the page says is one value, `workbench_state.py` → `WorkbenchState`, which the view
 applies (`controls_of`). The run's lifecycle is `backtest_run_fsm_matrix.py` → `RunActivity`,
-`RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The page is not yet shown
-in the Bots screen: `EPIC-040E` hosts it, and `EPIC-040F` retires the Grid's own page. Nothing in the
+`RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The Bots screen shows it in
+the centre's Backtest tab (`EPIC-040E`, below), and `EPIC-040F` retires the Grid's own page. Nothing in the
 package imports a kind (`test_backtest_outcome_is_kind_neutral.py`) or a command, an order or an
 account reader (`test_backtest_workbench_reaches_no_order_or_account.py`). The picture is
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) in [`06-runtime.md`](06-runtime.md).
+
+**The Bots screen hosts it (`EPIC-040E`).** The centre of the Bots mode is a stock `QTabWidget`
+(`bots/ui/bots_screen/bots_view.py` → `BotsView.centre`): **Live**, the selected bot's chart, and
+**Backtest**, the workbench; the bottom docks are Orders, Ladder, Fills and Log, and the Plan dock
+shows the real bot on both tabs (the sandbox has an editor of its own). The tab's content is
+`bots/ui/bots_screen/backtest_workbenches.py` → `BacktestWorkbenches`: one workbench per venue,
+built when a bot of that venue first needs it and kept (its chart and sync read that venue's market,
+`BUG-172`, and a sandbox with edits survives the selection moving to another venue, so the question
+about discarding them is asked where they are), followed with the selected bot, its planner market
+and its risk facts (`DetailEffects.refresh`). A bot whose kind has no `backtester()`, or whose
+venue the kind's `supported_profiles()` leaves out, turns the tab off with its reason as the tooltip
+(`BotsView.set_backtest_available`, `TabAvailability`): disabled, never hidden. View → Live chart tab
+and View → Backtest tab (Ctrl+J) switch the tabs (`bots_command_binding.py`); the second follows the
+tab. A window state saved with the old Backtest dock still loads: Qt skips a dock name the window no
+longer has. A run in flight when the selection moves to a bot of another venue keeps running on its
+hidden workbench (it is that bot's run); its result is there when the person comes back, and a run
+that fails still tells the person through the notifier, naming the action. The page keeps its
+minimum size inside the mode's: the period on one row and the commands with the status line on the
+next, and the results as tabs (Replay, Equity, Figures, Fills), so a tab widget, which asks for its
+widest and tallest page, leaves the mode a 1024×700 window (`test_bots_view.py` measures the width
+and the height with a bot selected, with either tab in front).
 
 The shell does not import a kind. Today's exceptions, files of the shell that still import Grid
 types, are listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt`, and the list
