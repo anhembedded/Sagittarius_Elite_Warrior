@@ -36,31 +36,18 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 
-from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
     badge_key,
     cards_readout,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
-    Tone,
-    tone_colour,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_label import paint_label_tone
 
 _KEY_KEY = "key"
 _VALUE_TONE_KEY = "valueTone"
 _BADGE_TONE_KEY = "badgeTone"
-
-
-def _tone_colour(value: object) -> QColor | None:
-    """The colour a tone carries, or `None` for "no verdict".
-
-    `None` leaves the label on the platform's own text colour, which is what
-    `Tone.NEUTRAL`, a missing key and a value that is not a `Tone` at all all
-    mean — the same fallback every card dict upstream already assumes.
-    """
-    return tone_colour(value) if isinstance(value, Tone) else None
 
 
 class BacktestStatRow(QWidget):  # base-exempt: a container, not a surface
@@ -111,15 +98,9 @@ class BacktestStatRow(QWidget):  # base-exempt: a container, not a surface
 
     @staticmethod
     def _paint(label: QLabel | None, tone: object) -> None:
-        """Writes a tone onto one label, or leaves the theme's colour alone —
-        the form is kept while the rows stay the same, so a figure that lost
+        """Writes a tone onto one label on the application's palette (`BOT-196`), or leaves the
+        platform's colour alone: `Tone.NEUTRAL`, a missing key and a value that is not a `Tone`
+        all mean no verdict. The form is kept while the rows stay the same, so a figure that lost
         its tone gives the colour back."""
-        if label is None:
-            return
-        colour = _tone_colour(tone)
-        if colour is None:
-            label.setPalette(QPalette())
-            return
-        palette = QPalette(label.palette())
-        palette.setColor(QPalette.ColorRole.WindowText, colour)
-        label.setPalette(palette)
+        if label is not None:
+            paint_label_tone(label, tone if isinstance(tone, Tone) else Tone.NEUTRAL)
