@@ -102,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
     IAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_screen import (
+    alerts_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
     AccountLossCapTrippedEvent,
 )
@@ -162,12 +165,14 @@ class AlertingModule(BoundedContextModule):
 
     def contribute(self, registry: IContributionRegistry) -> None:
         """The Alerts page of Tools → Options: the Discord webhook and its Send test
-        (`EPIC-036D1`). A `Deferred`, so no widget module is imported at boot."""
+        (`EPIC-036D1`), and the Alerts screen: what was sent (`EPIC-036D2`). Both are
+        `Deferred`, so no widget module is imported at boot."""
         registry.contribute_options_page(
             OptionsPageContribution(
                 contributor_id=self.module_id, order=30, factory=_OPTIONS_PAGE
             )
         )
+        registry.contribute_screen(alerts_screen())
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`alert test`: the Send test a headless host has instead of a page."""

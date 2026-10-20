@@ -263,6 +263,19 @@ CRITICAL halt, whose `Reason:` line says to resume by hand. A rejected key and a
 CRITICAL because orders may rest that this app cannot manage. A stop does not end these conditions,
 only a return to `RUNNING`, so no "Recovered" is sent while the cause stands.
 
+## Built: the Alerts screen reads the history (`EPIC-036D2`)
+
+*Which thread reads the outbox, and how often?* The Alerts mode is built at start with every
+mode (SPEC-011 §4). Its presenter asks for a read when it is built, every `REFRESH_INTERVAL_MS`
+(15 s, a `QTimer` on the UI thread) and when Refresh is pressed; the read runs on the pool
+(`alerts_presenter.py` → `AlertsPresenter.refresh`, `AlertsPresenter._read_history_on_pool`) because
+`IOutbox.history` queries the database. One read is out at a time: a timer tick or a click while
+one runs is ignored. The answer is handed to the UI thread by `AlertsActionRelay` and applied only
+if the tracker says it is still the current one (`AlertsPresenter._on_read_done`); after
+`AlertsPresenter.shutdown` none is delivered. A failed read keeps the last list and shows the
+exception's type name only. The read takes the outbox's short lock like any other caller and holds
+none across the view.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when

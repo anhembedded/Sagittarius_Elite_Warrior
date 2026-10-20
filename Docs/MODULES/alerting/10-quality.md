@@ -20,6 +20,7 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | Fill messages (`ORDER_FILLED`) waiting on one channel before the oldest are dropped (chosen, not measured) | 25 | `alerting/domain/alert_policies.py` → `DeliveryPolicy.fill_backlog` |
 | Finished alerts are kept for; purged every | 30 days; 1 h | `alerting/domain/alert_policies.py` → `DeliveryPolicy.retention` · `alerting/application/alert_hub.py` → `PURGE_EVERY` |
 | A lane looks at the outbox unprompted every; housekeeping runs every | 5 s; 1 s | `alerting/composition/alerting_bindings.py` → `LANE_POLL_SECONDS`, `HOUSEKEEPING_SECONDS` |
+| The Alerts screen reads again every; reads at most | 15 s; 500 alerts | `alerting/ui/history/alerts_presenter.py` → `REFRESH_INTERVAL_MS`, `HISTORY_LIMIT` |
 | One webhook POST counts as no answer after | 10 s | `alerting/adapters/urllib_webhook_transport.py` → `REQUEST_TIMEOUT_S` |
 | A 429 that names no wait waits | 5 s | `alerting/adapters/discord_answer.py` → `DEFAULT_RETRY_AFTER` |
 | `stop()` waits for a lane stuck inside a channel | 5 s | `alerting/adapters/threaded_delivery_host.py` → `JOIN_TIMEOUT_S` |

@@ -38,7 +38,8 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Telegram as an alert channel, its token and chat id in the secret store, the one-time move out of the config file | **Built** | `EPIC-036C1` |
 | Discord embeds, pacing under the platform limit, secret rotation and Send test on the Options page, Telegram fields on the page | Planned | `EPIC-036C` |
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
-| The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
+| The Alerts mode: the history of alerts with each channel's delivery, a severity filter, the channel line and a notice for a failing channel | **Built** | `EPIC-036D2` |
+| The rest of 036D: the channels table (with the Telegram fields and Rotate), routing matrix, schedule, status-bar indicator, per-bot mute, Retry failed, persisted settings | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
 | The heartbeat message (every 6 h) and the daily summary (once a day), from the bots' status report | **Built** | `EPIC-036E` (the per-bot health in the heartbeat waits for `EPIC-035W`) |
 | Remote control from Discord | Planned | `EPIC-036F` |
