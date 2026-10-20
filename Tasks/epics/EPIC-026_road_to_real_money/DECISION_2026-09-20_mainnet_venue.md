@@ -90,3 +90,8 @@ at each step is the user's.
 | D7 | [`EPIC-026G`](incomplete/EPIC-026G_trade_journal.md) | Not started | Not yet verified |
 | D8 | [`EPIC-026K`](incomplete/EPIC-026K_exchange_side_protective_stop.md) | Not started | Not yet verified |
 | D9 | [`EPIC-026L`](incomplete/EPIC-026L_daily_loss_circuit_breaker.md) | Not started | Not yet verified |
+
+*Re-check of 2026-10-20:* the "Not started" cells above describe this epic's own tasks, none of which
+was started. Where each decision's substance now stands in the code, and which open questions are answered
+in practice, is in [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md).
+
