@@ -129,7 +129,8 @@ class AccountLossCap(ILossCapHold, ILossCapStatus, ILossCapAcknowledgement):
         return (
             "The account-level loss cap is tripped "
             f"({_reason_words(trip)}): no bot starts or resumes until you acknowledge it with "
-            "`main.py bot loss-cap-ack` on the running host."
+            "`main.py bot loss-cap-ack` on the running host (a desktop with no host: stop the app and "
+            "delete state/loss_cap.json, which is the same decision)."
         )
 
     def status(self) -> LossCapStatus:
@@ -158,8 +159,9 @@ class AccountLossCap(ILossCapHold, ILossCapStatus, ILossCapAcknowledgement):
             self._record = LossCapRecord(ledger)
             self._unjudged_since = None
             self._unannounced = False
-            record = self._record
-        self._persist(record)
+            # Under the lock: a sample's write must not land after this one (or the reverse),
+            # or the file would disagree with the memory a restart reads it back into.
+            self._persist(self._record)
         logger.warning(
             "[loss-cap] acknowledged by the owner: bots may start again; the day's loss "
             "so far is accepted and counting starts again from now"
@@ -178,8 +180,8 @@ class AccountLossCap(ILossCapHold, ILossCapStatus, ILossCapAcknowledgement):
             unannounced = self._unannounced
             self._unannounced = False
             self._unjudged = reading.is_unjudged and self._figure is not None
-        if record != previous:
-            self._persist(record)
+            if record != previous:
+                self._persist(record)
         trip = record.trip
         if trip is None:
             return

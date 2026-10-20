@@ -171,3 +171,13 @@ def test_a_record_that_cannot_be_read_warns_that_the_cap_starts_tripped() -> Non
 
     assert result.status is CheckStatus.WARN
     assert any("starts tripped" in f.reason for f in result.findings)
+
+
+def test_a_tripped_health_section_names_the_reason_and_never_the_amount() -> None:
+    world = build(BotsWorld(bot("aaa111", "-612.34")))
+    world.sample()
+
+    section = LossCapHealthContributor(world.cap).snapshot()
+
+    assert section["tripped"] is True and section["trip_reason"] == "loss_reached"
+    assert "612" not in str(section) and "trip_detail" not in section

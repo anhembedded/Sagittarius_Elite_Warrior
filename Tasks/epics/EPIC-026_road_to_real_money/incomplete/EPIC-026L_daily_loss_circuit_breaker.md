@@ -91,7 +91,7 @@ module (`declare_operations`). The Design section of the pull request and `Docs/
 [`05-building-blocks.md`](../../../../Docs/MODULES/bots/05-building-blocks.md),
 [`06-runtime.md`](../../../../Docs/MODULES/bots/06-runtime.md).
 
-Choices the review left to the author, taken here and open to the owner's veto:
+Choices the review left to the author, taken here and open to the owner's veto (**choices 1 and 4 are real-money policy and wait for the owner's explicit answer before merge**, review round 1 of PR #606, checks A4 and N1; the code changes only if the owner vetoes):
 
 1. **Which stop.** The bots' Stop (`StopBotCommand`), not the trading Emergency Stop: "every bot is stopped through
    the existing stop path". A position venue is stopped with the position closed, because that is the only form its

@@ -7,6 +7,7 @@ publisher and a clock the test moves. Nothing sleeps: a test calls `sample()` as
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -149,6 +150,8 @@ class MemoryLossCapStore(ILossCapStore):
         self.record = record
         self.writes: list[LossCapRecord] = []
         self.fails = False
+        #: Called inside the next `write`, once, as a second writer arriving mid-write would.
+        self.on_write: Callable[[], None] | None = None
 
     def read(self) -> LossCapRecord | None:
         return self.record
@@ -156,6 +159,9 @@ class MemoryLossCapStore(ILossCapStore):
     def write(self, record: LossCapRecord) -> None:
         if self.fails:
             raise OSError("the disk is full")
+        hook, self.on_write = self.on_write, None
+        if hook is not None:
+            hook()
         self.writes.append(record)
         self.record = record
 

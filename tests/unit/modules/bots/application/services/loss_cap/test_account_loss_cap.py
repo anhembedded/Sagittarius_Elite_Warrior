@@ -4,6 +4,7 @@ stays tripped until the owner acknowledges, and fails closed when it cannot judg
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import timedelta
 from decimal import Decimal
 
@@ -264,3 +265,29 @@ def test_the_status_says_the_figure_the_day_s_result_and_the_trip() -> None:
     assert status.figure == "500 USDT" and status.tripped
     assert status.day_pnl == Decimal(-500)
     assert status.trip_reason == "loss_reached"
+
+
+def test_an_acknowledgement_that_arrives_during_a_sample_s_write_is_not_overtaken_by_it() -> (
+    None
+):
+    """The file and the memory must agree: the write is inside the lock, so the acknowledgement
+    waits for the sample's write instead of landing before it and being overwritten."""
+    world = _tripped()
+    world.bots.set(
+        bot("aaa111", "-310")
+    )  # the next sample changes the ledger, so it writes
+    acknowledging = threading.Thread(target=world.cap.acknowledge)
+    still_waiting: list[bool] = []
+
+    def during_the_samples_write() -> None:
+        acknowledging.start()
+        acknowledging.join(timeout=0.2)
+        still_waiting.append(acknowledging.is_alive())
+
+    world.store.on_write = during_the_samples_write
+    world.sample()
+    acknowledging.join(timeout=5)
+
+    assert still_waiting == [True]
+    assert world.cap.restart_refusal() is None
+    assert world.store.record is not None and world.store.record.trip is None

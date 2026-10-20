@@ -16,8 +16,8 @@ class AccountLossCapTrippedEvent(BaseEvent):
     """
     @brief The cap tripped; the owner must acknowledge before any bot starts again.
 
-    @details Published from the cap's sampling thread (or the thread that booted the module, for
-    a record that could not be read).
+    @details Published from the cap's sampling thread, also for a record that could not be read at
+    boot (told at the first sample, because nobody was told when it happened).
     """
 
     #: `LossCapTripReason.value`.

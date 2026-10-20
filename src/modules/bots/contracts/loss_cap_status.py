@@ -1,7 +1,8 @@
 """`EPIC-026L` — what the owner can read about the account-level loss cap, JSON-ready.
 
 Held by the health snapshot's loss-cap section and by anything else that shows the cap. The
-`payload` is what the snapshot file carries and it leaves out the day's result: the file is readable
+`payload` is what the snapshot file carries and it leaves out the day's result, and the trip's
+sentence (`trip_detail`), which names the loss amount: the file is readable
 by anyone who can read the data root, and the health section collector refuses a key that names
 profit or loss (`FORBIDDEN_KEY_PARTS`). What the owner needs there is whether the cap is on, at
 what figure, and whether it holds the bots down; the day's result is in the log and the alert.
@@ -35,6 +36,5 @@ class LossCapStatus:
             "day": self.day,
             "tripped": self.tripped,
             "trip_reason": self.trip_reason,
-            "trip_detail": self.trip_detail,
             "unjudged": self.unjudged,
         }
