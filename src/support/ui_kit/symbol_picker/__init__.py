@@ -22,6 +22,7 @@ from .i_symbol_picker_source import ISymbolPickerSource
 from .overlay import RECENT_LIMIT, SymbolPickerOverlay
 from .preferences import SymbolPreferences, find_symbol_preferences
 from .quote_asset import CRYPTO_QUOTES, FIAT_QUOTES, SymbolParts, split_symbol
+from .symbol_list_reader import SymbolListReader
 from .symbol_table_model import SymbolTableModel
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "ISymbolPickerSource",
     "Scope",
     "SymbolEntry",
+    "SymbolListReader",
     "SymbolParts",
     "SymbolPickerOverlay",
     "SymbolPreferences",

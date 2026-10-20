@@ -12,7 +12,7 @@ Status: Current
   live from the user's own open of the mode until the tab or the app closes, except the Watchlist's, which also stops when another mode takes the window and starts again on the return (`BOT-165`); View → Spot market or
   Futures market picks the market every one of them shows (`EPIC-033Q`), and View → Load older
   candles (a pan or zoom past the oldest candle asks for the same, `BUG-178`) or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
-  Back to live draws its newest window again and follows the stream (`EPIC-033T`) · a desk's
+  Back to live draws its newest window again and follows the stream (`EPIC-033T`), and View → Symbol… (Ctrl+L) opens any listed symbol's chart while Add to Watchlist… and Remove from Watchlist keep the Watchlist the person wants, remembered between runs (`EPIC-033V`) · a desk's
   chart · `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
@@ -29,7 +29,7 @@ Status: Current
 
 ## 3. Main flow
 
-1. The actor chooses a symbol and a timeframe, and starts the live view.
+1. The actor chooses a symbol and a timeframe, and starts the live view. In the Market mode the symbol comes from the shared picker over the chosen market's symbol list, read once per market and never per keystroke.
 2. The app reads the symbol and timeframe **at click time**, not from whatever the picker shows
    later (`BOT-033`): a picker changed while the fetch is in flight does not silently redirect
    the stream.
@@ -127,6 +127,7 @@ consumer-facing port.
 | A desk's chart reads local history on open and goes live when its venue's order session opens | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |
+| View → Symbol… lists the chosen market's symbols read once off the UI thread and opens or focuses the chosen chart; Add to Watchlist… tracks the choice once, streams it while live and remembers it; Remove from Watchlist is off without a selection, keeps an open chart and stops the stream when the list empties | `tests/unit/modules/trading/ui/market/test_market_symbols.py`, `tests/unit/modules/trading/ui/market/test_watchlist_symbols.py` | unit |
 | View → Spot market or Futures market is one exclusive, remembered choice; switching reopens the charts on the new market's candles and moves the Watchlist's stream; a tick of the other market reaches neither | `tests/unit/modules/trading/ui/market/test_market_choice.py` | unit |
 | A range is exactly the candles that open in it (boundary values) | `tests/unit/modules/trading/ui/market/test_chart_history.py` | unit |
 | The window before a chart's oldest candle joins it with neither a gap nor a duplicate: from the store when it holds a full window, else fetched from the chart's own market and stored first (`BUG-178`) | `tests/unit/modules/market_data/contracts/test_market_data_candle_feed_older.py` | unit |
