@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
     DISCORD_WEBHOOK_SECRET,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch import (
+    DEAD_MANS_SWITCH_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_signals import (
     NOTIFY_SOCKET_VARIABLE,
 )
@@ -308,4 +311,16 @@ def test_the_unit_loads_the_discord_webhook_under_the_name_the_channel_reads() -
     assert DISCORD_WEBHOOK_SECRET in loaded
     assert loaded[DISCORD_WEBHOOK_SECRET].endswith(
         f"/credentials/{DISCORD_WEBHOOK_SECRET}"
+    )
+
+
+def test_the_unit_loads_the_dead_mans_switch_url_under_the_name_the_switch_reads() -> (
+    None
+):
+    """`EPIC-036E1`: a check-in URL is a secret; it reaches the app as a credential, never
+    as an environment variable or an argument."""
+    loaded = dict(value.split(":", 1) for value in service()["LoadCredential"])
+
+    assert loaded[DEAD_MANS_SWITCH_SECRET].endswith(
+        f"/credentials/{DEAD_MANS_SWITCH_SECRET}"
     )

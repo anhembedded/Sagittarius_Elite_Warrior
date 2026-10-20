@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -12,6 +14,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_h
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
     WakeSignal,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.worker_liveness import (
+    STALL_AFTER,
+    WorkerLiveness,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
@@ -33,6 +39,9 @@ def hosted(tmp_path: Path) -> Iterator[tuple[object, ThreadedDeliveryHost, WakeS
         poll_seconds=30.0,
         housekeeping=rig.hub.flush_due,
         housekeeping_seconds=30.0,
+        liveness=WorkerLiveness(rig.clock),
+        beacon=lambda: None,
+        beacon_seconds=30.0,
     )
     yield rig, host, signal
     host.stop()
@@ -101,6 +110,9 @@ def test_housekeeping_runs_the_hubs_flush_without_the_scheduler(tmp_path: Path) 
         poll_seconds=30.0,
         housekeeping=ticked.set,
         housekeeping_seconds=0.01,
+        liveness=WorkerLiveness(rig.clock),
+        beacon=lambda: None,
+        beacon_seconds=30.0,
     )
     host.start()
     try:
@@ -108,3 +120,82 @@ def test_housekeeping_runs_the_hubs_flush_without_the_scheduler(tmp_path: Path) 
     finally:
         host.stop()
     assert host.running_lanes() == 0
+
+
+def _host_with(rig, signal, beacon, liveness):  # type: ignore[no-untyped-def]
+    return ThreadedDeliveryHost(
+        rig.delivery,
+        tuple(rig.channels),
+        signal,
+        poll_seconds=30.0,
+        housekeeping=rig.hub.flush_due,
+        housekeeping_seconds=0.01,
+        liveness=liveness,
+        beacon=beacon,
+        beacon_seconds=30.0,
+    )
+
+
+def _until(condition) -> bool:  # type: ignore[no-untyped-def]
+    """A bounded wait on a named condition: no fixed sleep decides the outcome."""
+    deadline = time.monotonic() + WAIT_S
+    while not condition():
+        if time.monotonic() > deadline:
+            return False
+        threading.Event().wait(0.005)
+    return True
+
+
+def test_the_beacon_runs_at_once_and_apart_from_the_lanes(tmp_path: Path) -> None:
+    """`EPIC-036E1`: a beacon stuck inside a slow monitor delays no delivery."""
+    signal = WakeSignal()
+    rig = build_rig(tmp_path, wakeup=signal)
+    entered, release = threading.Event(), threading.Event()
+
+    def stuck_beacon() -> None:
+        entered.set()
+        release.wait(WAIT_S)
+
+    host = _host_with(rig, signal, stuck_beacon, WorkerLiveness(rig.clock))
+    try:
+        host.start()
+        assert entered.wait(WAIT_S)  # first pass at once, not after beacon_seconds
+
+        rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+
+        assert rig.channels["phone"].done.wait(WAIT_S)  # while the beacon still blocks
+        assert not release.is_set()
+    finally:
+        release.set()
+        host.stop()
+
+
+def test_a_wedged_lane_makes_the_worker_not_alive_and_a_released_one_alive_again(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-036E1`: the ping must stop when delivery is wedged, though the process,
+    its housekeeping and its other lane carry on."""
+    signal = WakeSignal()
+    rig = build_rig(tmp_path, wakeup=signal)
+    liveness = WorkerLiveness(rig.clock)
+    gate = threading.Event()
+    rig.channels["phone"].gate = gate
+    host = _host_with(rig, signal, lambda: None, liveness)
+    try:
+        host.start()
+        rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+        assert rig.channels["phone"].entered.wait(WAIT_S)
+        assert _until(liveness.is_alive)
+
+        rig.clock.advance(STALL_AFTER + timedelta(seconds=1))
+        signal.notify()  # every lane that can finish a pass stamps the new instant
+
+        # only the wedged lane is left behind
+        assert _until(lambda: liveness.stalled() == ("alerting-lane-phone",))
+        assert liveness.is_alive() is False
+
+        gate.set()
+        assert _until(liveness.is_alive)
+    finally:
+        gate.set()
+        host.stop()

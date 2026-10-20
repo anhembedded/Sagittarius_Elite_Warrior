@@ -119,10 +119,12 @@ def test_the_provisioning_snippet_writes_the_typed_value_to_a_mode_600_file(
     assert _PLACEHOLDER not in calls.read_text(encoding="utf-8")
 
 
-def test_the_webhook_snippet_writes_the_typed_value_to_a_mode_600_file(
-    tmp_path: Path,
+@pytest.mark.parametrize("webhook", alerting_credential_names())
+def test_an_alerting_snippet_writes_the_typed_value_to_a_mode_600_file(
+    tmp_path: Path, webhook: str
 ) -> None:
-    """`EPIC-036G` - the Discord webhook is provisioned the way a mainnet key is."""
+    """`EPIC-036G`, `EPIC-036E1` - the Discord webhook and the dead man's switch URL are
+    provisioned the way a mainnet key is."""
     bash = require_tool("bash")
     credentials = tmp_path / "credentials"
     credentials.mkdir()
@@ -130,7 +132,6 @@ def test_the_webhook_snippet_writes_the_typed_value_to_a_mode_600_file(
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _stand_ins(bin_dir, calls)
-    [webhook] = alerting_credential_names()
     snippet = _provisioning_block(webhook).replace(
         _CREDENTIALS_DIRECTORY, str(credentials)
     )

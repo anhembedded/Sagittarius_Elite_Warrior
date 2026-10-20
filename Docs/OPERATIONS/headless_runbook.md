@@ -6,18 +6,17 @@ Status: Current
 
 ## 0. Read this first: what is not supported yet
 
-**This host is not supported for unattended money.** A bot that halts, errs, whose stop gives up, hits its stop loss or take profit, or leaves its range, and every order that fills whole (a silent message, with the cycle's profit on the fill that closes a cycle; `BOT-189`), reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
+**This host is not supported for unattended money.** A bot that halts, errs, whose stop gives up, hits its stop loss or take profit, or leaves its range, and every order that fills whole (a silent message, with the cycle's profit on the fill that closes a cycle; `BOT-189`), reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until this has merged, the rest reaches nobody. A host that dies or powers off reaches you only once you store a check-in URL for the dead man's switch (§3b, [`EPIC-036E1`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036E1_dead_mans_switch.md)); the heartbeat message that would show each bot's health is [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md):
 
 | Missing | What it leaves you without | Task |
 | :--- | :--- | :--- |
 | The other alert sources | a lost user-data stream or a revoked key is not sent to any channel | [`EPIC-036B`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) |
-| Dead man's switch | nothing tells you the host stopped on its own, or that the machine is off | [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
 
 Until then, use the host on a **testnet** venue. The host says whether a channel is configured: with no webhook stored, every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`. With a webhook stored, the start says `an alert channel carries bot events` instead.
 
 Also true today, whatever the alerts:
 
-- **Stopping leaves resting orders on the exchange** (decision O1) and nothing watches a stop loss or take profit while the host is down, for a stop, a crash or an upgrade.
+- **Stopping leaves resting orders on the exchange** (decision O1) and nothing watches a stop loss or take profit while the host is down, for a stop, a crash or an upgrade. The dead man's switch (§3b) tells you the host went quiet; it does not close or protect anything.
 - **A bot a restart left RECOVERING stays so until a person resumes it** (decision O2). The person does it from a second shell with `bot resume <id>` (§6, "Control one bot on the running host"), from the Bots tab, or by restarting with `--resume-recovering`, which sends each RECOVERING bot its own Resume (`BOT-183`), also when another bot's Resume opened the venue's session a moment before.
 - The Windows steps and the checklist in §11 have **not been run on a machine** by their author. The Linux unit is checked mechanically (§12) but not yet run under a real systemd.
 
@@ -121,7 +120,7 @@ A venue you do not use can be left out. The unit reads this file if it exists (`
 **Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands it to the service through `LoadCredential=`, so it is not in the service's environment and not inherited by a child process. The unit names four files; create all four, **empty for a venue you do not use** (an empty credential reads as "no key"; a missing file would stop the unit from starting):
 
 ```bash
-for name in futures_mainnet_api_key futures_mainnet_api_secret spot_mainnet_api_key spot_mainnet_api_secret alerting_discord_webhook; do
+for name in futures_mainnet_api_key futures_mainnet_api_secret spot_mainnet_api_key spot_mainnet_api_secret alerting_discord_webhook alerting_deadman_ping_url; do
   sudo install -m 0600 -o root -g root /dev/null "/etc/sew/credentials/$name"
 done
 # For a venue you use, type the value without echoing it. `read -s` is bash (the shell you
@@ -133,10 +132,12 @@ printf '%s' "$v" | sudo tee /etc/sew/credentials/futures_mainnet_api_key > /dev/
 
 Mainnet bots are never started by the host without you typing the venue (`--confirm-venue`, decision O8); the unit passes none.
 
-**Upgrading an existing install** to a version whose unit names `alerting_discord_webhook`: create that file (empty is fine) **before** you install the regenerated unit and restart, or systemd refuses to start the service with `status=243/CREDENTIALS`:
+**Upgrading an existing install** to a version whose unit names `alerting_discord_webhook` or `alerting_deadman_ping_url`: create each file you do not have yet (empty is fine) **before** you install the regenerated unit and restart, or systemd refuses to start the service with `status=243/CREDENTIALS`. The guard `[ -e ... ] ||` keeps a file that already holds a value, which a bare `install` would empty:
 
 ```bash
-sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
+for name in alerting_discord_webhook alerting_deadman_ping_url; do
+  [ -e "/etc/sew/credentials/$name" ] || sudo install -m 0600 -o root -g root /dev/null "/etc/sew/credentials/$name"
+done
 ```
 
 **Alerts to Discord** (`EPIC-036G`, decision D3 of the [2026-10-15 alerting record](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). The webhook is a secret like a key: whoever holds its URL can post to your channel. It is the systemd credential `alerting_discord_webhook`, read only by the service, never in an environment variable, a config file or a log line. In Discord: the channel's **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL** (a channel only you read is best). Then write it to its file and restart the service (`sudo systemctl restart sew-run`):
@@ -149,6 +150,28 @@ printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_discord_webhook > /dev
 ```
 
 An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the Discord webhook credential (alerting_discord_webhook) does not hold a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
+
+## 3b. The dead man's switch: be told when the host goes silent
+
+`EPIC-036E1`, [decision](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-20_dead_mans_switch.md). Discord alerts are sent from inside the running process, so a process that dies, hangs or sits on a powered-off VPS tells nobody, and resting orders and any Futures position stay on the exchange (§0). The dead man's switch is the signal that **stops**: the host posts to an external monitor every 5 minutes, and the monitor alerts you when the posts stop. **It is off until you store a URL**, and it costs nothing then.
+
+1. **Create the check.** On [healthchecks.io](https://healthchecks.io) (or any service that alerts when a URL goes quiet) make a check with **period 5 minutes and grace 10 minutes**, and add your notification channels (Discord, e-mail; use one that does not depend on this VPS). Copy its ping URL, `https://hc-ping.com/<uuid>`. The URL is a secret: whoever holds it can fake a heartbeat.
+2. **Store it.** The same route as the webhook (§3); `sew-key` is for Binance keys only and is not used.
+
+```bash
+[ -e /etc/sew/credentials/alerting_deadman_ping_url ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_deadman_ping_url
+read -rsp "Check-in URL: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_deadman_ping_url > /dev/null; unset v
+```
+
+Then `sudo systemctl restart sew-run`; systemd copies a credential at start.
+
+3. **Read the start line** (`journalctl -u sew-run | grep dead-mans-switch`): `[dead-mans-switch] on: pinging the check-in URL in the credential alerting_deadman_ping_url every 300 s`. `off: no check-in URL is stored` means the file is empty; `off: the credential ... does not hold an https URL` means the value is wrong. Neither line quotes the value. After a restart the check turns green within a minute.
+4. **What a ping means.** The host pings only while its alert worker makes progress: each delivery lane and the housekeeping pass must have finished a pass in the last 5 minutes. A wedged worker therefore stops the ping and the monitor alerts you, though the process still exists (`[dead-mans-switch] the alert worker is not making progress (stalled: ...)` names the thread). It proves the process and its alert worker are alive, **not** that each bot is healthy.
+5. **Prove it once (the kill test, checklist row 12).** With the check green, `sudo systemctl stop sew-run` (or `kill -9` the process; `Restart=on-failure` brings it back in 10 s, so use `stop`). After the period plus the grace (about 15 minutes) the monitor must alert you. Start the service again and the check recovers. Write the date in the checklist.
+6. **If the monitor itself cannot be reached** the host logs `[dead-mans-switch] ping failed (n in a row)` and, after three in a row, sends one **Alert channel failing: dead_mans_switch** message to Discord, so a wrong URL (HTTP 404) or a service outage is not silent. It never delays another alert.
+
+A stop on purpose is also silence: the check fires after its grace, which is what you want while resting orders stay on the exchange (decision O1). **Pause the check in the monitor before a planned upgrade** (§8). A restart (`RestartSec=10`) is inside the grace and fires nothing. The Windows service reads the same name from its secret store; that route is unverified on a real service, as for the webhook (§0, §9).
 
 ## 4. Run the pre-flight
 
@@ -465,7 +488,7 @@ Testnet only. Two machines: a fresh Linux VPS and a fresh Windows server. **Not 
 | 9 | Put a bot file with `"schema_version": 99` in `state/bots/` and start | the `bot-files-readable` WARN names it; `bot list` lists it; the file is byte-for-byte unchanged | ☐ | ☐ |
 | 10 | Upgrade per §8 to the next commit and back (rollback) | the bots return as RECOVERING; the state copy restores them | ☐ | ☐ |
 | 11 | Set `log.file` to `/var/log/sew/sew.log` (Linux), install the `logrotate` stanza of [`LOGGING.md`](LOGGING.md) §2, run `logrotate -f` | the file rotates, the app keeps writing to it, nothing is lost beyond the documented `copytruncate` window; then remove `log.file` | ☐ | n/a |
-| 12 | Stop the host on purpose and wait the heartbeat interval | the dead man's switch tells you. **Needs `EPIC-036E`; leave unchecked until it merges.** | ☐ | ☐ |
+| 12 | With the check green (§3b), `systemctl stop` the host and wait the period plus the grace | the monitor alerts you within about 15 minutes; after the start the check recovers | ☐ | ☐ |
 
 Signed: ____________________ date: ____________ machine: ____________________
 
