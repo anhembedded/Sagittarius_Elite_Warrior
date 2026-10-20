@@ -5,7 +5,7 @@
 **Risk:** 🔴 — deletes about 1,000 lines of working UI that real-money users read; a lost state or figure misleads a decision
 **Complexity:** M — mostly deletion and wiring, guarded by 040A
 **Epic:** [EPIC-040](../README.md)
-**Depends on:** [EPIC-040E](EPIC-040E_live_and_backtest_tabs.md)
+**Depends on:** [EPIC-040E](../completed/EPIC-040E_live_and_backtest_tabs.md)
 
 ---
 

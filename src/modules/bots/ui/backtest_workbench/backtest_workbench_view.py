@@ -3,8 +3,9 @@ came out; the same for every kind of bot.
 
 Setup (left): the bot the sandbox was copied from, the kind's own editor (a second instance, never
 bound to the Bots menu's commands), what differs from the bot's plan, and the verdicts the symbol's
-rules gave it. Results (right): the replayed candles with the plan's levels and the fills, then tabs
-for the equity against buy-and-hold, the figures with their caveats, and the fills.
+rules gave it. Results (right), one tab each: the replayed candles with the plan's levels and the
+fills, the equity against buy-and-hold, the figures with their caveats, and the fills. They are tabs,
+not a column, so the page's minimum height leaves the Bots mode a 1024×700 window (`EPIC-040E`).
 
 The view applies a `WorkbenchState` and forwards gestures: it decides nothing (`pitfalls/ui.md` §4).
 Stock controls, no style sheet, no fixed sizes (`ui-presentation-rule.md`).
@@ -271,13 +272,10 @@ class BacktestWorkbenchView(QWidget):
         column.addWidget(self._scrolling(self._editor_host), 1)
         column.addWidget(self.changed)
         column.addWidget(self.verdicts)
-        results = QSplitter(Qt.Orientation.Vertical)
-        results.addWidget(self.card)
-        results.addWidget(self._result_tabs())
         body = QSplitter()
         body.setChildrenCollapsible(False)
         body.addWidget(setup)
-        body.addWidget(results)
+        body.addWidget(self._result_tabs())
         body.setStretchFactor(0, 0)
         body.setStretchFactor(1, 1)
         layout = QVBoxLayout(self)
@@ -294,6 +292,7 @@ class BacktestWorkbenchView(QWidget):
         column.addWidget(self.summary)
         column.addWidget(self.notes)
         column.addStretch(1)
+        tabs.addTab(self.card, "Replay")
         tabs.addTab(self.equity, "Equity")
         tabs.addTab(self._scrolling(figures), "Figures")
         tabs.addTab(self.fills.body, "Fills")

@@ -50,6 +50,7 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 )
 
 from ..strategies.strategies_wiring import strategies_for
+from .backtest_workbenches import BacktestWorkbenches
 from .bot_action_rules import BotAction
 from .bot_actions_coordinator import BotActionsCoordinator
 from .bot_changes_feed import BotChangesFeed
@@ -73,7 +74,6 @@ from .connect_step import ConnectStep
 from .detail_effects import DetailEffects
 from .exchange_check import ExchangeCheck
 from .fenced_reads import BotQueries, FencedReads, ReadKind
-from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
 from .new_bot_symbols import new_bot_symbols
 from .plan_export_flow import PlanExport
@@ -126,10 +126,7 @@ class BotsPresenter(CommandPresenter):
         self._actions: ActionOwnershipTracker[str, PendingAction, BotsUiState] = (
             ActionOwnershipTracker()
         )
-        self._backtests = KindBacktests(
-            deps.backtest_ports,
-            view.set_backtest_page,
-        )
+        self._backtests = BacktestWorkbenches(deps.workbench_ports, self._catalog, view)
         self._queries = BotQueries(commands, self._reads, lambda: self._model.selected)
         self._account = ConnectStep(threads, commands, now, deps.notifier, self)
         self._failures = BotsFailures(
@@ -299,7 +296,9 @@ class BotsPresenter(CommandPresenter):
             self._begin(PendingAction(f"{value} {bot.name}", BotAction(value)), command)
 
     def bind_commands(self, binder: ICommandBinder) -> None:
-        bind_bots_commands(binder, self._model, self.strategies, self._charts)
+        bind_bots_commands(
+            binder, self._model, self.strategies, self._charts, self.view
+        )
 
     def _on_venue_change(self, value: str) -> None:
         move = None if self._busy() else self._venues.move_to(value)

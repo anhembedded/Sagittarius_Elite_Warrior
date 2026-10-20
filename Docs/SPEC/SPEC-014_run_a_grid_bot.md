@@ -10,8 +10,9 @@ Status: Current
   `EPIC-029B`/`029C`/`029D`/`029E`/`029F`/`029G`; the
   [ADR](../../Tasks/epics/EPIC-029_bots_tab_grid_fast_track/DECISION_2026-10-03_bots_module_and_grid_bot.md) (D19, O3, O4).
 - **Surfaces:** the Bots mode (`bots`, NAVIGATION item 18, nav "Bots"), laid out as HLD §11.2.1
-  lists it since `EPIC-033K`: the selected bot's chart in the centre, Bots (the list) on the left,
-  Plan on the right, and Orders, Ladder, Fills, Log and Backtest tabbed at the bottom. Every command is in
+  lists it since `EPIC-033K`: two tabs in the centre since `EPIC-040E` (Live, the selected bot's chart, and
+  Backtest, the sandbox of its parameters), Bots (the list) on the left, Plan on the right, and Orders,
+  Ladder, Fills and Log tabbed at the bottom. Every command is in
   the Bots menu. The Ladder shows one row per grid (buy and sell level, step, what a cycle earns
   as an estimate, before fees and, where the run recorded the account's maker rate at its start,
   after them; what the saved run says the grid is doing) and the Plan the grid step, the profit
@@ -168,8 +169,12 @@ sound, I start it, and I watch what it does."*
    resume is refused with "press Resume first" and nothing is placed. A confirmed ladder the exchange
    refuses part-way ends Halted with nothing resting: whatever part of it was placed is cancelled,
    and the bot's reason says what was refused and what could not be cancelled (`EPIC-035C`).
-9. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
-   edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
+9. **Backtest** (`EPIC-029D`, `EPIC-040E`): the Backtest tab of the centre (View → Backtest tab, Ctrl+J) holds the
+   workbench for the bot's kind. Its sandbox is a copy of the bot's *saved* plan, never the Plan panel's
+   unsaved edits: the person edits the copy freely, sees what differs, resets it to the bot's plan, and a
+   run never writes the bot, sends an order or reads the account's balance. The tab is off, with its reason as
+   a tooltip, for a bot whose kind has no backtest or whose venue the kind does not trade on. The workbench
+   replays the sandbox over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
    bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures
    as a read-out: grid profit apart from unrealised, both curves' end against the capital, fees by
@@ -446,7 +451,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | One Connect failure is one advisory paragraph on screen, whatever its kind; a fills read the venue refuses raises no bar of its own | `tests/unit/modules/bots/ui/bots_screen/test_one_connect_failure_one_paragraph.py` · `test_bots_failures.py` · `tests/unit/modules/trading/adapters/binance/test_history_failures_name_their_kind.py` · `tests/integration/modules/bots/test_a_refused_fills_read_on_the_fake_exchange.py` | unit · integration (fake exchange, `-2015`) |
 | Selecting a bot reads its venue's account by itself; chart, Plan and Start wait for it and say why; Retry; a key that cannot trade; one read shared by bots on a venue and symbol; the timer's re-read; a late answer dropped | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py` · `test_bots_connect_chart.py` · `test_bot_connect_fsm_matrix.py` | unit (real bots graph) |
 | One read returns the snapshot a design needs, or a named failure; an HTML answer is MAINTENANCE | `tests/unit/modules/trading/application/account/test_composed_venue_account_reader.py` · `tests/unit/modules/trading/adapters/binance/test_html_answer_is_maintenance.py` · `tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py` | unit · integration (fake Binance server, with a maintenance switch) |
-| The chart is central; Bots, Plan, Orders, Ladder, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
+| The centre holds the Live and Backtest tabs; Bots, Plan, Orders, Ladder, Fills and Log are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
 | A draft's chart goes live only by the trader's command and draws what streams; a chart at rest draws no live candle; a running bot's chart is Live on its own | `tests/unit/modules/bots/ui/chart/test_bot_chart_live_state.py` | unit |
 | The chart, Plan, Orders, Ladder, Fills and Log follow the selection, and say what to do with none; the Ladder shows one row per grid of the saved parameters and what the saved run says each is doing, and a figure the record cannot give is blank, never zero | `tests/unit/modules/bots/ui/bots_screen/test_bots_selection.py` · `tests/unit/modules/bots/ui/bots_screen/test_bot_ladder_panel.py` | unit (real bots graph) |
 | The Bots menu and the mode's toolbar hold exactly HLD §11.2.3's Bots commands | `tests/integration/presentation/ui/test_bots_mode_catalogue.py` | integration (booted app) |
@@ -476,7 +481,8 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | Two stored hours replay through their 1-second klines; without them the replay is coarse and never completes more cycles; 1-second klines that miss the candle's range are not trusted | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
 | Run, Cancel keeps the last result, another bot clears it, a late result is fenced, Sync only on a click then run again | `tests/unit/modules/bots/ui/kinds/test_grid_backtest.py` | unit (real query handler) |
 | A backtest's figures are a read-out of raw values by kind and its caveats are sentences | `tests/unit/modules/bots/ui/kinds/test_grid_backtest_summary.py` | unit |
-| The Backtest panel holds a Grid's page and, without a selection, an instruction; it runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
+| The Backtest tab holds the workbench of the selected bot's venue and, without a selection, an instruction; it runs through the query the module binds, copies the bot's saved plan into an editor of its own and reads the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` · `tests/unit/modules/bots/ui/bots_screen/test_backtest_workbenches.py` | unit (real bots graph) |
+| The centre has Live and Backtest tabs; View → Backtest tab is a keyboard shortcut and follows the tab; a tab that cannot be used is off and says why; a window state saved with the old Backtest dock still loads | `tests/unit/modules/bots/ui/bots_screen/test_bots_centre_tabs.py` | unit |
 | The mode's Start, Pause, Resume and Stop reach the real executor and the exchange | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | A Grid rests its levels with its tag, re-lays an outside cancel and stops clean on Spot Testnet; how many owner budgets fit the venue's rate limits — **pending the user's run** | `tests/testnet/test_grid_bot_round_trip.py` · `tests/testnet/test_spot_rate_limits.py` | testnet, run by the user |
 | **The user runs it**: a Grid on Spot Testnet from New bot to Stop, on a real display | `EPIC-029H` | desktop, the user |
