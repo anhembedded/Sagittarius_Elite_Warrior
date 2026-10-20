@@ -106,3 +106,60 @@ def test_a_symbol_no_owner_trades_still_warns_when_the_belief_was_wrong() -> Non
     )
 
     assert len(warned) == 1
+
+
+def _a_symbol_whose_owner_closed_and_left() -> TradingSessionState:
+    """`BUG-233`: the session learned the owner's position from the exchange, and the owner's
+    stop then cleared its book (`GridStopSequence`) before the exchange's flat report."""
+    state = TradingSessionState()
+    state.enable(set())
+    state.owner_books.install(
+        "tag", OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP)
+    )
+    reconcile_position_state(state, REGISTRATION.symbol, has_position=True)
+    state.owner_books.clear_owner(REGISTRATION.owner_id)
+    return state
+
+
+def test_the_flat_report_after_an_owner_closed_and_left_is_not_a_warning() -> None:
+    state = _a_symbol_whose_owner_closed_and_left()
+
+    warned = _logged_warnings(
+        lambda: reconcile_position_state(state, REGISTRATION.symbol, has_position=False)
+    )
+
+    assert state.open_position_count(REGISTRATION.symbol) == 0
+    assert warned == []
+
+
+def test_only_the_first_flat_report_after_an_owner_left_is_expected() -> None:
+    """The next time the app believes a position open and the exchange says flat is a mismatch."""
+    state = _a_symbol_whose_owner_closed_and_left()
+    reconcile_position_state(state, REGISTRATION.symbol, has_position=False)
+    reconcile_position_state(state, REGISTRATION.symbol, has_position=True)
+
+    warned = _logged_warnings(
+        lambda: reconcile_position_state(state, REGISTRATION.symbol, has_position=False)
+    )
+
+    assert len(warned) == 1
+
+
+def test_an_owner_leaving_one_symbol_excuses_no_other_symbol() -> None:
+    state = _a_symbol_whose_owner_closed_and_left()
+    reconcile_position_state(state, "SOLUSDT", has_position=True)
+
+    warned = _logged_warnings(
+        lambda: reconcile_position_state(state, "SOLUSDT", has_position=False)
+    )
+
+    assert len(warned) == 1
+
+
+def test_a_new_owner_on_the_symbol_ends_the_excuse_of_the_one_that_left() -> None:
+    state = _a_symbol_whose_owner_closed_and_left()
+    state.owner_books.install(
+        "tag", OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP)
+    )
+
+    assert state.owner_books.take_departure(REGISTRATION.symbol) is False

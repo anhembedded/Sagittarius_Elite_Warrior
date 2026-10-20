@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 792, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 793, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -432,6 +432,7 @@
 ["ss", "Position checkpoint ", " is unreadable (", "); deriving in full."],
 ["s", "Position checkpoint for ", " belongs to another run; deriving in full."],
 ["ss", "Position cross-check for ", " skipped at registration: ", ""],
+["s", "Position state for ", " is flat: the budgeted owner that traded it closed and left"],
 ["ss", "Position state for ", " learned from the exchange: ", " (a budgeted owner trades it)"],
 ["sss", "Position state mismatch for ", ": app believed ", ", exchange reports ", " — exchange wins."],
 ["s", "Presenter of mode ", " failed to dispose"],
