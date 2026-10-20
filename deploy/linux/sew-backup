@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# sew-backup - a dated, root-only archive of the host's state (runbook section 8b). Run as root.
+set -euo pipefail
+umask 077
+ROOT=${SEW_BACKUP_ROOT:-/}
+DEST=${SEW_BACKUP_DIR:-/var/backups/sew}
+KEEP_DAYS=${SEW_BACKUP_KEEP_DAYS:-30}
+
+[ "$(id -u)" = 0 ] || { echo "sew-backup: run this as root (sudo sew-backup)" >&2; exit 2; }
+[ -d "$ROOT/var/lib/sew/state" ] || { echo "sew-backup: $ROOT/var/lib/sew/state does not exist" >&2; exit 2; }
+if systemctl is-active --quiet sew-run 2>/dev/null; then
+  echo "sew-backup: the host is running; this is a hot copy (runbook section 8b)" >&2
+fi
+
+install -d -o root -g root -m 0700 "$DEST"
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+FINAL="$DEST/sew-state-$STAMP.tar.gz"
+PARTIAL="$DEST/.sew-state-$STAMP.partial"
+
+MEMBERS=(var/lib/sew/state)
+for p in var/lib/sew/plan.json etc/systemd/system/sew-run.service.d \
+         opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json; do
+  [ -e "$ROOT/$p" ] && MEMBERS+=("$p")
+done
+
+# Exit 1 from tar is "a file changed while it was read": a warning for a hot copy, not a failure.
+rc=0
+tar --create --gzip --file "$PARTIAL" --directory "$ROOT" \
+  --exclude='*.tmp' --exclude='var/lib/sew/state/alerts.sqlite3*' \
+  --exclude='var/lib/sew/state/health.json*' --exclude='var/lib/sew/state/instance.lock' \
+  --exclude='var/lib/sew/state/control' "${MEMBERS[@]}" || rc=$?
+if [ "$rc" -gt 1 ]; then rm -f -- "$PARTIAL"; echo "sew-backup: tar failed (exit $rc)" >&2; exit 1; fi
+
+gzip --test "$PARTIAL"
+mv -f -- "$PARTIAL" "$FINAL"
+echo "sew-backup: wrote $FINAL ($(du -h "$FINAL" | cut -f1)), $(tar -tzf "$FINAL" | grep -c 'state/bots/[^/]*\.json$') bot file(s)"
+find "$DEST" -maxdepth 1 -name 'sew-state-*.tar.gz' -mtime +"$KEEP_DAYS" -delete

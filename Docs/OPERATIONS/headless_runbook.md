@@ -37,11 +37,26 @@ The data root is outside the checkout so an update of the code never touches the
 
 Needs systemd 251 or newer (`LoadCredential=` took a directory in 251; Ubuntu 24.04 ships 255, Ubuntu 22.04 ships 249 and is too old), Python 3.12 or newer (the floor; `preflight` checks it), `git`, and outbound HTTPS to the exchange. **No Qt and no display are needed**: the headless requirements install none of Qt's system libraries.
 
+**The way to install: `sew-install`** (`BOT-204`, [decision](../../Tasks/epics/EPIC-038_headless_operation/DECISION_2026-10-20_vps_install_and_update_scripts.md)). On a fresh Ubuntu VPS, from an account that may `sudo`: clone, read what it would do, run it.
+
+```bash
+git clone https://github.com/anhembedded/Sagittarius_Elite_Warrior.git   # the directory keeps this exact name
+sudo Sagittarius_Elite_Warrior/deploy/linux/sew-install --dry-run         # what it would do; changes nothing
+sudo Sagittarius_Elite_Warrior/deploy/linux/sew-install
+```
+
+In order, it: checks the host (Ubuntu, systemd 251 or newer, 2 GiB free under `/opt/sew`, the clock synchronised; every failed check is listed and it exits `2` before it changes anything; `--skip-preflight` skips them), installs `git` and the Python venv package with `apt` if they are missing, creates the `sew` account and the directories of §1 (`/etc/sew/credentials` is `0700 root`: only PID 1 reads it), clones the repository to `/opt/sew/Sagittarius_Elite_Warrior` (or uses the checkout it runs from, or `--ref <tag|commit|origin/branch>` for another release), builds the venv, installs the requirements under `requirements.lock`, the pinned engine and the bytecode, creates an **empty** `/etc/sew/sew.env`, installs the unit, the backup service and timer (§8b) and `/etc/profile.d/sew.sh` (the shell helpers of §6), links `sew-key`, `sew-backup`, `sew-update` and `sew-install` into `/usr/local/sbin`, checks the unit's one `LoadCredential=` line, enables `sew-run`, proves that the app starts as `sew`, and prints the next steps (the key, the alerts, the loss cap, the pre-flight, the resume of RECOVERING bots).
+
+It **does not start the service** unless you pass `--start`: with no key stored a start ends in exit `5`, a code the unit never restarts. It stops before the first key (§3); it never writes a credential file, `sew.env` (except to create it empty) or `user_config.json`, and it never changes the code of a host that is running (that is `sew-update`, §8). Run it again at any time: whatever exists stays as it is, a hand-pasted `/usr/local/sbin/sew-backup` is kept aside as `sew-backup.before-sew-deploy-<time>`, and a `0750` credentials directory is tightened to `0700`. Exit codes: `0` done, `1` a step failed, `2` a refusal it designed (not root, a failed host check, a bad option, a directory in the way).
+
+**The manual way** below is the fallback when the script cannot run (another distribution, a layout of your own) and is what the script automates.
+
 ```bash
 sudo useradd --system --home-dir /var/lib/sew --shell /usr/sbin/nologin --user-group sew
 sudo install -d -o root -g root -m 0755 /opt/sew
 sudo install -d -o sew -g sew -m 0700 /var/lib/sew
-sudo install -d -o root -g sew -m 0750 /etc/sew /etc/sew/credentials
+sudo install -d -o root -g sew -m 0750 /etc/sew
+sudo install -d -o root -g root -m 0700 /etc/sew/credentials
 
 sudo git clone https://github.com/anhembedded/Sagittarius_Elite_Warrior.git /opt/sew/Sagittarius_Elite_Warrior
 sudo python3.12 -m venv /opt/sew/venv
@@ -56,7 +71,7 @@ sudo systemctl daemon-reload
 
 **Compile the checkout, once after the clone and again after every `git pull` or `git checkout`** (`PRO-014`). The `sew` account cannot write into the checkout, so Python cannot keep the bytecode of the code it imports, and without it every command, `bot list` and `status` included, compiles the application's thousands of files again. Measured on the first VPS (2026-10-17): `bot list` took 3.66 s with the checkout uncompiled and 3.03 s after `compileall` as root, so skipping the step costs about 0.6 s on every command. Run it as root, which can write the `__pycache__` directories, with the service's own interpreter (the bytecode is valid for one Python minor version). It writes only `__pycache__` directories. Nothing else is needed: `PYTHONDONTWRITEBYTECODE=1` in the unit is deliberate and stays, so the host never tries to write there.
 
-*Why the runbook and not the unit or a script.* `scripts/render_service_files.py` renders the unit from the host's constants, and `ExecStartPre=+` could run the command as root before each start, but that is wrong for two reasons: it would run outside the sandbox the unit exists to enforce (`ProtectSystem=strict`, `NoNewPrivileges`) and add seconds to every restart, and it would not help the commands an operator types between restarts, which are the ones that pay. There is no install script on Linux: this section is the install. The step therefore sits where the code changes, here and in step 4 of §8.
+*Why a script run by the operator and not the unit.* `scripts/render_service_files.py` renders the unit from the host's constants, and `ExecStartPre=+` could run the command as root before each start, but that is wrong for two reasons: it would run outside the sandbox the unit exists to enforce (`ProtectSystem=strict`, `NoNewPrivileges`) and add seconds to every restart, and it would not help the commands an operator types between restarts, which are the ones that pay. The step therefore sits where the code changes: `sew-install` and `sew-update` run it, and by hand it is here and in step 4 of §8.
 
 The unit is [`deploy/linux/sew-run.service`](../../deploy/linux/sew-run.service). It is **generated** from the host's own constants by `python3 scripts/render_service_files.py --write`; do not edit the copy in the repository, a guard compares it with the generator. To change a setting on one server use a drop-in (`sudo systemctl edit sew-run`), not an edit of the file. What it does:
 
@@ -71,7 +86,7 @@ The unit is [`deploy/linux/sew-run.service`](../../deploy/linux/sew-run.service)
 
 A key must be **bound to the server's address** at the exchange, must **not** be allowed to withdraw (the pre-flight refuses a key that can), and must never appear in a unit file, a plan file, a log or a shell history.
 
-**The way to add, replace, remove and list a key: `sew-key`** (`BOT-200`; the venues are `spot_mainnet`, `futures_mainnet`, `spot_testnet`, `futures_testnet`; [decision](../../Tasks/epics/EPIC-038_headless_operation/DECISION_2026-10-20_server_keys_by_root_script.md)). A root-run script, [`deploy/linux/sew-key`](../../deploy/linux/sew-key), does what the commands below do by hand, and first asks the app whether the key is any good. Install it once (a link, so a `git pull` updates it; the checkout is root-owned, which a script run as root must be):
+**The way to add, replace, remove and list a key: `sew-key`** (`BOT-200`; the venues are `spot_mainnet`, `futures_mainnet`, `spot_testnet`, `futures_testnet`; [decision](../../Tasks/epics/EPIC-038_headless_operation/DECISION_2026-10-20_server_keys_by_root_script.md)). A root-run script, [`deploy/linux/sew-key`](../../deploy/linux/sew-key), does what the commands below do by hand, and first asks the app whether the key is any good. `sew-install` links it into `/usr/local/sbin`; by hand, once (a link, so a `git pull` updates it; the checkout is root-owned, which a script run as root must be):
 
 ```bash
 sudo ln -sf /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-key /usr/local/sbin/sew-key
@@ -139,7 +154,7 @@ sudo systemd-run --wait --pipe --quiet --uid=sew --gid=sew -p LoadCredential=sew
 4. **Check that no drop-in resets the line.** A bare `LoadCredential=` (no value) in a drop-in empties the unit's whole list, the directory line included, and the service then starts with **no** credential at all: no key, no webhook, no check-in URL, and no error. Older versions of this runbook told a testnet-only server to add one. The command must print the unit's line and nothing else; if a drop-in line shows, delete it from the file under `/etc/systemd/system/sew-run.service.d/` and run `sudo systemctl daemon-reload` again:
 
 ```bash
-systemctl cat sew-run | grep LoadCredential   # exactly: LoadCredential=sew:/etc/sew/credentials
+systemctl cat sew-run | grep '^LoadCredential='   # exactly: LoadCredential=sew:/etc/sew/credentials (anchored: the unit's own comments name the word too)
 ```
 
 5. `sudo systemctl start sew-run`, then read the credential lines: `journalctl -u sew-run -o cat | grep -E "preflight|alert-channel|dead-mans-switch"`. A mainnet venue in use must still answer `credentials-present` from `systemd-credential`; a webhook or check-in URL must still say `on`.
@@ -308,6 +323,8 @@ Exit `0` the message was taken (check that it arrived: "sent" means Discord acce
 | Follow the log with the values coloured, or filtered (level, bot, tag, time) | `journalctl -u sew-run -o cat -f \| main.py logs [--level warning] [--bot <id>]` (below) | `main.py logs --file C:\ProgramData\sew\service-logs\sew-run.log --follow` |
 | Only problems | `journalctl -u sew-run -o cat \| grep -E ' - (WARNING\|ERROR\|CRITICAL) - '` | `Get-Content C:\ProgramData\sew\service-logs\sew-run.log \| Select-String ' - (WARNING\|ERROR\|CRITICAL) - '` |
 
+**The shell helpers** (`BOT-204`). `sew-install` and `sew-update` write `/etc/profile.d/sew.sh`, which every login shell reads (open a new SSH session, or `. /etc/profile.d/sew.sh`). It defines the function `M`, which is the `$M` of the blocks below without defining anything each time: `M bot list`, `M status`, `M bot resume <id>` run the app's command line as the `sew` account (`sudo -u sew` unless you already are `sew`) with `PYTHONPATH` and `SEW_DATA_ROOT` set, and pass the terminal's width (`COLUMNS`), `TERM`, `NO_COLOR` and `COLORTERM` on by hand, because `sudo` resets the environment and a lost `COLUMNS` made `rich` draw at 80 columns (`BOT-198`). Besides `M`: `sewlog [options]` follows the journal through `main.py logs` (`sewlog --level warning --bot <id>`), `sewstatus` is `M status`, `sewbots` is `M bot list`, `sewproblems` prints only the WARNING, ERROR and CRITICAL records since today, and `sewhelp` lists them. It exports three paths, `SEW_HOME`, `SEW_CHECKOUT` and `SEW_DATA`, and nothing else: `PYTHONPATH` and `SEW_DATA_ROOT` stay out of your shell, where they would reach every Python tool you run. The file is overwritten on every install and update; put your own aliases in `~/.bashrc`. The blocks below keep `M=...` as a variable so that they also work on a host without the file.
+
 **Reading the log coloured** (`BOT-199`, full guide in [`LOGGING.md`](LOGGING.md) §8). On the VPS, in an SSH terminal: `journalctl -u sew-run -o cat -f | .venv/bin/python src/main.py logs` (add `--level warning`, `--bot <id>`, `--tag <name>` or `--since 2h`). The values each log call substituted (a bot id, a quantity, a reason) get their own colour, the level, tag and traceback theirs. It prints the input unchanged when the output is a pipe or file, when `NO_COLOR` is set, with `--no-color`, or when `rich` is missing, so it is safe in a script; it reads and writes text only and never touches the service.
 
 **Reading the health line** (full table in [`LOGGING.md`](LOGGING.md) §4): `[health] state=SERVING up=3600s bots=running:3,paused:1,halted:0,recovering:0,error:0,starting:0,stopping:0,awaiting_recovery:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310`. It is progress, not liveness: alert yourself when the line stops appearing, when `tick_age_s` or `stream_down_s` keep growing, when `halted`, `error` or `recovering` is above zero that you did not expect, when `starting` or `stopping` stays above zero for minutes, or when `skew_ms` approaches 1000. `na` means "not measured yet".
@@ -403,6 +420,28 @@ After fixing a code `2`–`5` cause, `systemctl reset-failed sew-run && systemct
 ## 8. Upgrade and rollback
 
 The state is the data root's `state/` (the bots' files, the alert outbox, the snapshot). The upgrade **leaves resting orders on the exchange** (the default stop, §0) and nothing watches them while the host is down; do it when that is acceptable. `--on-stop stop-bots` cancels first, but it is a flag of the process being stopped: it only applies if the running host was *started* with it (a drop-in for `ExecStart`).
+
+**The way to upgrade: `sew-update`** (`BOT-204`). **Pause the dead man's switch check in the monitor first** (§3b), then:
+
+```bash
+sudo sew-update --dry-run            # which release, what would stop and change; changes nothing
+sudo sew-update                      # origin/master-warrior; or: sudo sew-update v1.4 | <sha> | <branch>
+M bot list                           # every bot that was running reads RECOVERING
+M bot resume <id> [--confirm-venue <venue>]
+```
+
+It is the six steps below in the order BOT-203 needs, with checks: it fetches and resolves the ref and **refuses, before it stops anything**, a release that would overwrite a tracked file you edited by hand (`src/config/user_config.json` holds `bots.account_loss_cap`; an edit the release leaves alone is kept); it stops `sew-run` if it runs and exits `1` if the host did not drain (`Result=success`, exit `0`), copies `state/` aside as `state.before-<time>` and takes `sew-backup`; it checks the ref out, runs `pip install`, the engine pin and `compileall`; **only then** it installs the regenerated unit, the backup units and the shell helpers and runs `daemon-reload` (the new unit with the old code finds no key); it checks that `systemctl cat sew-run` shows exactly one `LoadCredential=` line, `LoadCredential=sew:/etc/sew/credentials` (a drop-in that adds or empties one exits `2` and leaves the host stopped), then starts the host **only if it was running before** (`--no-start` leaves it stopped) and prints the `[preflight]`, `bot-files-readable`, `[recovering]` and `[loss-cap]` lines. A failure after the stop says that the host is stopped, where the state copy is, and the rollback command. It never resumes a bot (decision O2). The script that started is the one that finishes: a release that changes these steps is applied by the next run. `sew-update <the previous sha>` is the rollback; it prints that command at the end.
+
+To adopt the scripts on a host installed by hand, run the new release's `sew-update` once from a throwaway clone (it upgrades `/opt/sew`, not itself):
+
+```bash
+git clone https://github.com/anhembedded/Sagittarius_Elite_Warrior.git /tmp/sew-adopt/Sagittarius_Elite_Warrior   # the name stays exact
+sudo /tmp/sew-adopt/Sagittarius_Elite_Warrior/deploy/linux/sew-update --dry-run
+sudo /tmp/sew-adopt/Sagittarius_Elite_Warrior/deploy/linux/sew-update
+rm -rf /tmp/sew-adopt
+```
+
+**The manual way** is the fallback and what the script automates:
 
 ```bash
 # 1. See what is running.
@@ -506,52 +545,19 @@ The archive also carries three things outside the data root that you edited by h
 
 **Secrets stay out of it.** `/etc/sew/sew.env` and `/etc/sew/credentials/` are not archived, on purpose. A key restored onto a new VPS is bound to the old address and would be rejected, so a new server gets a new key from the exchange in any case (§3c); an archive without keys can sit in a cloud drive or an e-mail account without being a second place to leak from. Keep the webhook URL and the check-in URL in your password manager (they can also be recreated, §3c). A provider snapshot of the whole disk does hold `/etc/sew`: treat it as a secret.
 
-**A consistent copy.** The safe copy is taken with the host **stopped**: every file is at rest, and the stop leaves the orders on the exchange (§0). A **hot copy**, with the host running, is also usable and is what the timer below takes: every file the host writes into the archive is written as a temporary file and renamed over the old one (the stores named above), so a copy never holds half a file; but two bot files may be seconds apart, and the archive is as old as its newest write. That is the state a crash leaves, and a restore comes back RECOVERING for the same reason (below). Take the stopped copy before the first real-money run, before an upgrade (§8) and before any `bot apply --prune`.
+**A consistent copy.** The safe copy is taken with the host **stopped**: every file is at rest, and the stop leaves the orders on the exchange (§0). A **hot copy**, with the host running, is also usable and is what the timer takes: every file the host writes into the archive is written as a temporary file and renamed over the old one (the stores named above), so a copy never holds half a file; but two bot files may be seconds apart, and the archive is as old as its newest write. That is the state a crash leaves, and a restore comes back RECOVERING for the same reason (below). Take the stopped copy before the first real-money run, before an upgrade (§8) and before any `bot apply --prune`.
 
-**Install the script once** (a dated archive, mode `0600` in a `0700` root-only directory, written under a temporary name and renamed when it is whole and passes `gzip --test`; it keeps the last 30 days and prints the number of bot files it archived):
+**The script** is [`deploy/linux/sew-backup`](../../deploy/linux/sew-backup) (`BOT-204`; until then this section carried it as a heredoc). It writes a dated archive, mode `0600`, in a `0700` root-only directory, under a temporary name that is renamed when the archive is whole and passes `gzip --test`; it keeps the last 30 days and prints the number of bot files it archived. `sew-install` and `sew-update` link it into `/usr/local/sbin` and install its service and timer, [`sew-backup.service`](../../deploy/linux/sew-backup.service) and [`sew-backup.timer`](../../deploy/linux/sew-backup.timer), and `sew-install` enables the timer (daily, 03:17 UTC, `Persistent=true`). By hand, once:
 
 ```bash
-sudo tee /usr/local/sbin/sew-backup > /dev/null <<'EOF'
-#!/usr/bin/env bash
-# sew-backup - a dated, root-only archive of the host's state (runbook section 8b). Run as root.
-set -euo pipefail
-umask 077
-ROOT=${SEW_BACKUP_ROOT:-/}
-DEST=${SEW_BACKUP_DIR:-/var/backups/sew}
-KEEP_DAYS=${SEW_BACKUP_KEEP_DAYS:-30}
-
-[ "$(id -u)" = 0 ] || { echo "sew-backup: run this as root (sudo sew-backup)" >&2; exit 2; }
-[ -d "$ROOT/var/lib/sew/state" ] || { echo "sew-backup: $ROOT/var/lib/sew/state does not exist" >&2; exit 2; }
-if systemctl is-active --quiet sew-run 2>/dev/null; then
-  echo "sew-backup: the host is running; this is a hot copy (runbook section 8b)" >&2
-fi
-
-install -d -o root -g root -m 0700 "$DEST"
-STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-FINAL="$DEST/sew-state-$STAMP.tar.gz"
-PARTIAL="$DEST/.sew-state-$STAMP.partial"
-
-MEMBERS=(var/lib/sew/state)
-for p in var/lib/sew/plan.json etc/systemd/system/sew-run.service.d \
-         opt/sew/Sagittarius_Elite_Warrior/src/config/user_config.json; do
-  [ -e "$ROOT/$p" ] && MEMBERS+=("$p")
-done
-
-# Exit 1 from tar is "a file changed while it was read": a warning for a hot copy, not a failure.
-rc=0
-tar --create --gzip --file "$PARTIAL" --directory "$ROOT" \
-  --exclude='*.tmp' --exclude='var/lib/sew/state/alerts.sqlite3*' \
-  --exclude='var/lib/sew/state/health.json*' --exclude='var/lib/sew/state/instance.lock' \
-  --exclude='var/lib/sew/state/control' "${MEMBERS[@]}" || rc=$?
-if [ "$rc" -gt 1 ]; then rm -f -- "$PARTIAL"; echo "sew-backup: tar failed (exit $rc)" >&2; exit 1; fi
-
-gzip --test "$PARTIAL"
-mv -f -- "$PARTIAL" "$FINAL"
-echo "sew-backup: wrote $FINAL ($(du -h "$FINAL" | cut -f1)), $(tar -tzf "$FINAL" | grep -c 'state/bots/[^/]*\.json$') bot file(s)"
-find "$DEST" -maxdepth 1 -name 'sew-state-*.tar.gz' -mtime +"$KEEP_DAYS" -delete
-EOF
-sudo chmod 0750 /usr/local/sbin/sew-backup
+sudo ln -sf /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-backup /usr/local/sbin/sew-backup
+sudo cp /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-backup.service /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now sew-backup.timer
+systemctl list-timers sew-backup.timer --no-pager
 ```
+
+A host that pasted the earlier heredoc keeps working; `sew-install` or `sew-update` replaces that file by the link and keeps the old one aside.
 
 **Take a backup** (the stopped copy; leave out the `stop` and `start` lines for a hot copy). Compare the bot-file count it prints with the number of rows of `bot list`:
 
@@ -584,31 +590,6 @@ The archive holds your bots' parameters and order ids, not a key: keep it somewh
 
 **How often.** Once before the first real-money run (checklist row 13); before every upgrade and every `bot apply` or `bot edit` (they change the files); and daily, which the timer does for the hot copy. The pull from your machine is the part that must also happen after a change you care about: a daily pull from `cron` or Task Scheduler there is enough.
 
-```bash
-sudo tee /etc/systemd/system/sew-backup.service > /dev/null <<'EOF'
-[Unit]
-Description=Back up the sew-run state (runbook section 8b)
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/sew-backup
-EOF
-sudo tee /etc/systemd/system/sew-backup.timer > /dev/null <<'EOF'
-[Unit]
-Description=Daily sew-run state backup
-
-[Timer]
-OnCalendar=*-*-* 03:17:00 UTC
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
-sudo systemctl daemon-reload
-sudo systemctl enable --now sew-backup.timer
-systemctl list-timers sew-backup.timer --no-pager
-```
-
 ### Restore
 
 Onto **the same VPS** (a bad edit, a wrong `--prune`, a damaged file) or onto **a new one**. Order matters:
@@ -637,7 +618,7 @@ sudo tar --extract --gzip --file "$ARCHIVE" --to-stdout opt/sew/Sagittarius_Elit
 4. **Start, and check.** The start runs the pre-flight (§4) and restores the bots from the files:
 
 ```bash
-systemctl cat sew-run | grep LoadCredential   # exactly: LoadCredential=sew:/etc/sew/credentials; a bare "LoadCredential=" in the restored drop-in empties the list, so delete that line, then sudo systemctl daemon-reload (§3)
+systemctl cat sew-run | grep '^LoadCredential='   # exactly: LoadCredential=sew:/etc/sew/credentials; a bare "LoadCredential=" in the restored drop-in empties the list, so delete that line, then sudo systemctl daemon-reload (§3)
 sudo systemctl start sew-run
 journalctl -u sew-run -o cat --since "5 minutes ago" | grep -E '\[preflight\]|bot-files-readable|\[recovering\]|\[loss-cap\]'
 M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
@@ -733,7 +714,7 @@ Signed: ____________________ date: ____________ machine: ____________________
 
 ## 12. What is proven mechanically, and what is not
 
-Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the unit has one `LoadCredential=` line, for the credentials directory, and none that names a file a missing file could break; every credential name is found under the name systemd gives its file, and the same directory is the one `sew-key` writes; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. The `sew-backup` script of §8b was run for real by its author against a stand-in root and the restore block against a stand-in `/var/lib/sew`; neither is a test in the suite, and neither has run on a VPS under a real systemd. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
+Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the unit has one `LoadCredential=` line, for the credentials directory, and none that names a file a missing file could break; every credential name is found under the name systemd gives its file, and the same directory is the one `sew-key` writes; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. `sew-install`, `sew-update`, `sew-backup` and the shell helpers (`tests/unit/scripts/test_sew_install.py`, `test_sew_update.py`, `test_sew_backup.py`, `test_sew_profile.py`) are run for real under bash against a temporary root, with stand-ins for `systemctl`, `useradd`, `apt-get`, `sudo`, the venv's python and pip, and a real git origin: the order of the upgrade (the unit after the code), the refusals, the idempotent second run, `--dry-run` and the shell function `M` are proven; the real systemd, a real `useradd` and `chown` to `sew`, a real pip install and the apt packages are not, and none of them has run on a VPS yet. The restore block of §8b was run once by its author against a stand-in `/var/lib/sew`; it is not a test in the suite. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
 
 **Not proven**: `alert test` through `systemd-run` and a message reaching a real Discord channel (the owner's run, recorded in `EPIC-036G`), the unit under a running systemd (no systemd was PID 1 where it was written; in particular that systemd 255 loads `/etc/sew/credentials` as `sew_<file>` and starts with a file absent is read from `systemd.exec(5)` and the 251 release notes, and is proven by step 3 of the §3 upgrade note on the first server that runs it), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
 

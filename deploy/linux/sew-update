@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# sew-update - upgrade (or roll back) the installed sew-run service in one command. Run it as root.
+#
+#   sudo sew-update [--dry-run] [--no-start] [REF]
+#
+#   REF          a tag, a commit or a branch to deploy (default: origin/master-warrior); a name
+#                that is also a remote branch means the remote one, never a stale local branch
+#   --dry-run    say what would be done; change nothing (it looks at the last fetch)
+#   --no-start   leave the host stopped at the end
+#
+# This is runbook section 8 as one command, in the order BOT-203 needs: the unit is installed only
+# after the code it goes with, because the new unit with the old code finds no key. In order:
+#   1. fetch, resolve REF, and refuse a checkout that would overwrite a file you edited by hand
+#      (src/config/user_config.json) - before the host is stopped, so a refusal costs nothing
+#   2. stop sew-run (only if it runs) and check that it drained; copy state/ aside; take sew-backup
+#   3. check REF out; pip install under requirements.lock; the engine pin; compileall
+#   4. THEN install the regenerated unit, the backup units, the shell helpers, the links; daemon-reload
+#   5. check that `systemctl cat sew-run` shows exactly LoadCredential=sew:/etc/sew/credentials
+#   6. start sew-run (only if it ran before) and print the pre-flight lines
+# The bots that were running come back RECOVERING. This script never resumes one (decision O2):
+# a person does, with `M bot resume <id>`.
+#
+# Bash reads a script as it runs, and a checkout rewrites this file: everything is inside main(),
+# which is parsed whole before it starts. The script that started is the one that finishes, so a
+# release that changes these steps is applied by the run after it.
+#
+# Exit codes (Docs/OPERATIONS/exit_codes.md): 0 done, 1 a step failed, 2 a refusal it designed
+# (not root, not installed, an unknown ref, a local edit in the way, a drop-in resetting the
+# credentials line). After a refusal or a failure that comes after the stop, the host stays stopped
+# and the message says so.
+
+set -euo pipefail
+
+TOOL=sew-update
+DRY_RUN=0
+SCRIPT_DIR=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
+# shellcheck source=sew-lib.sh
+source "$SCRIPT_DIR/sew-lib.sh"
+
+readonly DEFAULT_REF="origin/master-warrior"
+REF="$DEFAULT_REF"
+NO_START=0
+WAS_ACTIVE=0
+LEFT_STOPPED=0
+TARGET_SHA=""
+BEFORE_SHA=""
+STATE_COPY=""
+
+usage() {
+  cat >&2 << 'USAGE'
+usage: sew-update [--dry-run] [--no-start] [REF]
+REF: a tag, a commit or a branch (default origin/master-warrior)
+USAGE
+  exit 2
+}
+
+# shellcheck disable=SC2317 # reached through the EXIT trap
+on_exit() {
+  local status=$?
+  if ((status != 0 && LEFT_STOPPED == 1)); then
+    printf '%s: stopped on an error AFTER the host was stopped: %s is NOT running.\n' "$TOOL" "$SERVICE" >&2
+    if [[ -n "$STATE_COPY" ]]; then
+      printf '  the state copy is %s\n' "$STATE_COPY" >&2
+    fi
+    printf '  fix the cause, then run sudo %s again; or roll back: sudo %s %s\n' "$TOOL" "$TOOL" "${BEFORE_SHA:-<the previous release>}" >&2
+  fi
+}
+trap on_exit EXIT
+
+require_installed() {
+  [[ -d "$CHECKOUT/.git" && -x "$VENV/bin/python" && -f "$UNIT_DIR/$SERVICE.service" ]] \
+    || die "no installation here ($CHECKOUT, $VENV or the unit is missing); run sew-install first"
+}
+
+# --- 1. before anything stops ------------------------------------------------------------------
+
+fetch_and_resolve() {
+  if [[ "$DRY_RUN" == 1 ]]; then
+    note "would fetch origin (the ref below is resolved against the last fetch)"
+  else
+    act "fetch origin" git -C "$CHECKOUT" fetch --quiet --tags origin
+  fi
+  TARGET_SHA=$(resolve_ref "$REF") || die "'$REF' names no commit in $CHECKOUT (a tag, a commit or a branch of origin)"
+  BEFORE_SHA=$(git_checkout rev-parse HEAD)
+  note "deploying $REF = $TARGET_SHA ($(git_checkout log -1 --format=%s "$TARGET_SHA"))"
+  note "currently   $BEFORE_SHA"
+}
+
+# A tracked file edited by hand (src/config/user_config.json holds bots.account_loss_cap) rides
+# along a checkout unless the release changes the same file: then git refuses, and by then the
+# host would be stopped. Refuse here instead.
+refuse_local_edits_in_the_way() {
+  local edited changed overlap
+  edited=$(git_checkout diff --name-only HEAD)
+  if [[ -z "$edited" ]]; then
+    return 0
+  fi
+  changed=$(git_checkout diff --name-only HEAD "$TARGET_SHA")
+  overlap=$(comm -12 <(sort <<< "$edited") <(sort <<< "$changed"))
+  if [[ -n "$overlap" ]]; then
+    printf '%s: you edited these files and the release changes them too:\n%s\n' "$TOOL" "$overlap" >&2
+    die "nothing was stopped or changed. Compare with 'git -C $CHECKOUT diff', save your edit, 'git -C $CHECKOUT checkout -- <file>', run again and re-apply it"
+  fi
+  note "your local edits are kept (the release does not touch): $(tr '\n' ' ' <<< "$edited")"
+}
+
+# --- 2. stop, copy, back up ------------------------------------------------------------------
+
+stop_host() {
+  local state
+  state=$(service_state)
+  if service_live; then
+    WAS_ACTIVE=1
+  fi
+  if ((WAS_ACTIVE == 0)); then
+    note "$SERVICE is not running ($state); it stays stopped until you start it"
+    return 0
+  fi
+  act "stop $SERVICE (leaves the resting orders on the exchange: decision O1)" systemctl stop "$SERVICE"
+  LEFT_STOPPED=1
+  if [[ "$DRY_RUN" == 1 ]]; then
+    return 0
+  fi
+  if [[ "$state" != "active" ]]; then
+    note "$SERVICE was $state (restarting after a failure); the stop cancels the restart"
+    return 0
+  fi
+  journalctl -u "$SERVICE" -o cat -n 15 --no-pager || true
+  local result status
+  result=$(systemctl show -p Result --value "$SERVICE")
+  status=$(systemctl show -p ExecMainStatus --value "$SERVICE")
+  if [[ "$result" != "success" || "$status" != "0" ]]; then
+    fail "$SERVICE did not drain cleanly (Result=$result, exit status $status); read the log above before going on. Nothing was changed"
+  fi
+  note "$SERVICE drained (Result=success, exit 0)"
+}
+
+save_state() {
+  local stamp
+  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  if [[ -d "$DATA_ROOT/state" ]]; then
+    STATE_COPY="$DATA_ROOT/state.before-$stamp"
+    act "copy the state aside: $STATE_COPY" cp -a -- "$DATA_ROOT/state" "$STATE_COPY"
+  else
+    note "no $DATA_ROOT/state yet; nothing to copy"
+  fi
+  local tool="" candidate
+  for candidate in "$SBIN_DIR/sew-backup" "$CHECKOUT/deploy/linux/sew-backup" "$SCRIPT_DIR/sew-backup"; do
+    if [[ -x "$candidate" ]]; then
+      tool="$candidate"
+      break
+    fi
+  done
+  if [[ -z "$tool" ]]; then
+    warn "no sew-backup to run; only the state copy above exists"
+    return 0
+  fi
+  act "take the dated archive: $tool" env "SEW_BACKUP_ROOT=${ROOT:-/}" "SEW_BACKUP_DIR=$BACKUP_DIR" "$tool"
+}
+
+# --- 3 to 6 -----------------------------------------------------------------------------------
+
+deploy_code() {
+  act "check out $REF ($TARGET_SHA)" git -C "$CHECKOUT" checkout --quiet --detach "$TARGET_SHA"
+  if [[ "$DRY_RUN" != 1 ]]; then
+    local missing
+    if missing=$(missing_release_file); then
+      fail "$CHECKOUT/deploy/linux/$missing is missing at $REF: this release predates the install scripts. Roll back: sudo $TOOL $BEFORE_SHA"
+    fi
+  fi
+  install_python_stack
+}
+
+start_host() {
+  if ((WAS_ACTIVE == 0)); then
+    note "$SERVICE did not run before: it is left stopped (sudo systemctl start $SERVICE)"
+    return 0
+  fi
+  if ((NO_START == 1)); then
+    note "--no-start: $SERVICE is left stopped (sudo systemctl start $SERVICE)"
+    return 0
+  fi
+  if [[ "$DRY_RUN" == 1 ]]; then
+    note "would start $SERVICE and print its [preflight] lines"
+    return 0
+  fi
+  local since
+  since=$(date '+%Y-%m-%d %H:%M:%S')
+  printf '  start %s (Type=notify: it waits for the pre-flight and the restore)\n' "$SERVICE"
+  if ! systemctl start "$SERVICE"; then
+    journalctl -u "$SERVICE" -o cat -n 40 --no-pager || true
+    fail "$SERVICE did not start; the log is above (exit 4/5/6 are in runbook sections 4 and 7). It is not restarted for 2-5; fix, then 'sudo systemctl reset-failed $SERVICE && sudo systemctl start $SERVICE'"
+  fi
+  LEFT_STOPPED=0
+  journalctl -u "$SERVICE" -o cat --since "$since" --no-pager \
+    | grep -E '\[preflight\]|bot-files-readable|\[recovering\]|\[loss-cap\]|alert-channel|dead-mans-switch' || true
+  as_service status || true
+}
+
+main() {
+  while (($# > 0)); do
+    case "$1" in
+      --dry-run) DRY_RUN=1 ;;
+      --no-start) NO_START=1 ;;
+      -*) usage ;;
+      *)
+        REF="$1"
+        ;;
+    esac
+    shift
+  done
+
+  sew_init
+  require_root
+  require_installed
+
+  step "Which release"
+  fetch_and_resolve
+  refuse_local_edits_in_the_way
+
+  step "Stop, copy the state, back it up"
+  stop_host
+  save_state
+
+  step "The code, then the unit that goes with it"
+  deploy_code
+  if [[ "$DRY_RUN" == 1 ]]; then
+    note "(the files below are compared with the current checkout; the release's own are installed after the checkout)"
+  fi
+  install_system_files
+  check_load_credential
+  if ((BACKUP_TIMER_NEW == 1)); then
+    act "enable the daily state backup (sew-backup.timer)" systemctl enable --now sew-backup.timer
+  fi
+
+  step "Start"
+  start_host
+
+  printf '\n'
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf 'Dry run: nothing was changed.\n'
+  elif ((WAS_ACTIVE == 1 && NO_START == 0)); then
+    cat << 'DONE'
+Every bot that was running or paused is now RECOVERING and places nothing until a person resumes it:
+  M bot list
+  M bot resume <id> [--confirm-venue <venue>]       (on a mainnet venue; runbook sections 0 and 8)
+The dead man's switch may have fired during the stop; it turns green again after the first ping.
+Read any 'bot-files-readable' WARN above: a bot file written by a newer build is not loaded.
+DONE
+  fi
+  printf 'Rollback: sudo %s %s\n' "$TOOL" "${BEFORE_SHA:-<the previous release>}"
+}
+
+main "$@"
+exit $?

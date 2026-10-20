@@ -1,0 +1,6 @@
+[Unit]
+Description=Back up the sew-run state (runbook section 8b)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sew-backup
