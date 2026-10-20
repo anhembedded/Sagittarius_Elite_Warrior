@@ -48,9 +48,16 @@ the measurements are in the task file's §5a.)
   longer than the 60 orders a minute is laid at that rate instead of being refused `owner_budget_rate`
   at its 61st order. The pacer keeps its window `STAMP_JITTER` (2 s) longer than trading's, because
   trading stamps an order a moment after the turn. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
-  **Limits:** a wait for the window blocks the bot's worker, so a Stop asked meanwhile is heard when
-  the wait ends (at most one window); a start whose stamps still land inside one window (a skew beyond
-  `STAMP_JITTER`) meets the refusal as a `start_refused`, which the pacer's margin exists to prevent.
+  **Limits:** (1) The figures are one owner's (a budget's rate and spacing) applied to the whole venue,
+  so two bots of a venue share 60 orders a minute where trading allows each 60, and a second bot's
+  opening can wait behind its neighbour's ladder; this is the conservative side, accepted for now.
+  (2) A wait for the window blocks the bot's worker for at most one window: a Stop asked meanwhile is
+  heard only after the wait, and the order that waited is still sent (`GridStartSequence._place` asks
+  `stop_asked` before the wait, not after), then the stop cancels it with the rest of the ladder.
+  (3) Exits (`market_sell`, `market_reduce_only`) take no turn; a Spot exit counts in trading's window
+  and can meet `owner_budget_rate` right after a 60-order minute (`BUG-238` reviewer note, not changed
+  here). (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
+  refusal as a `start_refused`; the margin exists to prevent it, and the integration test fails without it.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting

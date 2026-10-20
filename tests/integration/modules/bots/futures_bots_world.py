@@ -19,7 +19,6 @@ import asyncio
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
@@ -43,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+    OrderPacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_ticker import (
     FakeBotTicker,
@@ -171,7 +171,7 @@ def booted_futures_bots(
     *,
     open_session: bool = True,
     stream_up: bool = True,
-    pacers: Callable[[TradingVenue, timedelta], IOrderPacer] | None = None,
+    pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> Iterator[BootedFuturesBots]:
     """The app with Futures Testnet on; its bots on the serial queue.
 

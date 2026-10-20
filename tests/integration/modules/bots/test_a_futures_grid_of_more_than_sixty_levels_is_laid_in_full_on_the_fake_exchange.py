@@ -67,14 +67,22 @@ GRID = {
     "stop_loss": "price:50000",
     "take_profit": "price:80000",
 }
+#: Virtual seconds before which trading stamps late: the burst of the first 60 orders takes about
+#: 15 s, and the next order waits for the window, so no two consecutive orders straddle it.
+LAGGED_UNTIL = 30.0
 EPOCH = datetime(2026, 10, 20, 6, 26, 17, tzinfo=UTC)
 
 
 class VirtualTime:
     """One clock for the pacer and for trading's rate window; a sleep moves it."""
 
-    def __init__(self) -> None:
+    def __init__(self, early_stamp_lag: float = 0.0) -> None:
         self.seconds = 0.0
+        #: How much later than the pacer's turn trading stamps each of the first orders it
+        #: judges (a cold terms read, the handler's lock): the later ones are stamped on the turn.
+        #: The lag drops only where the pacer waits for the window, so the spacing between two
+        #: consecutive orders is never shortened by it.
+        self._early_stamp_lag = early_stamp_lag
 
     def monotonic(self) -> float:
         return self.seconds
@@ -83,14 +91,25 @@ class VirtualTime:
         self.seconds += seconds
 
     def now(self) -> datetime:
-        return EPOCH + timedelta(seconds=self.seconds)
+        lag = self._early_stamp_lag if self.seconds < LAGGED_UNTIL else 0.0
+        return EPOCH + timedelta(seconds=self.seconds + lag)
 
 
-@pytest.fixture
-def virtual_time(monkeypatch: pytest.MonkeyPatch) -> Iterator[VirtualTime]:
+#: Under the pacer's `STAMP_JITTER` (2 s) and over zero: the early orders are stamped this late.
+LATE_EARLY_STAMPS = 1.5
+
+
+@pytest.fixture(
+    params=[0.0, LATE_EARLY_STAMPS], ids=["stamps-on-the-turn", "early-stamps-late"]
+)
+def virtual_time(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[VirtualTime]:
     """Trading reads `datetime.now(UTC)` at the moment it judges an order; the journey gives it
-    the virtual time instead of the machine's."""
-    time = VirtualTime()
+    the virtual time instead of the machine's. With late early stamps the 61st order is a window
+    plus a moment after the first by the pacer's clock but inside the window by trading's: only
+    the pacer's margin (`STAMP_JITTER`) keeps it from being refused."""
+    time = VirtualTime(early_stamp_lag=request.param)
 
     class _VirtualDatetime(datetime):
         @classmethod
