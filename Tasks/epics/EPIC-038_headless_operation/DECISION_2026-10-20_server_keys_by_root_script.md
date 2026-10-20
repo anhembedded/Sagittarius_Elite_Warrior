@@ -31,7 +31,7 @@ Not a default decision (the owner approved the design, "lam di"); recorded anywa
 
 | Invariant | Passes? | Evidence |
 | :--- | :--- | :--- |
-| P1 Mechanism over memory | ✅ | the venue typed, the root check, the withdraw refusal and the shadow refusal are code (`test_sew_key_script.py`, `test_key_check_cli.py`), not a habit |
+| P1 Mechanism over memory | ✅ | the venue typed, the root check, the withdraw refusal and the shadow refusal are code (`test_sew_key_add.py`, `test_sew_key_remove_list_and_guards.py`, `test_key_check_cli.py`), not a habit |
 | P2 Verify, don't restate | ✅ | the script reads the check's JSON; the venue names are validated against the known four before they build a path |
 | P3 A copy drifts | ✅ | the classification is extracted once (`classify_key`), not copied; the exit codes are the table's |
 | P4 Green proves only what was tested | ✅ | the real sudo hop, `chown root:sew`, systemd reading the files and a live key are stated as unproven in the task file |
@@ -59,4 +59,4 @@ None.
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1-D7 | [BOT-200](../../completed/BOT-200_sew_key_adds_a_server_key_from_the_vps_command_line.md) | Verified in unit tests; not on a real VPS | `tests/unit/scripts/test_sew_key_script.py`, `tests/unit/modules/trading/cli/` |
+| D1-D7 | [BOT-200](../../completed/BOT-200_sew_key_adds_a_server_key_from_the_vps_command_line.md) | Verified in unit tests; not on a real VPS | `tests/unit/scripts/test_sew_key_add.py`, `tests/unit/scripts/test_sew_key_remove_list_and_guards.py`, `tests/unit/modules/trading/cli/` |

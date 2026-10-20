@@ -122,8 +122,7 @@ class EnrolKeyCommandHandler(ICommandHandler[EnrolKeyCommand, KeyEnrolment]):
                 )
             stored.append(venue)
             logger.info(
-                "%s: the key %s was kept [key-enrolment]",
+                "%s: the key was kept [key-enrolment]",
                 venue.display_name,
-                credentials,
             )
         return KeyEnrolment(tuple(stored), verdicts)

@@ -242,3 +242,50 @@ def test_a_secret_that_cannot_be_published_puts_the_old_key_back(
     )
     assert world.leftovers() == []
     nothing_leaked(run)
+
+
+def test_a_quoted_assignment_shadows_the_file_just_as_systemd_reads_it(
+    world: World,
+) -> None:
+    """systemd unquotes `NAME="x"` in an EnvironmentFile and in a drop-in's `Environment=`."""
+    dropin = world.units / "sew-run.service.d"
+    dropin.mkdir()
+    for text in (
+        'BINANCE_FUTURES_MAINNET_API_KEY="abc"\n',
+        "BINANCE_FUTURES_MAINNET_API_KEY='abc'\n",
+    ):
+        world.env_file.write_text(text, encoding="utf-8")
+        assert world.run("add", answers=typed("futures_mainnet")).code == 2, text
+    world.env_file.unlink()
+    (dropin / "k.conf").write_text(
+        '[Service]\nEnvironment="BINANCE_FUTURES_MAINNET_API_SECRET=abc"\n',
+        encoding="utf-8",
+    )
+    assert world.run("add", answers=typed("futures_mainnet")).code == 2
+    assert not world.mainnet("futures_mainnet", "key").exists()
+
+
+def test_a_quoted_empty_value_is_no_key_and_shadows_nothing(world: World) -> None:
+    world.env_file.write_text(
+        'BINANCE_FUTURES_MAINNET_API_KEY=""\nBINANCE_SPOT_TESTNET_API_KEY=""\n'
+        "BINANCE_SPOT_TESTNET_API_SECRET=''\n",
+        encoding="utf-8",
+    )
+
+    listing = world.run("list")
+    added = world.run("add", answers=typed("futures_mainnet"))
+
+    assert "WARNING" not in listing.out
+    line = next(ln for ln in listing.out.splitlines() if ln.startswith("spot_testnet"))
+    assert "no key" in line
+    assert added.code == 0, added.err
+
+
+def test_a_really_root_run_refuses_every_test_override(world: World) -> None:
+    """A root process that inherits `SEW_KEY_CHECK_COMMAND` (sudo -E, env_keep) would send the
+    plaintext key to whatever program the environment names."""
+    run = world.run("list", real_uid="0")
+
+    assert run.code == 2
+    assert "SEW_KEY_" in run.err
+    assert not world.stub_log.exists()

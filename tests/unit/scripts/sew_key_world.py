@@ -107,11 +107,13 @@ class World:
         check: dict[str, object] | None = None,
         euid: str = "0",
         path: str | None = None,
+        real_uid: str = "1000",
+        extra_env: dict[str, str] | None = None,
     ) -> Run:
         import json
 
         env = {
-            "PATH": path or os.environ["PATH"],
+            "PATH": f"{self.id_shim(real_uid)}:{path or os.environ['PATH']}",
             "HOME": str(self.root),
             "SEW_KEY_CREDENTIALS_DIR": str(self.credentials),
             "SEW_KEY_ENV_FILE": str(self.env_file),
@@ -124,6 +126,7 @@ class World:
             "STUB_STDIN": str(self.stub_stdin),
             "STUB_ANSWER": json.dumps(check or accepted("futures_mainnet")),
         }
+        env.update(extra_env or {})
         done = subprocess.run(
             [require_tool("bash"), str(SCRIPT), *args],
             input=answers,
@@ -134,6 +137,17 @@ class World:
             check=False,
         )
         return Run(done.returncode, done.stdout, done.stderr)
+
+    def id_shim(self, uid: str) -> Path:
+        """A directory whose `id -u` answers `uid`: the script is never really root in a test,
+        whoever runs the tests, so its refusal of test overrides under a real root can be
+        driven by a shim too."""
+        shim = self.root / f"id-shim-{uid}"
+        shim.mkdir(exist_ok=True)
+        tool = shim / "id"
+        tool.write_text(f"#!/bin/sh\necho {uid}\n", encoding="utf-8")
+        tool.chmod(0o755)
+        return shim
 
     def mainnet(self, venue: str, suffix: str) -> Path:
         return self.credentials / f"{venue}_api_{suffix}"

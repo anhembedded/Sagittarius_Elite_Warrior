@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     require_tool,
@@ -218,7 +219,7 @@ def test_the_files_are_private_whatever_the_callers_umask(world: World) -> None:
         text=True,
         check=False,
         env={
-            "PATH": os.environ["PATH"],
+            "PATH": f"{world.id_shim('1000')}:{os.environ['PATH']}",
             "SEW_KEY_CREDENTIALS_DIR": str(world.credentials),
             "SEW_KEY_ENV_FILE": str(world.env_file),
             "SEW_KEY_UNIT_DIR": str(world.units),
@@ -251,3 +252,46 @@ def test_remove_mainnet_truncates_the_files_and_never_deletes_them(
         assert path.read_bytes() == b""
         assert mode_of(path) == 0o600
     assert "restart sew-run" in run.out
+
+
+def test_a_secret_that_cannot_be_published_with_no_old_key_leaves_no_new_key(
+    world: World, tmp_path: Path
+) -> None:
+    """Only the secret existed before: a new key beside it would be a pair nobody typed."""
+    world.mainnet("futures_mainnet", "secret").write_text(OLD_SECRET, encoding="utf-8")
+    shim = tmp_path / "shim2"
+    shim.mkdir()
+    mv = shim / "mv"
+    mv.write_text(
+        f'#!/bin/sh\ncase "$*" in *_api_secret) exit 1;; esac\nexec {require_tool("mv")} "$@"\n',
+        encoding="utf-8",
+    )
+    mv.chmod(0o755)
+
+    run = world.run(
+        "add", answers=typed("futures_mainnet"), path=f"{shim}:{os.environ['PATH']}"
+    )
+
+    assert run.code == 1
+    assert not world.mainnet("futures_mainnet", "key").exists()
+    assert world.leftovers() == []
+
+
+def test_the_exit_status_tells_a_refusal_from_a_failure_and_passes_the_checks_own_on(
+    world: World,
+) -> None:
+    mismatch = world.run("add", answers=typed("spot_mainnet"))
+    replace = world.run(
+        "add",
+        answers=f"{KEY}\n{SECRET}\n",
+        check=refused("withdrawal_enabled", "This mainnet key can withdraw funds."),
+    )
+    unreachable = world.run(
+        "add",
+        answers=f"{KEY}\n{SECRET}\n",
+        check=refused("not_accepted", "No environment accepted this key.", 6),
+    )
+
+    assert mismatch.code == 2, "a designed refusal is a usage-class exit, not a crash"
+    assert replace.code == 5
+    assert unreachable.code == 6
