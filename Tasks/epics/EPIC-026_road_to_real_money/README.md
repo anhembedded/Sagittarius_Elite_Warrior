@@ -124,6 +124,13 @@ break-even stops (`BOT-105`); backtest report persistence (`BOT-115`); the chart
 
 ## Notes (newest first)
 
+- **2026-10-20** — Must-have 8 of the [2026-10-20 review](REVIEW_2026-10-20_what_is_still_missing.md) written into
+  [`headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md): §3c (rotating an API key, planned and after a leak,
+  the Discord webhook and the dead man's switch URL), §8b (what `/var/lib/sew` holds, the `sew-backup` script and its daily
+  timer, the pull off the VPS, the restore) and checklist row 13 ("one backup taken before the first real-money run").
+  The row is the owner's to sign: no backup has been taken on a real server, and the procedure has been run by its author
+  against stand-in directories only, not under a real systemd.
+
 - **2026-10-20** — Re-checked against `master-warrior` `01d188a` at the owner's request, with the code read
   rather than the task files: [`REVIEW_2026-10-20_what_is_still_missing.md`](REVIEW_2026-10-20_what_is_still_missing.md).
   The Status column in §3 now says what the code does; the sub-task files themselves are unchanged and
