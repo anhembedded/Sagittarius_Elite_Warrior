@@ -5,7 +5,8 @@
   · `max_exposure_quote = capital_quote`;
   · the spacing and the rate are the global caps trading is configured with
     (`OwnerBudgetCaps`, ADR O1): the bot asks for as fast as it is allowed, and
-    trading refuses anything faster.
+    trading refuses anything faster. The bot's pacer holds it to the same figures
+    (`grid_pacing`), so a refusal for speed is a thing the bot does not meet (`BUG-238`).
 
 The bot never supplies its inventory: trading derives it from the venue's
 history of the bot's tagged orders since `run_started_at` (D6). The bot asks
@@ -18,6 +19,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    OrderPacing,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
@@ -46,6 +50,15 @@ def grid_budget(params: GridParams, caps: OwnerBudgetCaps) -> OwnerBudget:
         min_order_spacing=caps.min_order_spacing,
         max_orders_per_window=caps.max_orders_per_minute,
         window=_ONE_MINUTE,
+    )
+
+
+def grid_pacing(budget: OwnerBudget) -> OrderPacing:
+    """The spacing and the rate `budget` declares, which its bot's orders keep to (`BUG-238`)."""
+    return OrderPacing(
+        spacing=budget.min_order_spacing,
+        max_orders=budget.max_orders_per_window,
+        window=budget.window,
     )
 
 

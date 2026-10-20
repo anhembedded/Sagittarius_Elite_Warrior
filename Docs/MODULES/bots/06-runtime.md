@@ -42,7 +42,15 @@ the measurements are in the task file's §5a.)
   `VenueSessions`), the order session (and so the Emergency Stop, which halts every bot of the venue
   through `BotExecutors.on_venue`), the user-data stream, and since `EPIC-029J1b` the order pacer:
   `VenueOrderPacers` hands every bot of a venue the same `MonotonicOrderPacer`, which reserves a turn
-  under a lock, so the venue's orders keep the budget's spacing whichever bot sends them. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
+  under a lock, so the venue's orders keep the budget's spacing and stay inside its rate (`OrderPacing`,
+  read off the budget by `grid_pacing`; `BUG-238`) whichever bot sends them. A turn is the later of the
+  spacing after the previous turn and the window after the turn `max_orders` places back, so a ladder
+  longer than the 60 orders a minute is laid at that rate instead of being refused `owner_budget_rate`
+  at its 61st order. The pacer keeps its window `STAMP_JITTER` (2 s) longer than trading's, because
+  trading stamps an order a moment after the turn. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
+  **Limits:** a wait for the window blocks the bot's worker, so a Stop asked meanwhile is heard when
+  the wait ends (at most one window); a start whose stamps still land inside one window (a skew beyond
+  `STAMP_JITTER`) meets the refusal as a `start_refused`, which the pacer's margin exists to prevent.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting

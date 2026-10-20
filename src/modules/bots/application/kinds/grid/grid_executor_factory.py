@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
-from datetime import timedelta
 from functools import partial
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
@@ -18,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
+    grid_budget,
+    grid_pacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
     GridExecutor,
@@ -84,6 +85,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+    OrderPacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
@@ -134,8 +136,8 @@ class GridExecutorDeps:
     caps: OwnerBudgetCaps
     #: A fresh queue for one bot, given its name.
     queues: Callable[[str], IBotWorkQueue]
-    #: The pacer of one venue at one spacing, shared by the venue's bots (`EPIC-029J` J1b).
-    pacers: Callable[[TradingVenue, timedelta], IOrderPacer]
+    #: The pacer of one venue at one pacing, shared by the venue's bots (`EPIC-029J` J1b).
+    pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer]
     #: Where a stop that waits on the exchange schedules its retries; shared by
     #: every bot (`EPIC-035C`).
     retries: IBotRetryScheduler
@@ -174,12 +176,14 @@ class GridExecutorFactory(IBotExecutorFactory):
         ports = deps.ports.get(bot.definition.venue)
         stored = deps.store.load(bot.bot_id)
         runtime = decode_runtime(stored.runtime) if stored.runtime else GridRuntime(())
+        params = GridParams.from_config(bot.definition.config)
         gateway = BotOrderGateway(
             ports,
             BotIdentity(bot_owner_id(bot_id), bot_id, symbol),
-            deps.pacers(bot.definition.venue, deps.caps.min_order_spacing),
+            deps.pacers(
+                bot.definition.venue, grid_pacing(grid_budget(params, deps.caps))
+            ),
         )
-        params = GridParams.from_config(bot.definition.config)
         halts = HaltRecoveryDirector(
             recovery_policy_of(GRID_RECOVERY_LAYER, bot.definition.venue)
         )
