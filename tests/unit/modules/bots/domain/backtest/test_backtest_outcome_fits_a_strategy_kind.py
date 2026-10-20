@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome
     EquityPoint,
     FigureKind,
     FigureTone,
+    StopCause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -105,6 +106,8 @@ class _StubStrategyBacktester(IKindBacktester):
                     False,
                 ),
             ),
+            stop=StopCause.END_OF_DATA,
+            stop_detail="",
             maker_fees=Decimal(0),
             taker_fees=Decimal("0.2"),
             figures=(

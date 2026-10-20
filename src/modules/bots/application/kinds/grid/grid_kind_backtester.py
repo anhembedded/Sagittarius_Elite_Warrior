@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome
     BacktestProvenance,
     DataWindow,
     EquityPoint,
+    StopCause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid import (
     grid_backtest_result as grid,
@@ -98,6 +99,8 @@ def outcome_of(result: grid.GridBacktestResult) -> BacktestOutcome:
             )
             for fill in result.fills
         ),
+        stop=StopCause(result.stop_reason.value),
+        stop_detail=result.stop_detail,
         maker_fees=result.maker_fees,
         taker_fees=result.taker_fees,
         figures=grid_figures(result),

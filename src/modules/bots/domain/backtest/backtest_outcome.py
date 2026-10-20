@@ -9,11 +9,14 @@ in the workbench, **notes** as the caveat sentences, and `detail`, the kind's ow
 
 @par Extension cases (the Grid is the only adapter built, `EPIC-040B`)
   · **Strategy bot** (`EPIC-040G`): its trades are entries and exits, one position at a time, so
-    each is a `BacktestFill` with a `label` such as "Enter long" or "Exit", and `maker` false.
+    each is a `BacktestFill` with a `label` such as "Enter long" or "Exit", and `maker` false. A
+    trade record (entry, exit, profit, holding time) is not a field here: `EPIC-040G` either adds
+    one beside `fills` or the workbench pairs the labelled fills.
   · **DCA** (`EPIC-029L`): scheduled buys are fills with a label; its extra figures (average cost,
     safety orders used) are `BacktestFigure`s.
   · **A kind with no benchmark**: `EquityPoint.benchmark` repeats the starting capital.
-Each is one adapter behind `IKindBacktester` and one registration; this file does not change.
+Each is one adapter behind `IKindBacktester` and one registration; a field only a kind has goes in
+`detail`, and only a field every kind needs (a trade record, if `EPIC-040G` shows it does) is added here.
 """
 
 from __future__ import annotations
@@ -26,6 +29,19 @@ from enum import Enum
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 type FigureValue = Decimal | int | datetime | str
+
+
+class StopCause(Enum):
+    """Why a replay stopped, so the workbench can mark and headline it without reading a sentence.
+    The values are the ones every bot's plan can end on: its exits, a halt, the end of the data."""
+
+    END_OF_DATA = "end_of_data"
+    STOP_LOSS = "stop_loss"
+    TAKE_PROFIT = "take_profit"
+    #: The bot halted itself (the live bot would have halted too).
+    HALTED = "halted"
+    #: A position reached its liquidation price (`EPIC-039K`).
+    LIQUIDATED = "liquidated"
 
 
 class FigureKind(Enum):
@@ -133,6 +149,10 @@ class BacktestOutcome:
     fills: tuple[BacktestFill, ...]
     maker_fees: Decimal
     taker_fees: Decimal
+    #: Why the replay stopped, and the kind's words for the detail ("" when it has none); the
+    #: sentence "Stopped by …" in `notes` says the same in words.
+    stop: StopCause
+    stop_detail: str
     #: Every figure the kind shows, in display order.
     figures: tuple[BacktestFigure, ...]
     #: The caveats that qualify the figures, the most important first.

@@ -8,6 +8,7 @@ screen acts on."""
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -44,6 +45,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestCancelled,
     GridBacktestResult,
+    StopReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
@@ -68,6 +70,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
+    BRACKETS,
     bar,
     position_config,
     replay,
@@ -219,6 +222,7 @@ def test_the_request_reaches_the_query_whole_and_the_warm_up_is_ignored() -> Non
             warmup=timedelta(hours=9),
             funding=FundingRequirement.OPTIONAL,
             cancelled=never,
+            brackets=BRACKETS,
         )
     )
 
@@ -232,6 +236,8 @@ def test_the_request_reaches_the_query_whole_and_the_warm_up_is_ignored() -> Non
     )
     assert query.funding is FundingRequirement.OPTIONAL
     assert query.cancelled is never
+    assert query.terms == TERMS
+    assert query.brackets is BRACKETS
     assert dict(query.config) == dict(CONFIG)
 
 
@@ -283,6 +289,33 @@ def test_stored_candles_are_replayed_into_an_outcome() -> None:
     assert isinstance(answer.detail, GridBacktestResult)
     assert len(answer.bars) == 24
     assert answer.provenance.window is not None
+
+
+def test_a_period_partly_stored_keeps_its_window_field_by_field() -> None:
+    """The window says how much of the period was stored; a swapped count would turn the
+    "N of M candles stored" line and the sync offer around."""
+    answer = _real(_stored(12)).run(_request())
+
+    assert isinstance(answer, BacktestOutcome)
+    assert isinstance(answer.detail, GridBacktestResult)
+    window = answer.provenance.window
+    source = answer.detail.provenance.window
+    assert window is not None and source is not None
+    assert (window.start, window.end) == (source.start, source.end)
+    assert (window.expected_candles, window.stored_candles) == (24, 12)
+    assert window.missing_candles == 12
+
+
+@pytest.mark.parametrize("reason", list(StopReason), ids=lambda r: r.value)
+def test_every_way_a_grid_replay_stops_has_a_neutral_cause(reason: StopReason) -> None:
+    result = dataclasses.replace(
+        _replayed(0), stop_reason=reason, stop_detail="the detail"
+    )
+
+    outcome = outcome_of(result)
+
+    assert outcome.stop.value == reason.value
+    assert outcome.stop_detail == "the detail"
 
 
 def test_a_period_with_nothing_stored_is_refused_with_the_sync_flag() -> None:

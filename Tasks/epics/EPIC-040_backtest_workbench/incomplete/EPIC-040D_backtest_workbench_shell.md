@@ -63,6 +63,8 @@ Today they live under `ui/kinds/grid/backtest/` (`grid_backtest_view.py`, `grid_
 - **Futures-only controls leaking into Spot.** "Run without funding" appears only when the refusal says funding is missing; the venue profile decides, as in 039J.
 - **Chart cost.** Reuse `BotChart`; a second drawer is banned by ADR D16.
 
+**From `040B` (review of PR #627).** The outcome's `figures` carry a `FigureTone` that the workbench maps to the meaning colours (`Tone`); the Grid sets none. The neutral dispatching query (`RunBacktestQuery`: kind id and request in, `BacktestAnswer` out, resolving `IBotKind.backtester()` from the catalog) is written here, where its first caller is. The trades pane pairs the labelled `fills`, since the outcome has no trade record.
+
 ## 3a. Reuse
 - **Charts:** used `BotChart`, `IBotKind.overlay` and the equity chart, moved from `grid/backtest/equity_chart.py`.
 - **Read-out:** used `ReadoutForm` (`EPIC-033N`).

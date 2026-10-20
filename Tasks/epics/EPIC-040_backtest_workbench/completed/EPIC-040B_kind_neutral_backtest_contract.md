@@ -76,10 +76,11 @@ Unit tests for the mapping over the oracle's own 80 replays; the funding note fi
 
 ## Re-check against master (2026-10-20, `e6551b2`)
 The design held, with four re-scopes, each decided by the constraints and recorded here:
-- **The neutral types are defined fresh in `domain/backtest/`, not in `contracts/backtest_outcome.py`.** A cancelled replay is a value the simulator (domain) returns, and `contracts → domain` is allowed while `domain → contracts` is not the direction the Grid result needs. Everything neutral sits in the domain; only the port sits in `contracts`.
+- **The neutral types are defined in `domain/backtest/`, not in `contracts/backtest_outcome.py`.** The Grid's figures are built by a domain function (`grid_figures.py`), and a domain file builds `BacktestFigure`, so the records it builds must be importable from the domain. (`domain → contracts` is not forbidden here: seventeen domain files of this module import `bots.contracts` already.) Only the port, which the kind seam `IBotKind` names, sits in `contracts`. The simulator does not return the neutral cancelled value: the adapter maps `GridBacktestCancelled`.
 - **Mapping, not moving.** `PriceBar`, `EquityPoint`, `BacktestFill` and the provenance are Grid-module types the 039B oracle and the 039K tests import. Moving them would retarget those tests. So the outcome holds its own small records and the adapter maps (`PriceBar`→`BacktestBar`, `EquityPoint.grid`→`bot`, `BacktestFill.level_index` stays in `detail`). `040F` can drop the Grid copies once the page reads the outcome.
 - **`FundingRequirement` moved to the domain.** The request carries it and a contract may not import `application`. Two 039J/039K test files changed an import line, nothing else.
 - **No new query or registry.** The task's "found by kind id through the registry" is `IBotKind.backtester()` on the catalog's kind. The neutral query that dispatches it is `040D`'s, where its first caller is.
+- **The stop reason is in the outcome** (`stop: StopCause`, `stop_detail`), as the original acceptance list asked; a first draft left it as prose only, and review caught it. The workbench can mark a liquidation or a stop loss on the chart without reading English.
 - **Figures are `FigureKind`, not the Engine's `ColumnKind`, and tones are a neutral enum.** The Grid sets none today (its page shows none); `040D` maps `FigureTone` to the meaning colours.
 
 ## Implementation notes
@@ -87,7 +88,9 @@ The design held, with four re-scopes, each decided by the constraints and record
 
 **Fitting the strategy kind.** The request has `warmup` (history before the period a kind may want to prime itself; the Grid ignores it), and a one-position-at-a-time kind reports each entry and exit as a labelled fill, which the stub-adapter test proves without a strategy. `040G` may add a `trades` list if a position record is wanted; the seam is the fills list.
 
-**Mutation checks (each went red, then restored).** A fill label dropped (75 cases); the funding note moved off first (1); the composition not giving the Grid its adapter (the wiring test); a refusal's flags dropped (2); the equity curve's two sides swapped (80); a Grid import added to the outcome (the guard).
+**Mutation checks (each went red, then restored).** A fill label dropped (75 cases); the request's brackets dropped; the window's two counts swapped; the stop cause fixed (the three the first review proved the tests missed); the funding note moved off first (1); the composition not giving the Grid its adapter (the wiring test); a refusal's flags dropped (2); the equity curve's two sides swapped (80); a Grid import added to the outcome (the guard).
+
+**Follow-ups, each recorded in the file of the task that does it:** `040D` — map `FigureTone` to the meaning colours, write the neutral dispatching query, build the trades pane from the labelled fills; `040F` — drop the Grid's duplicate records (`PriceBar`, `EquityPoint`, `BacktestFill`, `BacktestProvenance`, `DataWindow`) once the oracle's imports are retargeted; `040G` — a trade record beside `fills`, or the workbench pairs entries and exits, and the assertion that nothing before `start` is reported (the stub test here cannot make it).
 
 **Findings for `040D`/`040F`, not fixed here.** `FigureKind` has four kinds, the ones the Grid uses; a kind with a text or a duration figure adds a member and its mapping. `BacktestBar` repeats `PriceBar`'s five fields; `040F` can merge them when the oracle's import is retargeted.
 

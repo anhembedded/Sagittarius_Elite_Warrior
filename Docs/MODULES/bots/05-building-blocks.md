@@ -60,7 +60,7 @@ venue, an interval and a period, an optional `warmup` before the period, and a `
 the answer is a kind-neutral `BacktestAnswer`: a `BacktestOutcome`, a `BacktestRefusal` in words,
 or a `BacktestCancelled`. The outcome (`bots/domain/backtest/backtest_outcome.py` →
 `BacktestOutcome`) is an envelope every pane can read, with no kind named: the candles replayed,
-the equity curve against buy and hold, the fills (each labelled), the fees, the provenance,
+the equity curve against buy and hold, the fills (each labelled), the fees, the provenance, why it stopped (`StopCause`),
 `figures` (an ordered list of labelled raw values with a kind and a tone), `notes` (the caveats,
 the missing funding first) and `detail`, the kind's own rich result. The Grid's adapter is
 `bots/application/kinds/grid/grid_kind_backtester.py` → `GridKindBacktester`: it runs the existing
