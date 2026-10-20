@@ -72,6 +72,29 @@ The unit is [`deploy/linux/sew-run.service`](../../deploy/linux/sew-run.service)
 
 A key must be **bound to the server's address** at the exchange, must **not** be allowed to withdraw (the pre-flight refuses a key that can), and must never appear in a unit file, a plan file, a log or a shell history.
 
+**The way to add, replace, remove and list a key: `sew-key`** (`BOT-200`; the venues are `spot_mainnet`, `futures_mainnet`, `spot_testnet`, `futures_testnet`; [decision](../../Tasks/epics/EPIC-038_headless_operation/DECISION_2026-10-20_server_keys_by_root_script.md)). A root-run script, [`deploy/linux/sew-key`](../../deploy/linux/sew-key), does what the commands below do by hand, and first asks the app whether the key is any good. Install it once (a link, so a `git pull` updates it; the checkout is root-owned, which a script run as root must be):
+
+```bash
+sudo ln -sf /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-key /usr/local/sbin/sew-key
+sudo sew-key list                  # per venue: key present or not, file mode and owner; never a value
+sudo sew-key add                   # type the key, then the secret (no echo); or: sudo sew-key add futures_mainnet
+sudo sew-key remove futures_mainnet   # empty a mainnet venue's two files, or delete a testnet venue's two lines of sew.env
+```
+
+What `add` does, in order: it prompts for the key and the secret with `read -rsp` (no echo, not in your history, not in any argument); it pipes them to the app's `key check`, run as `sew` (`main.py key check`, which reads standard input only and writes nothing); it prints the venue the key belongs to, or why it is refused (a mainnet key that can withdraw, a key that may trade nothing, a key no environment accepts with the reason for each, a character a Binance key never has); you **type the venue's name** to confirm (a key that can trade both Spot and Futures on mainnet is stored for the one you type); and only then it writes. A mainnet key goes to `/etc/sew/credentials/<venue>_api_key` and `_api_secret`, mode `0600` root; a testnet key replaces its two lines in `/etc/sew/sew.env` (the other lines stay), mode `0640` root:sew. Each file is written as a temporary file beside the target and renamed over it, so a failure leaves the old key. It refuses when an environment variable for that venue is set in `sew.env` or in the unit (the app reads the environment before any file, so the file would never be used), when it is not root, and when `/etc/sew/credentials` does not exist (create it as §2 says).
+
+The script **never restarts the service**. The running host keeps the old key until you do:
+
+```bash
+sudo systemctl restart sew-run
+```
+
+After the restart every bot that was running comes back **RECOVERING**; resume each one yourself (§6): `bot resume <id>`, with `--confirm-venue <venue>` on a mainnet venue.
+
+`key check` can be run by itself to ask the question without writing anything: `printf '%s\n%s\n' "$KEY" "$SECRET" | $M key check` (`$M` as in §6), but a key then sits in a shell variable or the history; prefer `sudo sew-key add`, which refuses to write. It exits `0` the key is usable, `2` the input cannot be a key, `5` the key must be replaced (it can withdraw, may trade nothing, or the exchange refuses it), `6` an environment did not answer. `--json` prints `sew.key/1`. It never prints or logs the key or the secret.
+
+**The manual way** below is the fallback when the script cannot run (no `bash`, an unusual layout) and is what the script automates. It has no check of the key.
+
 **Testnet** (the first run): the environment is the source. Put the four names in a file only root and the service can read:
 
 ```bash

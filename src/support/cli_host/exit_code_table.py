@@ -63,7 +63,7 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         "only the operator can fix it, so a restart would repeat it: no key, a key the exchange "
         "rejects (`-2015`: key, address or permission), a bad signature (`-1022`), a key that can "
         "withdraw, Hedge Mode",
-        "`run`, `preflight`, `exchange-status`, trade commands, `bot stop`, `bot pause`, "
+        "`run`, `preflight`, `exchange-status`, `key check`, trade commands, `bot stop`, `bot pause`, "
         "`bot resume`, `bot start`, `bot edit` (this account has no control over the running host)",
         SupervisorAction.DO_NOT_RESTART,
     ),
