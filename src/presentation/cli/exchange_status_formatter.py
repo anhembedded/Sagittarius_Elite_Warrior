@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    SIGNED_REQUEST_RECV_WINDOW_MS,
+)
 from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
     TextReportRenderer,
 )
@@ -36,11 +39,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 _LABEL_WIDTH = 17
 _VALUE_WIDTH = 25
 
-#: python-binance's own default `recvWindow` — matches what
-#: `FuturesSessionFactory.create_trading_client()` implicitly uses (no
-#: override is passed), so this is the real threshold a request would be
-#: judged against, not an arbitrary display cutoff.
-RECV_WINDOW_MS = 5000
+#: The `recvWindow` every signed request carries (`new_client` sets it), so this is the
+#: real threshold a request is judged against, not an arbitrary display cutoff.
+RECV_WINDOW_MS = SIGNED_REQUEST_RECV_WINDOW_MS
 
 _FAILURE_GUIDANCE = EnumLabels(
     ConnectionFailureKind,

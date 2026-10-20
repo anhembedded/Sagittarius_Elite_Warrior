@@ -52,6 +52,7 @@ gantt
 | EPIC-033L | [Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels](incomplete/EPIC-033L_backtest_mode.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-033P | [Developer mode: the testbed, only when developer mode is on](completed/EPIC-033P_developer_mode.md) | #367 (stages 1-2); stage 3 in its own pull request | 🟢 | ✅ Done | 2026-10-06 |
 | EPIC-033U | [The Bots tab colours profit, loss and state from the one meaning table, readable in light, dark and High Contrast](completed/EPIC-033U_bots_tab_meaning_colours.md) | the EPIC-033U pull request | 🟢 | ✅ Done | 2026-10-19 |
+| EPIC-033V | [The Market mode lets the person choose a symbol and keep a Watchlist of their own](completed/EPIC-033V_market_symbol_picker.md) | the EPIC-033V pull request | 🟢 | ✅ Done | 2026-10-20 |
 | EPIC-033M | [The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban](incomplete/EPIC-033M_retire_kit.md) | — | 🟢 | 🔵 Planned | — |
 
 ---

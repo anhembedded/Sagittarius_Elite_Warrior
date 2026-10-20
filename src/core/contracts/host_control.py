@@ -39,6 +39,13 @@ class HostControlAction(StrEnum):
     START = "start"
     #: `EPIC-038L`: change the parameters of a DRAFT or STOPPED bot, as the Bots tab's Save does.
     EDIT = "edit"
+    #: `EPIC-026L`: the owner accepts the account-level loss and lets bots start again. It names no
+    #: bot: `bot_id` is the fixed word `LOSS_CAP_SUBJECT`.
+    ACKNOWLEDGE_LOSS_CAP = "loss-cap-ack"
+
+
+#: What an acknowledgement's `bot_id` says: it is about the account, not a bot.
+LOSS_CAP_SUBJECT = "loss-cap"
 
 
 class HostControlStatus(StrEnum):

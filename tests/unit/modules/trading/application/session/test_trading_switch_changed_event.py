@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
     TradingSwitchCause,
     TradingSwitchChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -77,6 +80,19 @@ def test_the_open_names_the_bot_it_was_for() -> None:
 
     (event,) = publisher.of_type(TradingSwitchChangedEvent)
     assert event.opened_for == "bot-a"
+
+
+def test_an_open_by_a_person_names_the_person() -> None:
+    """`BOT-197`: a typed opener, so a manual order is not confused with an unknown one."""
+    publisher = RecordingPublisher()
+    handler, _, _, _ = _enable_handler(publisher=publisher)
+
+    handler.execute(
+        EnsureSessionReadyCommand(venue=_FUTURES, opened_for=OpenedByPerson.PERSON)
+    )
+
+    (event,) = publisher.of_type(TradingSwitchChangedEvent)
+    assert event.opened_for is OpenedByPerson.PERSON
 
 
 def test_an_open_for_no_bot_names_none() -> None:

@@ -55,9 +55,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
     KeyEnvironment,
     KeyStanding,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import (
-    key_fingerprint,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
     UNKNOWN_KEY_CODES,
 )
@@ -101,11 +98,10 @@ class BinanceKeyEnvironmentProbe(IKeyEnvironmentProbe):
             verdict = self._ask(environment, credentials)
         except _ANSWER_FAILURES as exc:
             verdict = _verdict_of_failure(environment, exc)
+        # No part of the key: the command line checks a server's key as root, and a log
+        # outlives the terminal (`BOT-200`).
         logger.info(
-            "%s: the key %s was %s [key-probe]",
-            environment.label,
-            key_fingerprint(credentials.api_key),
-            verdict.standing.value,
+            "%s: the key was %s [key-probe]", environment.label, verdict.standing.value
         )
         return verdict
 

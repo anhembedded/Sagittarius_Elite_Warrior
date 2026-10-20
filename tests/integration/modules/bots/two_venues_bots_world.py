@@ -164,13 +164,19 @@ def booted_two_venues(
     *,
     open_sessions: bool = True,
     retries: IBotRetryScheduler | None = None,
+    loss_cap: str | None = None,
 ) -> Iterator[BootedTwoVenues]:
     """The app with Spot Testnet and Futures Testnet on; its bots on the serial queue.
 
     @param open_sessions Seed both venues' order sessions as open, what most journeys start
-    from. False is a restart: the sessions stay closed until a deliberate action opens them."""
+    from. False is a restart: the sessions stay closed until a deliberate action opens them.
+    @param loss_cap `bots.account_loss_cap` as the owner writes it (`"30 USDT"`); None leaves the
+    cap off, as an unset config does."""
     config = app_config(exchange.tmp_path)
     config.load_dict({"exchange.trading_venues": [SPOT.value, FUTURES.value]})
+    if loss_cap is not None:
+        # `EPIC-026L`: the owner's figure, as the config key states it; absent means the cap is off.
+        config.load_dict({"bots.account_loss_cap": loss_cap})
     engine = create_app(config)
     container = engine.context.container
     holder: list[BootedTwoVenues] = []

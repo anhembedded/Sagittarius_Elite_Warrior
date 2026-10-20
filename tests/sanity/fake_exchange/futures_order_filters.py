@@ -110,8 +110,10 @@ class OrderFilters:
             )
         if price % rules.tick_size != 0:
             return _refusal(-4014, "Price not increased by tick size.")
-        if not rules.min_price <= price <= rules.max_price:
-            return _refusal(-1013, "Filter failure: PRICE_FILTER")
+        if price < rules.min_price:
+            return _refusal(-4013, "Price less than min price.")
+        if price > rules.max_price:
+            return _refusal(-4002, "Price greater than max price.")
         return None
 
     def _notional_refusal(

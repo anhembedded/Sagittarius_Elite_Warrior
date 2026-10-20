@@ -219,9 +219,9 @@ def test_an_emergency_stop_halts_every_bot_of_its_venue_and_none_of_the_other(
 def test_a_bot_waiting_to_recover_holds_back_a_start_on_its_venue_until_it_is_resumed(
     both_venues: FakeExchange,
 ) -> None:
-    """`EPIC-042E`'s latent risk, closed for Start: a Start opens the venue's order session, and
-    the session's opening reconciles every RECOVERING bot of the venue. After a restart, starting
-    a bot on another symbol would put the first one back to trading without the owner's resume."""
+    """`EPIC-042E`'s latent risk, closed for Start, and kept after `BOT-183` (`BOT-201`): after a
+    restart the waiting bot is reconciled only by its own Resume, so a bot on another symbol does not
+    start beside its unverified exposure."""
     with booted_two_venues(both_venues) as first:
         waiting = run_bots(first, SPOT, (SYMBOL,))[SYMBOL]
 

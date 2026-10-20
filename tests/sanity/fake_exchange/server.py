@@ -198,7 +198,7 @@ class _Handler(BaseHTTPRequestHandler):
         if self._fault is not None:
             return self._fault.status, self._fault.body
         limited = self.rate_limit.refusal(
-            self._used_weight, *self.weights.minute_position()
+            self._used_weight, *self.weights.clock_position()
         )
         if limited is not None:
             status, body, headers = limited

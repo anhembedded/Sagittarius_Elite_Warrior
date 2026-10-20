@@ -11,6 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
     PreviewOrderQuery,
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.check_key import (
+    CheckKeyQuery,
+    CheckKeyQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary import (
     GetAccountSummaryQuery,
     GetAccountSummaryQueryHandler,
@@ -111,3 +115,5 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetOrderNotionalLimitQuery, GetOrderNotionalLimitQueryHandler)
     # BUG-176: the Options page lists each venue's key as a fingerprint.
     container.bind(ListVenueKeysQuery, ListVenueKeysQueryHandler)
+    # BOT-200: `key check` tells a key's venues at the command line and keeps nothing.
+    container.bind(CheckKeyQuery, CheckKeyQueryHandler)

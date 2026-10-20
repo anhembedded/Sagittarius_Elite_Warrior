@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     ReportRow,
     ReportSection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_exchange_unrealised_rows import (
+    exchange_unrealised_rows,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     RECORDED_STATES_NOTE,
     BotRecoveryTable,
@@ -42,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     NO_VALUE,
+    TOTAL_PNL_BASIS,
+    TOTAL_PNL_HEAD,
+    TOTAL_PNL_LEGEND,
     cycles_text,
     grid_profit_text,
     plain_money,
@@ -57,7 +63,7 @@ SCHEMA_VERSION = 1
 _NAME_WIDTH = 24
 _STATE_WIDTH = 10
 #: `BOT-192`: the Bots tab's own figures, as columns of the list.
-_EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", "TOTAL PNL")
+_EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", TOTAL_PNL_HEAD)
 #: `BOT-193`: the ladder's steps, in a word of the Bots tab's Plan row (`Grid step`).
 _STEP_HEAD = "GRID STEP"
 _STEP_WIDTH = 30
@@ -126,7 +132,12 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
-    return (*_recorded_note(status), ReportSection(None, tuple(rows), has_header=True))
+    legend = ReportSection(None, (ReportRow.of(TOTAL_PNL_LEGEND),))
+    return (
+        *_recorded_note(status),
+        ReportSection(None, tuple(rows), has_header=True),
+        legend,
+    )
 
 
 def _show_layout(
@@ -244,10 +255,12 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
             _field("Grid profit", grid_profit_text(bot.earnings, plain_money)),
             _field("Cycles", cycles_text(bot.earnings)),
             _field("Total PnL", total_pnl_text(bot.earnings, plain_money)),
+            _field("", f"({TOTAL_PNL_BASIS})"),
             _field(
                 "Unrealised",
                 unrealised_text(bot.earnings, plain_money, plain_price),
             ),
+            *exchange_unrealised_rows(bot),
             *_ladder_rows(bot),
             *_recovery_rows(bot.recovery),
         ),

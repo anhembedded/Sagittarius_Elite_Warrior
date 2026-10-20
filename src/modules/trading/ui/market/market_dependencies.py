@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -63,6 +66,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import 
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -109,6 +116,13 @@ class MarketDependencies:
     #: the next chart drawn.
     script_params: ScriptParams
     account: IAccountSnapshot
+    #: The tradeable symbols of each market, which View → Symbol… and Add to
+    #: Watchlist… list (`EPIC-033V`).
+    catalog: ISymbolCatalog
+    #: The favourites and recents the symbol picker shows, shared by every
+    #: screen that has one.
+    preferences: SymbolPreferences
+    #: The Watchlist's symbols until the person changes them.
     symbols: tuple[str, ...]
     interval: str
     #: Where the chosen market is remembered; `None` keeps the default.
@@ -141,6 +155,8 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
         scripts=container.resolve(IndicatorScriptRegistry),
         script_params=lambda key: params.load_all().get(key),
         account=container.resolve(IAccountSnapshot),
+        catalog=container.resolve(ISymbolCatalog),
+        preferences=find_symbol_preferences(container) or SymbolPreferences(),
         symbols=tuple(default_symbol_options(values, FALLBACK_SYMBOLS)),
         interval=default_interval(values, FALLBACK_INTERVAL),
         state=find_state_coordinator(container),

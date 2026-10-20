@@ -4,6 +4,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.classify_key import (
+    classify_key,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key.command import (
     EnrolKeyCommand,
 )
@@ -13,14 +16,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_environment_p
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_check import (
+    KeyCheckRefusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_enrolment import (
     EnrolmentRefusal,
     KeyEnrolment,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment import (
     EnvironmentVerdict,
-    KeyEnvironment,
-    KeyStanding,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -31,9 +35,13 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 logger = logging.getLogger("App.KeyEnrolment")
 
-_TESTNET_VENUES = {
-    KeyEnvironment.SPOT_TESTNET: TradingVenue.SPOT_TESTNET,
-    KeyEnvironment.FUTURES_TESTNET: TradingVenue.FUTURES_TESTNET,
+#: What `classify_key` refuses, in the words the enrolment's callers already read.
+_ENROLMENT_REFUSALS = {
+    KeyCheckRefusal.INCOMPLETE: EnrolmentRefusal.INCOMPLETE,
+    KeyCheckRefusal.NOT_A_KEY: EnrolmentRefusal.NOT_A_KEY,
+    KeyCheckRefusal.NOT_ACCEPTED: EnrolmentRefusal.NOT_ACCEPTED,
+    KeyCheckRefusal.WITHDRAWAL_ENABLED: EnrolmentRefusal.WITHDRAWAL_ENABLED,
+    KeyCheckRefusal.NO_TRADING_PERMISSION: EnrolmentRefusal.NO_TRADING_PERMISSION,
 }
 
 
@@ -61,53 +69,18 @@ class EnrolKeyCommandHandler(ICommandHandler[EnrolKeyCommand, KeyEnrolment]):
         self._contexts = contexts
 
     def execute(self, command: EnrolKeyCommand) -> KeyEnrolment:
-        credentials = command.credentials
-        if not credentials.api_key.strip() or not credentials.api_secret.strip():
-            return KeyEnrolment((), refusal=EnrolmentRefusal.INCOMPLETE)
-        if not (credentials.api_key.isascii() and credentials.api_secret.isascii()):
-            return KeyEnrolment((), refusal=EnrolmentRefusal.NOT_A_KEY)
-
-        verdicts: list[EnvironmentVerdict] = []
-        accepted: EnvironmentVerdict | None = None
-        for environment in KeyEnvironment:
-            verdict = self._probe.probe(environment, credentials)
-            verdicts.append(verdict)
-            if verdict.standing is KeyStanding.ACCEPTED:
-                accepted = verdict
-                break
-        if accepted is None:
-            return KeyEnrolment((), tuple(verdicts), EnrolmentRefusal.NOT_ACCEPTED)
-
-        decided = self._venues_for(accepted)
-        if isinstance(decided, EnrolmentRefusal):
-            return KeyEnrolment((), tuple(verdicts), decided)
-        venues = decided
+        checked = classify_key(self._probe, command.credentials)
+        if checked.refusal is not None:
+            return KeyEnrolment(
+                (), checked.verdicts, _ENROLMENT_REFUSALS[checked.refusal]
+            )
+        verdicts = checked.verdicts
+        venues = checked.venues
         if command.only_for is not None:
             if command.only_for not in venues:
-                return KeyEnrolment(
-                    (), tuple(verdicts), EnrolmentRefusal.OTHER_VENUE, venues
-                )
+                return KeyEnrolment((), verdicts, EnrolmentRefusal.OTHER_VENUE, venues)
             venues = (command.only_for,)
-        return self._store(credentials, venues, tuple(verdicts))
-
-    @staticmethod
-    def _venues_for(
-        accepted: EnvironmentVerdict,
-    ) -> tuple[TradingVenue, ...] | EnrolmentRefusal:
-        if accepted.environment is not KeyEnvironment.MAINNET:
-            return (_TESTNET_VENUES[accepted.environment],)
-        permissions = accepted.permissions
-        if permissions is None or permissions.can_withdraw:
-            return EnrolmentRefusal.WITHDRAWAL_ENABLED
-        venues = tuple(
-            venue
-            for venue, allowed in (
-                (TradingVenue.SPOT_MAINNET, permissions.can_trade_spot),
-                (TradingVenue.FUTURES_MAINNET, permissions.can_trade_futures),
-            )
-            if allowed
-        )
-        return venues or EnrolmentRefusal.NO_TRADING_PERMISSION
+        return self._store(command.credentials, venues, verdicts)
 
     def _store(
         self,
@@ -149,8 +122,7 @@ class EnrolKeyCommandHandler(ICommandHandler[EnrolKeyCommand, KeyEnrolment]):
                 )
             stored.append(venue)
             logger.info(
-                "%s: the key %s was kept [key-enrolment]",
+                "%s: the key was kept [key-enrolment]",
                 venue.display_name,
-                credentials,
             )
         return KeyEnrolment(tuple(stored), verdicts)

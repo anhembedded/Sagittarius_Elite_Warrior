@@ -8,7 +8,7 @@ backtest.
 **Complexity:** M — one script that joins the journal to the candidate's backtest over the same
 dates, one report per stage, repeated.
 **Epic:** [`EPIC-026`](../README.md)
-**Depends on:** [`EPIC-026Q`](EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md),
+**Depends on:** [`EPIC-026Q`](../cancelled/EPIC-026Q_mainnet_caps_and_typed_acknowledgement.md),
 [`EPIC-026R`](EPIC-026R_mainnet_read_only_first_contact.md); `O3` (stage sizes)
 
 ---

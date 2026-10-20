@@ -11,6 +11,7 @@ stylesheet or a decorative choice.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
@@ -85,6 +86,14 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
         `update_tick()` is for.
         """
         self.set_rows([WatchlistRow(symbol=symbol) for symbol in symbols])
+        self._row_index = {row.symbol: index for index, row in enumerate(self._rows)}
+
+    def track(self, symbols: Sequence[str]) -> None:
+        """Tracks `symbols`, in that order: a symbol already listed keeps its
+        latest price, change and volume, a new one starts blank
+        (`EPIC-033V`), where `set_symbols` blanks them all."""
+        known = {row.symbol: row for row in self._rows}
+        self.set_rows([known.get(symbol) or WatchlistRow(symbol) for symbol in symbols])
         self._row_index = {row.symbol: index for index, row in enumerate(self._rows)}
 
     def update_tick(

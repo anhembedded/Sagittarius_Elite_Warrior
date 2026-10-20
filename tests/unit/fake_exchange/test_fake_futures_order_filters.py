@@ -37,10 +37,10 @@ def _refusal_code(state: OrderBookState, params: dict[str, str]) -> int | None:
         ("63000.1", None),
         ("63000.05", -4014),
         ("63000.123", -1111),
-        ("556.7", -1013),
+        ("556.7", -4013),
         ("556.8", None),
         ("4529764.0", -2027),  # past the filter; the leverage ceiling refuses it
-        ("4529764.1", -1013),
+        ("4529764.1", -4002),
     ],
     ids=lambda value: str(value),
 )
@@ -141,7 +141,13 @@ def test_every_listed_symbol_enforces_the_tick_it_advertises() -> None:
         )
         tick = Decimal(price_filter["tickSize"])
         precision = int(row["pricePrecision"])
-        off_tick = Decimal(price_filter["minPrice"]) * 2 + tick / 2
+        grid = Decimal(1).scaleb(-precision)
+        # A price on the precision grid but between two ticks exists only where the tick is
+        # coarser than the grid; elsewhere the tick and the precision are one rule.
+        coarse = tick > grid
+        off_tick = Decimal(price_filter["minPrice"]) * 2 + (
+            grid if coarse else tick / 2
+        )
         on_tick = Decimal(price_filter["minPrice"]) * 2
         step = next(f for f in row["filters"] if f["filterType"] == "LOT_SIZE")[
             "stepSize"
@@ -149,9 +155,9 @@ def test_every_listed_symbol_enforces_the_tick_it_advertises() -> None:
         quantity = str(Decimal(step) * 100_000)
         base = {**order_params("BUY", "0", quantity), "symbol": row["symbol"]}
         refused = _refusal_code(
-            state, {**base, "price": f"{off_tick:.{precision + 1}f}"}
+            state, {**base, "price": f"{off_tick:.{precision + (0 if coarse else 1)}f}"}
         )
-        assert refused in {-4014, -1111}, row["symbol"]
+        assert refused == (-4014 if coarse else -1111), row["symbol"]
         assert (
             _refusal_code(state, {**base, "price": f"{on_tick:.{precision}f}"}) is None
         ), row["symbol"]

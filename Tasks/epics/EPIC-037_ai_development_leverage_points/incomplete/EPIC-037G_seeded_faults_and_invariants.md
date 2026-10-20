@@ -18,3 +18,4 @@ Criteria 1–5 of [EPIC-037E](EPIC-037E_demanding_fake_exchange.md) §2 stand un
 - [ ] The Spot fake's `place_order` enforces the same filters from its own `exchangeInfo`.
 - [ ] Hedge-mode semantics: positions per `positionSide`, and `-1106` for `reduceOnly` in Hedge mode (slice 1 only refuses a mismatch with `-4061`).
 - [ ] Rate-limit refusals (`urls.rate_limit`) used in one composed-app journey, so the app's pause (`BUG-216`) is proved against a 429/418 it did not script.
+- [ ] The `-1021` default is shown stable: the integration folders that touch the fake, run 20 times in a row, with the result recorded (slice 1 recorded 3 runs). The server is single-threaded, so a signed request queued behind a slow one is judged at service time.

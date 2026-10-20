@@ -42,7 +42,7 @@ class GridFillAnnouncer:
                     price=order.price,
                     quantity=order.quantity,
                     level=order.level_index,
-                    realised_total=order.realised_total,
+                    grid_profit=order.grid_profit,
                     completed_cycles=order.completed_cycles,
                     quote_asset=BUDGET_QUOTE_ASSET,
                     cycle_profit=order.cycle_profit,

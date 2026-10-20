@@ -36,8 +36,32 @@ def test_a_request_past_the_limit_is_429_and_one_after_it_is_418() -> None:
     assert limited.json()["code"] == -1003
     assert limited.headers["Retry-After"] == "10", "the seconds left in the minute"
     assert banned.status_code == 418
-    assert int(banned.headers["Retry-After"]) >= 120
+    assert banned.headers["Retry-After"] == "120"
     assert (urls.rate_limit.limited, urls.rate_limit.banned) == (1, 1)
+
+
+def test_a_ban_is_held_for_its_retry_after_and_then_lifted() -> None:
+    """The 418 names 120 s; a client that comes back inside them, even in a later minute, is still
+    refused, and one that waits them out is served (`rate_limit_policy.py`)."""
+    now = [_CLOCK]
+    with run_binance_fake_server() as urls:
+        urls.weights.use_clock(lambda: now[0])
+        urls.rate_limit.limit = 1
+        statuses = []
+        for step in (
+            0,
+            0,
+            0,
+            15,
+            100,
+            190,
+        ):  # then probes inside the 120 s, then one after them in a minute of its own
+            now[0] = _CLOCK + step
+            statuses.append(
+                requests.get(f"{urls.futures}/v1/ping", timeout=_TIMEOUT).status_code
+            )
+
+    assert statuses == [200, 429, 418, 418, 418, 200]
 
 
 def test_the_next_minute_is_served_again() -> None:

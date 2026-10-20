@@ -18,6 +18,9 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
   - the bot source: a bot entering HALTED or ERROR, or whose stop gave up, is one
     CRITICAL alert, and so are a stop loss or take profit that ran and a bot closing at a range
     exit (a price outside the range of a bot that holds is a WARNING);
+  - early warnings (`EPIC-036B1`): a Futures bot inside its liquidation warning distance
+    (`LIQUIDATION_RISK`) and a venue's user-data stream down past a grace (`USER_STREAM_DOWN`),
+    each once per condition with a cool-down;
   - the fill source (`BOT-189`): one INFO, silent message for every order that filled whole, the
     cycle's profit on the fill that closes a cycle, bounded per channel by `FillBacklog`;
   - one channel, Discord, configured when its webhook is stored
@@ -71,6 +74,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_aler
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_fill_alert_source import (
     BotFillAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidation_alert_source import (
+    LiquidationAlertSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_alert_source import (
+    StreamAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.cli.alert_cli_handler import (
     AlertCliHandler,
 )
@@ -81,6 +90,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
     IAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
+    AccountLossCapTrippedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
     BotAutoRecoveredEvent,
 )
@@ -99,8 +111,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_chang
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_risk_changed_event import (
+    BotRiskChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
 )
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 
@@ -118,8 +136,9 @@ class AlertingModule(BoundedContextModule):
 
     module_id = "alerting"
 
-    #: Reads the bots' events and status report (`EPIC-036G`); `EPIC-036B` adds `trading`.
-    dependencies: list[str] = ["bots"]  # noqa: RUF012 — the Engine reads a plain attribute
+    #: Reads the bots' events and status report (`EPIC-036G`) and `trading`'s stream health
+    #: (`EPIC-036B1`).
+    dependencies: list[str] = ["bots", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     _host: ThreadedDeliveryHost | None = None
 
@@ -171,9 +190,17 @@ class AlertingModule(BoundedContextModule):
         bus.on(BotChangedEvent, source.on_bot_changed)
         bus.on(BotStopGaveUpEvent, source.on_stop_gave_up)
         bus.on(BotRecoveryStalledEvent, source.on_recovery_stalled)
+        bus.on(AccountLossCapTrippedEvent, source.on_account_loss_cap_tripped)
         bus.on(BotAutoRecoveredEvent, source.on_auto_recovered)
         bus.on(BotRangeChangedEvent, source.on_range_changed)
         bus.on(BotProtectiveStopEvent, source.on_protective_stop)
+        liquidation = container.resolve(LiquidationAlertSource)
+        bus.on(BotRiskChangedEvent, liquidation.on_risk_changed)
+        bus.on(BotChangedEvent, liquidation.on_bot_changed)
+        bus.on(
+            UserStreamHealthEvent,
+            container.resolve(StreamAlertSource).on_user_stream_health,
+        )
         bus.on(
             BotOrderFilledEvent, container.resolve(BotFillAlertSource).on_order_filled
         )
