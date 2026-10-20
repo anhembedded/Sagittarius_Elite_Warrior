@@ -23,7 +23,8 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
 - **`operations`** hosts the headless `run` and reads the bots through `bots/contracts/` alone: the
   plan the host starts from (`bots/contracts/i_bot_plan.py` → `IBotPlan`), the host's commands
   (`bots/contracts/host_bot_requests.py` → `StartBotForHostCommand`, `StopBotForHostCommand`,
-  `PauseBotForHostCommand`, `ResumeBotForHostCommand`, `ResumeRecoveringForHostCommand`) and the status report (`bots/contracts/bot_status_report.py` →
+  `PauseBotForHostCommand`, `ResumeBotForHostCommand`, `ResumeRecoveringForHostCommand`, and, for the owner's
+  `bot loss-cap-ack`, `AcknowledgeLossCapForHostCommand`) and the status report (`bots/contracts/bot_status_report.py` →
   `GetBotStatusReportQuery`, `BotStatusReport`), as `src/modules/operations/application/host_steps.py`
   shows.
 - **`alerting`** reads `BotChangedEvent` (`bots/contracts/events/bot_changed_event.py` →
@@ -31,7 +32,9 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
   `BotStopGaveUpEvent`), `BotRecoveryStalledEvent` (`bots/contracts/events/bot_recovery_stalled_event.py` →
   `BotRecoveryStalledEvent`), `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py` →
   `BotAutoRecoveredEvent`), `BotOrderFilledEvent` (`bots/contracts/events/bot_order_filled_event.py` →
-  `BotOrderFilledEvent`, one per order that filled whole, `BOT-189`) and the status report (`EPIC-036G`;
+  `BotOrderFilledEvent`, one per order that filled whole, `BOT-189`), `AccountLossCapTrippedEvent`
+  (`EPIC-026L`; `bots/contracts/events/account_loss_cap_tripped_event.py` → `AccountLossCapTrippedEvent`, the
+  CRITICAL alert about the whole host) and the status report (`EPIC-036G`;
   [`../alerting/03-context.md`](../alerting/03-context.md)).
 - **The command line** has `bot list`, `show`, `apply` and `export` of a plan
   (`bots/cli/bot_verbs.py` → `BOT_VERBS`), declared by `bots/module.py` → `BotsModule.declare_cli`.
@@ -60,7 +63,8 @@ through as opaque data, and only the parser asks `IBotKindCatalog`
   (`src/modules/trading/contracts/events/user_stream_health_event.py` → `UserStreamHealthEvent`).
 - **Published:** `BotChangedEvent` after every write to the store, and `BotStopGaveUpEvent` when a
   stop's automatic retries are used up, and `BotRecoveryStalledEvent` once when a wait to recover
-  has lasted `stalled_after`.
+  has lasted `stalled_after`, and `AccountLossCapTrippedEvent` once per trip of the account-level loss cap
+  (`EPIC-026L`).
 
 **Planned.** `EPIC-040B` gives the backtest a kind-neutral result and simulator port. **Built:**
 `EPIC-039L`'s exchange-side stop order still goes through `trading`, as every order does (see

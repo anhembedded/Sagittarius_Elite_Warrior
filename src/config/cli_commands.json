@@ -378,7 +378,7 @@
       }
     },
     "bot": {
-      "help": "List, show, order, export, apply, start, edit, stop, pause and resume bots: list, show, order and export change no bot; apply makes the bots match a plan file; start, edit, stop, pause and resume ask the running host (main.py run) to do it",
+      "help": "List, show, order, export, apply, start, edit, stop, pause and resume bots, and acknowledge the loss cap: list, show, order and export change no bot; apply makes the bots match a plan file; start, edit, stop, pause, resume and loss-cap-ack ask the running host (main.py run) to do it",
       "subparsers": {
         "dest": "action",
         "required": true,
@@ -543,6 +543,29 @@
                 "action": "store_true",
                 "help": "Close what the bot holds at market when it stops, as the Bots tab's \"Close the position at market\" does (a reduce-only market order on Futures; on Spot the coin is sold). Required for a Futures bot, whose position is never kept: without it the stop is refused and nothing changes. This trades at the market price, and on mainnet that is real money"
               },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "loss-cap-ack": {
+            "modules": ["bots", "operations"],
+            "help": "Acknowledge a tripped account-level loss cap on the running host (main.py run): bots may start again, and the day's loss keeps counting from 00:00 UTC, so it trips again at the figure unless you raised bots.account_loss_cap. Refused while today's loss is still at or above the figure, and when the cap is not tripped. It starts no bot. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
               {
                 "name": "--wait",
                 "type": "float",

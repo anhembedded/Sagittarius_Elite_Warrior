@@ -16,7 +16,10 @@ Each bot has its own worker thread and FIFO queue, so one slow bot never delays 
 changes a running bot runs there: the router on the bus thread only copies an event and queues it
 ([`05-building-blocks.md`](05-building-blocks.md)). Periodic checks run on `ThreadBotTicker`
 (`bots/adapters/thread_bot_ticker.py` → `ThreadBotTicker`): one ticker, named `bots-ticker`
-(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. A bot waiting to recover has its recovery run posted onto its own worker at that beat (`.../kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery.check`), so the attempt, the cancels and the new ladder run on the thread that owns the bot and never beside a fill. The user-stream and
+(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. A bot waiting to recover has its recovery run posted onto its own worker at that beat (`.../kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery.check`), so the attempt, the cancels and the new ladder run on the thread that owns the bot and never beside a fill. The account-level loss cap's sample (`EPIC-026L`; `bots/application/services/loss_cap/account_loss_cap.py` →
+`AccountLossCap.sample`) is one more task on that ticker, so it has a daemon thread of its own;
+its acknowledgement arrives on the host's command thread, and one lock guards its record while the
+reads, the stops and the publish run outside it. The user-stream and
 sleep watches re-arm on the retry scheduler's heartbeat ([`10-quality.md`](10-quality.md) gives the
 periods). `BotsModule.shutdown` (`bots/module.py` → `BotsModule.shutdown`) closes the scheduler first,
 then the price streams, then every worker, each after running what is queued, so the app exits with
@@ -37,6 +40,12 @@ of the bot's life:
 | `BotRestoreService.restore_all` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) | boot | before any worker exists or any event is subscribed |
 
 **Rolling back across `AWAITING_RECOVERY`** (`EPIC-042B`). An older build reads the new `recovery_attempts` key as nothing (it reads only the keys it knows) and so loses the ledger on its next write. It **refuses** a file whose state is `AWAITING_RECOVERY` (`bots/adapters/persistence/bot_record_codec.py` → `decode` rejects an unknown state value): the bot is *reported* as unreadable, left untouched and never dropped (`bots/contracts/i_bot_store.py` → `RefusedBotFile`), and the host's pre-flight fails on it. So before a downgrade, resume or stop every bot in `AWAITING_RECOVERY`; the status report lists them (`bot list`, the `awaiting_recovery` count in the health snapshot).
+
+**The loss cap's record.** One more file, `state/loss_cap.json`, beside the bots' folder and not in it
+(a file inside would be read as a bot; `bots/composition/loss_cap_bindings.py` → `loss_cap_record_path`), written
+atomically by `bots/adapters/file_loss_cap_store.py` → `FileLossCapStore`. Its only writer is
+`AccountLossCap`, on the sampling thread (the day's ledger, when it changes, and a trip) and on the
+host's command thread (an acknowledgement). A host with no figure set never writes it.
 
 ## Built: a second process
 

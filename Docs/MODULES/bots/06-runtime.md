@@ -117,6 +117,45 @@ stop again when trading is enabled (`GridStopper.after_switch_on`). An order a b
 session is closed is refused, and the bot halts rather than faults (`.../bot_order_gateway.py` →
 `BotOrderGateway`).
 
+## Built: the account-level loss cap
+
+*What happens when the day's loss across the host's bots reaches the owner's figure?* (`EPIC-026L`,
+decision N3.) The parts are in [`05-building-blocks.md`](05-building-blocks.md).
+
+1. **Sample.** Every `SAMPLE_EVERY_SECONDS` the bots ticker calls `AccountLossCap.sample`
+   (`bots/application/services/loss_cap/account_loss_cap.py` → `AccountLossCap.sample`). The sampler
+   reads the status report and turns each bot into a `BotObservation`: its run's result
+   (`RunEarnings.total_pnl`, realised plus unrealised at the price the bot last saved, at most
+   `MARK_PRICE_SAVE_SECONDS` old) or *unknown*.
+2. **Add up.** `LossCapLedger.observe` keeps, per bot, the result when the ledger first saw the run
+   (its baseline) and the latest; a new run banks the old run's day; a deleted bot keeps what it
+   lost. The day is the sum, from 00:00 UTC; at midnight the ledger starts again.
+3. **Decide.** `loss_reached` (the loss is at or beyond the figure) or `unjudged_too_long` (a bot that
+   may hold risk has had no result for `UNJUDGED_TRIP_AFTER`, the bots could not be read, or a bot
+   file is refused). No figure set: nothing is judged.
+4. **Trip, in this order.** The trip is written to `loss_cap.json` first; then
+   `LossCapStopper.stop_all` dispatches `StopBotCommand` for every bot not at rest (the Bots tab's own
+   Stop; a position venue closes at market, the only form it accepts, any other keeps its base);
+   then `AccountLossCapTrippedEvent` is published and `alerting` sends the CRITICAL alert. A record that
+   cannot be written is logged at ERROR and the trip holds in memory: the stops and the alert still go.
+5. **Stay down.** `BotRunner.start` and `resume` refuse with `BotRefusal.LOSS_CAP_TRIPPED` while the
+   record holds a trip; every later sample stops a bot that got going by a path that does not ask the
+   runner (a halt recovery, for one) and asks again for a stop that was refused. A restart reads the
+   record and stays tripped; so does a day roll-over; so does an unset figure.
+6. **Acknowledge.** The owner runs `main.py bot loss-cap-ack`; the running host's command directory
+   carries it to `AcknowledgeLossCapForHostCommandHandler`, which asks `AccountLossCap.acknowledge`. It is
+   refused while today's loss is still at or above the figure (clearing the trip would only trip it again:
+   the owner raises `bots.account_loss_cap` and restarts, or waits for 00:00 UTC), and when the cap is not
+   tripped. Otherwise the trip clears and **the day's count goes on** from 00:00 UTC, so a further loss to
+   the figure trips it again; no bot is started: the owner starts each one.
+
+**What the figure is not.** It is the sum of the bots' own accounts at the prices they last saved,
+not the exchange's equity: it sees what a bot has recorded, within about
+`SAMPLE_EVERY_SECONDS + MARK_PRICE_SAVE_SECONDS` of the market, and between the trip and the last bot
+reaching `STOPPED` the market goes on. A Spot bot keeps its base, so its loss can still move after
+the trip; the alert says so. These limits are the price of a cap that depends on no bot's own logic
+and adds no close path.
+
 ## Built: restart
 
 [`diagrams/06-restart.puml`](diagrams/06-restart.puml) — *what happens to a running bot when the app
@@ -124,7 +163,9 @@ restarts?*
 
 `BotRestoreService` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) applies
 `app_restart` to every saved bot: `RUNNING` and `PAUSED` become `RECOVERING`, `STARTING` becomes
-`HALTED`, and nothing is placed. `BotBootRecovery` (`.../bot_boot_recovery.py` →
+`HALTED`, and nothing is placed. A tripped account-level loss cap is read back from its record and still holds every start and resume
+(`bots/composition/loss_cap_bindings.py` → `bind_loss_cap`); a record this build cannot read starts the
+cap tripped (`LossCapTripReason.RECORD_UNREADABLE`). `BotBootRecovery` (`.../bot_boot_recovery.py` →
 `BotBootRecovery.run`) has every `RECOVERING` bot report what the exchange holds, read only, and pays
 the cancels a cut-short start left owing. The full reconcile (`.../grid_reconciler.py` →
 `GridReconciler.run`) runs only once the venue's order session is open: until then nothing listens to

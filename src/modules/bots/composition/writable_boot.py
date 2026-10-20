@@ -33,6 +33,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.running_bots_objection import (
     RunningBotsObjection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.loss_cap.account_loss_cap import (
+    SAMPLE_EVERY_SECONDS,
+    AccountLossCap,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
     BotPriceWatch,
 )
@@ -56,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler 
     IBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
+    IBotTicker,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -93,6 +100,7 @@ class BotWatches:
     price_watch: BotPriceWatch
     user_stream_watch: UserStreamWatch
     sleep_watch: SleepWatch
+    loss_cap: AccountLossCap
 
 
 def boot_writable(context: IEngineContext) -> BotWatches:
@@ -131,10 +139,13 @@ def boot_writable(context: IEngineContext) -> BotWatches:
     sleep_watch = build_sleep_watch(container)
     sleep_watch.begin()
     logger.info("Bots watch for the machine's sleep")
+    loss_cap = container.resolve(AccountLossCap)
+    container.resolve(IBotTicker).every(SAMPLE_EVERY_SECONDS, loss_cap.sample)
+    logger.info("Bots are watched by the account-level loss cap")
     # After the subscription: a fill that arrives while a restored bot
     # reads the exchange finds its executor already built.
     BotBootRecovery(container.resolve(IBotStore), container.resolve(BotExecutors)).run()
     container.resolve(ICloseObjections).register(
         RunningBotsObjection(container.resolve(IBotStore))
     )
-    return BotWatches(router, price_watch, user_stream_watch, sleep_watch)
+    return BotWatches(router, price_watch, user_stream_watch, sleep_watch, loss_cap)
