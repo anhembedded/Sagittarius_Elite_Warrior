@@ -122,14 +122,12 @@ def pause_with(state: BotRunState, retry_after: timedelta | None, detail: str) -
     and waits it out in AWAITING_RECOVERY, unless the pause is longer than any wait
     (`MAX_AUTO_RESUME_WAIT`: HALTED for a person). A bot already waiting keeps its reason and its
     rule, so a limit cannot shorten the dwell of a quiet feed; the pause joins what the wait
-    watches (`GridRateLimitPause`, `GridHaltProbe`)."""
-    if state.state is BotLifecycleState.AWAITING_RECOVERY:
+    watches (`GridRateLimitPause`, `GridHaltProbe`). A pause over the longest wait ends even a
+    wait in a plain halt, whatever the bot was waiting for."""
+    too_long = too_long_to_wait_words(retry_after)
+    if state.state is BotLifecycleState.AWAITING_RECOVERY and not too_long:
         return
-    state.halt(
-        GridReason.RATE_LIMITED,
-        detail,
-        plain_because=too_long_to_wait_words(retry_after),
-    )
+    state.halt(GridReason.RATE_LIMITED, detail, plain_because=too_long)
 
 
 def _apply(

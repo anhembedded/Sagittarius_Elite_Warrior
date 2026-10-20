@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    MAX_AUTO_RESUME_WAIT,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     DEFAULT_RULE,
 )
@@ -121,6 +124,23 @@ def test_a_paused_bot_that_meets_a_limit_halts_for_a_person_and_nothing_resumes_
     assert world.runtime().reason is GridReason.RATE_LIMITED
     assert "resume by hand" in world.runtime().reason_detail
     beats(world, 3 * int(_PAUSE.total_seconds()))
+    assert world.state() is S.HALTED
+    assert attempts_of(world) == 0
+
+
+def test_a_ban_longer_than_the_wait_met_by_a_bot_already_waiting_halts_it_for_a_person() -> (
+    None
+):
+    """Review of PR 618: the bot was waiting for a quiet feed; a ban over `MAX_AUTO_RESUME_WAIT`
+    is not something any wait holds, so it is HALTED and says to resume by hand."""
+    world = waiting()
+
+    _meets_a_limit(world, MAX_AUTO_RESUME_WAIT + timedelta(minutes=1))
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED
+    assert "resume by hand" in world.runtime().reason_detail
+    beats(world, 3 * int(MAX_AUTO_RESUME_WAIT.total_seconds()) // 100)
     assert world.state() is S.HALTED
     assert attempts_of(world) == 0
 
