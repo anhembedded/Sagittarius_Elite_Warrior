@@ -20,6 +20,8 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | Fill messages (`ORDER_FILLED`) waiting on one channel before the oldest are dropped (chosen, not measured) | 25 | `alerting/domain/alert_policies.py` → `DeliveryPolicy.fill_backlog` |
 | Finished alerts are kept for; purged every | 30 days; 1 h | `alerting/domain/alert_policies.py` → `DeliveryPolicy.retention` · `alerting/application/alert_hub.py` → `PURGE_EVERY` |
 | A lane looks at the outbox unprompted every; housekeeping runs every | 5 s; 1 s | `alerting/composition/alerting_bindings.py` → `LANE_POLL_SECONDS`, `HOUSEKEEPING_SECONDS` |
+| A channel sends at most (a chosen margin under Discord's about 5 per 2 s per webhook, research 036 §1; Telegram's request of one per second per chat): Discord; Telegram | 4 per 2 s; 1 per 1 s | `alerting/domain/alert_policies.py` → `DISCORD_PACING`, `TELEGRAM_PACING` (`PacingPolicy.max_sends`, `PacingPolicy.per`) · `alerting/adapters/paced_channel.py` → `PacedChannel` |
+| A lane never sleeps less than, so a wait of a few milliseconds is not a spin | 50 ms | `alerting/adapters/threaded_delivery_host.py` → `MIN_SLEEP_S` |
 | The Alerts screen reads again every; reads at most | 15 s; 500 alerts | `alerting/ui/history/alerts_presenter.py` → `REFRESH_INTERVAL_MS`, `HISTORY_LIMIT` |
 | One webhook POST counts as no answer after | 10 s | `alerting/adapters/urllib_webhook_transport.py` → `REQUEST_TIMEOUT_S` |
 | A 429 that names no wait waits | 5 s | `alerting/adapters/discord_answer.py` → `DEFAULT_RETRY_AFTER` |
@@ -36,6 +38,5 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 
 ## Planned
 
-`EPIC-036C` adds the channel's own pacing under Discord's limit (research 036 §1: about 5 messages
-per 2 s per webhook, to be measured). The heartbeat (6 h, N4) and the daily summary (01:00 UTC) are `HeartbeatPolicy` (`EPIC-036E`). By decision D4 of `EPIC-041` this table becomes generated from the
+The heartbeat (6 h, N4) and the daily summary (01:00 UTC) are `HeartbeatPolicy` (`EPIC-036E`). By decision D4 of `EPIC-041` this table becomes generated from the
 constants, in the task that fills this view.

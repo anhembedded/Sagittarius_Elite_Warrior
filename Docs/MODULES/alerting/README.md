@@ -36,7 +36,8 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | A bot's reason chooses its alert: rate limit, rejected key, storage pause, a price feed that stays quiet; the reason table and its completeness test | **Built** | `EPIC-036B2` |
 | The app's own failures (`APP_FAILURE`: a task that died, a failed sync, a UI slot that raised) replacing the old notification handler and its direct Telegram wiring | **Built** | `EPIC-036B` |
 | Telegram as an alert channel, its token and chat id in the secret store, the one-time move out of the config file | **Built** | `EPIC-036C1` |
-| Discord embeds, pacing under the platform limit, secret rotation and Send test on the Options page, Telegram fields on the page | Planned | `EPIC-036C` |
+| Each channel paced under its platform's rate limit; the worker's lane sleeps no longer than the channel's wait | **Built** | `EPIC-036C2` |
+| Secret rotation and Send test on the Options page, Telegram fields on the page (in 036D's channels table); no Discord embed (decided, owner may veto) | Planned | `EPIC-036C`, `EPIC-036D` |
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The Alerts mode: the history of alerts with each channel's delivery, a severity filter, the channel line and a notice for a failing channel | **Built** | `EPIC-036D2` |
 | The rest of 036D: the channels table (with the Telegram fields and Rotate), routing matrix, schedule, status-bar indicator, per-bot mute, Retry failed, persisted settings | Planned | `EPIC-036D` |

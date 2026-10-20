@@ -38,6 +38,9 @@ logger = logging.getLogger("App.Alerting")
 #: `stop()` waits this long for a lane stuck inside a channel before moving on.
 JOIN_TIMEOUT_S = 5.0
 
+#: A lane never sleeps less than this, so a wait that ends within it cannot spin the thread.
+MIN_SLEEP_S = 0.05
+
 LANE_THREAD_PREFIX = "alerting-lane-"
 HOUSEKEEPING_THREAD_NAME = "alerting-housekeeping"
 BEACON_THREAD_NAME = "alerting-beacon"
@@ -127,6 +130,13 @@ class ThreadedDeliveryHost:
                 )
             self._stopping.wait(self._beacon_seconds)
 
+    def _sleep_of(self, channel_id: str) -> float:
+        """The poll interval, or less when the channel's wait ends sooner (`EPIC-036C2`)."""
+        remaining = self._delivery.pause_remaining(channel_id)
+        if remaining is None:
+            return self._poll_seconds
+        return max(MIN_SLEEP_S, min(self._poll_seconds, remaining.total_seconds()))
+
     def _run_lane(self, channel_id: str) -> None:
         seen = self._signal.generation()
         while not self._stopping.is_set():
@@ -137,4 +147,4 @@ class ThreadedDeliveryHost:
                 # log and carry on at the next poll.
                 logger.exception("[alert-worker] pass over %s failed", channel_id)
             self._liveness.touch(f"{LANE_THREAD_PREFIX}{channel_id}")
-            seen = self._signal.wait(seen, self._poll_seconds)
+            seen = self._signal.wait(seen, self._sleep_of(channel_id))

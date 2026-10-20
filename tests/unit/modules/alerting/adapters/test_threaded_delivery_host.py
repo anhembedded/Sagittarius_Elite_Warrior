@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_host import (
+    MIN_SLEEP_S,
     ThreadedDeliveryHost,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
@@ -19,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.worker_liveness imp
     STALL_AFTER,
     WorkerLiveness,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
+    DeliveryResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
     an_alert,
@@ -26,6 +30,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
 )
 
 WAIT_S = 10.0
+POLL_S = 30.0
 
 
 @pytest.fixture
@@ -198,4 +203,56 @@ def test_a_wedged_lane_makes_the_worker_not_alive_and_a_released_one_alive_again
         assert _until(liveness.is_alive)
     finally:
         gate.set()
+        host.stop()
+
+
+class _RecordingSignal(WakeSignal):
+    """A `WakeSignal` that notes how long each lane asked to sleep, then really waits."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.timeouts: list[float] = []
+        self.first_wait = threading.Event()
+
+    def wait(self, seen: int, timeout: float) -> int:
+        self.timeouts.append(timeout)
+        self.first_wait.set()
+        return super().wait(seen, timeout)
+
+
+@pytest.mark.parametrize(
+    ("asked", "sleeps", "case"),
+    [
+        (None, POLL_S, "no wait: the poll interval"),
+        (timedelta(milliseconds=10), MIN_SLEEP_S, "a wait inside the floor: the floor"),
+        (timedelta(seconds=1.5), 1.5, "a wait inside the poll: the wait"),
+        (timedelta(seconds=90), POLL_S, "a wait past the poll: the poll"),
+    ],
+    ids=["no-wait", "tiny-wait", "short-wait", "long-wait"],
+)
+def test_a_lane_sleeps_until_its_channel_may_send_again_not_a_whole_poll(
+    tmp_path: Path, asked: timedelta | None, sleeps: float, case: str
+) -> None:
+    """`EPIC-036C2`: without this a paced Discord channel drops to four messages per poll."""
+    signal = _RecordingSignal()
+    rig = build_rig(tmp_path, ("phone",), wakeup=signal)
+    if asked is not None:
+        rig.channels["phone"].script.append(DeliveryResult.retry_later(asked, "wait"))
+    host = ThreadedDeliveryHost(
+        rig.delivery,
+        ("phone",),
+        signal,
+        poll_seconds=POLL_S,
+        housekeeping=rig.hub.flush_due,
+        housekeeping_seconds=POLL_S,
+        liveness=WorkerLiveness(rig.clock),
+        beacon=lambda: None,
+        beacon_seconds=POLL_S,
+    )
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+    try:
+        host.start()
+        assert signal.first_wait.wait(WAIT_S), case
+        assert signal.timeouts[0] == pytest.approx(sleeps), case
+    finally:
         host.stop()

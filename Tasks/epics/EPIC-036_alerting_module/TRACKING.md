@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (10/13) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1` and `036D2` done 2026-10-20
+- **Status:** 🟡 In progress (11/14) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -53,6 +53,7 @@ gantt
 | EPIC-036B2 | [Reason alerts: rate limit, key, storage, price feed](completed/EPIC-036B2_reason_alerts_rate_limit_key_storage_price_feed.md) | `claude/epic-036b2-system-sources` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036B | [Alert sources, the rest](completed/EPIC-036B_alert_sources.md) | `claude/epic-036b-system-alert-source` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036C1 | [Telegram channel and token migration](completed/EPIC-036C1_telegram_alert_channel_and_token_migration.md) | `claude/epic-036c-telegram-channel` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036C2 | [Channels keep under their rate limit](completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) | `claude/epic-036c2-pacing-and-embed` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D1 | [Options page: the Discord webhook, Send test](completed/EPIC-036D1_options_alerts_page_discord_webhook.md) | `claude/alerts-options-page-036d1` | 🟡 | ✅ Done (2026-10-16), awaiting merge of this record | — |
 | EPIC-036D2 | [The Alerts mode: history and channel status](completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) | `claude/epic-036d-alerts-history` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |

@@ -13,7 +13,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -93,6 +93,8 @@ from .grid_fake_exchange import (
 
 S = BotLifecycleState
 WAIT_S = 15.0
+#: How much fake time passes per look at the outbox: more than a paced channel's whole period.
+PACING_STEP = timedelta(seconds=2)
 WEBHOOK = "https://discord.com/api/webhooks/998877/Sk3l3t0n-T0ken_xyz"
 _AT = datetime(2026, 10, 19, 9, tzinfo=UTC)
 
@@ -133,6 +135,9 @@ def _settled(app: BootedApp, transport: FakeWebhookTransport) -> list[str]:
         # must not be a lost wake-up.
         transport.posted.wait(0.05)
         transport.posted.clear()
+        # The fake clock stands still, so a channel's own pacing (four messages per two
+        # seconds, `EPIC-036C2`) would hold the fifth for ever: the test lets time pass.
+        clock.advance(PACING_STEP)
     return [str(post.body["content"]) for post in transport.posts]
 
 

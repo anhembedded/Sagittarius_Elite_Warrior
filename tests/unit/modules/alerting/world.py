@@ -8,7 +8,7 @@ boundary) and the clock are fakes.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.alert_hub import
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_delivery import (
     ChannelDelivery,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel import (
+    IAlertChannel,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_wakeup import (
     IDeliveryWakeup,
@@ -88,7 +91,7 @@ class Rig:
 
     clock: FakeAlertClock
     outbox: SqliteOutbox
-    channels: dict[str, FakeAlertChannel]
+    channels: dict[str, IAlertChannel]
     settings: InMemoryAlertSettings
     hub: AlertHub
     delivery: ChannelDelivery
@@ -102,7 +105,9 @@ class Rig:
             self.delivery.run_due(channel_id)
 
     def received_kinds(self, channel_id: str) -> list[AlertKind]:
-        return [item.alert.kind for item in self.channels[channel_id].received]
+        channel = self.channels[channel_id]
+        assert isinstance(channel, FakeAlertChannel)
+        return [item.alert.kind for item in channel.received]
 
 
 def build_rig(
@@ -113,11 +118,16 @@ def build_rig(
     clock: FakeAlertClock | None = None,
     outbox: SqliteOutbox | None = None,
     wakeup: IDeliveryWakeup | None = None,
+    channel_map: Mapping[str, IAlertChannel] | None = None,
 ) -> Rig:
     the_clock = clock or FakeAlertClock()
     path = tmp_path / "state" / "alerts.sqlite3"
     the_outbox = outbox or SqliteOutbox(path)
-    channels = {channel_id: FakeAlertChannel() for channel_id in channel_ids}
+    channels: dict[str, IAlertChannel] = (
+        dict(channel_map)
+        if channel_map is not None
+        else {channel_id: FakeAlertChannel() for channel_id in channel_ids}
+    )
     catalog = RegisteredChannelCatalog(channels)
     settings = InMemoryAlertSettings()
     counting = CountingWakeup()
