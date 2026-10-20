@@ -72,6 +72,15 @@ The coordinator put the five decisions below to the owner, each summarised, with
 - **Colour and theme.** That is `PRO-009`.
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
+## Follow-ups (deferred from review, not dropped)
+Found while delivering `040D`–`040F` and the interval picker; none blocks a child, each needs a task or a decision.
+| # | Follow-up | Found in | Needs |
+| :-- | :--- | :--- | :--- |
+| F1 | **A Bots-mode menu command for the timeframe picker.** The Bots mode has no command named "More timeframes…", so the pinned timeframe actions of the Live chart's toolbar and of the workbench's interval toolbar are not reachable from the menu bar (`ui-presentation-rule.md` §6). The workbench's interval buttons take Tab focus meanwhile (PR #642). Pattern: Market and Backtest contribute `chart_commands` with a prefix and menu path and follow the chart in front (`ChartCommandMirror.follow_chart`). | PR #642, review round 1 | A BOT task |
+| F2 | **A conformance case with a backtestable bot selected.** `test_workbench_conformance.py` measures the Bots mode with no bot selected, so the workbench page (built on `follow()` with a bot) and its toolbars are never in the suite. The case seeds a bot, shows the Backtest tab, and measures menus, toolbars, size and scroll areas at the three window sizes. It would have caught F1. | PR #642, review round 1 | A BOT task |
+| F3 | **The Replay chart's own timeframe row.** The result chart keeps its pinned `1m 5m 15m 1h 1d` row beside the new interval picker: a second chooser that changes nothing the person ran, offers `1d`, and its empty text says "Pick another timeframe". Hide it for the result chart, or make it follow the interval. | PR #642, the author and its reviewer | An owner decision |
+| F4 | **Unpinning every interval in the picker's dialog** leaves the interval row with only "More timeframes…" while Run still replays the chosen one. Refuse the last unpin, or name the interval in the status. | PR #642, review round 1 (optional) | An owner decision |
+
 ## Resume
 
 *Written 2026-10-20 by the author session of `040A`–`040C`, for the session that takes `040D`–`040G`; brought up to date by the `040D` pull request. The owner asked for all of EPIC-040.*
