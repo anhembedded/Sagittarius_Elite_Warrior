@@ -24,7 +24,7 @@ The guideline: more than 15 public methods per class forces a split (`.claude/ru
 - [ ] `OwnerBooks`, and every class the split creates, has at most 15 public methods.
 - [ ] No behaviour changes: the existing `OwnerBooks` unit tests, the `BUG-203` and `BUG-233` regression tests (unit and integration) pass unchanged in what they assert.
 - [ ] One lock still guards the registry and the departed-symbols set: no read can observe a book half-way through a fill (a test applies a fill from one thread while another reads `facts` and `position_of`, and sees the book before or after the fill, never between).
-- [ ] No caller among the seven other files that use `OwnerBooks` (`owner_position_deriver`, `position_state_reconciler`, `trading_session_state`, `owner_inventory_deriver`, `register_owner_budget/handler`, `i_owner_book`, `venue_event_emitter`) reaches through one object to another (Law of Demeter, `code/quality.md` §10).
+- [ ] No caller among the twelve other files under `src/` that use `OwnerBooks` reaches through one object to another (Law of Demeter, `code/quality.md` §10): `trading/composition/venue_assembly.py`, `trading/contracts/i_owner_book.py`, `trading/adapters/binance/venue_event_emitter.py`, and under `trading/application/`: `owner_position_deriver`, `owner_inventory_deriver`, `owner_position_registrar`, `position_state_reconciler`, `trading_session_state`, `orders/execute_order/handler`, `session/register_owner_budget/handler`, `session/trading_session_service`, `session/emergency_stop/handler`. Several already reach it through `session_state.owner_books.<method>`, the case this criterion targets.
 - [ ] `TradingSessionState`'s count is stated in the implementation notes, split here if it is on the same seam, otherwise filed as its own task.
 
 ## 3. Design
@@ -40,7 +40,7 @@ Not decided here: the names, and whether `take_departure`'s consume-on-read is k
 | :--- | :--- |
 | `src/modules/trading/application/owner_books.py` | Registry and lifecycle stay; the read methods move out. |
 | New file beside it | The read view over the same registry and lock. |
-| The seven files listed in §2 | Take the read view where they only read. |
+| The twelve files listed in §2 | Take the read view where they only read. |
 | `tests/unit/modules/trading/application/` | A concurrency test for the shared lock; existing tests move with the methods they cover. |
 
 ## 5. Testing
