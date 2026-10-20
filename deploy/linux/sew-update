@@ -45,6 +45,7 @@ LEFT_STOPPED=0
 TARGET_SHA=""
 BEFORE_SHA=""
 STATE_COPY=""
+MARKER=""
 
 usage() {
   cat >&2 << 'USAGE'
@@ -54,7 +55,7 @@ USAGE
   exit 2
 }
 
-# shellcheck disable=SC2317 # reached through the EXIT trap
+# shellcheck disable=SC2317,SC2329 # reached through the EXIT trap
 on_exit() {
   local status=$?
   if ((status != 0 && LEFT_STOPPED == 1)); then
@@ -62,7 +63,7 @@ on_exit() {
     if [[ -n "$STATE_COPY" ]]; then
       printf '  the state copy is %s\n' "$STATE_COPY" >&2
     fi
-    printf '  fix the cause, then run sudo %s again; or roll back: sudo %s %s\n' "$TOOL" "$TOOL" "${BEFORE_SHA:-<the previous release>}" >&2
+    printf '  fix the cause, then run sudo %s again: it remembers that the host ran before and starts it;\n  or start it as it was: sudo systemctl start %s; or roll back: sudo %s %s\n' "$TOOL" "$SERVICE" "$TOOL" "${BEFORE_SHA:-<the previous release>}" >&2
   fi
 }
 trap on_exit EXIT
@@ -82,8 +83,31 @@ fetch_and_resolve() {
   fi
   TARGET_SHA=$(resolve_ref "$REF") || die "'$REF' names no commit in $CHECKOUT (a tag, a commit or a branch of origin)"
   BEFORE_SHA=$(git_checkout rev-parse HEAD)
+  read_marker
   note "deploying $REF = $TARGET_SHA ($(git_checkout log -1 --format=%s "$TARGET_SHA"))"
   note "currently   $BEFORE_SHA"
+}
+
+# An update that failed after the stop left a marker: the host ran before, and this is the
+# release it ran. The next run honours both, so a re-run restores the host and the rollback
+# command names the release that was running, not the one that failed.
+read_marker() {
+  [[ -f "$MARKER" ]] || return 0
+  local before
+  before=$(sed -n 's/^before=//p' "$MARKER")
+  if [[ -n "$before" ]]; then
+    BEFORE_SHA="$before"
+  fi
+  if grep -qx 'was_active=1' "$MARKER"; then
+    WAS_ACTIVE=1
+  fi
+  note "an earlier update stopped $SERVICE and did not finish: this run restores it (rollback target $BEFORE_SHA)"
+}
+
+write_marker() {
+  if [[ "$DRY_RUN" != 1 ]]; then
+    printf 'was_active=1\nbefore=%s\n' "$BEFORE_SHA" > "$MARKER"
+  fi
 }
 
 # A tracked file edited by hand (src/config/user_config.json holds bots.account_loss_cap) rides
@@ -111,6 +135,10 @@ stop_host() {
   state=$(service_state)
   if service_live; then
     WAS_ACTIVE=1
+  elif ((WAS_ACTIVE == 1)); then
+    note "$SERVICE is already stopped (by the earlier update)"
+    LEFT_STOPPED=1
+    return 0
   fi
   if ((WAS_ACTIVE == 0)); then
     note "$SERVICE is not running ($state); it stays stopped until you start it"
@@ -123,6 +151,7 @@ stop_host() {
   fi
   if [[ "$state" != "active" ]]; then
     note "$SERVICE was $state (restarting after a failure); the stop cancels the restart"
+    write_marker
     return 0
   fi
   journalctl -u "$SERVICE" -o cat -n 15 --no-pager || true
@@ -133,6 +162,7 @@ stop_host() {
     fail "$SERVICE did not drain cleanly (Result=$result, exit status $status); read the log above before going on. Nothing was changed"
   fi
   note "$SERVICE drained (Result=success, exit 0)"
+  write_marker
 }
 
 save_state() {
@@ -143,6 +173,10 @@ save_state() {
     act "copy the state aside: $STATE_COPY" cp -a -- "$DATA_ROOT/state" "$STATE_COPY"
   else
     note "no $DATA_ROOT/state yet; nothing to copy"
+  fi
+  if [[ ! -d "$DATA_ROOT/state" ]]; then
+    note "no archive taken: sew-backup refuses a host with no state/ (it was never started)"
+    return 0
   fi
   local tool="" candidate
   for candidate in "$SBIN_DIR/sew-backup" "$CHECKOUT/deploy/linux/sew-backup" "$SCRIPT_DIR/sew-backup"; do
@@ -213,10 +247,12 @@ main() {
   sew_init
   require_root
   require_installed
+  MARKER="$SEW_HOME_DIR/.sew-update-pending"
 
   step "Which release"
   fetch_and_resolve
   refuse_local_edits_in_the_way
+  refuse_credential_drop_ins
 
   step "Stop, copy the state, back it up"
   stop_host
@@ -235,6 +271,9 @@ main() {
 
   step "Start"
   start_host
+  if [[ "$DRY_RUN" != 1 ]]; then
+    rm -f -- "$MARKER"
+  fi
 
   printf '\n'
   if [[ "$DRY_RUN" == 1 ]]; then

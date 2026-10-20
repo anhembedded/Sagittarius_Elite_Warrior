@@ -253,3 +253,17 @@ check_load_credential() {
   fi
   note "LoadCredential is exactly the unit's one line"
 }
+
+# Before anything stops: a drop-in that names LoadCredential= adds a line or, bare, empties the
+# list. The check after the install is the truth; this one costs nothing while the host runs.
+refuse_credential_drop_ins() {
+  local file found=()
+  for file in "$UNIT_DIR/$SERVICE.service.d"/*.conf; do
+    if [[ -f "$file" ]] && grep -qE '^[[:space:]]*LoadCredential=' "$file"; then
+      found+=("$file")
+    fi
+  done
+  if ((${#found[@]} > 0)); then
+    die "nothing was stopped or changed. ${found[*]} sets LoadCredential=, which adds a line to the unit's one or empties it and starts the service with no key (runbook section 3): delete that line from the file, run 'systemctl daemon-reload' and run $TOOL again"
+  fi
+}

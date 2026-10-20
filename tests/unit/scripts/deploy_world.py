@@ -86,6 +86,7 @@ exit 0
 _VENV_PIP = (
     _LOG_STUB.format(name="venv-pip")
     + """
+[ -e "$STUB_STATE/pip_fails" ] && exit 1
 echo "pip-saw checkout=$(git -C "$SEW_DEPLOY_ROOT/opt/sew/Sagittarius_Elite_Warrior" rev-parse --short HEAD) unit=$(md5sum "$SEW_DEPLOY_ROOT/etc/systemd/system/sew-run.service" 2>/dev/null | cut -c1-8) umask=$(umask)" >> "$STUB_LOG"
 exit 0
 """
@@ -343,9 +344,19 @@ class DeployWorld:
         _write(
             link,
             "#!/bin/sh\n"
+            '[ -d "$SEW_BACKUP_ROOT/var/lib/sew/state" ] || { echo "sew-backup: no state" >&2; exit 2; }\n'
             'echo "sew-backup root=$SEW_BACKUP_ROOT dir=$SEW_BACKUP_DIR '
             f'head=$(git -C {self.checkout} rev-parse --short HEAD)" >> "$STUB_LOG"\n',
         )
+
+    def running_with_a_new_release(self, new_unit: str) -> str:
+        """An installed, running host with a bot file, and a second release that changes the unit."""
+        self.installed()
+        self.set_state("active")
+        bots = self.root / "var" / "lib" / "sew" / "state" / "bots"
+        bots.mkdir(parents=True)
+        (bots / "44wa1x.json").write_text('{"id": "44wa1x"}', encoding="utf-8")
+        return self.commit("release 2", **{"deploy__linux__sew-run.service": new_unit})
 
     def installed(self) -> DeployWorld:
         """A host the install has run on, its log cleared, the service not running."""

@@ -22,14 +22,7 @@ def _md5(text: str) -> str:
 
 
 def _running_host_with_a_new_release(deploy: DeployWorld) -> str:
-    """An installed, running host and a second release that changes the unit."""
-    deploy.installed()
-    deploy.set_state("active")
-    (deploy.root / "var" / "lib" / "sew" / "state" / "bots").mkdir(parents=True)
-    (deploy.root / "var" / "lib" / "sew" / "state" / "bots" / "44wa1x.json").write_text(
-        '{"id": "44wa1x"}', encoding="utf-8"
-    )
-    return deploy.commit("release 2", **{"deploy__linux__sew-run.service": _NEW_UNIT})
+    return deploy.running_with_a_new_release(_NEW_UNIT)
 
 
 def test_the_unit_is_installed_only_after_the_code_it_goes_with(
@@ -103,7 +96,7 @@ def test_the_credentials_line_is_checked_before_the_start(deploy: DeployWorld) -
     assert lines.index("systemctl cat sew-run") < lines.index("systemctl start sew-run")
 
 
-def test_a_drop_in_that_resets_the_line_leaves_the_host_stopped_and_says_so(
+def test_a_drop_in_that_sets_the_credentials_line_is_refused_before_the_stop(
     deploy: DeployWorld,
 ) -> None:
     _running_host_with_a_new_release(deploy)
@@ -112,13 +105,15 @@ def test_a_drop_in_that_resets_the_line_leaves_the_host_stopped_and_says_so(
     (drop_in / "reset.conf").write_text(
         "[Service]\nLoadCredential=\n", encoding="utf-8"
     )
+    before = deploy.head()
 
     run = deploy.update()
 
     assert run.code == 2
-    assert "expected exactly: LoadCredential=sew:/etc/sew/credentials" in run.err
-    assert "sew-run is NOT running" in run.err
-    assert "systemctl start sew-run" not in deploy.lines()
+    assert "reset.conf sets LoadCredential=" in run.err
+    assert "nothing was stopped or changed" in run.err
+    assert deploy.calls("systemctl stop") == []
+    assert deploy.head() == before
 
 
 def test_the_preflight_lines_and_the_recovering_reminder_are_printed_after_the_start(
@@ -240,48 +235,6 @@ def test_a_local_edit_the_release_leaves_alone_is_kept(deploy: DeployWorld) -> N
         config.read_text(encoding="utf-8") == '{"bots.account_loss_cap": "500 USDT"}\n'
     )
     assert "your local edits are kept" in run.out
-
-
-def test_a_host_that_did_not_drain_stops_the_upgrade_before_any_change(
-    deploy: DeployWorld,
-) -> None:
-    _running_host_with_a_new_release(deploy)
-    deploy.set_state("main_status", "1")
-    before = deploy.head()
-
-    run = deploy.update()
-
-    assert run.code == 1
-    assert "did not drain cleanly" in run.err
-    assert "sew-run is NOT running" in run.err
-    assert deploy.head() == before
-    assert deploy.calls("venv-pip") == []
-    assert deploy.calls("systemctl start") == []
-
-
-def test_a_start_that_fails_prints_the_log_and_exits_1(deploy: DeployWorld) -> None:
-    _running_host_with_a_new_release(deploy)
-    deploy.set_state("start_fails")
-
-    run = deploy.update()
-
-    assert run.code == 1
-    assert "[preflight] credentials-present: ok" in run.out
-    assert "did not start" in run.err
-
-
-def test_a_release_without_the_install_files_fails_with_the_rollback_command(
-    deploy: DeployWorld,
-) -> None:
-    deploy.installed()
-    before = deploy.head()
-    bare = deploy.drop_from_origin("deploy/linux/sew-update")
-
-    run = deploy.update(bare)
-
-    assert run.code == 1
-    assert "predates the install scripts" in run.err
-    assert f"sudo sew-update {before}" in run.err
 
 
 def test_dry_run_changes_nothing(deploy: DeployWorld) -> None:
