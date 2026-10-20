@@ -19,7 +19,6 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.scripts.render_service_files import (
     alerting_credential_names,
-    mainnet_credential_names,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     require_tool,
@@ -111,10 +110,10 @@ def test_the_provisioning_snippet_writes_the_typed_value_to_a_mode_600_file(
     assert result.returncode == 0, result.stderr
     written = credentials / "futures_mainnet_api_key"
     assert written.read_text(encoding="utf-8") == _PLACEHOLDER
-    for name in mainnet_credential_names():
-        assert stat.S_IMODE((credentials / name).stat().st_mode) == 0o600, name
-    for unused in set(mainnet_credential_names()) - {"futures_mainnet_api_key"}:
-        assert (credentials / unused).read_bytes() == b""
+    assert stat.S_IMODE(written.stat().st_mode) == 0o600
+    # Only the secret typed gets a file: the unit loads the directory, so a file never
+    # created is a secret that is not set and no placeholder is needed.
+    assert os.listdir(credentials) == ["futures_mainnet_api_key"]
     # The value never reached an argument list: sudo only ever saw paths.
     assert _PLACEHOLDER not in calls.read_text(encoding="utf-8")
 
