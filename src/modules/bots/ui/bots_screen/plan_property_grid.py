@@ -36,6 +36,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QAbstractScrollArea,
+    QSizePolicy,
     QStyle,
     QTreeView,
     QWidget,
@@ -135,6 +136,10 @@ class PlanPropertyGrid:
         view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         view.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        # A scroll area's child is `Expanding` with a tiny minimum, so a panel shorter than the
+        # table would squeeze it (70 px of 429 at 1024×700) and the table would scroll by itself.
+        # `Minimum` makes its size hint the least height it gets, and the panel scrolls once.
+        view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         header = view.header()
         # The engine's header mode stays (item views are configured by their specs, never per view);
         # the last column takes what the first leaves, and the first is held at half.

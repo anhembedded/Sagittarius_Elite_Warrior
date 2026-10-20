@@ -136,7 +136,7 @@ def test_without_a_chart_the_centre_says_how_to_get_one(view) -> None:
 
 
 def test_no_push_button_of_the_mode_and_no_scroll_area_inside_another(
-    view,
+    view, qtbot
 ) -> None:
     """Fit levels was a push button over the chart: it is a command of the
     Bots menu now, and the mode holds no button of its own
@@ -148,6 +148,15 @@ def test_no_push_button_of_the_mode_and_no_scroll_area_inside_another(
     content and not a second scroll."""
     panel = GridPanel()
     view.set_kind_panel(panel)
+    # With no bot selected the Plan shows its instruction and the table is not on screen.
+    view.model.set_selected(BotSnapshot.of(stored("a00001", S.DRAFT).bot, None))
+    view.resize(1024, 700)
+    view.show()
+    table = view.plan.properties.view
+    # The table gets its whole height, never less (a panel shorter than the table once squeezed
+    # it to 70 px of 429 and it scrolled by itself), once the rows have asked for the height of
+    # their wrapped text at the window's width.
+    qtbot.waitUntil(lambda: table.height() >= table.sizeHint().height() - 2)
 
     buttons = [
         b.text()
@@ -282,13 +291,16 @@ def _menu_bar_keys() -> set[str]:
 
 
 def _is_grown_to_its_rows(area: QAbstractScrollArea) -> bool:
-    """A table with no scroll bar of its own that is as tall as its rows."""
+    """A table with no scroll bar of its own that is as tall as its rows: bars off, sized to its
+    contents, and nothing to scroll now (a hidden bar does not stop the wheel)."""
     off = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
     return (
         area.verticalScrollBarPolicy() is off
         and area.horizontalScrollBarPolicy() is off
         and area.sizeAdjustPolicy()
         is QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
+        and area.verticalScrollBar().maximum() == 0
+        and area.horizontalScrollBar().maximum() == 0
     )
 
 
