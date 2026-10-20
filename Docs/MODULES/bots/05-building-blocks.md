@@ -24,7 +24,9 @@ host's start, stop and resume) and hands it to `BotExecutors` (`.../bot_executor
 `BotExecutors`), which holds one executor per bot. For the Grid kind that is `GridExecutor`
 (`.../grid_executor.py` → `GridExecutor`), built by `GridExecutorFactory`
 (`.../grid_executor_factory.py` → `GridExecutorFactory`) with a `BotOrderGateway`
-(`.../bot_order_gateway.py` → `BotOrderGateway`), the bot's one way to `trading`. Every call to an
+(`.../bot_order_gateway.py` → `BotOrderGateway`), the bot's one way to `trading`; the requests it sends
+are built by `BotOrderRequests` (`.../bot_order_requests.py` → `BotOrderRequests`): a placement, or an
+exit sent as a close that trading judges by the inventory or exposure (`BUG-241`). Every call to an
 executor is queued and run in order on the bot's own worker ([`07-deployment.md`](07-deployment.md)).
 
 ## Built: an event's path
