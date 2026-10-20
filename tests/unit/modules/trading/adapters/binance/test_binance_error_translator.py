@@ -77,6 +77,51 @@ def _exception(code: int, message: str) -> BinanceAPIException:
         ),
         (-2008, "Invalid Api-Key ID.", OrderRejectionReason.KEY_REJECTED),
         (-2014, "API-key format invalid.", OrderRejectionReason.KEY_REJECTED),
+        # `BUG-236` — the USDⓈ-M order-filter family (error-code page read 2026-10-20),
+        # which read as `UNKNOWN`: price and stop price, quantity, the mark-price caps.
+        (-4001, "Price less than 0.", OrderRejectionReason.PRICE_FILTER),
+        (-4002, "Price greater than max price.", OrderRejectionReason.PRICE_FILTER),
+        (-4004, "Quantity less than min quantity.", OrderRejectionReason.LOT_SIZE),
+        (-4005, "Quantity greater than max quantity.", OrderRejectionReason.LOT_SIZE),
+        (-4006, "Stop price less than zero.", OrderRejectionReason.PRICE_FILTER),
+        (
+            -4007,
+            "Stop price greater than max price.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (-4013, "Price less than min price.", OrderRejectionReason.PRICE_FILTER),
+        (-4014, "Price not increased by tick size.", OrderRejectionReason.PRICE_FILTER),
+        (
+            -4016,
+            "Price is higher than mark price multiplier cap.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (-4023, "Qty not increased by step size.", OrderRejectionReason.LOT_SIZE),
+        (
+            -4024,
+            "Price is lower than mark price multiplier floor.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (
+            -4183,
+            "Price is higher than stop price multiplier cap.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (
+            -4184,
+            "Price is lower than stop price multiplier floor.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (
+            -4210,
+            "Stop price is higher than price multiplier cap.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
+        (
+            -4211,
+            "Stop price is lower than price multiplier floor.",
+            OrderRejectionReason.PRICE_FILTER,
+        ),
     ],
 )
 def test_real_binance_codes_map_to_the_expected_reason(
@@ -131,3 +176,17 @@ def test_an_order_the_exchange_does_not_hold_has_a_named_reason() -> None:
             translate_binance_error(_exception(code, message))
             is OrderRejectionReason.UNKNOWN_ORDER
         )
+
+
+@pytest.mark.parametrize(
+    "code",
+    [-4008, -4009, -4010, -4011, -4012, -4017, -4018, -4025, -4029, -4030, -4058],
+)
+def test_a_symbol_configuration_error_is_not_an_order_filter_refusal(code: int) -> None:
+    """`BUG-236` — the family's other codes say the exchange's own symbol table is
+    wrong (a tick below zero, a maximum under the minimum): nothing the order's
+    numbers can fix, so they stay `UNKNOWN` with their text."""
+    assert (
+        translate_binance_error(_exception(code, "A symbol configuration error."))
+        is OrderRejectionReason.UNKNOWN
+    )

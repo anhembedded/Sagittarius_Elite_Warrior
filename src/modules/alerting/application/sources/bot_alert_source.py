@@ -116,6 +116,9 @@ ALERT_ON_ENTRY: Mapping[str, AlertKind] = MappingProxyType(
 
 #: `RangePosition.value`s, as the range event spells them (alerting reads contracts, not `bots.domain`).
 _INSIDE = "INSIDE"
+#: `GridReason.RATE_LIMITED`'s word (a module reaches another only through `contracts/`): the
+#: wait for a pause keeps the ladder on the exchange, no cancel can be sent into it.
+_PAUSE_REASON = "rate_limited"
 _BELOW = "BELOW"
 
 #: A state whose entry ends these conditions.
@@ -230,9 +233,14 @@ class BotAlertSource:
             if entry is not None
             else AlertSubject.bot(event.bot_id, "", "", "", "")
         )
+        ladder = (
+            "with its ladder still resting on the exchange (no cancel is sent into a pause)"
+            if event.reason == _PAUSE_REASON
+            else "with its ladder off the exchange"
+        )
         detail = (
             f"The bot has waited {event.waited_s // 60} minute(s) to recover and is still "
-            "waiting, with its ladder off the exchange; it resumes by itself if the cause "
+            f"waiting, {ladder}; it resumes by itself if the cause "
             "clears. Its stop loss and take profit are watched only while ticks arrive.\n"
             f"Reason: {event.reason}"
         )

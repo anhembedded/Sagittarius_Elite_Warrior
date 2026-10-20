@@ -43,5 +43,6 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | `bot order <id>`: the orders a bot's file records (stored, not live) | **Built** | `BOT-187` |
 | The stalled-wait and recovery alerts, the used-up words on the halt alert; `bot show`'s recovery table | **Built** | `EPIC-042C`, `EPIC-042D`, `EPIC-042G` |
 | `run --resume-halted`: the host gives a person's Resume and Confirm to every HALTED or AWAITING_RECOVERY bot | **Built** | `EPIC-042E` ([`06-runtime.md`](06-runtime.md)) |
+| The grid's rate-limit auto-resume is one reason of the halt-recovery mechanism, its probe the pause's end; the consecutive counter and the timer are retired | **Built** | `EPIC-042F` ([`06-runtime.md`](06-runtime.md)) |
 | The account-level loss cap: one figure per host, every bot stopped through the existing Stop, none restarts until the owner acknowledges (`bot loss-cap-ack`) | **Built** | `EPIC-026L` ([`06-runtime.md`](06-runtime.md)) |
 | The kind-neutral backtest result and simulator port; the strategy kind | Planned | `EPIC-040B`, `EPIC-040G` |

@@ -113,10 +113,18 @@ class GridHaltRecovery:
             state.transition(
                 BotLifecycleEvent.HALT,
                 reason,
-                "no automatic recovery is declared for this reason; resume by hand",
+                f"{state.runtime.reason_detail}; no automatic recovery is declared for this "
+                "reason; resume by hand"
+                if state.runtime.reason_detail
+                else "no automatic recovery is declared for this reason; resume by hand",
             )
             return
         code = HaltCode(reason.value)
+        if state.recovery_attempts_used(code) >= rule.max_attempts:
+            # An attempt that raised (a rate limit met by a read) never reached `_after`, and the
+            # bot is still waiting: with the budget spent it must not try again (`EPIC-042F`).
+            self._exhausted(rule)
+            return
         self._tell_if_stalled(code, rule, now)
         if self._proposal_held():
             self._clear_since = None
@@ -239,15 +247,19 @@ class GridHaltRecovery:
             )
             return
         if used >= rule.max_attempts:
-            state.transition(
-                BotLifecycleEvent.BUDGET_EXHAUSTED,
-                state.runtime.reason,
-                f"{state.runtime.reason_detail}; the {rule.max_attempts} automatic recoveries "
-                "allowed are used up; resume by hand",
-            )
+            self._exhausted(rule)
             return
         logger.info(
             "Bot %s: the attempt changed nothing; waiting for the cause to stay clear again "
             "[bot-halt-recovery]",
             state.bot_id,
+        )
+
+    def _exhausted(self, rule: HaltRecoveryRule) -> None:
+        state = self._context.state
+        state.transition(
+            BotLifecycleEvent.BUDGET_EXHAUSTED,
+            state.runtime.reason,
+            f"{state.runtime.reason_detail}; the {rule.max_attempts} automatic recoveries "
+            "allowed are used up; resume by hand",
         )
