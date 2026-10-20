@@ -3,32 +3,24 @@ from datetime import UTC, datetime
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     SYSTEM_TIMEZONE_KEY,
+    display_zone_name,
     format_display_datetime,
     format_display_timestamp,
     get_display_timezone_label,
     get_supported_timezones,
     get_utc_offset_seconds,
-    resolve_zone_info,
 )
 
 
-def test_resolve_zone_info_defaults_and_fallbacks() -> None:
-    utc_zone = resolve_zone_info("UTC")
-    assert utc_zone.key == "UTC"
-
-    empty_zone = resolve_zone_info("")
-    assert empty_zone.key == "UTC"
-
-    invalid_zone = resolve_zone_info("NonExistent/Timezone_Invalid")
-    assert invalid_zone.key == "UTC"
-
-    vn_zone = resolve_zone_info("Asia/Ho_Chi_Minh")
-    assert vn_zone.key == "Asia/Ho_Chi_Minh"
+def test_display_zone_name_defaults_and_fallbacks() -> None:
+    assert display_zone_name("UTC") == "UTC"
+    assert display_zone_name("") == "UTC"
+    assert display_zone_name("NonExistent/Timezone_Invalid") == "UTC"
+    assert display_zone_name("Asia/Ho_Chi_Minh") == "Asia/Ho_Chi_Minh"
 
 
-def test_resolve_zone_info_system() -> None:
-    sys_zone = resolve_zone_info(SYSTEM_TIMEZONE_KEY)
-    assert sys_zone is not None
+def test_display_zone_name_system_names_the_machine_zone() -> None:
+    assert display_zone_name(SYSTEM_TIMEZONE_KEY)
 
 
 def test_format_display_datetime_utc() -> None:
