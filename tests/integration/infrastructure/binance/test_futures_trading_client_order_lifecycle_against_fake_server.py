@@ -27,6 +27,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -44,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
     ClientOrderId,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -192,3 +197,53 @@ def test_a_filled_market_order_becomes_a_position_and_never_rests() -> None:
     assert short_position.position_amt == Decimal("-0.003")
     assert short_position.entry_price == Decimal("63999.9")
     assert short_position.leverage == 20
+
+
+@pytest.mark.parametrize(
+    ("price", "quantity", "reason"),
+    [
+        ("556.7", "0.002", OrderRejectionReason.PRICE_FILTER),  # -4013, under minPrice
+        (
+            "4529764.1",
+            "0.002",
+            OrderRejectionReason.PRICE_FILTER,
+        ),  # -4002, over maxPrice
+        ("50000", "1000.001", OrderRejectionReason.LOT_SIZE),  # -4005, over maxQty
+    ],
+    ids=["min_price", "max_price", "max_qty"],
+)
+def test_an_order_off_the_symbols_filters_is_refused_with_its_named_reason(
+    price: str, quantity: str, reason: OrderRejectionReason
+) -> None:
+    """`BUG-236` — the fake exchange refuses what Binance refuses (`EPIC-037E`), and the
+    refusal reaches the caller as the filter it broke, never as `UNKNOWN`. An off-tick price
+    (`-4014`) never gets this far: the client's own step check refuses it before the send, so
+    `-4014` and `-4023` are covered by the translator's table test."""
+    with (
+        run_binance_fake_server() as urls,
+        patch.object(Client, "API_TESTNET_URL", urls.spot),
+        patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
+    ):
+        session_factory = FuturesSessionFactory()
+        client = FuturesTradingClient(
+            session_factory,
+            _FakeCredentialsProvider(),
+            FuturesMetadataProvider(
+                session_factory, InMemorySymbolOrderMetadataCache()
+            ),
+            OrderSubmissionMode.LIVE,
+        )
+        order = Order(
+            client_order_id=ClientOrderId("SEW-filter000001"),
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=Decimal(quantity),
+            price=Decimal(price),
+            time_in_force=TimeInForce.GTC,
+        )
+
+        with pytest.raises(OrderRejectedByExchangeError) as refused:
+            client.place_order(order)
+
+    assert refused.value.reason is reason
