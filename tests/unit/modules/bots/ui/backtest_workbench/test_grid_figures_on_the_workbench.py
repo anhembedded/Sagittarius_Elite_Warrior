@@ -1,10 +1,9 @@
-"""`EPIC-033K`/`EPIC-033N` — a Grid backtest's figures are a read-out of raw
-values by kind, written by the application's formatter; its caveats are
-sentences beside them, never a figure's text.
+"""`EPIC-033K`/`EPIC-033N`/`EPIC-040F` — a Grid backtest's figures are a read-out of raw values by
+kind, written by the application's formatter; its caveats are sentences beside them, never a figure's
+text. They were the Grid page's tests (`summary_of`); they now read the outcome the workbench draws.
 
-The result is the preview's sample replay (`simulate_grid` over five days
-of hourly candles, no 1-second klines), so every figure is what the replay
-computed, not a number written here."""
+The result is the sample replay (`simulate_grid` over five days of hourly candles, no 1-second
+klines), so every figure is what the replay computed, not a number written here."""
 
 from __future__ import annotations
 
@@ -13,8 +12,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_kind_backtester import (
+    outcome_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome import (
     DataWindow,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestResult,
     StopReason,
 )
@@ -24,13 +28,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule impor
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
-    GridSummary,
-    summary_of,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.outcome_view import (
+    figure_readout,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview import (
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.sample_replays import (
     sample_result,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
     bar,
     position_config,
@@ -44,7 +48,20 @@ def result() -> GridBacktestResult:
     return sample_result()
 
 
-def _kinds(summary: GridSummary) -> dict[str, ColumnKind]:
+@dataclasses.dataclass(frozen=True)
+class _Summary:
+    """What the workbench's Figures tab holds for a result: the read-out and the notes."""
+
+    readout: Readout
+    notes: tuple[str, ...]
+
+
+def summary_of(result: GridBacktestResult) -> _Summary:
+    outcome = outcome_of(result)
+    return _Summary(figure_readout(outcome), outcome.notes)
+
+
+def _kinds(summary: _Summary) -> dict[str, ColumnKind]:
     return {spec.key: spec.kind for spec in summary.readout.specs}
 
 

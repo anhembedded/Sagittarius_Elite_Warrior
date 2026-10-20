@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
+    HeldPool,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
@@ -90,10 +93,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.backtest.sandbox_fixtu
     bot,
     market,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.kinds.grid_backtest_fixtures import (
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.backtest_workbench.workbench_candles import (
     PERIOD,
     VENUE,
-    HeldPool,
     StoringSync,
     swinging_candles,
 )

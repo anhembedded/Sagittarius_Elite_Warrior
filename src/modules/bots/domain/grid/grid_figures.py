@@ -1,8 +1,8 @@
 """`EPIC-040B` — a Grid replay's figures and caveats, as the kind-neutral outcome carries them.
 
-Pure functions: the figures beside the charts and their caveats (`EPIC-029D`), written once for
-the Grid page's summary and for `GridKindBacktester`, so the two cannot drift until `EPIC-040F`
-deletes the page's own copy:
+Pure functions: the figures beside the charts and their caveats (`EPIC-029D`), written once, in the
+outcome `GridKindBacktester` answers with, which the workbench draws (the Grid's own page, which
+drew them too, is gone, `EPIC-040F`):
 · `grid_figures` — grid profit apart from unrealised, both curves' end value against the capital,
   fees by maker and taker, how many candles were replayed without 1-second klines (never silently,
   D14) and how many of the period's were stored; a position venue adds funding, the margin a
