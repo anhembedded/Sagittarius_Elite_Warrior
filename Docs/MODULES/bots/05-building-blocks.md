@@ -66,8 +66,9 @@ the missing funding first) and `detail`, the kind's own rich result. The Grid's 
 `bots/application/kinds/grid/grid_kind_backtester.py` → `GridKindBacktester`: it runs the existing
 `RunGridBacktestQuery` handler and maps the answer (`outcome_of`), keeping `GridBacktestResult`
 whole as `detail`; its figures and notes are written once, in
-`bots/domain/grid/grid_figures.py` → `grid_figures`, `grid_notes`, which the Grid page's summary
-reads too until `EPIC-040F`. `GridKind` is given its adapter where it is built
+`bots/domain/grid/grid_figures.py` → `grid_figures`, `grid_notes`, which the workbench draws: the Grid
+has no page of its own (`EPIC-040F`). Its provenance and the period asked for are the neutral
+`BacktestProvenance` and `DataWindow`, not a copy. `GridKind` is given its adapter where it is built
 (`bots/composition/executor_bindings.py` → `_build_kind_catalog`). No file of the outcome, the port
 or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_kind_neutral.py`).
 **The workbench that draws it (`EPIC-040D`).** `bots/ui/backtest_workbench/backtest_workbench.py` →
@@ -87,7 +88,7 @@ dispatcher, so no command is in reach by type); `sandbox_editing.py` → `Sandbo
 verdicts; what the page says is one value, `workbench_state.py` → `WorkbenchState`, which the view
 applies (`controls_of`). The run's lifecycle is `backtest_run_fsm_matrix.py` → `RunActivity`,
 `RunEvent`, `RUN_TRANSITIONS` ([`state-machines.md`](state-machines.md)). The Bots screen shows it in
-the centre's Backtest tab (`EPIC-040E`, below), and `EPIC-040F` retires the Grid's own page. Nothing in the
+the centre's Backtest tab (`EPIC-040E`, below), as it does for the Grid, whose own page `EPIC-040F` deleted. Nothing in the
 package imports a kind (`test_backtest_outcome_is_kind_neutral.py`) or a command, an order or an
 account reader (`test_backtest_workbench_reaches_no_order_or_account.py`). The picture is
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) in [`06-runtime.md`](06-runtime.md).
@@ -171,9 +172,25 @@ commands. In the tab `bots/ui/bots_screen/bot_detail.py` → `detail_for` comput
 other figures use, `bots_view_model.py` → `BotsViewModel.set_ladder` holds it, the Ladder dock
 (`bot_ladder_panel.py` → `BotLadderPanel`, rows from `bots_table_models.py` → `BotLadderTableModel`) shows
 the table and the Plan panel (`bot_plan_panel.py` → `BotPlanPanel`) shows the grid step, the profit per
-cycle and where the last price stands. What the record cannot give is a blank cell or a sentence, never a
-zero: the account's maker rate and a Futures liquidation price are not saved, so the net after fees is
-unknown and the liquidation row says so.
+cycle and where the last price stands, as rows of its property table. What the record cannot give is a blank
+cell or a sentence, never a zero: the account's maker rate and a Futures liquidation price are not saved, so the
+net after fees is unknown and the liquidation row says so.
+
+The Plan panel's figures are one grouped property table (`BOT-206`): `bots/ui/bots_screen/plan_property_rows.py`
+→ `PROPERTY_GROUPS`, `PropertyGroup`, `PropertyRow` list what it shows (Readiness, Plan, Results, Holdings, a row
+per figure, keyed by the `BotFacts` field or the ladder row that writes it); `plan_property_grid.py` →
+`PlanPropertyGrid` is a stock `QTreeView` over a `QStandardItemModel`, configured by the Engine's
+`configure_item_view` like every table, with each row's value read by the kind of its row (`plan_property_rows.py` → `PropertyRow`; `row_kind_delegate.py` →
+`RowKindDelegate`, the Engine's delegate aligning a word left and a figure right, a figure whose digits line up in
+the fixed-pitch font). `BotPlanPanel` writes `BotFacts`, `LadderFacts` and the readiness steps
+(`readiness_words.py` → `step_rows`) into it by key, and shows or hides rows by venue (costs and liquidation
+only on a venue with them) and the Readiness group only for a bot at rest. The words are the ones those
+functions already built; the table only lays them out. What blocks Start (`readiness_words.py` → `item_lines`)
+stays text above the table, with the platform's stop sign beside it, never a cell. The tree has no scroll bar and
+is as tall as its rows, so the panel scrolls once; a row's height is asked of its wrapped text because
+`QTreeView` sizes a row from one line. The kind editor's read-only *Margin mode* and *Liquidation (est.)* rows
+stay in the editor (`grid_exposure_fields.py` → `ExposureFields`): the second is a live estimate of the plan
+being edited, not a recorded figure.
 
 ## Built: the protective stop's parts (Futures)
 
@@ -257,7 +274,6 @@ the constants in [`10-quality.md`](10-quality.md).
 
 | Change | Where | Task |
 | :--- | :--- | :--- |
-| The Grid page is retired and the Grid reads the outcome through the workbench instead of `GridBacktestResult` | `bots/ui/` | `EPIC-040F` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |

@@ -18,22 +18,27 @@ from PySide6.QtWidgets import QLayout, QWidget
 
 
 def replace_in(slot: QLayout, widget: QWidget | None) -> None:
-    """Takes every widget out of `slot`, then puts `widget` in, shown, if any."""
+    """Takes every widget out of `slot`, then puts `widget` in, shown, if any. A widget the slot
+    already holds stays: it is taken out and put back, never retired.
+
+    @raise ValueError `slot` is not installed in a widget yet, so a retired widget would have no
+    owner and would become a window of its own."""
     owner = slot.parentWidget()
+    if owner is None:
+        raise ValueError("a slot must be installed in a widget before it holds one")
     while slot.count():
         item = slot.takeAt(0)
         old = item.widget() if item is not None else None
-        if old is not None:
+        if old is not None and old is not widget:
             _retire(old, owner)
     if widget is not None:
         slot.addWidget(widget)
         widget.show()
 
 
-def _retire(old: QWidget, owner: QWidget | None) -> None:
+def _retire(old: QWidget, owner: QWidget) -> None:
     old.hide()
     if old.testAttribute(Qt.WidgetAttribute.WA_DeleteOnClose):
         old.close()
         return
     old.setParent(owner)
-    old.hide()

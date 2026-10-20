@@ -12,6 +12,9 @@ klines, so no figure stands without its caveat.
   buy-and-hold curve sits on the same timestamps (D18).
 · **Grid profit on a position venue** (`futures` is set) is the profit of closed cycles net
   of every commission; funding is kept in `futures`, never inside it (`EPIC-039K`).
+· **Provenance and the period asked for** are the kind-neutral records (`BacktestProvenance`,
+  `DataWindow`): the Grid keeps no copy of them (`EPIC-040F`). Its fills and equity points stay its own,
+  which carry the ladder level and the grid's own curve names.
 · **Fees** are split by maker (resting ladder orders) and taker (the opening
   buy, an exit), each in the quote asset.
 """
@@ -23,6 +26,9 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome import (
+    BacktestProvenance,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     FillSide,
     OverlayFill,
@@ -87,35 +93,6 @@ class EquityPoint:
     time: datetime
     grid: Decimal
     buy_and_hold: Decimal
-
-
-@dataclass(frozen=True, slots=True)
-class DataWindow:
-    """The period a replay was asked for, and how much of it was stored."""
-
-    start: datetime
-    end: datetime
-    expected_candles: int
-    stored_candles: int
-
-    @property
-    def missing_candles(self) -> int:
-        """Candles of the period not stored: not there at all, or gaps."""
-        return max(self.expected_candles - self.stored_candles, 0)
-
-
-@dataclass(frozen=True, slots=True)
-class BacktestProvenance:
-    """What produced a result (`domain-truth-rule.md`: snapshots carry it)."""
-
-    config: tuple[tuple[str, str], ...]
-    maker_fee: Decimal
-    taker_fee: Decimal
-    first_candle: datetime
-    last_candle: datetime
-    fill_rule: str
-    #: The period asked for; `None` when the caller replays bars it chose.
-    window: DataWindow | None = None
 
 
 @dataclass(frozen=True, slots=True)

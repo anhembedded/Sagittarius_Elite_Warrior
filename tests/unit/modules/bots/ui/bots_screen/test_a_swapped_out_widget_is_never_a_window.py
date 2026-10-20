@@ -71,3 +71,22 @@ def test_a_disposable_widget_is_deleted_when_it_leaves(owner) -> None:  # type: 
 
     assert not shiboken6.isValid(note)
     assert owner.findChildren(QLabel) == [page]
+
+
+def test_a_widget_put_back_in_the_slot_that_holds_it_stays(owner) -> None:  # type: ignore[no-untyped-def]
+    """A disposable widget handed to the slot it is already in is not the one leaving."""
+    editor = QLabel("editor")
+    editor.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+    replace_in(owner.slot, editor)
+
+    replace_in(owner.slot, editor)
+    _settle()
+    _flush_deletions()
+
+    assert shiboken6.isValid(editor)
+    assert owner.slot.count() == 1 and editor.isVisible()
+
+
+def test_a_slot_that_is_not_installed_in_a_widget_refuses_to_hold_one(qapp) -> None:  # type: ignore[no-untyped-def]
+    with pytest.raises(ValueError, match="installed in a widget"):
+        replace_in(QVBoxLayout(), QLabel("orphan"))

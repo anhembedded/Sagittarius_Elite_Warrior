@@ -49,4 +49,5 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | A backtest's sandbox plan: a copy of a bot's saved plan, judged by the symbol's rules with no account, sending no command | **Built** | `EPIC-040C` ([`08-concepts.md`](08-concepts.md)) |
 | The workbench page that draws any kind's outcome and hosts the sandbox | **Built** | `EPIC-040D` ([`05-building-blocks.md`](05-building-blocks.md)) |
 | The workbench shown as the Bots screen's Backtest tab, one workbench per venue; the bottom Backtest dock is gone | **Built** | `EPIC-040E` ([`05-building-blocks.md`](05-building-blocks.md)) |
-| The Grid's own backtest page deleted; the strategy kind | Planned | `EPIC-040F`, `EPIC-040G` |
+| The Grid's own backtest page, presenter and coordinator deleted; the Grid runs on the workbench alone | **Built** | `EPIC-040F` ([`05-building-blocks.md`](05-building-blocks.md)) |
+| The strategy kind, a second `IBotKind` | Planned | `EPIC-040G` |

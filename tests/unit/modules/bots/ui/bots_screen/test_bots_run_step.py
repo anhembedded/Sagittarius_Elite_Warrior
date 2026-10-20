@@ -12,6 +12,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    ReadinessStep,
     StepStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -27,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands imp
     FIX_NEXT,
     RETRY_CONNECTION,
     lifecycle_id,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    step_key,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -50,7 +54,12 @@ def _plan(screen):
 
 
 def _steps(screen) -> list[str]:
-    return _plan(screen).readiness_steps.text().splitlines()
+    """Each step as the table's Readiness group says it: `Connect: done`."""
+    plan = _plan(screen)
+    return [
+        f"{step.value}: {plan.properties.shown_value(step_key(step))}"
+        for step in ReadinessStep
+    ]
 
 
 def _fix(screen):
@@ -64,16 +73,16 @@ def test_a_new_bot_walks_connect_design_run_and_ends_ready(open_bots_screen) -> 
     select(screen, "a00001")
 
     assert _plan(screen).readiness_header.text() == "Start: Connecting…"
-    assert _steps(screen)[0] == "1. Connect: 1 thing left"
+    assert _steps(screen)[0] == "Connect: 1 thing left"
     assert screen.presenter._account.state is ReadinessState.CONNECTING
 
     screen.settle()
 
     assert _plan(screen).readiness_header.text() == "Start: Ready to start"
     assert _steps(screen) == [
-        "1. Connect: done",
-        "2. Design: done",
-        "3. Run: done",
+        "Connect: done",
+        "Design: done",
+        "Run: done",
     ]
     assert screen.presenter._account.state is ReadinessState.READY
     assert start_rule(screen)[0]
@@ -171,8 +180,8 @@ def test_a_failed_read_is_a_connect_item_whose_fix_reads_again(
     select(screen, "a00001")
     screen.settle()
 
-    assert _steps(screen)[0] == "1. Connect: 1 thing left"
-    assert _steps(screen)[1] == "2. Design: waits for Connect"
+    assert _steps(screen)[0] == "Connect: 1 thing left"
+    assert _steps(screen)[1] == "Design: waits for Connect"
     assert "under maintenance" in _plan(screen).readiness_items.text()
     assert "Bots → Retry venue account" in _plan(screen).readiness_items.text()
     assert screen.presenter._account.state is ReadinessState.FAILED

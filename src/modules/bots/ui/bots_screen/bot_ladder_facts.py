@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 NO_LADDER_YET = "Select a bot to see its ladder."
-#: The Plan panel's rows that say the ladder and where the price stands (`bot_plan_panel.FACT_SPECS`).
+#: The Plan panel's rows that say the ladder and where the price stands (`plan_property_rows.PROPERTY_GROUPS`).
 LADDER_ROWS = (
     "grid_step",
     "cycle_profit",
