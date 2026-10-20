@@ -45,7 +45,6 @@ class TelegramSecretNames:
 class _Move:
     config_key: str
     secret_name: str
-    label: str
 
 
 class TelegramConfigMigration:
@@ -60,14 +59,8 @@ class TelegramConfigMigration:
         self._writer = writer
         self._secrets = secrets
         self._moves = (
-            _Move(
-                ConfigKeys.NOTIFICATIONS_TELEGRAM_BOT_TOKEN.value,
-                names.token,
-                "bot token",
-            ),
-            _Move(
-                ConfigKeys.NOTIFICATIONS_TELEGRAM_CHAT_ID.value, names.chat, "chat id"
-            ),
+            _Move(ConfigKeys.NOTIFICATIONS_TELEGRAM_BOT_TOKEN.value, names.token),
+            _Move(ConfigKeys.NOTIFICATIONS_TELEGRAM_CHAT_ID.value, names.chat),
         )
 
     def run(self) -> None:
@@ -78,15 +71,15 @@ class TelegramConfigMigration:
             self._writer.set(move.config_key, "")
         try:
             self._writer.save()
-        except OSError:
+        except (OSError, ValueError):
             logger.warning(
                 "[alert-migration] telegram: stored in the secret store, but the config file "
-                "could not be cleared (it is not writable); remove the old keys by hand"
+                "could not be cleared (no writable config file); remove the old keys by hand"
             )
             return
         logger.info(
-            "[alert-migration] telegram: moved %s from the config file to the secret store",
-            ", ".join(move.label for move in moved),
+            "[alert-migration] telegram: moved %d value(s) from the config file to the secret store",
+            len(moved),
         )
 
     def _moved(self, move: _Move) -> bool:
@@ -96,19 +89,19 @@ class TelegramConfigMigration:
         try:
             self._secrets.write(move.secret_name, value)
         except SecretStoreUnavailableError:
+            # Fixed text: no value derived from a secret's name or content reaches a log call
+            # (CodeQL py/clear-text-logging-sensitive-data). The runbook (§3b2) names the
+            # credentials to provision on a server.
             logger.warning(
-                "[alert-migration] telegram %s not migrated: no secret store can be used here "
-                "(the value stays in the config file; on a server provision the credential %s)",
-                move.label,
-                move.secret_name,
+                "[alert-migration] telegram not migrated: no secret store can be used here; "
+                "the old values stay in the config file (on a server, provision the Telegram "
+                "credentials: headless runbook 3b2)"
             )
             return False
         if (self._secrets.read(move.secret_name) or "").strip() != value:
             logger.warning(
-                "[alert-migration] telegram %s not migrated: another store answers for %s first "
-                "(the value stays in the config file)",
-                move.label,
-                move.secret_name,
+                "[alert-migration] telegram not migrated: another store answers for the "
+                "Telegram credentials first; the old values stay in the config file"
             )
             return False
         return True

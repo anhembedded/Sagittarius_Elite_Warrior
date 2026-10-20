@@ -165,3 +165,23 @@ def test_a_file_that_cannot_be_written_keeps_the_secret_in_the_store_and_says_so
 
     assert store.secrets[TELEGRAM_TOKEN_SECRET] == TOKEN
     assert any("could not be cleared" in r.getMessage() for r in caplog.records)
+
+
+def test_a_run_with_no_writable_config_file_keeps_the_secret_and_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The Engine's `save()` raises `ValueError`, not `OSError`, when no writable file was loaded
+    (a headless run with only the defaults)."""
+
+    class _NoWritableFile(_Config):
+        def save(self) -> None:
+            raise ValueError("requires a writable source")
+
+    config = _NoWritableFile(**{TOKEN_KEY: TOKEN, CHAT_KEY: CHAT})
+    store = InMemorySecretStore()
+
+    with caplog.at_level(logging.INFO):
+        _migration(config, store).run()
+
+    assert store.secrets[TELEGRAM_TOKEN_SECRET] == TOKEN
+    assert any("could not be cleared" in r.getMessage() for r in caplog.records)
