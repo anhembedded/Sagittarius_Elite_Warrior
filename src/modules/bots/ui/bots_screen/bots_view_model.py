@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    PlanChecks,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
 )
@@ -103,7 +106,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.selected: BotSnapshot | None = None
         self.facts: BotFacts | None = None
         self.ladder: GridLadder | LadderUnavailable | None = None
-        self.verdict_lines: tuple[str, ...] = ()
+        self.checks = PlanChecks()
         self.chart_note = ""
         #: What is left before Start, and where the bot stands among the three
         #: steps; `None` while the bot has a run or none is selected.
@@ -151,9 +154,14 @@ class BotsViewModel(StatusMessageViewModel):
         self.chart_note_changed.emit()
 
     @Slot(object)
-    def set_judgement(self, verdict_lines: tuple[str, ...]) -> None:
-        self.verdict_lines = verdict_lines
+    def set_judgement(self, checks: PlanChecks) -> None:
+        self.checks = checks
         self.judgement_changed.emit()
+
+    @property
+    def verdict_lines(self) -> tuple[str, ...]:
+        """Every check's whole sentence, the attention ones first."""
+        return tuple(check.detail for check in self.checks.everything)
 
     @Slot(object, object, bool)
     def set_readiness(

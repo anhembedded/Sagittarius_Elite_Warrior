@@ -74,7 +74,7 @@ def _snapshot(screen: BotsScreen):
 
 
 def _run_step_lines(screen: BotsScreen) -> str:
-    return screen.view.plan.readiness_items.text()
+    return screen.view.plan.banner.text
 
 
 def _the_selected_bot_is_asked_about(screen: BotsScreen) -> None:
@@ -102,7 +102,7 @@ def test_until_the_exchange_answers_the_run_step_says_so_and_start_is_off(
 
     assert isinstance(_snapshot(screen), ExchangeLoaded)
     assert start_rule(screen)[0]
-    assert _run_step_lines(screen) == ""
+    assert _run_step_lines(screen) == "Ready to start"
 
 
 # --- unavailable --------------------------------------------------------------

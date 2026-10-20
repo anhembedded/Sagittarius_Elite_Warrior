@@ -111,9 +111,14 @@ ADVICE = "Advice: "
 class FieldError:
     """What one field says about itself."""
 
+    #: One line (`Verdict.summary`, else its reason), `BOT-209`.
     text: str
     #: Whether Start waits on it (D7); words say so as well as the position.
     blocks: bool
+    #: The whole sentence, for the field's tooltip.
+    full: str = ""
+    #: The grid count that clears it, offered as a button under the Grids field; `0` for none.
+    use_grids: int = 0
 
 
 def field_errors(
@@ -130,14 +135,25 @@ def field_errors(
     for verdict in verdicts:
         if verdict.severity is VerdictSeverity.OK:
             continue
+        prefix = BLOCKS if verdict.refuses else ADVICE
         error = FieldError(
-            f"{BLOCKS if verdict.refuses else ADVICE}{verdict.reason}", verdict.refuses
+            f"{prefix}{verdict.summary or verdict.reason}",
+            verdict.refuses,
+            f"{prefix}{verdict.reason}",
+            _suggested_grids(verdict),
         )
         for field in _fields_of(verdict, direction)[:1]:
             current = shown.get(field)
             if current is None or (error.blocks and not current.blocks):
                 shown[field] = error
     return shown
+
+
+def _suggested_grids(verdict: Verdict) -> int:
+    """The grid count a check proposes when it is about the count (`BOT-209`)."""
+    if GRID_COUNT not in FIELDS_OF_CODE.get(verdict.code, ()):
+        return 0
+    return int(verdict.numbers.get("suggested_grids", 0))
 
 
 def _fields_of(verdict: Verdict, direction: TradeDirection) -> tuple[str, ...]:

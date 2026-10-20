@@ -24,7 +24,7 @@ A check that cannot run answers OK saying so; it never violates.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_account_checks import (
@@ -75,6 +75,9 @@ class GridConstraint:
     #: not run and says nothing: a Spot plan has no funding line (`EPIC-039G`), so its
     #: verdicts are exactly what they were.
     applies: Callable[[GridCheckInputs], bool] = lambda _inputs: True
+    #: `BOT-209` — what the constraint is called in a list of checks: a noun phrase, the same
+    #: whether the plan passes or not. `run_checks` writes it on the constraint's verdict.
+    title: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "violations", MappingProxyType(dict(self.violations)))
@@ -89,68 +92,95 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
         "break_even_after_fees",
         check_break_even,
         {"EVERY_CYCLE_LOSES": True, "SOME_GRIDS_LOSE": False},
+        title="Grid step above fees",
     ),
     GridConstraint(
         "order_above_exchange_minimum",
         check_min_notional,
         {"LEVEL_BELOW_MIN_NOTIONAL": True},
+        title="Order size above exchange minimum",
     ),
     GridConstraint(
         "order_within_per_order_cap",
         check_max_notional,
         {"LEVEL_ABOVE_MAX_NOTIONAL": True},
+        title="Order size within the cap",
     ),
     GridConstraint(
-        "orders_within_open_limit", check_open_orders, {"TOO_MANY_LEVELS": True}
+        "orders_within_open_limit",
+        check_open_orders,
+        {"TOO_MANY_LEVELS": True},
+        title="Open-order limit",
     ),
     GridConstraint(
         "symbol_has_no_foreign_orders",
         check_foreign_orders,
         {"FOREIGN_OPEN_ORDERS": False},
+        title="No other open orders",
     ),
     GridConstraint(
-        "levels_inside_price_band", check_price_band, {"LEVEL_OUTSIDE_PRICE_BAND": True}
+        "levels_inside_price_band",
+        check_price_band,
+        {"LEVEL_OUTSIDE_PRICE_BAND": True},
+        title="Levels inside the price band",
     ),
     GridConstraint(
         "price_suits_the_range",
         check_price_against_range,
         {"PRICE_BELOW_RANGE": True, "PRICE_ABOVE_RANGE": False},
+        title="Price inside the range",
     ),
     GridConstraint(
         "every_level_has_its_own_price",
         check_distinct_levels,
         {"LEVELS_ROUND_TO_ONE_PRICE": True},
+        title="Distinct level prices",
     ),
-    GridConstraint("opening_buy_is_planned", check_opening_buy, {}),
-    GridConstraint("key_may_trade", check_key_may_trade, {"KEY_CANNOT_TRADE": True}),
     GridConstraint(
-        "step_leaves_slippage_room", check_min_step, {"STEP_BELOW_MINIMUM": False}
+        "opening_buy_is_planned", check_opening_buy, {}, title="Opening buy planned"
+    ),
+    GridConstraint(
+        "key_may_trade",
+        check_key_may_trade,
+        {"KEY_CANNOT_TRADE": True},
+        title="API key may trade",
+    ),
+    GridConstraint(
+        "step_leaves_slippage_room",
+        check_min_step,
+        {"STEP_BELOW_MINIMUM": False},
+        title="Grid step room for slippage",
     ),
     GridConstraint(
         "range_matches_volatility",
         check_range_against_atr,
         {"RANGE_OUTSIDE_ATR_BAND": False},
+        title="Range against daily ATR",
     ),
     GridConstraint(
         "stop_loss_is_sound",
         check_stop_loss,
         {"STOP_LOSS_INSIDE_RANGE": True, "STOP_LOSS_DISTANCE": False},
+        title="Stop loss distance",
     ),
     GridConstraint(
         "take_profit_is_sound",
         check_take_profit,
         {"TAKE_PROFIT_INSIDE_RANGE": True, "TAKE_PROFIT_DISTANCE": False},
+        title="Take profit distance",
     ),
     GridConstraint(
         "spacing_suits_range",
         check_spacing_for_range,
         {"ARITHMETIC_ON_WIDE_RANGE": False},
+        title="Spacing for the range",
     ),
     GridConstraint(
         "funding_leaves_the_cycle_profit",
         check_funding_adverse,
         {"FUNDING_ADVERSE": False},
         applies=venue_charges_funding,
+        title="Funding against cycle profit",
     ),
 )
 
@@ -158,7 +188,7 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
 def run_checks(inputs: GridCheckInputs) -> tuple[Verdict, ...]:
     """One verdict per constraint that concerns the plan's venue, in the table's order."""
     return tuple(
-        constraint.check(inputs)
+        replace(constraint.check(inputs), title=constraint.title)
         for constraint in GRID_CONSTRAINTS
         if constraint.applies(inputs)
     )

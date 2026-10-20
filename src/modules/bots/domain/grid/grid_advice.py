@@ -9,6 +9,8 @@ whole text is written here, in four parts, each required:
     a ratio; a term such as ATR is defined where it first appears;
   · `consequence` — what it means for the bot, in plain words;
   · `action` — what to change, with a concrete value or the button that proposes one;
+  · `summary` — the finding again in one line, rounded for reading (`BOT-209`), for the hint under
+    a field; the four parts above stay the whole explanation;
   · `ADVICE_TAIL` — that nothing blocks Start.
 
 Seam now, variant later: a new check builds an `Advice` and a new unit is a field of
@@ -39,9 +41,10 @@ class Advice:
     finding: str
     consequence: str
     action: str
+    summary: str
 
     def __post_init__(self) -> None:
-        for name in ("finding", "consequence", "action"):
+        for name in ("finding", "consequence", "action", "summary"):
             if not getattr(self, name).strip():
                 raise ValueError(f"advice needs a {name}")
 

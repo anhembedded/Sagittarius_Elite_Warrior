@@ -84,7 +84,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge im
     JudgedPlan,
     PlanWorld,
     judge,
-    verdict_line,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    PlanChecks,
+    plan_checks_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
@@ -114,7 +117,7 @@ class DetailInputs:
 class BotDetail:
     facts: BotFacts
     verdicts: tuple[Verdict, ...]
-    verdict_lines: tuple[str, ...]
+    checks: PlanChecks
     availability: Mapping[BotAction, ActionAvailability]
     overlay: BotOverlay | None
     #: What is left before Start, for a bot that is at rest; `None` for one
@@ -171,7 +174,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     return BotDetail(
         facts=bot_facts(bot, inputs.now),
         verdicts=verdicts,
-        verdict_lines=tuple(verdict_line(verdict) for verdict in verdicts),
+        checks=plan_checks_of(verdicts),
         availability={
             action: availability(bot.state, action, start) for action in BotAction
         },

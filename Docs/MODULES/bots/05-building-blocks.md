@@ -187,12 +187,33 @@ per figure, keyed by the `BotFacts` field or the ladder row that writes it); `pl
 the fixed-pitch font). `BotPlanPanel` writes `BotFacts`, `LadderFacts` and the readiness steps
 (`readiness_words.py` → `step_rows`) into it by key, and shows or hides rows by venue (costs and liquidation
 only on a venue with them) and the Readiness group only for a bot at rest. The words are the ones those
-functions already built; the table only lays them out. What blocks Start (`readiness_words.py` → `item_lines`)
-stays text above the table, with the platform's stop sign beside it, never a cell. The tree has no scroll bar and
+functions already built; the table only lays them out. What blocks Start is not in the table: it is the status
+banner (below). The tree has no scroll bar and
 is as tall as its rows, so the panel scrolls once; a row's height is asked of its wrapped text because
 `QTreeView` sizes a row from one line. The kind editor's read-only *Margin mode* and *Liquidation (est.)* rows
 stay in the editor (`grid_exposure_fields.py` → `ExposureFields`): the second is a live estimate of the plan
 being edited, not a recorded figure.
+
+**The Plan dock says where the bot stands once, and lists what the kind says as checks (`BOT-209`).** Top to
+bottom for a bot at rest: the name and the state word, one status banner, the Venue field, the kind's editor, the
+checks list, the property table; a bot with a run has its figures first and the checks last. The banner
+(`plan_status_banner.py` → `PlanStatusBanner`, a `NoticeBar` from `support/ui_kit/notice_bar.py`, no button, since
+what a person can do is a command of the Bots menu) is written by `plan_status.py` → `plan_status`: the first
+thing left before Start with where to fix it (`readiness_words.py` → `item_sentence`) and a count of the others,
+else *Connecting…*, else *Ready to start*; the exchange's notes and the run's last note (`bot_facts.py` →
+`BotFacts.note`) are lines under it, and a bot with a run says how it ended or nothing. The kind's verdicts reach
+the dock as `plan_checks.py` → `PlanChecks` (`plan_checks_of`): a refusal, then a warning, each `PlanCheck` with a
+`title`, a one-line `headline` and the whole `detail`; every check that passed is counted. `plan_checks_view.py` →
+`PlanChecksView` is the stock `QTreeView` that shows them: a row per check that needs attention, one folded row
+"N checks passed" that opens to list the rest and stays as the person left it, the whole sentence as each row's
+tooltip. The words are the kind's, written where the check is made: `domain/verdict.py` → `Verdict.title`
+(`grid_constraints.py` → `GridConstraint.title`; for the Futures risk codes, in `futures_grid_checks.py` → `FUTURES_PLAN_TITLES`) and
+`Verdict.summary` (`grid_advice.py` → `Advice.summary`, the one-line part of every advice). The hint under a
+Grid field is that same `summary` (`grid_field_errors.py` → `FieldError`, laid out by `grid_field_hints.py` →
+`FieldHints`), with a "Use N grids" button on the Grids field when the check names a count
+(`Verdict.numbers["suggested_grids"]`); it is the same text as the list's row, and the long sentence is a tooltip
+in both places. The two read-only rows of the editor (*Margin mode*, *Liquidation (est.)*) are rows of its form
+as before.
 
 ## Built: the protective stop's parts (Futures)
 

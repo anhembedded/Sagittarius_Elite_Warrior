@@ -87,7 +87,7 @@ def _line(side: str, about: list[Verdict]) -> LiquidationLine:
     )
     where = ""
     if gap is not None and exit_price is not None:
-        where = f", {_price(gap)} before the exit at {_price(exit_price)}"
+        where = f", {_distance(gap)} before the exit at {_price(exit_price)}"
     elif exit_price is not None:
         where = f", the exit at {_price(exit_price)} is beyond it"
     text = f"{_prefix(worst)}{side.capitalize()}: {figure}{where}"
@@ -111,3 +111,12 @@ def _number(about: Iterable[Verdict], key: str) -> Decimal | None:
 
 def _price(value: Decimal) -> str:
     return write_value(ColumnKind.PRICE, value)
+
+
+def _distance(value: Decimal) -> str:
+    """A gap between two prices, read and not placed (`BOT-209`): to the cent from one up, and
+    to two significant figures below it, so a gap of 0.0004 on a sub-cent symbol never reads
+    "0.00"."""
+    if abs(value) >= 1:
+        return write_value(ColumnKind.MONEY, value)
+    return write_value(ColumnKind.PRICE, round(value, 1 - value.adjusted()))

@@ -24,8 +24,10 @@ The guard never says "safe" and never changes a parameter.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import replace
 from decimal import Decimal
+from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
@@ -56,22 +58,26 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
     PositionSide,
 )
 
-#: Every code `judge_futures_plan` can return: the screen's field map is held to it
-#: (`test_grid_field_errors.py`), so a new check cannot be added without deciding where it shows.
-FUTURES_PLAN_CODES = frozenset(
+#: `BOT-209` — what each risk verdict is called in a list of checks (a side, when the plan has
+#: two, is the verdict's `subject`).
+FUTURES_PLAN_TITLES: Mapping[str, str] = MappingProxyType(
     {
-        "CROSS_MARGIN_UNSUPPORTED",
-        "LEVERAGE_ABOVE_CEILING",
-        "LEVERAGE_HIGH",
-        "NOTIONAL_ABOVE_BRACKET",
-        "MARGIN_TOO_SMALL",
-        "LIQUIDATION_INSIDE_RANGE",
-        "STOP_LOSS_NEEDED",
-        "STOP_LOSS_AFTER_LIQUIDATION",
-        "STOP_LOSS_NEAR_LIQUIDATION",
-        "LIQUIDATION_ESTIMATE",
+        "CROSS_MARGIN_UNSUPPORTED": "Isolated margin",
+        "LEVERAGE_ABOVE_CEILING": "Leverage",
+        "LEVERAGE_HIGH": "Leverage",
+        "NOTIONAL_ABOVE_BRACKET": "Position within the leverage bracket",
+        "MARGIN_TOO_SMALL": "Initial margin",
+        "LIQUIDATION_INSIDE_RANGE": "Liquidation distance",
+        "STOP_LOSS_NEEDED": "Exit on the losing side",
+        "STOP_LOSS_AFTER_LIQUIDATION": "Exit before liquidation",
+        "STOP_LOSS_NEAR_LIQUIDATION": "Exit before liquidation",
+        "LIQUIDATION_ESTIMATE": "Liquidation distance",
     }
 )
+
+#: Every code `judge_futures_plan` can return: the screen's field map is held to it
+#: (`test_grid_field_errors.py`), so a new check cannot be added without deciding where it shows.
+FUTURES_PLAN_CODES = frozenset(FUTURES_PLAN_TITLES)
 
 _OK, _WARNING, _REFUSED = (
     VerdictSeverity.OK,
@@ -93,7 +99,9 @@ def judge_futures_plan(inputs: PlanRiskInputs) -> tuple[Verdict, ...]:
         side_steps = [step for step in steps if step.position.side is side]
         if side_steps:
             found.extend(_side(inputs, side, side_steps))
-    return tuple(found)
+    return tuple(
+        replace(verdict, title=FUTURES_PLAN_TITLES[verdict.code]) for verdict in found
+    )
 
 
 def _margin_mode(inputs: PlanRiskInputs) -> list[Verdict]:

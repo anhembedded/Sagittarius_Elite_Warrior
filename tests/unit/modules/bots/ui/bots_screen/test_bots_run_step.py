@@ -72,13 +72,13 @@ def test_a_new_bot_walks_connect_design_run_and_ends_ready(open_bots_screen) -> 
 
     select(screen, "a00001")
 
-    assert _plan(screen).readiness_header.text() == "Start: Connecting…"
+    assert _plan(screen).banner.text == "Connecting…"
     assert _steps(screen)[0] == "Connect: 1 thing left"
     assert screen.presenter._account.state is ReadinessState.CONNECTING
 
     screen.settle()
 
-    assert _plan(screen).readiness_header.text() == "Start: Ready to start"
+    assert _plan(screen).banner.text == "Ready to start"
     assert _steps(screen) == [
         "Connect: done",
         "Design: done",
@@ -86,7 +86,7 @@ def test_a_new_bot_walks_connect_design_run_and_ends_ready(open_bots_screen) -> 
     ]
     assert screen.presenter._account.state is ReadinessState.READY
     assert start_rule(screen)[0]
-    assert _plan(screen).readiness_items.isHidden()
+    assert _plan(screen).banner.text == "Ready to start"
 
 
 def test_start_is_the_one_primary_action_and_is_worded_save_and_start(
@@ -116,7 +116,7 @@ def test_start_is_disabled_with_the_count_and_the_tip_says_what_is_left(
     command = screen.actions.action(lifecycle_id(BotAction.START))
 
     assert not command.isEnabled()
-    assert _plan(screen).readiness_header.text() == "Start: 1 thing left"
+    assert _steps(screen)[2] == "Run: 1 thing left"
     assert "1 thing left: The opening buy and the BUY levels need" in command.toolTip()
     assert screen.presenter._account.state is ReadinessState.RUN_BLOCKED
     assert [s.status for s in screen.view.model.readiness.steps] == [
@@ -133,7 +133,7 @@ def test_an_item_names_its_reason_and_where_to_fix_it(open_bots_screen) -> None:
     select(screen, "a00001")
     screen.settle()
 
-    line = _plan(screen).readiness_items.text()
+    line = _plan(screen).banner.text
 
     assert "Run: The opening buy and the BUY levels need 995.48 USDT" in line
     assert "Spot Testnet has 800.00 USDT free" in line
@@ -182,8 +182,8 @@ def test_a_failed_read_is_a_connect_item_whose_fix_reads_again(
 
     assert _steps(screen)[0] == "Connect: 1 thing left"
     assert _steps(screen)[1] == "Design: waits for Connect"
-    assert "under maintenance" in _plan(screen).readiness_items.text()
-    assert "Bots → Retry venue account" in _plan(screen).readiness_items.text()
+    assert "under maintenance" in _plan(screen).banner.text
+    assert "Bots → Retry venue account" in _plan(screen).banner.text
     assert screen.presenter._account.state is ReadinessState.FAILED
 
     screen.account.answer_with(replace(fresh_snapshot(), read_at=NOW))
@@ -191,7 +191,7 @@ def test_a_failed_read_is_a_connect_item_whose_fix_reads_again(
     screen.settle()
 
     assert len(screen.account.symbols_read) == 2
-    assert _plan(screen).readiness_header.text() == "Start: Ready to start"
+    assert _plan(screen).banner.text == "Ready to start"
     assert screen.actions.action(RETRY_CONNECTION).isEnabled() is False
 
 
@@ -205,9 +205,9 @@ def test_another_active_bot_is_an_item_and_fix_next_selects_it(
 
     assert (
         "A bot on Spot Testnet is still active on BTCUSDT (b00002); stop it before starting another on BTCUSDT"
-        in (_plan(screen).readiness_items.text())
+        in (_plan(screen).banner.text)
     )
-    assert "select that bot, then Bots → Stop…" in _plan(screen).readiness_items.text()
+    assert "select that bot, then Bots → Stop…" in _plan(screen).banner.text
     assert not start_rule(screen)[0]
     assert screen.presenter._account.state is ReadinessState.RUN_BLOCKED
 
@@ -227,7 +227,7 @@ def test_a_symbol_held_by_another_owner_is_an_item_with_no_fix_on_screen(
     select(screen, "a00001")
     screen.settle()
 
-    assert f"{SYMBOL} is held by strategy.1" in _plan(screen).readiness_items.text()
+    assert f"{SYMBOL} is held by strategy.1" in _plan(screen).banner.text
     assert not start_rule(screen)[0]
     assert not _fix(screen).isEnabled()
 
@@ -242,11 +242,11 @@ def test_a_bot_with_a_run_shows_no_progress_and_a_stopped_bot_does(
 
     select(screen, "a00001")
     screen.settle()
-    assert _plan(screen).readiness_header.isHidden()
+    assert _plan(screen).banner.isHidden()
 
     select(screen, "b00002")
     screen.settle()
-    assert not _plan(screen).readiness_header.isHidden()
+    assert not _plan(screen).banner.isHidden()
 
 
 def test_a_bot_active_on_another_venue_leaves_start_open(open_bots_screen) -> None:
@@ -261,7 +261,7 @@ def test_a_bot_active_on_another_venue_leaves_start_open(open_bots_screen) -> No
     select(screen, "a00001")
     screen.settle()
 
-    assert "still active" not in _plan(screen).readiness_items.text()
+    assert "still active" not in _plan(screen).banner.text
     assert start_rule(screen)[0]
 
 

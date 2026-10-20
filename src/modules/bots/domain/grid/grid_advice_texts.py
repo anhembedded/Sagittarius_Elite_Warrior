@@ -73,7 +73,11 @@ def range_atr_advice(
         "bot then waits idle until price returns."
     )
     action = f"Try {figures.span(*suggested)}, or use Suggest from ATR."
-    return Advice(finding, consequence, action)
+    summary = (
+        f"{'Wide' if wide else 'Narrow'} range: {multiple:.1f} daily ATRs; "
+        f"{plain(low)}–{plain(high)} advised"
+    )
+    return Advice(finding, consequence, action, summary)
 
 
 # --- the step ------------------------------------------------------------------
@@ -123,7 +127,8 @@ def thin_step_advice(inputs: GridCheckInputs) -> tuple[Advice, int]:
         "Slippage (the gap between the price you expect and the price you get) can eat "
         "a step this thin, so a cycle there earns little or loses."
     )
-    return Advice(finding, consequence, f"{_grids_to_use(grids)}."), grids
+    summary = f"Step {thinnest.step_fraction:.2%} is thin; {threshold:.2%}+ advised"
+    return Advice(finding, consequence, f"{_grids_to_use(grids)}.", summary), grids
 
 
 def losing_grids_advice(inputs: GridCheckInputs, fees: Decimal) -> tuple[Advice, int]:
@@ -140,7 +145,11 @@ def losing_grids_advice(inputs: GridCheckInputs, fees: Decimal) -> tuple[Advice,
     consequence = (
         "Each completed cycle on those grids loses money; the others still earn."
     )
-    return Advice(finding, consequence, f"{_grids_to_use(grids)}."), grids
+    summary = (
+        f"{losing} of {len(derived.grids)} grids earn less than their fees "
+        f"({fees:.2%} a cycle)"
+    )
+    return Advice(finding, consequence, f"{_grids_to_use(grids)}.", summary), grids
 
 
 # --- the orders already open -----------------------------------------------------
@@ -173,7 +182,10 @@ def foreign_orders_advice(
             f"They leave room for {allowed - total} more; cancel them on the exchange "
             "if you did not mean to keep them."
         )
-    return Advice(finding, consequence, action), fitting
+    summary = (
+        f"{foreign} other open {'orders' if foreign != 1 else 'order'} on this symbol"
+    )
+    return Advice(finding, consequence, action, summary), fitting
 
 
 # --- the spacing -----------------------------------------------------------------
@@ -195,7 +207,8 @@ def arithmetic_spacing_advice(inputs: GridCheckInputs, limit: Decimal) -> Advice
         "Set Spacing to Geometric (every grid the same percentage), or narrow the "
         f"range to {figures.span(params.lower, params.lower * (1 + limit))}."
     )
-    return Advice(finding, consequence, action)
+    summary = f"Range is {width:.1%} wide; Geometric spacing advised"
+    return Advice(finding, consequence, action, summary)
 
 
 # --- the exits -------------------------------------------------------------------
@@ -236,10 +249,15 @@ def exit_distance_advice(
         f"({figures.money(abs(price - edge))}) {place} the {side.edge_name} limit "
         f"{figures.price(edge)}, outside the advised {low:.0%}–{high:.0%} ({advised})."
     )
+    summary = (
+        f"{side.name.capitalize()} is {distance:.2%} {place} the {side.edge_name} "
+        f"limit; {low:.0%}–{high:.0%} advised"
+    )
     return Advice(
         finding,
         _exit_consequence(side, too_close=distance < low),
         f"Try a {side.name} between {advised}.",
+        summary,
     )
 
 

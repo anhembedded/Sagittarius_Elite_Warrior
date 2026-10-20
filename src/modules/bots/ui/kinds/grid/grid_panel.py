@@ -18,13 +18,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 
-from PySide6.QtCore import QSignalBlocker, QSize, Qt
+from PySide6.QtCore import QSignalBlocker
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
-    QHBoxLayout,
-    QLabel,
     QSpinBox,
     QToolBar,
     QVBoxLayout,
@@ -66,7 +64,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_exposure_fiel
     ExposureFields,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_display import (
-    marker_icon,
     price_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
@@ -81,9 +78,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors 
     STOP_LOSS,
     TAKE_PROFIT,
     UPPER,
-    FieldError,
     field_errors,
     field_of_code,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_hints import (
+    MAX_GRIDS,
+    MIN_GRIDS,
+    FieldHints,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_suggestion_log import (
     log_suggestion,
@@ -94,9 +95,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
-#: Binance's own floor for a Spot grid; the planner refuses fewer anyway.
-_MIN_GRIDS = 2
-_MAX_GRIDS = 1000
 #: What a new Grid's count field starts at; the user changes it.
 _DEFAULT_GRIDS = 10
 
@@ -113,7 +111,7 @@ class GridPanel(BotKindPanel):
         self.upper_price = decimal_field("editGridUpper")
         self.grid_count = QSpinBox()
         self.grid_count.setObjectName("spinGridCount")
-        self.grid_count.setRange(_MIN_GRIDS, _MAX_GRIDS)
+        self.grid_count.setRange(MIN_GRIDS, MAX_GRIDS)
         self.grid_count.setValue(_DEFAULT_GRIDS)
         self.spacing = QComboBox()
         self.spacing.setObjectName("cmbGridSpacing")
@@ -134,8 +132,9 @@ class GridPanel(BotKindPanel):
         self.suggestion_note.setObjectName("lblGridSuggestion")
         self.suggestion_note.setWordWrap(True)
         self.suggestion_note.setVisible(False)
-        self._error_labels: dict[str, QLabel] = {}
-        self._marker_labels: dict[str, QLabel] = {}
+        self._hints = FieldHints(self)
+        #: `BOT-209`: the Grids field's one-click answer to a hint that names a count.
+        self.use_suggested_grids = self._hints.use_suggested_grids
         self._form = QFormLayout()
         self._rows: dict[str, QWidget] = {}
         self._build_field_layout()
@@ -215,6 +214,7 @@ class GridPanel(BotKindPanel):
             self.exposure.leverage,
         ):
             field.setEnabled(editable)
+        self.use_suggested_grids.setEnabled(editable)
         self._editable = editable
         self._offer_suggestions()
 
@@ -253,7 +253,7 @@ class GridPanel(BotKindPanel):
             (TAKE_PROFIT, self.take_profit),
         )
         for key, editor in rows:
-            row = self._row(key, editor)
+            row = self._hints.under(key, editor)
             self._rows[key] = row
             form.addRow(FIELD_LABELS[key], row)
         for key, widget in self.exposure.read_only_rows():
@@ -267,59 +267,18 @@ class GridPanel(BotKindPanel):
         for key in self.exposure.visible_rows():
             form.setRowVisible(self._rows[key], False)
 
-    def _row(self, key: str, editor: QWidget) -> QWidget:
-        """The editor with, under it, what the constraints say about it
-        (`EPIC-034F`): empty and hidden until a verdict is about this field."""
-        error = plain_label()
-        error.setObjectName(f"lblGridError_{key}")
-        error.setWordWrap(True)
-        error.setVisible(False)
-        self._error_labels[key] = error
-        marker = plain_label()
-        marker.setObjectName(f"lblGridMarker_{key}")
-        marker.setVisible(False)
-        self._marker_labels[key] = marker
-        said = QHBoxLayout()
-        said.setContentsMargins(0, 0, 0, 0)
-        said.addWidget(marker, 0, Qt.AlignmentFlag.AlignTop)
-        said.addWidget(error, 1)
-        row = QWidget()
-        column = QVBoxLayout(row)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.addWidget(editor)
-        column.addLayout(said)
-        return row
-
     # -- constraints on the fields (EPIC-034F) ----------------------------- #
 
     def show_verdicts(self, verdicts: tuple[Verdict, ...]) -> None:
         shown = field_errors(verdicts, self.exposure.selected_direction())
-        for key, label in self._error_labels.items():
+        self._hints.show(shown)
+        for key in self._hints.fields():
             error = shown.get(key)
-            label.setText(error.text if error else "")
-            label.setVisible(error is not None)
-            self._mark(key, error)
-            self._editor_of(key).setToolTip(error.text if error else "")
-        self.exposure.show_liquidation(verdicts)
-
-    def _mark(self, key: str, error: FieldError | None) -> None:
-        """A sign beside the sentence, from the platform's own icons: a stop sign
-        for what blocks Start, information for advice, and its words for a screen
-        reader. Colour is never the only signal."""
-        marker = self._marker_labels[key]
-        marker.setVisible(error is not None)
-        if error is None:
-            marker.clear()
-            marker.setAccessibleName("")
-            return
-        icon = marker_icon(error.blocks)
-        size = marker.fontMetrics().height()
-        marker.setPixmap(
-            self.style()
-            .standardIcon(icon)
-            .pixmap(QSize(size, size), marker.devicePixelRatioF())
+            self._editor_of(key).setToolTip(error.full if error else "")
+        self._hints.offer_grid_count(
+            shown.get(GRID_COUNT), self.grid_count.value(), self._editable
         )
-        marker.setAccessibleName("Blocks Start" if error.blocks else "Advice")
+        self.exposure.show_liquidation(verdicts)
 
     def focus_field(self, code: str) -> bool:
         key = field_of_code(code)
@@ -338,8 +297,7 @@ class GridPanel(BotKindPanel):
 
     def field_error_text(self, key: str) -> str:
         """What a field says now, `""` when nothing is about it."""
-        label = self._error_labels[key]
-        return label.text() if not label.isHidden() else ""
+        return self._hints.text_of(key)
 
     def _editor_of(self, key: str) -> QWidget:
         return {
@@ -366,6 +324,7 @@ class GridPanel(BotKindPanel):
         self.exposure.leverage.valueChanged.connect(self._emit)
         self.stop_loss.edited.connect(self._emit)
         self.take_profit.edited.connect(self._emit)
+        self.use_suggested_grids.clicked.connect(self._use_suggested_grids)
         self.suggest_atr.triggered.connect(
             lambda: self._apply_suggestion(
                 "ATR", self._market.atr_range if self._market else None
@@ -376,6 +335,9 @@ class GridPanel(BotKindPanel):
                 "Bollinger", self._market.bollinger if self._market else None
             )
         )
+
+    def _use_suggested_grids(self) -> None:
+        self.grid_count.setValue(self._hints.suggested_grids)
 
     def _apply_suggestion(self, source: str, band: SuggestedRange | None) -> None:
         """Writes the plan `suggest_plan` makes of `band` (`BUG-211`) and says what moved."""

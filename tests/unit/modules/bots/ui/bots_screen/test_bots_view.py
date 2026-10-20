@@ -260,15 +260,6 @@ def test_the_bots_figures_are_a_property_table(view) -> None:
     assert figures.shown_value("symbol") == ""
 
 
-def test_the_verdicts_read_as_lines(view) -> None:
-    view.model.set_judgement(("OK: fees covered", "Warning: thin"))
-
-    assert view.plan.verdict_lines() == ("OK: fees covered", "Warning: thin")
-
-    view.model.set_judgement(())
-    assert view.plan.verdict_lines() == ()
-
-
 def test_the_status_line_shows_an_exchange_page_as_text_not_as_a_web_page(view) -> None:
     """`BUG-168`: a gateway's HTML page, carried by an error message, was drawn
     by the status label as a "502 Bad Gateway" heading."""
@@ -372,15 +363,13 @@ def test_the_plan_shows_the_three_steps_and_what_is_left_for_a_bot_at_rest(
 
     view.model.set_readiness(_readiness(_CAPITAL_ITEM), ReadinessState.DESIGNING)
 
-    assert view.plan.readiness_header.text() == "Start: 1 thing left"
     assert _step_values(view) == ["done", "1 thing left", "waits for Design"]
     assert view.plan.properties.group_is_shown(READINESS_GROUP)
-    assert _CAPITAL_ITEM.reason in view.plan.readiness_items.text()
-    assert not view.plan.readiness_items.isHidden()
+    assert _CAPITAL_ITEM.reason in view.plan.banner.text
+    assert not view.plan.banner.isHidden()
 
     view.model.set_readiness(_readiness(), ReadinessState.READY)
-    assert view.plan.readiness_header.text() == "Start: Ready to start"
-    assert view.plan.readiness_items.isHidden()
+    assert view.plan.banner.text == "Ready to start"
 
 
 def test_a_bot_with_a_run_shows_no_readiness(view) -> None:
@@ -388,5 +377,5 @@ def test_a_bot_with_a_run_shows_no_readiness(view) -> None:
 
     view.model.set_readiness(None, ReadinessState.NOT_CONNECTED)
 
-    assert view.plan.readiness_header.isHidden()
+    assert view.plan.banner.isHidden()
     assert not view.plan.properties.group_is_shown(READINESS_GROUP)

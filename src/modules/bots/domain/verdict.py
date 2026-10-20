@@ -39,6 +39,12 @@ class Verdict:
     #: The part of the plan a code that can speak twice is about: a Neutral Futures plan has
     #: a "long" and a "short" side (`EPIC-039J`). `""` for a verdict about the plan as a whole.
     subject: str = ""
+    #: `BOT-209` — what the check is called in a list of checks, a noun phrase ("Grid step above
+    #: fees"), never a sentence. `""` for a verdict whose kind did not name it.
+    title: str = ""
+    #: `BOT-209` — the finding in one line, rounded for reading, for a place that has room for
+    #: no more than a line (the hint under a field). `""` when `reason` is already that short.
+    summary: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "numbers", MappingProxyType(dict(self.numbers)))

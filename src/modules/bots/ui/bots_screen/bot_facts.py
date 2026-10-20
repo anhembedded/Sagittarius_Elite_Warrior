@@ -112,6 +112,10 @@ class BotFacts:
     shows_costs: bool = False
     #: `BOT-192` - completed buy/sell cycles, beside the profit they booked.
     cycles: str = NO_VALUE
+    #: `BOT-209` - the state alone ("Halted"), and what the run said about it, kept apart so the
+    #: state reads at a glance and the note stands in the status banner. `state` is both, as ever.
+    state_word: str = ""
+    note: str = ""
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -120,6 +124,8 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
     capital = bot.config.get(capital_key, "") if capital_key else ""
     return BotFacts(
         state=_state_line(bot),
+        state_word=state_text(bot.state),
+        note=_state_note(bot),
         venue=bot.venue.display_name,
         symbol=bot.symbol,
         capital=capital or NO_VALUE,
@@ -138,6 +144,15 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
 
 
 def _state_line(bot: BotSnapshot) -> str:
+    detail = _state_note(bot)
+    if not detail:
+        return state_text(bot.state)
+    return f"{state_text(bot.state)} — {detail}"
+
+
+def _state_note(bot: BotSnapshot) -> str:
+    """What the run said about the state: the reason it halted or failed, or what a recovering
+    bot waits for."""
     progress = bot.progress
     detail = progress.reason_detail if progress is not None else ""
     if bot.state is BotLifecycleState.RECOVERING:
@@ -148,9 +163,7 @@ def _state_line(bot: BotSnapshot) -> str:
             else RECOVERING_WAITS_FOR_RESUME
         )
         detail = f"{waits}. {detail}".rstrip()
-    if not detail:
-        return state_text(bot.state)
-    return f"{state_text(bot.state)} — {detail}"
+    return detail
 
 
 def _unrealised(bot: BotSnapshot) -> str:

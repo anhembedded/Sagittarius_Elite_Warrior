@@ -155,13 +155,13 @@ def test_the_panel_tells_a_range_verdict_once_not_under_each_bound(qtbot) -> Non
 
 
 def _marker_image(panel: GridPanel, key: str) -> QImage:
-    pixmap = panel._marker_labels[key].pixmap()
+    pixmap = panel._hints.marker_of(key).pixmap()
     assert not pixmap.isNull()
     return pixmap.toImage()
 
 
 def _icon_image(panel: GridPanel, icon: QStyle.StandardPixmap, key: str) -> QImage:
-    marker = panel._marker_labels[key]
+    marker = panel._hints.marker_of(key)
     size = marker.fontMetrics().height()
     return (
         panel.style()
@@ -187,11 +187,11 @@ def test_advice_wears_the_information_icon_and_a_block_does_not(qtbot) -> None:
 
     information = QStyle.StandardPixmap.SP_MessageBoxInformation
     assert _marker_image(panel, "spacing") == _icon_image(panel, information, "spacing")
-    assert panel._marker_labels["spacing"].accessibleName() == "Advice"
+    assert panel._hints.marker_of("spacing").accessibleName() == "Advice"
     assert _marker_image(panel, "capital_quote") != _icon_image(
         panel, information, "capital_quote"
     )
-    assert panel._marker_labels["capital_quote"].accessibleName() == "Blocks Start"
+    assert panel._hints.marker_of("capital_quote").accessibleName() == "Blocks Start"
 
 
 def test_the_icon_is_chosen_where_severity_becomes_an_icon() -> None:

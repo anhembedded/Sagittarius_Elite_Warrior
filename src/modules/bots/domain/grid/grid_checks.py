@@ -104,6 +104,7 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
                 "losing_grids": Decimal(losing),
                 "suggested_grids": Decimal(grids),
             },
+            summary=advice.summary,
         )
     return Verdict(OK, "BREAK_EVEN", "Every grid earns more than its fees", numbers)
 
@@ -199,6 +200,7 @@ def check_foreign_orders(inputs: GridCheckInputs) -> Verdict:
             "FOREIGN_OPEN_ORDERS",
             advice.text,
             {**numbers, "suggested_grids": Decimal(fitting)},
+            summary=advice.summary,
         )
     return Verdict(
         OK, "NO_FOREIGN_ORDERS", "No other order is open on the symbol", numbers
@@ -298,6 +300,7 @@ def check_min_step(inputs: GridCheckInputs) -> Verdict:
             "STEP_BELOW_MINIMUM",
             advice.text,
             {**numbers, "suggested_grids": Decimal(grids)},
+            summary=advice.summary,
         )
     return Verdict(OK, "STEP_SIZE", "Every step leaves room for slippage", numbers)
 
@@ -319,10 +322,11 @@ def check_range_against_atr(inputs: GridCheckInputs) -> Verdict:
     }
     if not thresholds.range_atr_low <= multiple <= thresholds.range_atr_high:
         lower, upper = suggested_atr_range(inputs, daily_atr)
+        advice = range_atr_advice(inputs, daily_atr, multiple)
         return Verdict(
             WARNING,
             "RANGE_OUTSIDE_ATR_BAND",
-            range_atr_advice(inputs, daily_atr, multiple).text,
+            advice.text,
             {
                 **numbers,
                 "daily_atr": daily_atr,
@@ -330,6 +334,7 @@ def check_range_against_atr(inputs: GridCheckInputs) -> Verdict:
                 "suggested_lower": lower,
                 "suggested_upper": upper,
             },
+            summary=advice.summary,
         )
     return Verdict(OK, "RANGE_ATR", "The range is within the ATR band", numbers)
 
@@ -339,10 +344,12 @@ def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
     width = (params.upper - params.lower) / params.lower
     numbers = {"range_fraction": width, "threshold": limit}
     if params.spacing is GridSpacing.ARITHMETIC and width > limit:
+        advice = arithmetic_spacing_advice(inputs, limit)
         return Verdict(
             WARNING,
             "ARITHMETIC_ON_WIDE_RANGE",
-            arithmetic_spacing_advice(inputs, limit).text,
+            advice.text,
             numbers,
+            summary=advice.summary,
         )
     return Verdict(OK, "SPACING", "The spacing suits the range", numbers)

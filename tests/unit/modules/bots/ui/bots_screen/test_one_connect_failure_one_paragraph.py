@@ -90,6 +90,6 @@ def test_the_surfaces_that_are_not_the_bar_name_the_state_in_a_few_words(
     assert locked_note(screen) == "Spot Testnet: Not connected: key refused"
     assert "Not connected" in screen.view.identity.connection.text()
     assert "key refused" in screen.view.identity.connection.text()
-    plan = screen.view.plan.readiness_items.text()
+    plan = screen.view.plan.banner.text
     assert "Not connected: key refused" in plan
     assert len(plan) < 120

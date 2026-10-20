@@ -28,9 +28,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
+from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtGui import (
-    QFontMetrics,
     QGuiApplication,
     QKeySequence,
     QShortcut,
@@ -50,6 +49,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_row
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.row_kind_delegate import (
     ROW_KIND_ROLE,
     RowKindDelegate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.wrapped_rows import (
+    wrapped_line_count,
+    wrapped_row_size,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kind_font import kind_font
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text_at
@@ -270,34 +273,17 @@ class PlanPropertyGrid:
                     continue
                 width = max(header.sectionSize(column) - taken - pad, 1)
                 text = displayed_text_at(view, self._proxy_index(key, column))
-                lines = max(lines, self._lines_of_text(item, text, width))
+                lines = max(lines, wrapped_line_count(item.font(), text, width))
             self._set_lines(key, lines)
         view.updateGeometry()
 
-    @staticmethod
-    def _lines_of_text(item: QStandardItem, text: str, width: int) -> int:
-        metrics = QFontMetrics(item.font())
-        wrapped = metrics.boundingRect(
-            QRect(0, 0, width, 0), Qt.TextFlag.TextWordWrap, text
-        )
-        return max(round(wrapped.height() / metrics.lineSpacing()), 1)
-
     def _set_lines(self, key: str, lines: int) -> None:
         group_key, index = self._rows[key]
-        size = self._row_size(lines) if lines > 1 else None
+        size = wrapped_row_size(self.view, lines) if lines > 1 else None
         for column in range(len(COLUMNS)):
             item = self._groups[group_key].child(index, column)
             if item is not None and item.data(Qt.ItemDataRole.SizeHintRole) != size:
                 item.setData(size, Qt.ItemDataRole.SizeHintRole)
-
-    def _row_size(self, lines: int) -> QSize:
-        """The style's height of one line, and a line's spacing for each line more."""
-        view = self.view
-        metrics = view.fontMetrics()
-        margin = view.style().pixelMetric(QStyle.PixelMetric.PM_FocusFrameVMargin) + 1
-        return QSize(
-            0, metrics.height() + 2 * margin + metrics.lineSpacing() * (lines - 1)
-        )
 
     def _group_index(self, group_key: str) -> QModelIndex:
         item = self._groups[group_key]
