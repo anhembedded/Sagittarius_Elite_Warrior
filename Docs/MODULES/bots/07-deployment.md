@@ -79,9 +79,10 @@ On the headless host `operations`' `run` boots the same module with no window. W
 the bots is a shutdown policy chosen on the command line (design 038 §6.1, decision O1): leave the
 orders resting, the default and what the shipped unit runs (`--on-stop leave-orders`,
 `deploy/linux/sew-run.service`; `src/modules/operations/adapters/leave_orders_resting.py` →
-`LeaveOrdersResting`), or stop every bot first (`src/modules/operations/adapters/stop_bots_first.py` →
+`LeaveOrdersResting`; a Futures bot is left only while a stop on the exchange covers its position and is closed otherwise,
+`EPIC-038M`, [`06-runtime.md`](06-runtime.md)), or stop every bot first (`src/modules/operations/adapters/stop_bots_first.py` →
 `StopBotsFirst`). A restart leaves running bots `RECOVERING` until a person resumes them, or until
 `run --resume-recovering` does (design 038 §6.2, decision O2;
 [`06-runtime.md`](06-runtime.md)). A `HALTED` or `AWAITING_RECOVERY` bot is resumed by a person, or by
 `run --resume-halted` (`EPIC-042E`, ADR 042 D13), which gives the screen's Resume and Confirm in advance. Between a stop and the next start nothing watches a stop loss or a
-take profit; `EPIC-039L` closes that gap on Futures with an order resting on the exchange.
+take profit; `EPIC-039L` closes that gap on Futures with an order resting on the exchange, and the host leaves a Futures bot only under it.

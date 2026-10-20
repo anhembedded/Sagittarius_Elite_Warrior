@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
@@ -49,4 +52,7 @@ class ReadOnlyBotRunner(IBotRunner):
         raise ReadOnlyInstanceError(self._reason)
 
     def has_resume_proposal(self, bot_id: str) -> bool:
+        raise ReadOnlyInstanceError(self._reason)
+
+    def stop_coverage(self, bot_id: str) -> StopCoverageReading:
         raise ReadOnlyInstanceError(self._reason)

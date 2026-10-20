@@ -90,6 +90,9 @@ class _CountingRunner(IBotRunner):
     def has_resume_proposal(self, bot_id: str) -> bool:
         return False
 
+    def stop_coverage(self, bot_id: str) -> object:  # type: ignore[override]
+        raise NotImplementedError
+
 
 def _start(
     world: ReadinessWorld, runner: IBotRunner, config: dict[str, str] | None = None

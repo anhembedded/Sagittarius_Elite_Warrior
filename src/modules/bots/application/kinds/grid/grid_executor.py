@@ -98,6 +98,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_status_gate import (
     SymbolStatusGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
     IBotExecutor,
@@ -153,11 +156,12 @@ class GridExecutor(IBotExecutor):
         the risk watch (`EPIC-039H`)."""
         self._context = context
         self._queue = queue
+        self._protection = exposure.protection or NoProtection()
         self._start = GridStartSequence(
             context,
             exposure.opening,
             exposure.flags,
-            exposure.protection or NoProtection(),
+            self._protection,
         )
         self._stop = GridStopper(
             context,
@@ -185,7 +189,7 @@ class GridExecutor(IBotExecutor):
                 context,
                 exposure.closer,
                 self._stop,
-                exposure.protection or NoProtection(),
+                self._protection,
             ),
             self._pause,
             self._storage,
@@ -281,6 +285,10 @@ class GridExecutor(IBotExecutor):
 
     def withdraw_resume_proposal(self) -> None:
         self._post("withdraw resume proposal", self._forget_proposal)
+
+    def stop_coverage(self) -> StopCoverageReading:
+        """Off the worker's thread, a read only (`IBotExecutor.stop_coverage`)."""
+        return self._protection.read_coverage()
 
     def has_resume_proposal(self) -> bool:
         """Read off the worker's thread: one reference, set and cleared by

@@ -47,7 +47,7 @@ def test_leave_orders_resting_places_and_cancels_nothing_and_says_what_it_leaves
     )
     caplog.set_level(logging.INFO, logger=_LOGGER)
 
-    LeaveOrdersResting(world).apply(StopLedger(), threading.Event())
+    LeaveOrdersResting(world, 25.0).apply(StopLedger(), threading.Event())
 
     # The only thing it asked the bots was to read; nothing was stopped.
     assert world.stops() == []
@@ -64,7 +64,7 @@ def test_leave_orders_resting_with_no_active_bot_says_there_is_nothing_to_leave(
 ) -> None:
     caplog.set_level(logging.INFO, logger=_LOGGER)
 
-    LeaveOrdersResting(BotsWorld([ScriptedBot("cccccc", ["STOPPED"])])).apply(
+    LeaveOrdersResting(BotsWorld([ScriptedBot("cccccc", ["STOPPED"])]), 25.0).apply(
         StopLedger(), threading.Event()
     )
 
@@ -76,7 +76,7 @@ def test_a_bot_whose_orders_are_not_known_is_left_with_the_count_unknown(
 ) -> None:
     caplog.set_level(logging.INFO, logger=_LOGGER)
 
-    LeaveOrdersResting(BotsWorld([ScriptedBot("aaaaaa", ["RECOVERING"])])).apply(
+    LeaveOrdersResting(BotsWorld([ScriptedBot("aaaaaa", ["RECOVERING"])]), 25.0).apply(
         StopLedger(), threading.Event()
     )
 

@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
@@ -124,6 +127,9 @@ class BotRunner(IBotRunner):
 
     def has_resume_proposal(self, bot_id: str) -> bool:
         return self._executor(bot_id).has_resume_proposal()
+
+    def stop_coverage(self, bot_id: str) -> StopCoverageReading:
+        return self._executor(bot_id).stop_coverage()
 
     def _loss_cap_refusal(self, bot_id: str) -> BotCommandResult | None:
         """`EPIC-026L`: a tripped account-level loss cap holds every bot down until the owner

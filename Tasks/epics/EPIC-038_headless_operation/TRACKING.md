@@ -58,6 +58,7 @@ gantt
 | EPIC-038J | [Control of a running host](completed/EPIC-038J_control_of_a_running_host.md) | `claude/epic-038j-control-running-host` | 🔴 | ✅ Done 2026-10-17; review round 1 pending | — |
 | EPIC-038K | [Start on a running host](completed/EPIC-038K_start_on_a_running_host.md) | `claude/epic-038k-start-delete-running-host` | 🔴 | ✅ Done 2026-10-17; review pending | — |
 | EPIC-038L | [Edit on a running host](completed/EPIC-038L_edit_on_a_running_host.md) | `claude/bot-edit-on-running-host-EPIC-038L` | 🔴 | ✅ Done 2026-10-17; review pending | — |
+| EPIC-038M | [A Futures bot at host stop](completed/EPIC-038M_a_futures_bot_at_host_stop.md) | `claude/o12-futures-host-stop-policy` | 🔴 | ✅ Done 2026-10-20; review on the PR | — |
 
 ---
 
@@ -65,6 +66,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-20 | 038M | O12 implemented: the default stop leaves a Futures bot only under a covering stop on the exchange and closes the others (Stop with close); Spot unchanged; the read is bounded by half of `--stop-timeout`. |
 | 2026-10-13 | 038I | `bot apply` / `bot export` and the plan file (`sew.bot-plan/1`, no secret field, identity name + venue), idempotent through the Bots tab's own commands; the applied desired states are recorded and `run --start-planned` reads them; no plan or a damaged record is exit 5 before anything boots. |
 | 2026-10-13 | 038D | The `run` host delivered: signals, both stop policies (leave orders by default), the lock refusal (3), the pre-flight before the restore (4/5/6), the health line with a measured clock skew, `--start-planned` (waits for 038I's plan) and `--resume-recovering`. The log of a machine report moved to stderr; `stream_age_s` became `stream_down_s`. |
 | 2026-10-13 | 038E | Systemd credentials and permission-checked files behind `ISecretStore`, read in one order with the source named; `ISecretStore` moved to `core/contracts`. The Windows ACL check and the Credential Manager are untested on a real server. |

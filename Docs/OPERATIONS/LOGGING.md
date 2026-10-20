@@ -106,7 +106,7 @@ Everything on standard output, one record per line, in the format of §3. The ta
 | `[recovering]` | WARNING | one per bot left RECOVERING after the restart, and whose move it is (decision O2) |
 | `[resume-recovering]`, `[resume-halted]`, `[start-planned]` | INFO / WARNING | what `--resume-recovering`, `--resume-halted` and `--start-planned` did, venue by venue and bot by bot; `[start-planned]` also says when the applied plan wants no bot running |
 | `[plan]` (`App.Bots.Plan`) | INFO | one line per `bot apply`: how many entries were created, edited, deleted, left or blocked (`EPIC-038I`) |
-| `[stop-policy]` | INFO / WARNING | `leave-orders`: each bot left and its orders resting; `stop-bots`: each stop requested and confirmed, and each stop refused |
+| `[stop-policy]` | INFO / WARNING | `leave-orders`: each bot left and its orders resting (for a Futures bot, why: its stop covers its position, or it holds nothing), and at WARNING each Futures bot it closes before exit with the reason (`closing <id> (<state>) before exit: ...`); `stop-bots`: each stop requested and confirmed, and each stop refused |
 | `[signals]` | INFO | which signals ask the host to stop |
 | `[health]` | INFO | the health line (§4); WARNING `probe <name> failed` once per streak when the clock probe cannot ask the exchange |
 | `[bot-transition]` (`App.Bots.GridExecutor`) | INFO / WARNING / ERROR | every bot lifecycle transition, with the reason: **WARNING when the bot lands in HALTED, ERROR when it lands in ERROR**, INFO for every other state (`BotRunState.transition`, the one place a transition is applied; `BUG-209`) |

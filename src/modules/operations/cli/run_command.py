@@ -277,7 +277,7 @@ class RunCommand:
     def _policy(self) -> IShutdownPolicy:
         if self._options.on_stop is StopPolicyName.STOP_BOTS:
             return StopBotsFirst(self._dispatcher)
-        return LeaveOrdersResting(self._dispatcher)
+        return LeaveOrdersResting(self._dispatcher, self._options.stop_timeout_s)
 
     def _steps(self) -> tuple[IHostStep, ...]:
         options = self._options

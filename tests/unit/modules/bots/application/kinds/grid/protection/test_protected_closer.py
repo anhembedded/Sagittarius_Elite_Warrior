@@ -15,6 +15,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protected_closer import (
     ProtectedCloser,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverage,
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_closer import (
     IExposureCloser,
 )
@@ -59,6 +63,9 @@ class _Protection(IExposureProtection):
 
     def describe_stop(self) -> str:
         return ""
+
+    def read_coverage(self) -> StopCoverageReading:
+        return StopCoverageReading(StopCoverage.NOT_APPLICABLE)
 
     def release(self) -> bool:
         self._calls.append("release")

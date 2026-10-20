@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_read
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report import (
     GetBotStatusReportQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_stop_coverage import (
+    GetBotStopCoverageQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_exchange_facts import (
     GetExchangeFactsQuery,
     GetExchangeFactsQueryHandler,
@@ -49,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     GetBotStatusReportQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    GetBotStopCoverageQuery,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -57,6 +63,7 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetBotQuery, GetBotQueryHandler)
     container.bind(ExportBotPlanQuery, ExportBotPlanQueryHandler)
     container.bind(GetBotStatusReportQuery, GetBotStatusReportQueryHandler)
+    container.bind(GetBotStopCoverageQuery, GetBotStopCoverageQueryHandler)
     container.bind(GetPlannerMarketQuery, GetPlannerMarketQueryHandler)
     container.bind(GetBotFillsQuery, GetBotFillsQueryHandler)
     container.bind(GetBotReadinessQuery, GetBotReadinessQueryHandler)

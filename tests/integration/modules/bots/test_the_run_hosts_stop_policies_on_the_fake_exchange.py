@@ -106,7 +106,9 @@ def test_leave_orders_resting_places_and_cancels_nothing_on_the_fake_exchange(
         assert before_orders, "the ladder is on the exchange"
 
         with _heard("App.Operations.StopPolicy") as lines:
-            LeaveOrdersResting(_dispatcher(app)).apply(StopLedger(), threading.Event())
+            LeaveOrdersResting(_dispatcher(app), 25.0).apply(
+                StopLedger(), threading.Event()
+            )
 
         asked = app.urls.requests[before_requests:]
         assert not [r for r in asked if r[0] in _PLACING_OR_CANCELLING], asked

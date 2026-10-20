@@ -132,6 +132,9 @@ class _RecordingRunner(IBotRunner):
     def has_resume_proposal(self, bot_id: str) -> bool:
         return bot_id in self.proposals
 
+    def stop_coverage(self, bot_id: str) -> object:  # type: ignore[override]
+        raise NotImplementedError
+
 
 @pytest.fixture
 def runner(store: FakeBotStore, clock: FakeBotClock) -> _RecordingRunner:

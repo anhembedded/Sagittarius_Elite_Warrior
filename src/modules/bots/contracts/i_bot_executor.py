@@ -18,6 +18,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 
@@ -64,6 +67,14 @@ class IBotExecutor(ABC):
     @abstractmethod
     def has_resume_proposal(self) -> bool:
         """A resume from HALTED proposed a ladder that awaits confirmation."""
+
+    @abstractmethod
+    def stop_coverage(self) -> StopCoverageReading:
+        """Whether a stop on the exchange covers what the bot holds, read fresh (`EPIC-038M`).
+
+        Unlike the commands above it answers at once and does not queue: it only reads, so it does
+        not wait behind a worker that is busy placing orders - and a read that races a placement
+        finds the stop missing and errs toward closing, the safe side."""
 
     @property
     @abstractmethod

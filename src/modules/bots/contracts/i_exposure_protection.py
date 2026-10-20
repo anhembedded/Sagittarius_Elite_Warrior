@@ -10,6 +10,8 @@ Grid's one seam to it, the same shape as `IOpeningStrategy` and `IExposureCloser
   · `supervise` — on the price watch's beat and after a reconcile: a stop that vanished is
     placed again, a missing one is placed, one standing over a flat symbol is cancelled, one that
     triggered is said (`ProtectionVerdict.TRIGGERED`);
+  · `read_coverage` — whether a stop on the exchange covers the position now, read fresh: the `run`
+    host's choice between leaving the bot and closing it when it stops (`EPIC-038M`, decision O12);
   · `release` — once the bot's own exposure is closed (`ProtectedCloser`): the stops are
     cancelled. `False`: one could not be, and the stop waits.
 
@@ -26,6 +28,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
+    StopCoverageReading,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 
 
@@ -55,6 +60,12 @@ class IExposureProtection(ABC):
         """Whether the bot's protective stop stands on the exchange now, in words for a halt that
         cannot close the position ("its protective stop stands on the exchange"); empty where the
         venue has no stop (Spot). Reads the exchange; an unread answer says so."""
+
+    @abstractmethod
+    def read_coverage(self) -> StopCoverageReading:
+        """Whether a stop on the exchange covers the bot's position **now**, read from the exchange
+        and not from the bot's record (`StopCoverage`); `NOT_APPLICABLE` where the venue has no stop
+        (Spot). Reads only, and an answer it could not read is `UNREAD`, never covered."""
 
     @abstractmethod
     def release(self) -> bool:
