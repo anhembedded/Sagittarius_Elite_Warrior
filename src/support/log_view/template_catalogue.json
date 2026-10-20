@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 800, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 801, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -251,6 +251,7 @@
 ["", "Chart OpenGL viewport has no valid context; falling back to CPU"],
 ["d", "Close cancelled: ", " objection(s) kept the app open"],
 ["s", "Close objection ", " failed"],
+["ss", "Colour scheme ", " asked of Qt; Qt now reports ", ""],
 ["s", "Command failed, shown in a message box: ", " [notice-command]"],
 ["ss", "Connect ", ": ", " shares a fresh read"],
 ["ssss", "Connect ", ": could not read ", " -> ", "", " [connect-step]"],
