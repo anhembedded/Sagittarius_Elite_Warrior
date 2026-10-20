@@ -233,7 +233,15 @@ The target is unchanged: the app applies **no** stylesheet, palette, token set o
 theme. Widgets look like the platform's widgets (Windows, macOS, a Linux desktop) — that is the
 familiarity principle. A colour is used only where it carries meaning (profit / loss, connection
 state), through `QPalette` roles or a per-widget property, never a global stylesheet. A designed
-theme is a later decision, explicitly deferred by the user (*"sau này design màu theme tính sau"*).
+theme is a later decision, explicitly deferred by the user (*"sau này design màu theme tính sau"*)
+and rejected on 2026-10-20 (`PRO-009` option C).
+
+**Amended 2026-10-20 (`PRO-009` options A + B, accepted by the owner).** The colour scheme may be
+chosen in Tools → Options: System (the default), Light or Dark. It is applied through Qt's own
+`QStyleHints.setColorScheme`, so the platform draws its own palette; the app still writes no
+palette, no stylesheet and no colour value for it. Colour that carries meaning grows only through
+`src/support/ui_kit/meaning_colours.py` (profit and loss, state badges, headline figures, risk
+tones), each beside a sign, word or icon. `EPIC-033` D1 is unchanged. Delivered by `EPIC-043`.
 
 **How it is reached** (revised 2026-09-13 while executing PR 0.2; the earlier text said
 `seed_app_theme()` and `kit/style.py` are deleted in Phase 0, which is not possible — see below).
