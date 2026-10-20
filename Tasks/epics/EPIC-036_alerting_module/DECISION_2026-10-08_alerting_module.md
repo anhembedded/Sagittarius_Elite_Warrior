@@ -51,7 +51,7 @@
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| N1 | [036A](completed/EPIC-036A_alerting_core.md), [036B](incomplete/EPIC-036B_alert_sources.md) | Partly delivered (036A) | The module, its boundary guards and the `IAlertChannel` extension of `INotificationChannel` exist; `036B` brings the sources and the old handler's replacement |
+| N1 | [036A](completed/EPIC-036A_alerting_core.md), [036B](completed/EPIC-036B_alert_sources.md) | Partly delivered (036A) | The module, its boundary guards and the `IAlertChannel` extension of `INotificationChannel` exist; `036B` brings the sources and the old handler's replacement |
 | N2 | [036A](completed/EPIC-036A_alerting_core.md) | Delivered (036A) | `SqliteOutbox` under `state/`, expiry after 24 h; unit tests `test_the_outbox_survives_a_restart`, `test_an_alert_older_than_24_hours_expires_and_is_not_sent`; integration `test_an_undelivered_alert_is_sent_after_a_restart`. No process was killed mid-write |
 | N3 | [036A](completed/EPIC-036A_alerting_core.md), [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | Moved (owner, 2026-10-13) | The `ISecretStore` lift is delivered by `EPIC-038E`, not by `036A`; the token migration and the webhook are `036C` |
 | N4 | [036A](completed/EPIC-036A_alerting_core.md), [036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | Partly delivered (036A) | The defaults (CRITICAL loud, WARNING and INFO silent, no quiet-hours preset) are `AlertSettings`; the heartbeat is `036E` |

@@ -8,7 +8,7 @@
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) gains the Futures verdict words with `039H`.
 **Design:** [DESIGN §5.3, §6](../DESIGN_2026-10-10_futures_venue_profile.md) · **Research:** [§1, §5](../RESEARCH_2026-10-10_futures_grid.md) · **Decision:** O3, O4, O5
 **Branch:** `claude/epic-039f-risk-guard`
-**Depends on:** [039E](EPIC-039E_futures_settings_gate_and_readiness.md) (settings, brackets, facts), [039G](EPIC-039G_futures_costs_funding_and_pnl.md) (funding in the estimate's honesty). Alert kinds coordinate with [`EPIC-036B`](../../EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md).
+**Depends on:** [039E](EPIC-039E_futures_settings_gate_and_readiness.md) (settings, brackets, facts), [039G](EPIC-039G_futures_costs_funding_and_pnl.md) (funding in the estimate's honesty). Alert kinds coordinate with [`EPIC-036B`](../../EPIC-036_alerting_module/completed/EPIC-036B_alert_sources.md).
 
 ---
 

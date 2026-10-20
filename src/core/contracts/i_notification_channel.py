@@ -5,7 +5,7 @@
 `BOT-018`. Narrow on purpose, mirroring `IEventPublisher`: one method, no
 subscribe, no channel-specific configuration exposed through the port — each
 implementation reads what it needs (a window, a bot token) at its own
-construction. `NotificationEventHandler` fans the same plain-text `message`
+construction. `SystemFailureRelay` fans the same plain-text `message`
 out to every configured channel.
 
 `Protocol`, not `ABC`, under `architecture-rule.md` §2.1 reason (a):
@@ -35,9 +35,8 @@ class INotificationChannel(Protocol):
         network failure, an unconfigured destination) must catch and log
         that itself; it must never raise out of this method, the same
         contract `IEventPublisher.publish()` states for its own callers.
-        `NotificationEventHandler` calls this off the main thread by design
-        (`ITaskManager`-dispatched) so a slow implementation never blocks
-        whatever thread published the triggering event — an implementation
-        that touches Qt must hop back to the main thread itself.
+        `SystemFailureRelay` calls this on whatever thread published the
+        failure — an implementation that touches Qt must hop back to the main
+        thread itself, and one that blocks must not be added to it.
         """
         ...

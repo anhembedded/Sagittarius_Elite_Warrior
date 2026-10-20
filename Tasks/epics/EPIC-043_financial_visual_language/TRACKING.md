@@ -31,7 +31,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-043A | Verify the dark scheme | `claude/epic-043a-verify-dark-scheme` | 🟢 | 🟡 Pull request open | 2026-10-20 |
-| EPIC-043B | Options colour scheme | not yet | 🟡 | 🔵 Planned | — |
+| EPIC-043B | Options colour scheme | `claude/epic-043b-options-colour-scheme` | 🟡 | 🟡 Pull request open | 2026-10-20 |
 | EPIC-043C | PnL tones and state badges | `claude/epic-043c-pnl-tones-and-badges` | 🟡 | 🟡 Pull request open | 2026-10-20 |
 | EPIC-043D | Headline figures and tick flash | not yet | 🟡 | 🔵 Planned | — |
 | EPIC-043E | Risk tones and icons | not yet | 🟡 | 🔵 Planned | — |
@@ -43,6 +43,8 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-20 | Spec | PRO-009 accepted by the owner; epic scaffolded. |
 | 2026-10-20 | 043A | Every mode verified in dark; `setColorScheme` not effective off Windows or macOS. |
+| 2026-10-20 | 043B | Appearance page, preference, applier; nine series colours moved to read on both schemes. |
+| 2026-10-20 | 043C | Arrow, sign and tone on every PnL figure; a state is an icon and a word; BOT-196 delivered inside. |
 
 ---
 

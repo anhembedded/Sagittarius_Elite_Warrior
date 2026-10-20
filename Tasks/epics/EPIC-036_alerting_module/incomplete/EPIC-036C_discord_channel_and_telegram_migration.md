@@ -37,7 +37,7 @@ Adapter pattern behind `IAlertChannel`; plain `urllib` POST as Telegram does tod
 | `src/modules/alerting/adapters/telegram_channel.py` (new) | The moved Telegram channel |
 | `src/infrastructure/notifications/telegram_notification_channel.py` and its test | Deleted; tests move |
 | `src/modules/alerting/application/` | `SecretMigration`, the sanitiser, `SendTest` and `RotateSecret` use cases |
-| `src/shell/composition_root.py` | The Telegram wiring removed |
+| `src/shell/composition_root.py`, `src/shell/telegram_pause_notice.py` | The Telegram wiring was removed by `EPIC-036B` (system failures reach Telegram nowhere until this task): restore delivery as a Telegram `IAlertChannel` routed for `APP_FAILURE`, with a test, and delete the pause notice |
 | Config template / docs | The Telegram token key documented as migrated and removed |
 
 ## 5. Testing
