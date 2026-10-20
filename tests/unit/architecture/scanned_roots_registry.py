@@ -104,6 +104,10 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     ("tests/unit/architecture/test_no_new_qml.py", (("src", "*.qml"),)),
     (
+        "tests/unit/architecture/test_time_axes_come_from_zoned_date_axis.py",
+        (("src", "*.py"),),
+    ),
+    (
         "tests/unit/architecture/test_module_domain_is_qt_free.py",
         (("src/core", "*.py"), ("src/support/binance_gateway", "*.py")),
     ),

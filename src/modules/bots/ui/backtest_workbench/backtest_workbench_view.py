@@ -227,8 +227,10 @@ class BacktestWorkbenchView(QWidget):
         self.fills_model.set_rows(list(shown.fills))
 
     def use_display_timezone(self, preference: DisplayTimezonePreference) -> None:
-        """The replay chart reads in the shared display time zone and offers its drop-down."""
+        """The replay chart and the equity curve read in the shared display time zone; the chart
+        offers its drop-down."""
         self.chart.use_display_timezone(preference)
+        self.equity.follow_display_timezone(preference)
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
