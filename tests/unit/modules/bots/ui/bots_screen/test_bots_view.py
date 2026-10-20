@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
+    BacktestWorkbenchView,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     BotFacts,
 )
@@ -50,9 +53,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     READINESS_GROUP,
     step_key,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
-    GridBacktestView,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
@@ -71,6 +71,8 @@ _AREA = Qt.DockWidgetArea
 #: is left under the shell's menu bar, mode bar and toolbars and over its
 #: status bar, with room to spare for a platform style's taller rows.
 _MODE_HEIGHT_ROOM = 500
+#: A 1024-wide window less the window's own frame (the conformance suite's measure).
+_MODE_WIDTH_ROOM = 984
 
 
 @pytest.fixture
@@ -93,7 +95,8 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
         for dock in view.findChildren(QDockWidget)
     }
 
-    assert surface.centralWidget() is view.chart_area
+    assert surface.centralWidget() is view.centre
+    assert view.centre.widget(0) is view.chart_area
     assert areas == {
         "Bots": _AREA.LeftDockWidgetArea,
         # `EPIC-033K` stage 3: each venue's armed strategy, under Bots.
@@ -103,7 +106,6 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
         "Ladder": _AREA.BottomDockWidgetArea,
         "Fills": _AREA.BottomDockWidgetArea,
         "Log": _AREA.BottomDockWidgetArea,
-        "Backtest": _AREA.BottomDockWidgetArea,
     }
     assert view.surface.dock_of(view.plan).isAncestorOf(view.plan.properties.view)
     assert surface.isAncestorOf(view.table)
@@ -115,7 +117,7 @@ def test_the_bottom_panels_are_tabbed(view) -> None:
 
     tabbed = {dock.windowTitle() for dock in surface.tabifiedDockWidgets(orders)}
 
-    assert tabbed == {"Ladder", "Fills", "Log", "Backtest"}
+    assert tabbed == {"Ladder", "Fills", "Log"}
 
 
 def test_without_a_chart_the_centre_says_how_to_get_one(view) -> None:
@@ -187,10 +189,16 @@ def test_the_mode_fits_a_small_window_with_a_grid_and_its_backtest_in_front(
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
     screen.view.show()
-    screen.view.surface.dock_of(screen.view.backtest).raise_()
+    screen.view.show_backtest()
     qtbot.waitUntil(lambda: screen.view.backtest.isVisible())
 
-    assert screen.view.backtest.findChildren(GridBacktestView)
+    assert screen.view.backtest.findChildren(BacktestWorkbenchView)
+    assert screen.view.minimumSizeHint().height() <= _MODE_HEIGHT_ROOM
+    # A tab widget asks for its widest page, shown or not: with a bot selected the mode fits the
+    # window's width with either tab in front (a one-row period and commands bar made it 1020 px).
+    assert screen.view.minimumSizeHint().width() <= _MODE_WIDTH_ROOM
+    screen.view.show_live()
+    assert screen.view.minimumSizeHint().width() <= _MODE_WIDTH_ROOM
     assert screen.view.minimumSizeHint().height() <= _MODE_HEIGHT_ROOM
 
 
@@ -209,7 +217,9 @@ def test_with_a_grid_selected_the_chart_keeps_the_larger_share_of_the_window(
 
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
-    qtbot.waitUntil(lambda: bool(screen.view.backtest.findChildren(GridBacktestView)))
+    qtbot.waitUntil(
+        lambda: bool(screen.view.backtest.findChildren(BacktestWorkbenchView))
+    )
     QCoreApplication.processEvents()  # the posted layout requests
 
     assert screen.view.chart_area.height() > screen.view.height() // 2

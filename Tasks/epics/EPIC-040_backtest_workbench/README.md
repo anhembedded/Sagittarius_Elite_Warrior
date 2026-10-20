@@ -1,6 +1,6 @@
 # EPIC-040 — Every bot kind is backtested in its own workbench, apart from the running bot
 
-- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
+- **Status:** 🟡 In progress (phase 1, `040A`–`040C`, done 2026-10-20; `040D` and `040E` done 2026-10-20). Scaffolded on 2026-10-14 as a plan only (*"để đó, chưa cần làm"*); the owner un-parked it on 2026-10-20 (*"và làm thêm A cho tui đi"*), phase 1 first (`040A`–`040C`).
 - **Repositories:** Elite
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
@@ -53,7 +53,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 | [EPIC-040B](completed/EPIC-040B_kind_neutral_backtest_contract.md) | One kind-neutral backtest result and simulator port; the Grid's replay answers through it | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040C](completed/EPIC-040C_sandbox_parameters.md) | Backtest parameters are a sandbox copy of a bot's plan, judged by the symbol's rules only | Elite | 040A | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040D](completed/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | ✅ Done (2026-10-20) |
-| [EPIC-040E](incomplete/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | Planned |
+| [EPIC-040E](completed/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | ✅ Done (2026-10-20) |
 | [EPIC-040F](incomplete/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | Planned |
 | [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
 
@@ -106,6 +106,7 @@ The coordinator put the five decisions below to the owner, each summarised, with
 - One reviewer session per pull request (on a different model from the author's, never one `ONBOARDING.md` §7 excludes), spawned in the turn that pushes; push once per round with every fix; read both `gate (Unit)` and `gate (Rest)` job logs yourself even when the reviewer says green, then send READY with the full sha and the review comment link.
 
 ## Notes (newest first)
+- **2026-10-20** — `040E` done: the Bots screen's centre has Live and Backtest tabs and the bottom Backtest dock and `_BacktestSlot` are gone; one workbench per venue; the tab is off, never hidden, for a kind with no backtest. The Grid's own page is unhosted and waits for `040F` to delete it; the workbench's results became tabs to keep the mode within a 1024×700 window.
 - **2026-10-20** — `040D` done: one workbench page for any kind (`ui/backtest_workbench/`), driven by `RunBacktestQuery`, with the Grid registered as the only kind in its tests and a stub strategy kind proving no Grid is needed. It is not on screen until `040E`; `040F` deletes the Grid's own page. The §1 decisions are recorded as approved.
 - **2026-10-20** — `040C` done, and with it phase 1 (`040A`–`040C`): the frozen `SandboxPlan`, the session rule (copy the saved plan; ask before discarding edits), judging by the kind's `validate` with no account, and a guard plus an execution test that the sandbox sends no command. Nothing shows a sandbox on screen until `040D`; the coupling to settle there is recorded in the child.
 - **2026-10-20** — `040B` done: the kind-neutral `BacktestOutcome`, the `IKindBacktester` port found through `IBotKind.backtester()`, and the Grid's adapter. The neutral types are new records mapped from the Grid's, not moved, so the 039B oracle and 039K tests keep their imports; `FundingRequirement` moved to the domain. Nothing draws the outcome until `040D`.

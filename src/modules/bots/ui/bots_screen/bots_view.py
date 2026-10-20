@@ -1,9 +1,10 @@
 """`EPIC-033K` — the Bots mode, laid out as HLD §11.2.1 lists it.
 
-The selected bot's chart is the centre; Bots (the list) is docked on the
-left, Strategies (a row per venue's armed strategy, `EPIC-033K` stage 3)
-under it, Plan (the bot's figures, the kind's editor and its verdicts) on the
-right, and Orders, Ladder, Fills, Log and the kind's Backtest are tabbed at the
+The centre has two tabs (`EPIC-040E`): Live, the selected bot's chart, and
+Backtest, the sandbox of its parameters (`ui/backtest_workbench/`). Bots (the
+list) is docked on the left, Strategies (a row per venue's armed strategy,
+`EPIC-033K` stage 3) under it, Plan (the bot's figures, the kind's editor and its
+verdicts) on the right, and Orders, Ladder, Fills and Log are tabbed at the
 bottom. Every command is an action of the Bots menu (`bots_commands.py`);
 nothing here is a push button.
 
@@ -19,10 +20,11 @@ watching a bot and editing its plan were never on screen together.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import override
+from dataclasses import dataclass
 
-from PySide6.QtCore import QItemSelectionModel, QSize, Qt
+from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import (
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -86,6 +88,7 @@ from .widget_slot import replace_in
 _EMPTY_TEXT = "No bots yet. Create one with Bots → New bot…."
 NO_CHART_TEXT = "Select a bot in Bots to see its chart."
 NO_BACKTEST_TEXT = "The selected bot's kind has no backtest."
+NO_SELECTION_BACKTEST_TEXT = "Select a bot in Bots to backtest its parameters."
 
 #: This mode's surface. Declared here because a module may not import
 #: `shell/`; `test_bots_view_renders_the_surface_the_shell_declares` holds it
@@ -103,13 +106,24 @@ ORDERS_DOCK = "Orders"
 LADDER_DOCK = "Ladder"
 FILLS_DOCK = "Fills"
 LOG_DOCK = "Log"
-#: Not in HLD §11.2.1's row: the kind's own backtest (`EPIC-029D`), a tab
-#: among the bottom panels, holding an instruction for a kind without one.
-BACKTEST_DOCK = "Backtest"
+#: The centre's two tabs (`EPIC-040E`): the bot's chart, and the sandbox of its parameters.
+LIVE_TAB = "Live"
+BACKTEST_TAB = "Backtest"
+
+
+@dataclass(frozen=True, slots=True)
+class TabAvailability:
+    """Whether the Backtest tab can be used, and if not, why (its tooltip and its page)."""
+
+    enabled: bool = True
+    reason: str = ""
 
 
 class BotsView(BaseView):
-    """@brief The Bots mode: the bot's chart amid its list, plan and activity."""
+    """@brief The Bots mode: the bot's chart and backtest amid its list, plan and activity."""
+
+    #: Whether the Backtest tab can be used, as the host last said (`EPIC-040E`).
+    backtest_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -149,9 +163,16 @@ class BotsView(BaseView):
         self._chart_slot = QVBoxLayout()
         self._chart_slot.setContentsMargins(0, 0, 0, 0)
         chart_column.addLayout(self._chart_slot, 1)
-        self.backtest = _BacktestSlot()
+        self.backtest = QWidget()
         self.backtest.setObjectName("panelBotBacktest")
         self._backtest_slot = QVBoxLayout(self.backtest)
+        self._backtest_slot.setContentsMargins(0, 0, 0, 0)
+        self.backtest_enabled = True
+        #: Live and Backtest: one stock tab widget, each tab the full width (`EPIC-040E`).
+        self.centre = QTabWidget()
+        self.centre.setObjectName("tabBotsCentre")
+        self.centre.addTab(self.chart_area, LIVE_TAB)
+        self.centre.addTab(self.backtest, BACKTEST_TAB)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
         self.surface = WorkbenchSurface(BOTS_SURFACE)
@@ -161,7 +182,7 @@ class BotsView(BaseView):
         outer.addWidget(self.identity)
         outer.addWidget(self.surface)
         self.set_chart(None)
-        self.set_backtest_page(None)
+        self.set_backtest_page(None, NO_SELECTION_BACKTEST_TEXT)
         self._connect()
 
     def apply_ui_mode(self, state: BotsUiState, section_key: str | None = None) -> None:
@@ -209,12 +230,30 @@ class BotsView(BaseView):
         """The chart's place says why there is no chart yet (`EPIC-034D`)."""
         replace_in(self._chart_slot, empty_page(reason, "lblBotsChartLocked"))
 
-    def set_backtest_page(self, page: QWidget | None) -> None:
-        """The kind's backtest page; `None` leaves the instruction."""
+    def set_backtest_page(self, page: QWidget | None, note: str) -> None:
+        """The workbench of the selected bot's venue; `None` leaves `note` where it would be."""
         replace_in(
             self._backtest_slot,
-            page or empty_page(NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
+            page or empty_page(note or NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
         )
+
+    def set_backtest_available(self, tab: TabAvailability) -> None:
+        """The Backtest tab is off, with `tab.reason` as its tooltip, for a bot the workbench
+        cannot replay: disabled and never hidden (`ui-presentation-rule.md` §2). A tab turned off
+        while shown gives way to Live, as Qt's tab bar does for any tab it turns off."""
+        self.centre.setTabEnabled(1, tab.enabled)
+        self.centre.setTabToolTip(1, tab.reason)
+        if tab.enabled != self.backtest_enabled:
+            self.backtest_enabled = tab.enabled
+            self.backtest_enabled_changed.emit(tab.enabled)
+
+    def show_live(self) -> None:
+        self.centre.setCurrentIndex(0)
+
+    def show_backtest(self) -> None:
+        """View → Backtest; a tab that is off stays where it is."""
+        if self.backtest_enabled:
+            self.centre.setCurrentIndex(1)
 
     # -- internals -------------------------------------------------------- #
 
@@ -225,7 +264,7 @@ class BotsView(BaseView):
         column.addWidget(self.status)
         column.addWidget(self._bots_table.body, 1)
         surface = self.surface
-        surface.place_widget(Place.WORKSPACE, self.chart_area)
+        surface.place_widget(Place.WORKSPACE, self.centre)
         self._place_left(bots)
         surface.place_widget(Place.RAIL, self.plan, title=PLAN_DOCK)
         for widget, title in (
@@ -233,7 +272,6 @@ class BotsView(BaseView):
             (self._ladder_slot, LADDER_DOCK),
             (self.fills, FILLS_DOCK),
             (self.log, LOG_DOCK),
-            (self.backtest, BACKTEST_DOCK),
         ):
             surface.place_widget(Place.CONSOLE, widget, title=title)
         # The bottom docks are tabbed; a bot is watched by its orders first.
@@ -323,15 +361,3 @@ class BotsView(BaseView):
         message = str(self.model.statusMessage)
         self.status.setText(message)
         self.status.setVisible(bool(message))
-
-
-class _BacktestSlot(QWidget):
-    """The Backtest panel's content: it asks the dock area for no more than
-    its minimum. A kind's backtest page holds charts whose own size hints run
-    to a thousand pixels (the Grid's: 850×1104), and the bottom docks take the
-    largest hint among them, so one tab left the chart 104 of 768 px (the
-    PR #361 review). The person still drags the dock taller."""
-
-    @override
-    def sizeHint(self) -> QSize:
-        return self.minimumSizeHint()

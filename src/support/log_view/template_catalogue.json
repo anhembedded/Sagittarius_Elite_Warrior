@@ -235,7 +235,7 @@
 ["ss", "Bots screen: ", " ", ""],
 ["ss", "Bots screen: ", " for ", " arrived after the selection moved"],
 ["", "Bots screen: a bot change after shutdown is ignored"],
-["sss", "Bots screen: backtest for kind ", " on ", ": ", ""],
+["s", "Bots screen: backtest workbench built for ", ""],
 ["s", "Bots screen: export plan failed: ", ""],
 ["s", "Bots screen: no editor for kind ", ""],
 ["d", "Bots screen: plan of ", " bot(s) copied"],

@@ -1,88 +1,69 @@
-"""`EPIC-029D` — the Backtest panel of the Bots mode over the bots module's
-real graph: the page of a kind with a backtest, an instruction without a
-selection, fed the parameters on screen and the planner's terms, and run
-through the query the module binds."""
+"""`EPIC-029D`, `EPIC-040E` — the Backtest tab of the Bots mode over the bots module's real graph:
+the workbench of a kind with a backtest, an instruction without a selection; the sandbox copies the
+bot's saved plan into an editor of its own, and Run goes through the query the module binds."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from decimal import Decimal
-
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
-    PlannerMarket,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
-    BotKindCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
-    ExchangeTerms,
-)
+from PySide6.QtWidgets import QDockWidget, QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
+    BacktestWorkbenchView,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
-    NO_BACKTEST_TEXT,
+    NO_SELECTION_BACKTEST_TEXT,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
-    backtest_context,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
-    SelectedBot,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
-    GridBacktestView,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
+    BotKindPanel,
 )
 
 from .bots_screen_fixtures import GOOD_CONFIG, BotsScreen, stored
 
 S = BotLifecycleState
-_TERMS = ExchangeTerms(
-    tick_size=Decimal("0.01"),
-    step_size=Decimal("0.00001"),
-    min_notional=Decimal(5),
-    maker_fee=Decimal("0.001"),
-    taker_fee=Decimal("0.001"),
-    max_notional_per_order=Decimal(5000),
-    max_open_orders=100,
-)
 
 
-def _backtest_page(screen: BotsScreen) -> GridBacktestView | None:
-    pages = screen.view.backtest.findChildren(GridBacktestView)
+def _page(screen: BotsScreen) -> BacktestWorkbenchView | None:
+    pages = screen.view.backtest.findChildren(BacktestWorkbenchView)
     return pages[0] if pages else None
 
 
-def test_a_grid_bot_fills_the_backtest_panel_and_no_selection_leaves_a_note(
+def test_a_grid_bot_fills_the_backtest_tab_and_no_selection_leaves_a_note(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
-    assert _backtest_page(screen) is None
+    assert _page(screen) is None
     notes = [label.text() for label in screen.view.backtest.findChildren(QLabel)]
-    assert notes == [NO_BACKTEST_TEXT]
+    assert notes == [NO_SELECTION_BACKTEST_TEXT]
+    assert screen.view.centre.isTabEnabled(1)
 
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
 
-    page = _backtest_page(screen)
+    page = _page(screen)
     assert page is not None
     # The planner's read brought the terms, so Run is live.
     assert page.run_button.isEnabled()
+    assert "a00001" in page.source.text()
+
+
+def test_the_centre_has_live_and_backtest_tabs_and_the_bottom_has_no_backtest(
+    open_bots_screen,
+) -> None:
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+
+    centre = screen.view.centre
+    assert [centre.tabText(index) for index in range(centre.count())] == [
+        "Live",
+        "Backtest",
+    ]
+    docks = {
+        dock.windowTitle() for dock in screen.view.surface.findChildren(QDockWidget)
+    }
+    assert "Backtest" not in docks and {"Orders", "Fills", "Log"} <= docks
 
 
 def test_run_goes_through_the_query_the_module_binds(open_bots_screen, qtbot) -> None:
@@ -90,7 +71,7 @@ def test_run_goes_through_the_query_the_module_binds(open_bots_screen, qtbot) ->
     screen.settle()
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
-    page = _backtest_page(screen)
+    page = _page(screen)
     assert page is not None
 
     qtbot.mouseClick(page.run_button, Qt.MouseButton.LeftButton)
@@ -101,32 +82,18 @@ def test_run_goes_through_the_query_the_module_binds(open_bots_screen, qtbot) ->
     assert page.sync_button.isVisibleTo(page)
 
 
-def test_the_context_is_the_parameters_on_screen_and_the_planners_terms(
+def test_the_sandbox_editor_is_its_own_and_holds_the_saved_plan(
     open_bots_screen,
 ) -> None:
+    """The Plan dock keeps the real bot's editor on both tabs; the sandbox never shares it, so an
+    edit of one is never the other's (`EPIC-040C`, `EPIC-040E`)."""
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
-    selected = SelectedBot(
-        BotKindCatalog(()),
-        lambda: datetime(2026, 10, 4, tzinfo=UTC),
-        BotRunFactsReader(
-            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
-            DEFAULT_OWNER_BUDGET_CAPS,
-        ),
-    )
-    assert backtest_context(selected) is None
+    screen.view.model.select_requested.emit("a00001")
+    screen.settle()
+    page = _page(screen)
+    assert page is not None and page.editor is not None
 
-    snapshot = screen.view.model.bots[0]
-    selected.select(snapshot)
-    first = backtest_context(selected)
-    assert first is not None
-    assert dict(first.config) == GOOD_CONFIG
-    assert first.terms is None
-
-    selected.edit({**GOOD_CONFIG, "capital_quote": "1500"})
-    selected.take_market(PlannerMarket(_TERMS, None, None, None))
-    edited = backtest_context(selected)
-    assert edited is not None
-    assert edited.config["capital_quote"] == "1500"
-    assert edited.terms == _TERMS
-    assert (edited.bot_id, edited.symbol) == ("a00001", "BTCUSDT")
+    plan_editors = screen.view.plan.findChildren(BotKindPanel)
+    assert plan_editors and page.editor not in plan_editors
+    assert page.editor.config() == GOOD_CONFIG

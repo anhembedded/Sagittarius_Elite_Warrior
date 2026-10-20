@@ -38,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
 from .bot_action_rules import BotAction
 
 BOTS_MENU = ("&Bots",)
+VIEW_MENU = ("&View",)
 _CONTRIBUTOR = "bots"
 _PREFIX = "bots.bots"
 #: The prefix of the commands that follow the selected bot's chart.
@@ -52,6 +53,9 @@ FIX_NEXT = f"{_PREFIX}.fix_next"
 ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
 DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
 EXPORT_PLAN = f"{_PREFIX}.export_plan"
+#: The centre's two tabs (`EPIC-040E`), as View commands.
+LIVE_TAB = f"{_PREFIX}.live_tab"
+BACKTEST_TAB = f"{_PREFIX}.backtest_tab"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
@@ -125,4 +129,22 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         # every letter of its name was another command's access key; "A" moved from
         # Suggest from ATR (now "G", freed by Bollinger moving to "B") to this one.
         command(EXPORT_PLAN, "Export pl&an…", on_toolbar=True, needs_input=True),
+        # `EPIC-040E`: the centre's tabs by keyboard, named "tab" so they are not read as the
+        # Backtest mode that View also lists; the Backtest tab is off for a bot whose kind or venue
+        # it cannot replay, and says why (never hidden).
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=LIVE_TAB,
+            text="&Live chart tab",
+            menu_path=VIEW_MENU,
+            mode=route,
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=BACKTEST_TAB,
+            text="Bac&ktest tab",
+            menu_path=VIEW_MENU,
+            mode=route,
+            shortcut="Ctrl+J",
+        ),
     )

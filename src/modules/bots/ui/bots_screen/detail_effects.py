@@ -3,12 +3,15 @@
 One refresh recomputes the bot's detail (`SelectedBot.detail`) and applies it:
 the figures, the verdicts and what blocks Start, which actions are live, the
 levels drawn on the chart, the message on each parameter field
-(`EPIC-034F`) and the backtest page. Held apart from `BotsPresenter` so the
+(`EPIC-034F`) and the backtest workbench of the bot's venue. Held apart from `BotsPresenter` so the
 presenter stays an orchestrator of reads and actions.
 """
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.backtest_workbenches import (
+    BacktestWorkbenches,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
     BotChartHost,
 )
@@ -20,9 +23,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_step impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fix_next_item import (
     FixNextItem,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
-    KindBacktests,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
@@ -37,7 +37,7 @@ class DetailEffects:
         selected: SelectedBot,
         model: BotsViewModel,
         charts: BotChartHost,
-        backtests: KindBacktests,
+        backtests: BacktestWorkbenches,
         step: ConnectStep,
     ) -> None:
         self._step = step
