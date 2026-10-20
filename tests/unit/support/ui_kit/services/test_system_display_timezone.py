@@ -186,3 +186,18 @@ def test_a_range_inside_one_offset_names_the_zone_once(
 
     assert text.endswith(" in EST, UTC-05:00")
     assert text.count("EST") == 1
+
+
+def test_a_moment_the_zone_cannot_reach_falls_back_to_utc_and_says_so(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`BUG-240`: the first instant of year 1 cannot be shifted west of UTC; a chart panned
+    to its limit asks the converter for it, which must answer, not raise."""
+    monkeypatch.setattr(service, "_reported_fallbacks", set())
+    first_instant = datetime(1, 1, 1, tzinfo=UTC)
+
+    with caplog.at_level(logging.WARNING, logger="App.DisplayTimezone"):
+        shown = service.to_display_time(first_instant, "America/New_York")
+
+    assert shown == first_instant
+    assert "falling back to UTC" in caplog.text

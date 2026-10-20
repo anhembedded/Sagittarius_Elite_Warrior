@@ -88,3 +88,51 @@ def test_an_east_zone_reads_ahead_of_utc_not_behind_it(qapp: object) -> None:
         assert "18:00" not in labels
     finally:
         layout.widget.deleteLater()
+
+
+@pytest.mark.parametrize("zone", ["Asia/Ho_Chi_Minh", "America/New_York"])
+def test_day_ticks_sit_on_the_local_midnight_of_the_zone(
+    qapp: object, zone: str
+) -> None:
+    """Placement uses pyqtgraph's own sign (seconds west of UTC): a zone east of UTC with the
+    sign reversed puts a day tick 14 hours from local midnight, and its `%d` label hides it."""
+    layout = ChartPlotLayout()
+    try:
+        layout.set_display_timezone(zone)
+        start = datetime(2026, 1, 10, 0, 0, tzinfo=UTC).timestamp()
+        end = start + 3 * 86400
+        layout.widget.resize(_WIDTH_PX, 400)
+        layout.main_plot.setXRange(start, end, padding=0)
+        layout.widget.grab()
+        _drawn_labels(layout)  # lets the axis measure its font, as a paint does
+        axis = layout.main_plot.getAxis("bottom")
+
+        day_ticks = [
+            tick
+            for spacing, ticks in axis.tickValues(start, end, _WIDTH_PX)
+            if spacing == 86400
+            for tick in ticks
+        ]
+
+        assert len(day_ticks) >= 2
+        for tick in day_ticks:
+            local = service.to_display_time(datetime.fromtimestamp(tick, UTC), zone)
+            assert (local.hour, local.minute) == (0, 0)
+    finally:
+        layout.widget.deleteLater()
+
+
+def test_a_view_at_the_edge_of_the_calendar_draws_instead_of_raising(
+    qapp: object,
+) -> None:
+    layout = ChartPlotLayout()
+    try:
+        layout.set_display_timezone("America/New_York")
+        first = datetime(1, 1, 1, tzinfo=UTC).timestamp()
+        layout.widget.resize(_WIDTH_PX, 400)
+        layout.main_plot.setXRange(first, first + 3600, padding=0)
+        layout.widget.grab()
+
+        _drawn_labels(layout)
+    finally:
+        layout.widget.deleteLater()

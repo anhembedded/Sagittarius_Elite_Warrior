@@ -24,8 +24,10 @@ class ZonedDateAxisItem(pg.DateAxisItem):
     daylight-saving change read one side of it an hour off, and its sign is seconds *west* of
     UTC, which the chart passed as seconds east (`BUG-240`). Every label here is the tick's own
     instant converted by `to_display_time`, the converter the crosshair and the tables use.
-    The offset pyqtgraph still takes only places the ticks on round local hours and days: it is
-    the one in force at the middle of the view, in pyqtgraph's sign."""
+    The offset pyqtgraph still takes places day, month and year ticks on the zone's local
+    midnights: it is the one in force at the middle of the view, in pyqtgraph's sign. Hour ticks
+    it aligns by the *machine's* clock (`offsetToLocalHour`), so in a zone whose offset is not a
+    whole hour from the machine's the ticks fall on :30 while the labels stay true."""
 
     def __init__(self, zone: str, **kwargs: object) -> None:
         super().__init__(orientation="bottom", **kwargs)
