@@ -109,6 +109,47 @@ the page shows and logs the exception's type name only (`alerts_settings_present
 `AlertsSettingsPresenter._work_on_pool`, `AlertsSettingsPresenter._tell_failed`);
 `test_alerts_page_never_shows_the_url.py` locks the logs, the notice and the labels on every path.
 
+## Built: the dead man's switch, a ping while the worker is alive
+
+*Which signal reaches the owner when the process dies, hangs or the machine powers off?* One that
+stops: the app POSTs to an external monitor and the monitor alerts when the posts stop (`EPIC-036E1`,
+[decision](../../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-20_dead_mans_switch.md)).
+
+```mermaid
+sequenceDiagram
+    participant L as Lanes and housekeeping
+    participant W as WorkerLiveness
+    participant B as Beacon thread
+    participant S as DeadMansSwitch
+    participant M as External monitor
+    participant H as AlertHub
+    L->>W: touch after every pass
+    loop every BEACON_SECONDS
+        B->>S: tick
+        alt a ping is not yet due
+            S-->>B: nothing, no I/O
+        else the worker is stalled
+            S-->>B: no ping, one WARNING naming the stalled thread
+        else due and alive
+            S->>M: POST {} to the stored https URL
+            alt answered 2xx
+                M-->>S: ok, next ping in PING_EVERY
+            else refused or no answer
+                S->>S: retry in RETRY_AFTER_FAILURE
+                S->>H: channel_failing once, at the third failure in a row
+            end
+        end
+    end
+    Note over M: no ping for the monitor's period plus grace: it alerts the owner
+```
+
+The first tick is at start. The URL is read from the secret store at each ping and is in no log, reason or
+exception (`dead_mans_switch.py` → `DeadMansSwitch`, `DeadMansSwitch._ping`; the beacon logs an
+escaped exception by its type name, `threaded_delivery_host.py` → `ThreadedDeliveryHost._run_beacon`).
+The ping proves the process and its alert worker are alive, not that each bot is healthy: that is the
+heartbeat's body (`EPIC-036E`, after `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
+its grace, which is wanted while resting orders stay on the exchange.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when

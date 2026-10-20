@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.urllib_webhook_tran
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
     WakeSignal,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.worker_liveness import (
+    WorkerLiveness,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.alert_hub import (
     AlertHub,
 )
@@ -51,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_delivery import (
     ChannelDelivery,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.dead_mans_switch import (
+    DeadMansSwitch,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordWebhookSetup,
@@ -98,6 +104,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IO
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_worker_liveness import (
+    IWorkerLiveness,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import (
     DeliveryPolicy,
     NoisePolicy,
@@ -113,6 +122,10 @@ LANE_POLL_SECONDS = 5.0
 
 #: How often grouped alerts and the quiet-hours summary are looked at.
 HOUSEKEEPING_SECONDS = 1.0
+
+#: How often the beacon asks the dead man's switch whether a ping is due (it does no
+#: I/O unless one is).
+BEACON_SECONDS = 5.0
 
 
 def outbox_path() -> Path:
@@ -227,6 +240,23 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(DeliveryPolicy),
         ),
     )
+    # `EPIC-036E1`: the dead man's switch pings while the worker's stamps are fresh.
+    container.singleton(
+        WorkerLiveness, lambda resolver: WorkerLiveness(resolver.resolve(IAlertClock))
+    )
+    container.singleton(
+        IWorkerLiveness, lambda resolver: resolver.resolve(WorkerLiveness)
+    )
+    container.singleton(
+        DeadMansSwitch,
+        lambda resolver: DeadMansSwitch(
+            resolver.resolve(ChannelSecrets).store,
+            resolver.resolve(IWebhookTransport),
+            resolver.resolve(IAlertClock),
+            resolver.resolve(IWorkerLiveness),
+            resolver.resolve(AlertHub),
+        ),
+    )
     container.singleton(
         ThreadedDeliveryHost,
         lambda resolver: ThreadedDeliveryHost(
@@ -236,5 +266,8 @@ def bind_alerting(container: IContainer) -> None:
             LANE_POLL_SECONDS,
             resolver.resolve(AlertHub).flush_due,
             HOUSEKEEPING_SECONDS,
+            resolver.resolve(WorkerLiveness),
+            resolver.resolve(DeadMansSwitch).tick,
+            BEACON_SECONDS,
         ),
     )

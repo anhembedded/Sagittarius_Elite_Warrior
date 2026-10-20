@@ -128,8 +128,17 @@ The Options page (`EPIC-036D1`) added:
   `_OPTIONS_PAGE` (`alerting/module.py` → `_OPTIONS_PAGE`, `AlertingModule.contribute`), order 30
   after Trading and Market Data.
 
+- **The dead man's switch** (`EPIC-036E1`): `DeadMansSwitch` (`alerting/application/dead_mans_switch.py`
+  → `DeadMansSwitch`, `DeadMansSwitch.tick`) is not an `IAlertChannel`, because it carries liveness and
+  no alert. It reads the check-in URL by name from the channels' `ISecretStore`
+  (`DEAD_MANS_SWITCH_SECRET`), posts through `IWebhookTransport`, asks `IWorkerLiveness`
+  (`alerting/contracts/i_worker_liveness.py`) whether the worker makes progress, and reports a monitor
+  that stays down through `IDeliveryFollowUp.channel_failing`. `WorkerLiveness`
+  (`alerting/adapters/worker_liveness.py` → `WorkerLiveness`, `STALL_AFTER`) is the one stamp per
+  worker thread that `ThreadedDeliveryHost` touches after each pass.
+
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
-among them.
+and the switch's among them.
 
 ## Planned
 
@@ -138,5 +147,5 @@ among them.
 | `StreamAlertSource`, `SystemAlertSource` (replaces `NotificationEventHandler`) | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
-| `HeartbeatService`, the dead man's switch pinger | `alerting/application/`, `alerting/adapters/` | `EPIC-036E` |
+| `HeartbeatService` and the daily summary (the heartbeat reads `EPIC-035W`'s snapshot) | `alerting/application/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

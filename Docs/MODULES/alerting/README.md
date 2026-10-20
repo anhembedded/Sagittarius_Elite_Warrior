@@ -36,5 +36,6 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Telegram moved in, embeds, pacing, secret rotation | Planned | `EPIC-036C` |
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
-| The heartbeat and the dead man's switch | Planned | `EPIC-036E` |
+| The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
+| The heartbeat message and the daily summary | Planned | `EPIC-036E` |
 | Remote control from Discord | Planned | `EPIC-036F` |
