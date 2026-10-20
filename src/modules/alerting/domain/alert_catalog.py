@@ -52,6 +52,9 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.BOT_AUTO_RECOVERED: KindProfile(
             AlertGroup.BOT_EVENTS, _WARNING, "Bot recovered by itself"
         ),
+        AlertKind.LIQUIDATION_RISK: KindProfile(
+            AlertGroup.BOT_EVENTS, _WARNING, "Liquidation risk"
+        ),
         AlertKind.PRICE_FEED_STALE: KindProfile(
             AlertGroup.INFRASTRUCTURE, _CRITICAL, "Price feed stale"
         ),

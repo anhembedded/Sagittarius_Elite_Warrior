@@ -27,6 +27,9 @@ class AlertKind(Enum):
     #: A bot resumed itself after a transient halt (`EPIC-042`); one alert per recovery.
     BOT_AUTO_RECOVERED = "bot_auto_recovered"
     RATE_LIMITED = "rate_limited"
+    #: A Futures bot's position is inside the warning distance to liquidation (`EPIC-036B1`);
+    #: the critical distance halts the bot and arrives as the halt.
+    LIQUIDATION_RISK = "liquidation_risk"
     RANGE_EXIT = "range_exit"
     APP_FAILURE = "app_failure"
     #: One order of a bot's ladder filled whole (`BOT-189`, `PRO-015`); INFO, so silent by default.

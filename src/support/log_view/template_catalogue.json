@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 787, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 790, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -561,7 +561,10 @@
 ["s", "[alert-skipped] read-only copy, not sending ", ""],
 ["s", "[alert-source] account loss cap tripped (", "): alert published"],
 ["ss", "[alert-source] bot ", ": ", " published"],
+["s", "[alert-source] bot ", ": LIQUIDATION_RISK published"],
+["s", "[alert-source] bot ", ": liquidation warning held back (open, or inside the cool-down)"],
 ["ss", "[alert-source] bot ", ": order ", " filled, published"],
+["s", "[alert-source] venue ", ": USER_STREAM_DOWN published"],
 ["ds", "[alert-source] watching ", " bot(s); an alert on entering ", " and when a stop gives up"],
 ["s", "[alert-worker] ", " is still inside a channel"],
 ["ss", "[alert-worker] ", " lane(s): ", ""],
