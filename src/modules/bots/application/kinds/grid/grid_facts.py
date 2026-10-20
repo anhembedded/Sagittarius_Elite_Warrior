@@ -260,12 +260,12 @@ class GridFacts(IBotFacts):
                         level_fill.base_fee, level_fill.quote_fee, level_fill.price
                     )
                 )
-                if self._context.off_ladder.is_exit(fill.client_order_id):
-                    self._exit_report.after_exit_fill()
                 if self._is_protective_stop(fill.client_order_id):
                     # The exchange ran the stop that stands over the position: the look at
                     # the stops reads its status and the bot stops (`EPIC-039L`).
                     self._supervise_protection()
+                if self._context.off_ladder.is_exit(fill.client_order_id):
+                    self._exit_report.after_exit_fill()
             else:
                 logger.info(
                     "Bot %s: fill of %s ignored; no level holds it and the bot "

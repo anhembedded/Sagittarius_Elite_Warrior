@@ -50,6 +50,10 @@ class GridExitReport:
             return
         state = context.state
         runtime = state.runtime
+        if runtime.reason is None:
+            # No stop has begun: the fill is a protective stop's, which the look at the stops
+            # turns into one (`EPIC-039L`); it is told once the stop has its reason.
+            return
         terms = context.terms
         floor = (
             terms.min_notional
