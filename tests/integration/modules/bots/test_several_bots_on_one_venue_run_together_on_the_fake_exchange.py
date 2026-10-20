@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    OrderPacing,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -316,7 +319,7 @@ def test_the_production_wiring_gives_the_bots_of_a_venue_one_pacer(
     """The worlds above inject their own pacer; this is the default graph `create_app()` builds."""
     with booted_two_venues(both_venues) as app:
         deps = grid_executor_deps(app.engine.container)
-        spacing = timedelta(milliseconds=250)
+        pacing = OrderPacing(timedelta(milliseconds=250), 60, timedelta(minutes=1))
 
-        assert deps.pacers(FUTURES, spacing) is deps.pacers(FUTURES, spacing)
-        assert deps.pacers(FUTURES, spacing) is not deps.pacers(SPOT, spacing)
+        assert deps.pacers(FUTURES, pacing) is deps.pacers(FUTURES, pacing)
+        assert deps.pacers(FUTURES, pacing) is not deps.pacers(SPOT, pacing)

@@ -12,7 +12,6 @@ wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
@@ -139,6 +138,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+    OrderPacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
@@ -258,7 +258,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
 def grid_executor_deps(
     container: IContainer,
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
-    pacers: Callable[[TradingVenue, timedelta], IOrderPacer] | None = None,
+    pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
     """What every Grid executor is built from, as production wires it. A journey that needs its
     bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:

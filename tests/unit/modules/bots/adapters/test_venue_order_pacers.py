@@ -12,11 +12,15 @@ from datetime import timedelta
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_order_pacers import (
     VenueOrderPacers,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    OrderPacing,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 
 SPACING = timedelta(milliseconds=250)
+PACING = OrderPacing(SPACING, 60, timedelta(minutes=1))
 SPOT = TradingVenue.SPOT_TESTNET
 FUTURES = TradingVenue.FUTURES_TESTNET
 
@@ -24,16 +28,24 @@ FUTURES = TradingVenue.FUTURES_TESTNET
 def test_two_bots_of_one_venue_get_the_same_pacer() -> None:
     pacers = VenueOrderPacers()
 
-    assert pacers.of(FUTURES, SPACING) is pacers.of(FUTURES, SPACING)
+    assert pacers.of(FUTURES, PACING) is pacers.of(FUTURES, PACING)
 
 
 def test_two_venues_do_not_pace_each_other() -> None:
     pacers = VenueOrderPacers()
 
-    assert pacers.of(FUTURES, SPACING) is not pacers.of(SPOT, SPACING)
+    assert pacers.of(FUTURES, PACING) is not pacers.of(SPOT, PACING)
 
 
 def test_a_different_spacing_is_a_different_pacer() -> None:
     pacers = VenueOrderPacers()
 
-    assert pacers.of(FUTURES, SPACING) is not pacers.of(FUTURES, SPACING * 2)
+    slower = OrderPacing(SPACING * 2, 60, timedelta(minutes=1))
+    assert pacers.of(FUTURES, PACING) is not pacers.of(FUTURES, slower)
+
+
+def test_a_different_rate_is_a_different_pacer() -> None:
+    pacers = VenueOrderPacers()
+
+    slower = OrderPacing(SPACING, 30, timedelta(minutes=1))
+    assert pacers.of(FUTURES, PACING) is not pacers.of(FUTURES, slower)
