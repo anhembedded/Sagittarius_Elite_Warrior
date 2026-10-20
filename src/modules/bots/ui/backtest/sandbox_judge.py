@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market.result import (
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind

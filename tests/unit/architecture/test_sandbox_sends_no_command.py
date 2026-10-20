@@ -9,7 +9,8 @@ read-only terms. A new import of a project module fails the scan until someone n
 is how a boundary on real money should fail: a deny-list passes every port nobody thought of
 (`i_order_submission`, `i_account_activity`, a new reader). Imports are read from the syntax tree,
 each alias and each `from package import module` form included. A relative import fails (the
-project writes absolute ones).
+project writes absolute ones). A dynamic `importlib.import_module(...)` is outside this scan: the
+guard stops a careless import, not a deliberate evasion, which a review reads.
 
 There is no baseline: the sandbox imports nothing else today.
 
@@ -32,7 +33,7 @@ _PREFIX = _ROOT + "src."
 #: The only project modules the sandbox may import (paths below `src.`).
 ALLOWED_PROJECT_MODULES = frozenset(
     {
-        "modules.bots.application.queries.get_planner_market",
+        "modules.bots.application.queries.get_planner_market.result",
         "modules.bots.contracts.bot_snapshot",
         "modules.bots.contracts.i_bot_kind",
         "modules.bots.contracts.venue_profile",
@@ -50,35 +51,40 @@ def _sandbox_files() -> list[Path]:
     return sorted([*_SANDBOX_FILES, *files])
 
 
-def _imported_modules(tree: ast.AST) -> list[str]:
-    """Every module a file imports, as written: for `from m import n` both `m` and `m.n`, since `n`
-    may itself be a module; `.` marks a relative import."""
-    found: list[str] = []
+def _imports(tree: ast.AST) -> list[tuple[str, bool]]:
+    """Every module a file imports, as written, and whether the name could be a symbol: for
+    `from m import n` the module `m` (written in the source, so it must match exactly) and `m.n`
+    (which may be a symbol of `m`, or a module of its own); `.` marks a relative import."""
+    found: list[tuple[str, bool]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             if node.level:
-                found.append(".")
+                found.append((".", False))
             elif node.module:
-                found.append(node.module)
-                found += [f"{node.module}.{alias.name}" for alias in node.names]
+                found.append((node.module, False))
+                found += [(f"{node.module}.{alias.name}", True) for alias in node.names]
         elif isinstance(node, ast.Import):
-            found += [alias.name for alias in node.names]
+            found += [(alias.name, False) for alias in node.names]
     return found
 
 
 def unlisted_imports(path: Path) -> list[str]:
-    """The project modules `path` imports that the allow-list does not name."""
+    """The project modules `path` imports that the allow-list does not name. A module path written
+    in the source must be named exactly: a submodule of an allowed module is another module (the
+    allowed package `get_planner_market` re-exports a handler that reads the account)."""
     unlisted = []
-    for module in _imported_modules(ast.parse(path.read_text(encoding="utf-8"))):
+    for module, may_be_symbol in _imports(ast.parse(path.read_text(encoding="utf-8"))):
         if module == ".":
             unlisted.append(module)
-        elif module.startswith(_ROOT):
-            name = module.removeprefix(_PREFIX)
-            # `from allowed import symbol` also yields `allowed.symbol`: not a module.
-            if name not in ALLOWED_PROJECT_MODULES and not any(
-                name.startswith(f"{allowed}.") for allowed in ALLOWED_PROJECT_MODULES
-            ):
-                unlisted.append(name)
+            continue
+        if not module.startswith(_ROOT):
+            continue
+        name = module.removeprefix(_PREFIX)
+        if name in ALLOWED_PROJECT_MODULES:
+            continue
+        if may_be_symbol and name.rpartition(".")[0] in ALLOWED_PROJECT_MODULES:
+            continue  # `from allowed import Symbol`
+        unlisted.append(name)
     return unlisted
 
 
@@ -118,7 +124,10 @@ def test_the_guard_has_a_subject() -> None:
 
 
 def test_a_probe_turns_the_scan_red_for_every_form_of_import(tmp_path: Path) -> None:
-    allowed = f"from {_PREFIX}modules.bots.domain.verdict import Verdict\n"
+    allowed = (
+        f"from {_PREFIX}modules.bots.domain.verdict import Verdict\n"
+        f"from {_PREFIX}modules.bots.application.queries.get_planner_market.result import PlannerMarket\n"
+    )
     clean = tmp_path / "clean.py"
     clean.write_text(
         "from decimal import Decimal\nimport dataclasses\n" + allowed, encoding="utf-8"
@@ -132,6 +141,9 @@ def test_a_probe_turns_the_scan_red_for_every_form_of_import(tmp_path: Path) -> 
         "a_port_nobody_listed.py": f"from {_PREFIX}modules.trading.contracts.i_order_submission import IOrderSubmission\n",
         "account_activity.py": f"from {_PREFIX}modules.trading.contracts.i_account_activity import IAccountActivity\n",
         "relative.py": "from . import sandbox_plan\n",
+        "package_reexport.py": f"from {_PREFIX}modules.bots.application.queries.get_planner_market import GetPlannerMarketQueryHandler\n",
+        "submodule_of_allowed.py": f"from {_PREFIX}modules.bots.application.queries.get_planner_market.handler import GetPlannerMarketQueryHandler\n",
+        "submodule_import.py": f"import {_PREFIX}modules.bots.contracts.venue_profile.anything\n",
     }
     for name, source in probes.items():
         probe = tmp_path / name
