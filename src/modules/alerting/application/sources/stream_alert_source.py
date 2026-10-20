@@ -1,4 +1,4 @@
-"""The user-data stream's outage becomes one venue alert (`EPIC-036B1`; widened by `EPIC-036B`).
+"""The user-data stream's outage becomes one venue alert (`EPIC-036B1`).
 
 An anti-corruption layer like `BotAlertSource`: it reads `trading/contracts`' `UserStreamHealthEvent`
 and speaks the alerting vocabulary. While the stream is not connected the app is blind about its
@@ -20,8 +20,9 @@ sends one pair per cool-down and not one per flap. The text names the venue and 
 the stream's failure text is not copied, so nothing from a request can reach an alert.
 
 @par Extension cases
-  · a market-data stream (`PRICE_FEED_STALE`, `EPIC-036B`) — a sibling handler in this file's
-    style; the hub already lets `USER_STREAM_DOWN` hide a venue's `PRICE_FEED_STALE`.
+  · a market-data stream seen from outside the bots — a sibling handler in this file's style. A
+    bot's quiet price feed is `PRICE_FEED_STALE` already, raised by `BotAlertSource` from the bot's
+    own measure (`EPIC-036B2`); the hub lets `USER_STREAM_DOWN` hide it for the venue.
 """
 
 from __future__ import annotations

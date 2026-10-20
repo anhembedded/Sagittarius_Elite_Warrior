@@ -194,6 +194,46 @@ stream that is silent while still reporting `CONNECTED` is not seen here: it is 
 reconcile's to catch (`UserStreamLimits.reconcile_every`), and an alert for it is the follow-up in
 `EPIC-036B`. No text of the connection's failure and no key is copied into either alert.
 
+## Built: a reason that is its own condition — a rejected key, a rate limit, a storage pause, a quiet feed
+
+*What does the owner read when the cause matters more than the state?* A bot is `HALTED` for forty
+reasons; four are conditions of their own (`EPIC-036B2`,
+[decision](../../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-20_reason_alerts.md)).
+
+```mermaid
+sequenceDiagram
+    participant B as Bot (worker thread)
+    participant S as BotAlertSource
+    participant R as REASON_ROUTES
+    participant H as AlertHub
+    B->>S: BotChangedEvent (HALTED / ERROR / PAUSED, reason)
+    S->>R: own_route_on_entry(state, reason)
+    alt key_rejected, storage_failure
+        S->>H: publish(KEY_REJECTED | STORAGE_FAILURE) with a fixed sentence
+    else any other reason
+        S->>H: publish(BOT_HALTED | BOT_ERROR) with the bot's Reason line
+    end
+    B->>S: BotRecoveryStalledEvent(reason, waited_s)
+    S->>R: stalled_route(reason)
+    alt price_feed_stale or rate_limited
+        S->>H: publish(PRICE_FEED_STALE | RATE_LIMITED), grouped per venue; the feed one is hidden by USER_STREAM_DOWN
+    else
+        S->>H: publish(BOT_RECOVERY_STALLED)
+    end
+    B->>S: BotChangedEvent (RUNNING)
+    S->>H: condition_cleared for each kind above (one "Recovered" if it was sent)
+```
+
+The entry into `AWAITING_RECOVERY` stays silent (`EPIC-042` D11); the grace of a quiet price feed is
+the recovery rule's own `stalled_after`, so no timer is added here
+(`bots/domain/halt_recovery_policy.py` → `DEFAULT_RULE`). The halt that says the automatic recoveries are
+used up is still the `BOT_HALTED` with its `Reason:` line. A rate limit is a wait since `EPIC-042F` (`AWAITING_RECOVERY`, silent on entry): when it stalls
+it is a WARNING `RATE_LIMITED` whose sentence says the ladder still rests and the bot resumes by itself;
+a rate limit that is a plain `HALTED` (a pause too long to wait, or a used-up budget) is the generic
+CRITICAL halt, whose `Reason:` line says to resume by hand. A rejected key and a storage pause are
+CRITICAL because orders may rest that this app cannot manage. A stop does not end these conditions,
+only a return to `RUNNING`, so no "Recovered" is sent while the cause stands.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when

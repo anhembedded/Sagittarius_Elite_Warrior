@@ -59,4 +59,4 @@ Two pictures: [`diagrams/03-context-in.puml`](diagrams/03-context-in.puml) (*wha
 module, and through which port?*) and [`diagrams/03-context-out.puml`](diagrams/03-context-out.puml)
 (*how does an alert leave the module, and where does its secret come from?*).
 
-**Planned.** `EPIC-036B` adds the market-data stream and the system failures; `EPIC-036F` adds the receive side, `IRemoteCommandSource`, which is not an `IAlertChannel`.
+**Planned.** `EPIC-036B` adds the system failures (`UiActionFailedEvent`, `TaskFailed`, a failed sync) in place of `NotificationEventHandler`; `EPIC-036F` adds the receive side, `IRemoteCommandSource`, which is not an `IAlertChannel`.
