@@ -16,7 +16,9 @@ The dark scheme is a second state of every mode, named `route~dark@WxH` (`EPIC-0
 `apply_scheme` asks Qt for it with `QStyleHints.setColorScheme`, the call Tools →
 Options makes; where the platform theme ignores the request (Qt's offscreen and Linux
 platforms do, measured under PySide6 6.11.1), the picture is drawn with a standard dark
-`QPalette` laid on the application, so a frame is never silently light. A test lays
+`QPalette` laid on the application; the test asserts the window colour is dark, so a
+frame is never silently light. The stand-in sets the bevel roles too, but it is not the
+platform's own dark palette: bevels and stock icons are not judged from these frames. A test lays
 that palette; the app itself never writes one.
 """
 
@@ -72,6 +74,13 @@ _DARK_ROLES = {
     QPalette.ColorRole.HighlightedText: "#ffffff",
     QPalette.ColorRole.Link: "#5aa0f0",
     QPalette.ColorRole.BrightText: "#ffffff",
+    # The bevel roles Fusion draws frames, indicator borders and handles from: left at
+    # their light defaults, a check box and a toolbar's overflow chevron fade out.
+    QPalette.ColorRole.Light: "#4a4a4a",
+    QPalette.ColorRole.Midlight: "#3e3e3e",
+    QPalette.ColorRole.Mid: "#5c5c5c",
+    QPalette.ColorRole.Dark: "#1a1a1a",
+    QPalette.ColorRole.Shadow: "#000000",
 }
 
 
@@ -88,32 +97,21 @@ def _dark_palette() -> QPalette:
     return palette
 
 
-@dataclass(frozen=True)
-class AppliedScheme:
-    """What `apply_scheme` did, so a frame says how it was drawn."""
-
-    scheme: str
-    #: Whether Qt itself switched (`QStyleHints.colorScheme()` now reads the scheme).
-    honoured_by_qt: bool
-    #: Whether a standard dark palette stands in for the platform's own.
-    palette_laid: bool
-
-
-def apply_scheme(app: QApplication, scheme: str) -> AppliedScheme:
-    """Switches the running application to `scheme` the way Options → Apply will,
-    and reports whether Qt did it or the stand-in palette had to."""
+def apply_scheme(app: QApplication, scheme: str) -> None:
+    """Switches the running application to `scheme` the way Options → Apply will:
+    Qt is asked first, and where the platform ignores the request the stand-in
+    palette is laid. Whether the frame really is dark is the caller's to assert
+    (`test_workbench_screenshots.py` reads the window colour)."""
     hints = app.styleHints()
     if scheme == "light":
         hints.unsetColorScheme()
         app.setPalette(app.style().standardPalette())
-        return AppliedScheme("light", honoured_by_qt=True, palette_laid=False)
+        return
     hints.setColorScheme(Qt.ColorScheme.Dark)
     app.processEvents()
-    if hints.colorScheme() == Qt.ColorScheme.Dark:
-        return AppliedScheme("dark", honoured_by_qt=True, palette_laid=False)
-    QGuiApplication.setPalette(_dark_palette())
+    if hints.colorScheme() != Qt.ColorScheme.Dark:
+        QGuiApplication.setPalette(_dark_palette())
     app.processEvents()
-    return AppliedScheme("dark", honoured_by_qt=False, palette_laid=True)
 
 
 def restore_scheme(app: QApplication) -> None:
