@@ -177,6 +177,23 @@ def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_no
     assert "user_stream_down" in alert.detail
 
 
+def test_a_stalled_wait_for_the_exchanges_pause_does_not_say_the_ladder_is_off() -> (
+    None
+):
+    """`EPIC-042F`: a pause is waited out with the ladder resting (no cancel is sent into it), so
+    the stalled alert must not claim what the other reasons guarantee."""
+    source, published = _source(Bots(entry("AWAITING_RECOVERY")))
+
+    source.on_recovery_stalled(
+        BotRecoveryStalledEvent(bot_id=BOT, reason="rate_limited", waited_s=900)
+    )
+
+    [alert] = published.published
+    assert alert.kind is AlertKind.RATE_LIMITED
+    assert "still resting on the exchange" in alert.detail
+    assert "ladder off the exchange" not in alert.detail
+
+
 def test_each_automatic_recovery_is_its_own_alert_with_the_budget_it_leaves() -> None:
     source, published = _source(Bots(entry("RUNNING")))
 

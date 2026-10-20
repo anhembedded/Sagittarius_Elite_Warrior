@@ -70,9 +70,9 @@ COMMON  = RecoveryLayer("common", changes={
     "price_feed_stale": RuleChange(),       # default rule: dwell 120 s, 3 per 24 h, stalled alert after 15 min
     "user_stream_down": RuleChange(),
 })
-GRID    = RecoveryLayer("grid")             # empty today; rate_limited joins in EPIC-042F
+GRID    = RecoveryLayer("grid", changes={"rate_limited": RuleChange(dwell=2s)})   # EPIC-042F
 SPOT    = RecoveryLayer("spot")             # keeps the common set
-FUTURES = RecoveryLayer("futures", clears_lower_layers=True)   # nothing recovers yet
+FUTURES = RecoveryLayer("futures", clears_lower_layers=True, changes={"rate_limited": RuleChange(dwell=2s)})
 
 def effective_policy(*layers):
     table = {}

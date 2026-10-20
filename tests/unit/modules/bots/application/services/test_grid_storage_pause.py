@@ -52,8 +52,13 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
     GridWorld,
     grid_world,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.halt_recovery_world import (
+    BEAT,
+    beats,
+)
 
 S = BotLifecycleState
+_PAUSE_SECONDS = 60
 _DISK_FULL = OSError(errno.ENOSPC, "No space left on device")
 
 
@@ -257,6 +262,7 @@ class _Quiet(IEventPublisher):
 
 
 def _halted_by_a_rate_limit(screen: _Screen | None = None) -> GridWorld:
+    """A bot waiting out a rate limit's pause (`EPIC-042F`: AWAITING_RECOVERY)."""
     world = grid_world(store_view=screen.through if screen else None)
     world.book.raise_next = [
         ExchangeRateLimitedError(
@@ -264,25 +270,30 @@ def _halted_by_a_rate_limit(screen: _Screen | None = None) -> GridWorld:
         )
     ]
     world.executor.start()
-    assert world.state() is S.HALTED
+    assert world.state() is S.AWAITING_RECOVERY
     assert world.runtime().reason is GridReason.RATE_LIMITED
     world.derive("0")
     return world
 
 
-def test_the_rate_limit_timer_meets_the_storage_gate_on_a_failing_disk(
+def _the_pause_ends(world: GridWorld) -> None:
+    """The price watch's beats until the pause is over and the dwell has passed, and one more."""
+    beats(world, _PAUSE_SECONDS + 3 * BEAT)
+
+
+def test_the_recovery_attempt_after_a_pause_meets_the_storage_gate_on_a_failing_disk(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Both resumes of a HALTED bot (the user's and the rate-limit timer's) propose
-    first, and the proposal is where the store is asked: a ladder is not laid over
-    a file that cannot say so. The bot stays HALTED (a PAUSED bot would skip the
-    re-plan a halt owes), now with the storage reason, and no new timer is set."""
+    """Both resumes of a waiting or HALTED bot (the user's and the recovery attempt's after the
+    pause) propose first, and the proposal is where the store is asked: a ladder is not laid over
+    a file that cannot say so. The bot ends HALTED (a PAUSED bot would skip the re-plan a halt
+    owes), now with the storage reason, and nothing is scheduled."""
     world = _halted_by_a_rate_limit()
     world.store.fail_saves(_DISK_FULL)
     world.book.requests.clear()
     caplog.set_level(logging.INFO, logger="App.Bots")
 
-    world.retries.run_next()
+    _the_pause_ends(world)
 
     assert world.book.open == {}, "no ladder was laid"
     assert world.book.requests == [], "nothing was sent to the exchange"
@@ -296,8 +307,7 @@ def test_the_rate_limit_timer_meets_the_storage_gate_on_a_failing_disk(
 def test_the_halted_bot_says_storage_failure_and_the_next_resume_recovers() -> None:
     world = _halted_by_a_rate_limit()
     world.store.fail_saves(_DISK_FULL)
-    world.retries.run_next()
-    assert world.state() is S.HALTED
+    _the_pause_ends(world)  # the attempt is refused, and the bot ends HALTED in memory
 
     world.store.heal()
     world.executor.resume()
@@ -327,7 +337,7 @@ def test_repeated_resumes_on_a_failing_disk_do_not_grow_the_reason_text() -> Non
     screen = _Screen()
     world = _halted_by_a_rate_limit(screen)
     world.store.fail_saves(_DISK_FULL)
-    world.retries.run_next()
+    _the_pause_ends(world)
     first = screen.runtime().reason_detail
 
     world.executor.resume()

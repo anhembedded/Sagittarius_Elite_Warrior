@@ -250,8 +250,8 @@ class BotAlertSource:
         minutes = event.waited_s // 60
         route = stalled_route(event.reason)
         if route is not None and route.kind is not None:
-            # `EPIC-036B2`: a wait on a quiet price feed is its own condition, which the hub can
-            # group across bots and hide behind the venue's stream outage.
+            # `EPIC-036B2`: a wait on a quiet price feed or an exchange pause is its own
+            # condition, which the hub can group across bots and hide behind a venue outage.
             detail = f"{route.text} It has waited {minutes} minute(s).\n"
             self._publish(route.kind, subject, detail + _reason_line(event.reason))
             return

@@ -172,9 +172,18 @@ class BotRunState:
             f" ({reason.value}: {detail})" if reason is not None else "",
         )
 
-    def halt(self, reason: GridReason, detail: str) -> None:
+    def halt(self, reason: GridReason, detail: str, *, plain_because: str = "") -> None:
         """Halt the bot for `reason`: `halt_transient` when the effective policy lets it recover
-        by itself and its budget allows (`EPIC-042C`, ADR 042 §2.1), a plain `halt` otherwise."""
+        by itself and its budget allows (`EPIC-042C`, ADR 042 §2.1), a plain `halt` otherwise.
+
+        @param plain_because Words that make this one halt plain although the policy has a rule
+        for the reason: the caller knows the cause cannot be waited out (a pause longer than any
+        wait, `EPIC-042F`). They end the detail, so the halt alert says why a person must act."""
+        if plain_because:
+            self.apply_or_record(
+                BotLifecycleEvent.HALT, reason, f"{detail}; {plain_because}"
+            )
+            return
         decision = self._halts.decide(
             self._bot, HaltCode(reason.value), self._clock.now()
         )

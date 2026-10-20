@@ -99,7 +99,11 @@ def test_a_symbol_that_does_not_trade_is_a_new_cause_and_halts_the_bot() -> None
     assert attempts_of(world) == 1
 
 
-def test_a_rate_limit_met_by_the_attempt_halts_the_bot_for_the_limit() -> None:
+def test_a_rate_limit_met_by_the_attempt_puts_the_bot_back_to_waiting_for_the_pause() -> (
+    None
+):
+    """`EPIC-042F`: the limit is a transient cause of its own, so the attempt that met it spends
+    one of the three and the bot waits again, now for the pause (it was `HALTED` before)."""
     world = waiting()
     world.book.raise_next = [
         ExchangeRateLimitedError(
@@ -109,8 +113,9 @@ def test_a_rate_limit_met_by_the_attempt_halts_the_bot_for_the_limit() -> None:
 
     beats(world, DWELL + 2 * BEAT)
 
-    assert world.state() is S.HALTED
+    assert world.state() is S.AWAITING_RECOVERY
     assert world.runtime().reason is GridReason.RATE_LIMITED
+    assert attempts_of(world) == 1
 
 
 def test_the_fourth_halt_in_a_day_stays_halted_and_says_the_recoveries_are_used_up() -> (

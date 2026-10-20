@@ -170,15 +170,41 @@ def test_a_reason_the_table_does_not_know_is_a_generic_halt() -> None:
 # --- RATE_LIMITED, KEY_REJECTED, STORAGE_FAILURE ---------------------------------------------
 
 
-def test_a_rate_limit_halt_is_one_warning_that_says_the_bot_resumes_by_itself() -> None:
-    [alert] = _enter("HALTED", "rate_limited", f"reading: rate limited ({_LEAK})")
+def test_a_wait_for_the_exchanges_pause_that_stalled_is_one_warning_that_says_it_resumes() -> (
+    None
+):
+    """`EPIC-042F`: a pause is waited out in AWAITING_RECOVERY (silent on entry); when that wait
+    stalls the ladder is still resting, and the bot does resume by itself when the pause ends."""
+    bots = Bots(entry("AWAITING_RECOVERY", "rate_limited"))
+    source, published = _source(bots)
 
+    source.on_recovery_stalled(
+        BotRecoveryStalledEvent(bot_id=BOT, reason="rate_limited", waited_s=900)
+    )
+
+    [alert] = published.published
     assert alert.kind is AlertKind.RATE_LIMITED
     assert alert.severity is Severity.WARNING
-    assert alert.title == "Rate limited: eth-grid"
     assert "resumes by itself" in alert.detail
-    assert "rate_limited" in alert.detail
+    assert "still resting on the exchange" in alert.detail
     assert alert.dedup_key == _key(AlertKind.RATE_LIMITED)
+
+
+def test_a_rate_limit_that_is_a_plain_halt_is_the_critical_halt_and_never_says_it_resumes() -> (
+    None
+):
+    """A pause too long to wait, or a used-up budget, leaves the bot HALTED for a person to resume;
+    an alert that said "resumes by itself" there would be false (review of PR #622)."""
+    [alert] = _enter(
+        "HALTED",
+        "rate_limited",
+        f"the pause is too long to wait ({_LEAK}); resume by hand",
+    )
+
+    assert alert.kind is AlertKind.BOT_HALTED
+    assert alert.severity is Severity.CRITICAL
+    assert "resumes by itself" not in alert.detail
+    assert "resume by hand" in alert.detail
 
 
 @pytest.mark.parametrize("state", ["HALTED", "ERROR"])
@@ -210,7 +236,6 @@ def test_a_pause_the_owner_asked_for_is_still_silent() -> None:
 @pytest.mark.parametrize(
     ("reason", "state"),
     [
-        ("rate_limited", "HALTED"),
         ("key_rejected", "HALTED"),
         ("key_rejected", "ERROR"),
         ("storage_failure", "PAUSED"),
@@ -230,7 +255,6 @@ def test_no_text_from_the_exchange_or_the_disk_reaches_an_alert(
 @pytest.mark.parametrize(
     ("reason", "state", "kind"),
     [
-        ("rate_limited", "HALTED", AlertKind.RATE_LIMITED),
         ("key_rejected", "HALTED", AlertKind.KEY_REJECTED),
         ("storage_failure", "PAUSED", AlertKind.STORAGE_FAILURE),
     ],
@@ -253,7 +277,7 @@ def test_the_return_to_running_ends_the_condition(
 def test_a_second_halt_of_another_reason_is_a_new_alert() -> None:
     bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
-    bots.move("HALTED", "rate_limited")
+    bots.move("PAUSED", "storage_failure")
     source.on_bot_changed(_changed())
     bots.move("RUNNING")
     source.on_bot_changed(_changed())
@@ -262,7 +286,7 @@ def test_a_second_halt_of_another_reason_is_a_new_alert() -> None:
     source.on_bot_changed(_changed())
 
     assert [a.kind for a in published.published] == [
-        AlertKind.RATE_LIMITED,
+        AlertKind.STORAGE_FAILURE,
         AlertKind.KEY_REJECTED,
     ]
 

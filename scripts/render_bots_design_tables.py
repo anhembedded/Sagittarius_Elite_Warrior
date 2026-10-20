@@ -172,8 +172,8 @@ def _retries(values: tuple[object, ...]) -> str:
 
 
 def _rate_limit(values: tuple[object, ...]) -> str:
-    margin, longest, resumes = values
-    return f"{seconds(margin)}; {seconds(longest)}; {resumes}"
+    margin, longest = values
+    return f"{seconds(margin)}; {seconds(longest)}"
 
 
 def _recheck(values: tuple[object, ...]) -> str:
@@ -303,14 +303,11 @@ TIMING: tuple[TimingRow, ...] = (
         _retries,
     ),
     TimingRow(
-        "Rate-limit pause: margin, longest wait, most automatic resumes",
+        "Rate-limit pause: margin after it ends before the attempt (the recovery rule's dwell), "
+        "longest pause a bot waits for",
         tuple(
             Constant(f"{_BOTS}/domain/grid/rate_limit_pause.py", name)
-            for name in (
-                "AUTO_RESUME_MARGIN",
-                "MAX_AUTO_RESUME_WAIT",
-                "MAX_AUTO_RESUMES",
-            )
+            for name in ("AUTO_RESUME_MARGIN", "MAX_AUTO_RESUME_WAIT")
         ),
         _rate_limit,
     ),

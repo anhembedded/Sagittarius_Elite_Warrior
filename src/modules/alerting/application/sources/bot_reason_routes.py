@@ -7,10 +7,12 @@ file cannot be saved). This table is the one place that says, for **every** reas
 bots' grid (`GridReason.value`), how it reaches the owner:
 
   - `OWN_KIND` - the entry into one of its `states` raises `kind` instead of the generic
-    `BOT_HALTED` / `BOT_ERROR` (`RATE_LIMITED`, `KEY_REJECTED`, `STORAGE_FAILURE`);
+    `BOT_HALTED` / `BOT_ERROR` (`KEY_REJECTED`, `STORAGE_FAILURE`);
   - `STALLED` - the entry is the generic halt or the silent wait, and `kind` is raised in place of
     `BOT_RECOVERY_STALLED` when the wait outlasts the bot's own grace (`PRICE_FEED_STALE`: the
-    bot's price feed was quiet past its limit, the bot parked its ladder and has waited since);
+    bot's price feed was quiet past its limit; `RATE_LIMITED`: the bot waits out the exchange's
+    pause, `EPIC-042F`). A rate limit that is a plain `HALTED` (a pause too long to wait, or a used-up
+    budget) is the generic CRITICAL halt: a person must act, and the bot's detail says so;
   - `EXIT` - told by the stop path, not by the entry (`EXIT_ON_STOP`, the protective-stop event);
   - `GENERIC` - the state's generic kind: a halt is `BOT_HALTED`, an error `BOT_ERROR`;
   - `SILENT` - not a halt or a failure: a note the bot writes beside a state the owner caused or
@@ -146,11 +148,12 @@ REASON_ROUTES: Mapping[str, ReasonRoute] = MappingProxyType(
     {
         **dict.fromkeys(_GENERIC_REASONS, GENERIC),
         **dict.fromkeys(_SILENT_REASONS, SILENT),
-        "rate_limited": ReasonRoute.own(
+        "rate_limited": ReasonRoute.stalled(
             AlertKind.RATE_LIMITED,
-            frozenset({"HALTED"}),
-            "The exchange asked the app to slow down, so the bot is halted for the pause "
-            "the exchange named and resumes by itself when it ends.",
+            "The exchange asked the app to slow down and the bot is waiting out the pause with "
+            "its ladder still resting on the exchange (no cancel is sent into a pause); it "
+            "resumes by itself when the pause ends. Its stop loss and take profit are watched "
+            "only while ticks arrive.",
         ),
         "key_rejected": ReasonRoute.own(
             AlertKind.KEY_REJECTED,
