@@ -1,5 +1,5 @@
-"""`BOT-195`: `rich` draws the text report only for a person at a terminal; every other
-reader gets the plain bytes, and `--json` is another renderer altogether."""
+"""`BOT-195`, `BOT-198`: `rich` draws the text report whenever a person is at a terminal, however
+wide the report; every other reader gets the plain bytes, and `--json` is another renderer."""
 
 from __future__ import annotations
 
@@ -21,11 +21,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_report import (
     exchange_status_report,
 )
-from Sagittarius_Elite_Warrior.src.shell.rich_text_report_renderer import (
-    RichTextReportRenderer,
-)
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
-    ReportTooWideError,
+    RICH_MISSING_NOTE,
     TerminalAwareTextRenderer,
     TerminalState,
 )
@@ -133,12 +130,6 @@ def test_every_reader_but_a_person_at_a_terminal_gets_the_plain_bytes(state):
         assert _renderer(state).render(report) == TextReportRenderer().render(report)
 
 
-def test_a_terminal_too_narrow_for_the_table_gets_the_plain_bytes():
-    narrow = _renderer(_state(columns=20))
-
-    assert narrow.render(_list_report()) == TextReportRenderer().render(_list_report())
-
-
 def test_output_that_is_not_for_a_terminal_has_no_escape_and_no_box():
     text = _renderer(_state(tty=False)).render(_list_report())
 
@@ -185,17 +176,46 @@ def test_a_label_and_value_block_colours_state_and_loss_only():
     assert "free text" in plain
 
 
-def test_without_rich_the_plain_bytes_are_printed():
-    def missing(columns: int) -> IReportRenderer:
-        raise ModuleNotFoundError("No module named 'rich'", name="rich")
+def _no_rich(columns: int) -> IReportRenderer:
+    raise ModuleNotFoundError("No module named 'rich'", name="rich")
 
+
+def test_without_rich_the_plain_bytes_are_printed_and_stderr_says_why_once(capsys):
     renderer = TerminalAwareTextRenderer(
-        TextReportRenderer(), lambda: _state(), missing
+        TextReportRenderer(), lambda: _state(), _no_rich
     )
 
-    assert renderer.render(_list_report()) == TextReportRenderer().render(
-        _list_report()
-    )
+    first = renderer.render(_list_report())
+    renderer.render(_list_report())
+
+    assert first == TextReportRenderer().render(_list_report())
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == RICH_MISSING_NOTE + "\n"
+    assert "pip install -r requirements-headless.txt" in RICH_MISSING_NOTE
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        _state(tty=False),
+        _state(env={"NO_COLOR": "1"}),
+        _state(env={"TERM": "dumb"}),
+    ],
+    ids=["not-a-terminal", "no-color", "dumb"],
+)
+def test_the_missing_rich_note_is_only_for_a_terminal_that_wanted_colour(state, capsys):
+    renderer = TerminalAwareTextRenderer(TextReportRenderer(), lambda: state, _no_rich)
+
+    renderer.render(_list_report())
+
+    assert capsys.readouterr().err == ""
+
+
+def test_a_working_rich_prints_no_note(capsys):
+    _renderer(_state()).render(_list_report())
+
+    assert capsys.readouterr().err == ""
 
 
 def test_a_broken_rich_install_or_a_defect_is_not_hidden_behind_plain_text():
@@ -262,8 +282,3 @@ def test_json_is_the_same_bytes_at_a_terminal_and_not():
 
 def test_the_default_registry_still_has_the_plain_text_renderer():
     assert isinstance(ReportFormats.default().get("text"), TextReportRenderer)
-
-
-def test_a_table_wider_than_the_terminal_is_refused_not_shortened():
-    with pytest.raises(ReportTooWideError, match="columns needed"):
-        RichTextReportRenderer(columns=20).render(_list_report())

@@ -5,7 +5,9 @@ golden tests pin it byte for byte. `rich` draws box characters and colour even t
 a file, so it runs only when a person is at the other end: standard output is a
 terminal, `TERM` is not `dumb`, `NO_COLOR` is unset and the terminal is wide
 enough for the table. Every other case, and a `rich` that is not installed, gets
-the plain renderer. `--json` never comes here: it is another renderer.
+the plain renderer. A terminal never falls back because the report is wide: `rich`
+wraps the long cells (`BOT-198`). Only a missing `rich` at a terminal is not the
+operator's choice, so it is the one fallback that says so, on standard error. `--json` never comes here: it is another renderer.
 """
 
 from __future__ import annotations
@@ -25,10 +27,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
 
 _DEFAULT_COLUMNS = 80
 _log = logging.getLogger("App.CliReport")
-
-
-class ReportTooWideError(ValueError):
-    """The table is wider than the terminal; the plain text is the answer."""
+RICH_MISSING_NOTE = (
+    "note: rich is not installed; printing plain text "
+    "(pip install -r requirements-headless.txt -c requirements.lock)"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +79,7 @@ class TerminalAwareTextRenderer(IReportRenderer):
         self._plain = plain
         self._state = state
         self._rich_for = rich_for
+        self._said_rich_missing = False
 
     def render(self, report: Report) -> str:
         state = self._state()
@@ -84,13 +87,17 @@ class TerminalAwareTextRenderer(IReportRenderer):
             return self._plain.render(report)
         try:
             text = self._rich_for(state.columns).render(report)
-        except ReportTooWideError as refused:
-            _log.info("[cli-report] plain text: %s", refused)
-            return self._plain.render(report)
         except ModuleNotFoundError as missing:
             if missing.name is None or missing.name.partition(".")[0] != "rich":
                 raise
             _log.info("[cli-report] plain text: rich is not installed")
+            self._say_rich_missing()
             return self._plain.render(report)
         _log.debug("[cli-report] rich table, %d columns", state.columns)
         return text
+
+    def _say_rich_missing(self) -> None:
+        """Once per run, on stderr: stdout keeps the plain bytes a script may read."""
+        if not self._said_rich_missing:
+            self._said_rich_missing = True
+            sys.stderr.write(RICH_MISSING_NOTE + "\n")
