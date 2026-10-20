@@ -172,7 +172,7 @@ printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_deadman_ping_url > /de
 
 Then `sudo systemctl restart sew-run`; systemd copies a credential at start.
 
-3. **Read the start line** (`journalctl -u sew-run | grep dead-mans-switch`): `[dead-mans-switch] on: pinging the check-in URL in the credential alerting_deadman_ping_url every 300 s`. `off: no check-in URL is stored` means the file is empty; `off: the credential ... does not hold an https URL` means the value is wrong. Neither line quotes the value. After a restart the check turns green within a minute.
+3. **Read the start line** (`journalctl -u sew-run | grep dead-mans-switch`): `[dead-mans-switch] on: pinging the check-in URL in the credential alerting_deadman_ping_url every 300 s`. `off: no check-in URL is stored` means the file is empty or absent; `off: the credential ... does not hold an https URL` means the value is wrong. Neither line quotes the value. After a restart the check turns green within a minute.
 4. **What a ping means.** The host pings only while its alert worker makes progress: each delivery lane and the housekeeping pass must have finished a pass in the last 5 minutes. A wedged worker therefore stops the ping and the monitor alerts you, though the process still exists (`[dead-mans-switch] the alert worker is not making progress (stalled: ...)` names the thread). It proves the process and its alert worker are alive, **not** that each bot is healthy.
 5. **Prove it once (the kill test, checklist row 12).** With the check green, `sudo systemctl stop sew-run` (or `kill -9` the process; `Restart=on-failure` brings it back in 10 s, so use `stop`). After the period plus the grace (about 15 minutes) the monitor must alert you. Start the service again and the check recovers. Write the date in the checklist.
 6. **If the monitor itself cannot be reached** the host logs `[dead-mans-switch] ping failed (n in a row)` and, after three in a row, sends one **Alert channel failing: dead_mans_switch** message to Discord, so a wrong URL (HTTP 404) or a service outage is not silent. It never delays another alert.
@@ -637,6 +637,7 @@ sudo tar --extract --gzip --file "$ARCHIVE" --to-stdout opt/sew/Sagittarius_Elit
 4. **Start, and check.** The start runs the pre-flight (§4) and restores the bots from the files:
 
 ```bash
+systemctl cat sew-run | grep LoadCredential   # exactly: LoadCredential=sew:/etc/sew/credentials; a bare "LoadCredential=" in the restored drop-in empties the list, so delete that line, then sudo systemctl daemon-reload (§3)
 sudo systemctl start sew-run
 journalctl -u sew-run -o cat --since "5 minutes ago" | grep -E '\[preflight\]|bot-files-readable|\[recovering\]|\[loss-cap\]'
 M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
