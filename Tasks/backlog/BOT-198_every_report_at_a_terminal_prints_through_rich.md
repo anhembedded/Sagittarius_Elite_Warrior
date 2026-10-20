@@ -19,6 +19,7 @@
 - [x] A pipe, a file, the journal, `ssh host cmd` without a tty, `NO_COLOR`, `TERM=dumb`, `--json` and a venv without `rich` keep today's exact plain bytes (existing golden tests unchanged and green).
 - [x] When stdout is a tty and the plain renderer is used because `rich` is not installed, one line goes to stderr (once per run); stdout bytes are untouched. `NO_COLOR`, `TERM=dumb` and a non-terminal stay silent.
 - [x] The survey of the outputs that do not go through a renderer is in section 3, and the small ones are built or recommended.
+- [x] The one meaning table also colours a side (`BUY`/`LONG` green, `SELL`/`SHORT` red, by the `SIDE`, `POSITION SIDE`, `POSITION` or `DIRECTION` column head or label) and an order or level state (`FILLED` green; `CANCELLED`, `EXPIRED` yellow; `REJECTED` red; `RESTING` and the rest plain), the word always printed (owner, 2026-10-20: *"cac lenh phai co mau chua, it nhat buy sell, long, short"*).
 - [x] Runbook §6 and PRO-017's follow-up line say it.
 
 ## 3. Design
@@ -44,6 +45,8 @@ No design change: `src/shell` and the CLI host have no `Docs/MODULES/` folder; t
 
 **Recommendation to the owner:** the command answers are covered now. The remaining free-text prints are older handlers (`sync`, `stream`, `trade-once`, `order-dry-run`); the right move is one task per module converting each to a `Report`, which gives them `--json` and rich together, not a second colouring path.
 
+**Why `bot show` stayed plain at `COLUMNS=250`:** `bot show` is all two-cell rows, so `_section` draws it as one label/value block (the same path as every other report); it was not falling to `_lines`. `COLUMNS` does not survive `sudo -u sew env ...` (sudo resets the environment and `env` adds only what is named), so `shutil.get_terminal_size` read the real terminal width, and the ~200-character Ladder row exceeded it: the width fallback. `bot order` fits, so it was already rich. `sys.stdout` is replaced only for machine formats (`console_log_stream.py`), so `isatty()` is asked of the real stream. Other causes (rich missing in `/opt/sew/venv`, a checkout older than 58eca01) cannot be told from code: the stderr note covers the first.
+
 ## 3a. Reuse
 `TerminalAwareTextRenderer`, `RichTextReportRenderer` and the `_STATE_STYLES` meaning table are used as they are. No UI catalogue row applies (`None: no Qt UI need`).
 
@@ -54,6 +57,7 @@ No design change: `src/shell` and the CLI host have no `Docs/MODULES/` folder; t
 | `src/shell/terminal_report_text.py` | no width fallback; one stderr note when `rich` is missing at a terminal |
 | `src/support/cli_host/error_message_style.py`, `exit_status.py` | a failed command's sentence in bold red at a terminal |
 | `.claude/rules/capabilities.md` | regenerated capability row |
+| `src/shell/rich_text_report_renderer.py` (also) | `_SIDE_STYLES`, the side column heads and labels, order states in `_STATE_STYLES` |
 | `tests/unit/shell/test_terminal_report_text.py`, `test_wide_report_on_a_terminal.py`, `tests/unit/support/cli_host/test_error_message_style.py` | section 5 |
 | `Docs/OPERATIONS/headless_runbook.md` §6, `Tasks/proposal/PRO-017.md` §6 | the new behaviour |
 

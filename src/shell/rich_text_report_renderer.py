@@ -42,11 +42,20 @@ _STATE_STYLES = {
     "AWAITING_RECOVERY": "yellow",
     "HALTED": "bold red",
     "ERROR": "bold red",
+    "FILLED": "green",
+    "CANCELED": "yellow",
+    "CANCELLED": "yellow",
+    "EXPIRED": "yellow",
+    "REJECTED": "bold red",
 }
+#: A side is a direction, not a verdict: buying and going long green, selling and going short red.
+_SIDE_STYLES = {"BUY": "green", "LONG": "green", "SELL": "red", "SHORT": "red"}
 _PROFIT_STYLE = "green"
 _LOSS_STYLE = "red"
 _STATE_HEADS = frozenset({"STATE"})
 _STATE_LABELS = frozenset({"state"})
+_SIDE_HEADS = frozenset({"SIDE", "POSITION SIDE", "POSITION", "DIRECTION"})
+_SIDE_LABELS = frozenset(head.lower() for head in _SIDE_HEADS)
 _MONEY_HEADS = frozenset({"GRID PROFIT", "TOTAL PNL"})
 _MONEY_LABELS = frozenset({"grid profit", "total pnl"})
 _FIGURE = re.compile(r"^[+-]?\d[\d,]*(\.\d+)?")
@@ -64,12 +73,18 @@ def _figure_style(text: str) -> str | None:
 
 
 def _style_of(
-    kind: str | None, text: str, states: frozenset[str], money: frozenset[str]
+    kind: str | None,
+    text: str,
+    states: frozenset[str],
+    money: frozenset[str],
+    sides: frozenset[str],
 ) -> str | None:
     if kind is None:
         return None
     if kind in states:
         return _STATE_STYLES.get(text.strip().upper())
+    if kind in sides:
+        return _SIDE_STYLES.get(text.strip().upper())
     if kind in money:
         return _figure_style(text)
     return None
@@ -107,6 +122,7 @@ def _table(rows: tuple[ReportRow, ...], header: bool) -> Table:
                         cell.text,
                         _STATE_HEADS,
                         _MONEY_HEADS,
+                        _SIDE_HEADS,
                     )
                     or "",
                 )
@@ -122,7 +138,9 @@ def _block(rows: tuple[ReportRow, ...]) -> Table:
     grid.add_column(overflow="fold")
     for row in rows:
         label, value = (cell.text.strip() for cell in row.cells)
-        style = _style_of(label.lower(), value, _STATE_LABELS, _MONEY_LABELS)
+        style = _style_of(
+            label.lower(), value, _STATE_LABELS, _MONEY_LABELS, _SIDE_LABELS
+        )
         grid.add_row(Text(label), Text(value, style=style or ""))
     return grid
 

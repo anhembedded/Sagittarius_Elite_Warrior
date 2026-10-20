@@ -282,3 +282,68 @@ def test_json_is_the_same_bytes_at_a_terminal_and_not():
 
 def test_the_default_registry_still_has_the_plain_text_renderer():
     assert isinstance(ReportFormats.default().get("text"), TextReportRenderer)
+
+
+def _order_report() -> Report:
+    head = ("LEVEL", "SIDE", "PRICE", "STATE")
+    rows = [
+        ("1", "BUY", "61000", "FILLED"),
+        ("2", "SELL", "62000", "REJECTED"),
+        ("3", "LONG", "61500", "CANCELLED"),
+        ("4", "SHORT", "62500", "RESTING"),
+    ]
+    return Report(
+        "bot-order",
+        1,
+        {},
+        (
+            ReportSection(
+                None,
+                (_row(*head), *(_row(*cells) for cells in rows)),
+                has_header=True,
+            ),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("word", "code"),
+    [
+        ("BUY", "32"),
+        ("LONG", "32"),
+        ("SELL", "31"),
+        ("SHORT", "31"),
+        ("FILLED", "32"),
+        ("REJECTED", "31"),
+        ("CANCELLED", "33"),
+    ],
+)
+def test_a_side_and_an_order_state_are_coloured_and_still_printed(word, code):
+    text = _renderer(_state()).render(_order_report())
+
+    assert re.search(rf"\x1b\[[0-9;]*{code}m[^\x1b]*{word}", text)
+    assert word in _ANSI.sub("", text)
+
+
+def test_a_resting_order_is_not_coloured_and_sides_are_plain_off_a_terminal():
+    text = _renderer(_state()).render(_order_report())
+    resting = next(line for line in text.splitlines() if "RESTING" in line)
+    assert not re.search(r"\x1b\[[0-9;]*3[0-9]m[^\x1b]*RESTING", resting)
+
+    plain = _renderer(_state(tty=False)).render(_order_report())
+    assert plain == TextReportRenderer().render(_order_report())
+    assert _ESCAPE not in plain
+
+
+def test_a_side_label_in_a_block_is_coloured():
+    report = Report(
+        "demo",
+        1,
+        {},
+        (ReportSection(None, (_row("Side", "SHORT"), _row("Position side", "LONG"))),),
+    )
+
+    text = _renderer(_state()).render(report)
+
+    assert re.search(r"\x1b\[[0-9;]*31m[^\x1b]*SHORT", text)
+    assert re.search(r"\x1b\[[0-9;]*32m[^\x1b]*LONG", text)
