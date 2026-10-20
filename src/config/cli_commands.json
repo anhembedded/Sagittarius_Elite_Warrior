@@ -351,6 +351,32 @@
         }
       }
     },
+    "key": {
+      "help": "Check a Binance key: which venue it is for, and whether it may be used. Read-only; the key and the secret are read from standard input only",
+      "subparsers": {
+        "dest": "action",
+        "required": true,
+        "commands": {
+          "check": {
+            "modules": ["trading"],
+            "help": "Read the API key and the secret from standard input (two lines; a prompt with no echo on a terminal), ask each Binance environment about them and say which venue they belong to. Refuses a mainnet key that can withdraw or may not trade. Writes nothing and prints neither value. Exit 0 the key is usable, 2 the input cannot be a key, 5 the key must be replaced, 6 an environment did not answer",
+            "read_only": true,
+            "args": [
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.key/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          }
+        }
+      }
+    },
     "bot": {
       "help": "List, show, order, export, apply, start, edit, stop, pause and resume bots: list, show, order and export change no bot; apply makes the bots match a plan file; start, edit, stop, pause and resume ask the running host (main.py run) to do it",
       "subparsers": {

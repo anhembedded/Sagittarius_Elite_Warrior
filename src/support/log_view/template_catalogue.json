@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 765, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 766, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -36,12 +36,12 @@
 ["ss", "", ": order session not opened: ", " [order-session]"],
 ["ss", "", ": order session open (already open: ", ") [order-session]"],
 ["ss", "", ": the answer could not be read (", ") [key-probe]"],
-["sss", "", ": the key ", " was ", " [key-probe]"],
-["ss", "", ": the key ", " was kept [key-enrolment]"],
 ["s", "", ": the key can withdraw; refused before reading anything [key-gate]"],
 ["ss", "", ": the key could not be kept: ", " [key-enrolment]"],
 ["ss", "", ": the key could not be removed: ", " [key-enrolment]"],
 ["ss", "", ": the key could not be written: ", " [key-enrolment]"],
+["ss", "", ": the key was ", " [key-probe]"],
+["s", "", ": the key was kept [key-enrolment]"],
 ["s", "", ": the key was removed [key-enrolment]"],
 ["ss", "", ": the key's permissions could not be asked (", "); the key accepted earlier stands [key-gate]"],
 ["sfff", "", "=", " is below the ", "s floor (Binance request-weight budget) — using ", "s instead."],
@@ -764,5 +764,6 @@
 ["ss", "[trade] venue ", " -> ", ""],
 ["ss", "[trade] venues ", "; showing ", ""],
 ["sss", "executionReport  ", "  ", "  qty ", ""],
-["h", "release_owner(", ") requested but it held no subscription; nothing to do."]
+["h", "release_owner(", ") requested but it held no subscription; nothing to do."],
+["ss", "the key is for [", "], refusal ", " [key-check]"]
 ]
