@@ -1,41 +1,39 @@
-"""`EPIC-035D` (M3) — a Grid halted by a rate limit resumes by itself when the pause ends.
+"""`EPIC-035D`, `EPIC-042F` — a Grid met by a rate limit waits for the pause on the halt-recovery mechanism.
 
-HTTP 429, `-1003`, `-1015` and a 418 ban used to reach the lifecycle as a request
-that raised: ERROR, whose only exit is a manual Stop and Start. They are a pause
-the exchange named, so the bot halts for exactly that long (`GridReason.RATE_LIMITED`,
-the pause in its reason) and a resume is scheduled on the bot's retry scheduler
-(`IBotRetryScheduler`, the seam of `EPIC-035C`; no timer or clock is added here).
+HTTP 429, `-1003`, `-1015` and a 418 ban used to reach the lifecycle as a request that raised:
+ERROR, whose only exit is a manual Stop and Start. They are a pause the exchange named, so the bot
+halts for exactly that long (`GridReason.RATE_LIMITED`, the pause in its reason).
 
-The resume is the one a user's Resume and Confirm run (`GridResumeSequence`): the
-budget is registered again, every tagged order is taken off, and a fresh ladder is
-proposed from the price now and the inventory the exchange shows, then laid. That is
-why a rate-limit halt does not park: the cancels would be refused inside the pause,
-and the resume cancels everything tagged first anyway.
+Since `EPIC-042F` that halt is a *transient* one like a quiet feed (ADR 042): the bot waits in
+AWAITING_RECOVERY, the Grid's kind layer holds the rule (`GRID_RECOVERY_LAYER`: the common budget,
+three recoveries per rolling 24 h, and a dwell of `AUTO_RESUME_MARGIN`), and the probe is *the
+pause has ended* (`holds`, read by `GridHaltProbe`). The attempt is the one a person's Resume runs
+(`GridResumeSequence`) with the exits re-checked on a fresh price first (`GridHaltRecovery`): the
+budget is registered again, every tagged order is taken off, a fresh ladder is proposed from the
+price now and the inventory the exchange shows, then laid. That is why a rate-limit halt does not
+park: the cancels would be refused inside the pause, and the attempt cancels everything tagged
+first anyway.
 
-It is bounded (`rate_limit_pause.py`): a pause too long for a timer, or a limit that
-keeps coming back, leaves the bot HALTED with a reason that says to resume by hand.
-A resume scheduled before the user acted, or before another halt, does nothing:
-it runs only for the round it was scheduled in, and only on a bot still HALTED for
-a rate limit. Touched only on the bot's worker.
+What the mechanism does not wait for is left to a person, saying so: a pause longer than
+`MAX_AUTO_RESUME_WAIT`, the spent budget, and a bot the policy never recovers (PAUSED, RECOVERING,
+or HALTED, which only a person leaves). A limit met by a bot already waiting for something else
+does not change its reason or its dwell: the pause only joins what the wait watches.
+
+This class keeps the one fact the probe needs and the halt cannot carry: *when the pause the bot
+met ends*, on the bot's monotonic clock, in memory (a restart ends the wait in HALTED, D9, and
+the exchange's pause is long over by the time a person resumes). Touched only on the bot's worker.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from decimal import Decimal
+from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_order_failure import (
-    halt_with,
+    pause_with,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_resume_sequence import (
-    GridResumeSequence,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
-    IBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -44,9 +42,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
-    MAX_AUTO_RESUME_WAIT,
-    MAX_AUTO_RESUMES,
-    resume_delay,
     whole_seconds,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
@@ -71,29 +66,28 @@ _HALTED_BY_A_LIMIT: frozenset[BotLifecycleState] = frozenset(
     }
 )
 
+#: What a bot says when the limit left it HALTED: the mechanism does not recover that state.
+_BY_HAND = "it does not resume by itself from here; resume by hand once the pause ends"
+_BY_HAND_MARK = "resume by hand"
+
 
 class GridRateLimitPause:
-    """Halts a bot for a rate limit and schedules its resume for the pause's end."""
+    """Halts a bot for a rate limit and knows when the pause it met ends."""
 
-    def __init__(
-        self,
-        context: GridRunContext,
-        retries: IBotRetryScheduler,
-        post: Callable[[str, Callable[[], None]], None],
-        resume: GridResumeSequence,
-        price: Callable[[], Decimal],
-    ) -> None:
+    def __init__(self, context: GridRunContext) -> None:
         self._context = context
-        self._retries = retries
-        self._post = post
-        self._resume = resume
-        self._price = price
-        self._round = 0
-        self._automatic_resumes = 0
+        #: When the pause the bot last met ends, in `monotonic` seconds; `None` before any.
+        self._ends_at: float | None = None
+
+    def holds(self) -> bool:
+        """Whether the pause this bot met is still running: the recovery probe's `rate_limited`
+        is *clear* when it is not. A bot that met none is not held."""
+        ends_at = self._ends_at
+        return ends_at is not None and self._context.monotonic.seconds() < ends_at
 
     def halt(self, limited: ExchangeRateLimitedError, what: str) -> None:
-        """A task raised the limit (a read, or a request outside an order): halt
-        the bot for it. `after_task` then schedules the resume."""
+        """A task raised the limit (a read, or a request outside an order): halt the bot for it.
+        `after_task` then records when the pause ends."""
         self._context.gateway.note_rate_limit(limited.retry_after)
         state = self._context.state
         if state.state not in _HALTED_BY_A_LIMIT:
@@ -104,71 +98,55 @@ class GridRateLimitPause:
                 state.state.value,
             )
             return
-        halt_with(
+        pause_with(
             state,
-            GridReason.RATE_LIMITED,
+            limited.retry_after,
             f"{what}: rate limited: the exchange asked for a pause of "
             f"{whole_seconds(limited.retry_after)} s",
         )
 
     def after_task(self) -> None:
-        """Schedule the resume when this task left the bot HALTED for a limit."""
+        """Record when the pause this task met ends, and say what the bot does about it."""
         pause = self._context.gateway.take_rate_limit()
+        if pause is None:
+            return
         state = self._context.state
-        if (
-            pause is None
-            or state.state is not _S.HALTED
-            or state.runtime.reason is not GridReason.RATE_LIMITED
+        if state.state is _S.AWAITING_RECOVERY:
+            self._hold(pause)
+        elif (
+            state.state is _S.HALTED and state.runtime.reason is GridReason.RATE_LIMITED
         ):
-            return
-        delay = resume_delay(pause)
-        if delay is None:
-            self._append(
-                f"the pause is longer than {whole_seconds(MAX_AUTO_RESUME_WAIT)} s, "
-                "which no timer holds; resume by hand once it ends"
-            )
-            return
-        if self._automatic_resumes >= MAX_AUTO_RESUMES:
-            self._append(
-                f"the {MAX_AUTO_RESUMES} automatic resumes are used up; resume by hand"
-            )
-            logger.error(
-                "Bot %s: HALTED by a rate limit after %d automatic resumes [bot-rate-limit-exhausted]",
-                state.bot_id,
-                MAX_AUTO_RESUMES,
-            )
-            return
-        self._round += 1
-        round_ = self._round
-        self._append(f"resumes by itself in {whole_seconds(delay)} s")
-        self._retries.after(
-            delay,
-            lambda: self._post("rate-limit resume", lambda: self._resume_now(round_)),
-        )
+            self._say(_BY_HAND, unless=_BY_HAND_MARK)
 
-    def _resume_now(self, round_: int) -> None:
+    def _hold(self, pause: timedelta) -> None:
         state = self._context.state
-        if (
-            round_ != self._round
-            or state.state is not _S.HALTED
-            or state.runtime.reason is not GridReason.RATE_LIMITED
-        ):
-            return
-        self._automatic_resumes += 1
+        ends_at = self._context.monotonic.seconds() + pause.total_seconds()
+        self._ends_at = (
+            ends_at if self._ends_at is None else max(self._ends_at, ends_at)
+        )
+        seconds = whole_seconds(pause)
         logger.info(
-            "Bot %s: resuming after a rate limit (automatic resume %d of %d) [bot-rate-limit-resume]",
+            "Bot %s: waiting for the exchange's pause of %d s to end [bot-rate-limit-wait]",
             state.bot_id,
-            self._automatic_resumes,
-            MAX_AUTO_RESUMES,
+            seconds,
         )
-        proposal = self._resume.propose(self._price())
-        if proposal is not None:
-            self._resume.confirm(proposal)
-        if self._context.state.state is _S.RUNNING:
-            self._automatic_resumes = 0
+        if state.runtime.reason is GridReason.RATE_LIMITED:
+            self._say(
+                "resumes by itself when the pause ends", unless="resumes by itself"
+            )
+        else:
+            self._say(
+                f"the exchange also asked for a pause of {seconds} s; "
+                "the wait lasts until it ends too",
+                unless="the exchange also asked",
+            )
 
-    def _append(self, text: str) -> None:
+    def _say(self, text: str, *, unless: str) -> None:
+        """Add `text` to the reason's detail once: not when `unless` is already in it."""
         state = self._context.state
         runtime = state.runtime
-        reason = runtime.reason or GridReason.RATE_LIMITED
-        state.update(runtime.with_reason(reason, f"{runtime.reason_detail}; {text}"))
+        if runtime.reason is None or unless in runtime.reason_detail:
+            return
+        state.update(
+            runtime.with_reason(runtime.reason, f"{runtime.reason_detail}; {text}")
+        )

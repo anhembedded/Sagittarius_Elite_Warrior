@@ -3,8 +3,8 @@
 @details The exchange's pause is the venue's, not a bot's: the one gate (`ExchangeCallPolicy` /
 `RateLimitGate`, `EPIC-035D`) refuses every caller of the venue for the stated pause. This is what
 the neighbours do then, on the composed app over the fake exchange: each halts `RATE_LIMITED` at
-the order its fill needs, never `ERROR` and never as a switch-off, and schedules its own resume
-(`grid_rate_limit_pause`); a bot that needs no order keeps its ladder (a watch's refused read is
+the order its fill needs, never `ERROR` and never as a switch-off, and waits for the same pause
+in AWAITING_RECOVERY (`EPIC-042F`: the recovery run's, with no timer of its own); a bot that needs no order keeps its ladder (a watch's refused read is
 said and halts nothing); nothing is sent while the exchange asked for a pause; and the venue's
 pause does not stop a bot on the other venue. Decision recorded in `EPIC-029J1b` §3b.
 """
@@ -22,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
-    AUTO_RESUME_MARGIN,
 )
 
 from .crowd_bots_world import FUTURES_SYMBOLS, run_bots
@@ -63,7 +60,10 @@ def test_a_neighbour_halts_for_the_pause_at_the_first_order_it_needs_and_not_bef
         )  # the first bot's entry fills: its counter
 
         met = app.runtime(first)
-        assert app.bot(first).state is S.HALTED, (met.reason, met.reason_detail)
+        assert app.bot(first).state is S.AWAITING_RECOVERY, (
+            met.reason,
+            met.reason_detail,
+        )
         assert met.reason is GridReason.RATE_LIMITED
         assert "resumes by itself" in met.reason_detail
         assert (app.bot(second).state, app.bot(third).state) == (
@@ -77,7 +77,10 @@ def test_a_neighbour_halts_for_the_pause_at_the_first_order_it_needs_and_not_bef
 
         for bot_id in (first, second):
             runtime = app.runtime(bot_id)
-            assert app.bot(bot_id).state is S.HALTED, (bot_id, runtime.reason_detail)
+            assert app.bot(bot_id).state is S.AWAITING_RECOVERY, (
+                bot_id,
+                runtime.reason_detail,
+            )
             assert runtime.reason is GridReason.RATE_LIMITED, runtime.reason_detail
             assert "resumes by itself" in runtime.reason_detail
 
@@ -94,19 +97,11 @@ def test_a_neighbour_halts_for_the_pause_at_the_first_order_it_needs_and_not_bef
         assert app.bot(spot).state is S.RUNNING, "the other venue has a gate of its own"
         assert app.resting(SPOT) == spot_ladder == set(ladder(app.runtime(spot)))
 
-        resumes = [
+        assert [
             retry
             for retry in retries.pending
             if retry.delay.total_seconds() >= PAUSE_SECONDS
-        ]
-        assert len(resumes) == 2, (
-            "one resume scheduled for each halted bot, the pause plus a margin"
-        )
-        assert all(
-            retry.delay.total_seconds()
-            == PAUSE_SECONDS + AUTO_RESUME_MARGIN.total_seconds()
-            for retry in resumes
-        )
+        ] == [], "the wait is the recovery run's: no resume timer is scheduled"
         sent = both_venues.urls.requests[sent_before:]
         assert ("DELETE", "/fapi/v1/order") not in sent
         assert all(

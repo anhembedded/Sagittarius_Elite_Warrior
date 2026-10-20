@@ -1,12 +1,15 @@
 """`EPIC-042C` - how a Grid sees that a transient halt's cause has cleared (ADR 042 §2.2).
 
-Two reasons are common to every bot and so recoverable on a Spot Grid today:
+Two reasons are common to every bot and so recoverable on a Spot Grid today, and a third is the
+Grid's own (`EPIC-042F`):
 
   · `price_feed_stale` - clear when a tick has been heard **since the bot began waiting** and the
     last one is younger than `RECOVERY_TICK_MAX_AGE_SECONDS`. A feed silent since the halt is not
     clear, and neither is one that ticks twice a minute;
   · `user_stream_down` - clear when the venue's user-data stream reports CONNECTED
-    (`IUserStreamStatus`).
+    (`IUserStreamStatus`);
+  · `rate_limited` - clear when the pause the bot met has ended (`GridRateLimitPause.holds`); a bot
+    that met none has nothing to wait for, so the code is clear while a quiet feed is waited out.
 
 A code the probe does not know never clears (`knows`), so a reason added to a layer without a
 probe waits and, after `stalled_after`, tells the owner; it never recovers on a guess.
@@ -16,6 +19,9 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_rate_limit_pause import (
+    GridRateLimitPause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_halt_condition_probe import (
     IHaltConditionProbe,
@@ -28,19 +34,28 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     PRICE_FEED_STALE,
+    RATE_LIMITED,
     USER_STREAM_DOWN,
     HaltCode,
 )
 
-_KNOWN: frozenset[HaltCode] = frozenset({PRICE_FEED_STALE, USER_STREAM_DOWN})
+_KNOWN: frozenset[HaltCode] = frozenset(
+    {PRICE_FEED_STALE, USER_STREAM_DOWN, RATE_LIMITED}
+)
 
 
 class GridHaltProbe(IHaltConditionProbe):
-    """Reads one Grid's price age and its venue's stream."""
+    """Reads one Grid's price age, its venue's stream and the pause it met."""
 
-    def __init__(self, context: GridRunContext, streams: IUserStreamStatus) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        streams: IUserStreamStatus,
+        pause: GridRateLimitPause,
+    ) -> None:
         self._context = context
         self._streams = streams
+        self._pause = pause
 
     def knows(self, code: HaltCode) -> bool:
         return code in _KNOWN
@@ -52,4 +67,6 @@ class GridHaltProbe(IHaltConditionProbe):
             )
         if code == USER_STREAM_DOWN:
             return self._streams.is_connected(self._context.state.bot.definition.venue)
+        if code == RATE_LIMITED:
+            return not self._pause.holds()
         return False

@@ -7,6 +7,8 @@ probe whether it knows each code (ADR 042 §2.2, "a test locks the seam").
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_halt_probe import (
     GridHaltProbe,
@@ -25,8 +27,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     PRICE_FEED_STALE,
+    RATE_LIMITED,
     USER_STREAM_DOWN,
     HaltCode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -38,7 +44,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
 
 def _probe(streams: IUserStreamStatus) -> GridHaltProbe:
     world = grid_world(user_streams=streams)
-    return GridHaltProbe(world.executor._context, streams)
+    return GridHaltProbe(world.executor._context, streams, world.executor._pause)
 
 
 @pytest.mark.parametrize("venue", list(TradingVenue))
@@ -70,3 +76,28 @@ def test_the_stream_reason_clears_with_the_stream_and_the_price_reason_needs_a_t
     streams.connected = True
     assert probe.is_clear(USER_STREAM_DOWN, 0.0) is True
     assert probe.is_clear(PRICE_FEED_STALE, 0.0) is False, "no tick was ever heard"
+
+
+def test_the_rate_limit_reason_is_clear_until_a_pause_is_met_and_again_when_it_ends() -> (
+    None
+):
+    """`EPIC-042F`: *clear* is the pause's end, not a tick or a stream, so a bot that met none has
+    nothing to wait for (a quiet feed's wait must not be held by a pause that never was)."""
+    world = grid_world()
+    probe = _probe(FakeUserStreamStatus())
+    assert probe.is_clear(RATE_LIMITED, 0.0) is True, "no pause was ever met"
+
+    world.book.raise_next = [
+        ExchangeRateLimitedError(
+            timedelta(seconds=60), banned=False, raw_message="slow down"
+        )
+    ]
+    world.executor.start()
+    held = GridHaltProbe(
+        world.executor._context, FakeUserStreamStatus(), world.executor._pause
+    )
+    assert held.is_clear(RATE_LIMITED, 0.0) is False
+    world.monotonic.advance(59)
+    assert held.is_clear(RATE_LIMITED, 0.0) is False
+    world.monotonic.advance(1)
+    assert held.is_clear(RATE_LIMITED, 0.0) is True

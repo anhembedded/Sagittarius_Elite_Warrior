@@ -88,7 +88,7 @@ The application services are split first by kind, then by feature (`BOT-177`). A
   - `start/`: start preconditions, the start sequence and the interrupted start.
   - `stop/`: the stopper, stop sequence, request, retry and waiting, exit slices and the mark exit.
   - `watch/`: the range, risk, storage, terms and key watches, price age and reaction, the rate-limit
-    pause, stream gap and tick extremes.
+    pause (the fact the `rate_limited` probe reads), stream gap and tick extremes.
   - `recovery/`: the reconciler (with the missed fills it applies and the quantities it aligns, in
     their own files), the recovery reader and the resume sequence.
 
@@ -152,6 +152,13 @@ What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery
 `bots/contracts/i_user_stream_status.py` → `IUserStreamStatus`, kept by
 `bots/application/services/watches/user_stream_status.py` → `UserStreamStatus`.
 
+The exchange's pause is the third reason the probe knows (`EPIC-042F`): the Grid's layer declares
+`rate_limited` (`bots/domain/grid/grid_kind.py` → `GRID_RECOVERY_LAYER`, with the shared rule
+`bots/domain/halt_recovery_policy.py` → `PAUSE_RULE`), and *clear* is `bots/application/kinds/grid/watch/grid_rate_limit_pause.py`
+→ `GridRateLimitPause.holds` saying the pause the bot met is over. `GridRateLimitPause` keeps the one
+fact the halt cannot carry, when that pause ends on the bot's monotonic clock; the timer, its
+consecutive counter and the second recovery mechanism they were are gone.
+
 ## Built: the account-level loss cap's parts
 
 *Which component adds up the day's loss, which stops the bots, and where does the owner's figure
@@ -194,4 +201,3 @@ the constants in [`10-quality.md`](10-quality.md).
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
-| The grid rate-limit resume moves onto that mechanism | `bots/application/kinds/grid/watch/` | `EPIC-042F` |

@@ -1,6 +1,6 @@
 # EPIC-042 — A bot halted by a transient cause recovers by itself, through the Resume path, and the owner can resume HALTED bots on the host
 
-- **Status:** 🟡 Phase 2 in progress — design merged (#546); `042B` built (state, layers, ledger); `042C` built (a quiet feed or a down stream now recovers by itself); `042D` (the recovery alert, the exhaustion words), `042G` (`bot show` prints the recovery table) and `042E` (`run --resume-halted`) built; the owner's Testnet run and `042F` remain
+- **Status:** ✅ Done (2026-10-20; 7/7 children) — design merged (#546); `042B` built (state, layers, ledger); `042C` built (a quiet feed or a down stream recovers by itself); `042D` (the recovery alert, the exhaustion words), `042G` (`bot show` prints the recovery table), `042E` (`run --resume-halted`) and `042F` (the grid's rate-limit resume moved onto the mechanism) built. Phase 3's evidence, the owner's Testnet run of `run --resume-halted`, is the owner's and is not yet recorded
 - **Repositories:** Elite. No Engine change.
 - **Origin:** the owner, 2026-10-17, through the coordinating session, after a live incident: a Spot mainnet Grid on the headless VPS host halted with `price_feed_stale`, the feed was back within minutes (`tick_age_s=1`) and the bot stayed `HALTED`, which only a person's Resume or Stop leaves, and the headless host cannot Resume. His decisions, as relayed: (1) automatic recovery after a transient halt, the feed healthy for 120 s, through the Resume path, at most 3 per rolling 24 h, alerts on each recovery and on exhaustion; (2) `run --resume-halted`; (3) a real state in the lifecycle machine; (4) a general mechanism behind a seam, the attempt history in the bot record, Spot Grid `price_feed_stale` recoverable, Futures nothing; the rate-limit auto-resume's migration recorded as a follow-up.
 - **North star:** [`DECISION_2026-10-17_halt_auto_recovery.md`](DECISION_2026-10-17_halt_auto_recovery.md): the state, its events and transitions, the seam, the persistence and the choices still open. The module design is kept in step in [`Docs/MODULES/bots/`](../../../Docs/MODULES/bots/README.md) (Planned parts).
@@ -13,8 +13,8 @@
 1. **A real state, `AWAITING_RECOVERY`**, with four new events; never an `if` on `HALTED` (owner; [D3, D7](DECISION_2026-10-17_halt_auto_recovery.md)).
 2. **Dwell 120 s continuous, 3 attempts per rolling 24 h, the same propose-and-confirm as a person's Resume; exits stay watched; a crossed stop loss or take profit ends the bot** (owner; D1, D12).
 3. **A general mechanism, layered**: the transient reasons are plain data composed from a common, a kind and a venue layer, later layers winning; a probe per reason says when it has cleared; the attempt ledger lives in the bot record (owner; D4, D15).
-4. **Spot keeps the common set (`price_feed_stale`, `user_stream_down`); Futures removes every reason with one line in its venue layer** (owner; D5, D15).
-5. **Not migrated here: the grid rate-limit auto-resume** (`EPIC-042F`; D6).
+4. **Spot keeps the common set (`price_feed_stale`, `user_stream_down`); Futures removes every reason with one line in its venue layer** (owner; D5, D15), and lists the exchange's pause alone since `042F` (a Futures bot has always resumed from one, `BUG-216`).
+5. **Migrated last, in `EPIC-042F`: the grid rate-limit auto-resume** (D6): one reason, `rate_limited`, with the pause's end as its probe; the consecutive counter and the timer are retired. Judgement calls are agent decisions A1–A7 in [`042F`](completed/EPIC-042F_migrate_rate_limit_resume.md), each vetoable.
 6. **Owner-chosen after the first draft:** a restart ends the wait in `HALTED` (D9, O1 option a). **Agent decisions the owner may veto:** a `PAUSED` bot never recovers by itself (D8); an attempt costs budget when it starts (D10); (D11, the 15 min stalled-wait alert, is the owner's: O2 answered, option b).
 
 ## 2. Goals — measurable
@@ -24,7 +24,7 @@
 | Automatic recoveries of one bot in 24 h | not applicable | at most 3, across restarts; the 4th halt stays `HALTED` and alerts |
 | A `HALTED` bot on the headless host | cannot be resumed | `run --resume-halted [--confirm-venue v]` resumes it through the GUI's path |
 | States that answer the new condition | 0 | 1 declared state, 3 events, 10 table rows, in `bot_lifecycle_fsm_matrix.py` and the generated tables |
-| Futures files changed | not applicable | 0 behaviour changes; a test locks that a Futures venue resolves no rule |
+| Futures files changed | not applicable | 0 behaviour changes; a test locks that a Futures venue resolves the exchange's pause and nothing a kind adds (it resolved no rule before `042F`) |
 
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
@@ -35,7 +35,7 @@
 | [EPIC-042D](completed/EPIC-042D_recovery_alerts.md) | `BotAutoRecoveredEvent`, its alert kind and source arm; the exhaustion text on the `BOT_HALTED` alert | Elite | 042B | 🟢 | ✅ Done (2026-10-17; pull request open) |
 | [EPIC-042E](completed/EPIC-042E_run_resume_halted.md) | `run --resume-halted` | Elite | 042B | 🟡 | ✅ Done (2026-10-17; pull request open) |
 | [EPIC-042G](completed/EPIC-042G_bot_show_prints_the_recovery_table.md) | `bot show` prints the bot's effective recovery table | Elite | 042B | 🟢 | ✅ Done (2026-10-17; pull request open) |
-| [EPIC-042F](incomplete/EPIC-042F_migrate_rate_limit_resume.md) | **Follow-up.** Migrate `GridRateLimitPause` onto the mechanism | Elite | 042C | 🟡 | Planned (not started; record only) |
+| [EPIC-042F](completed/EPIC-042F_migrate_rate_limit_resume.md) | Migrate `GridRateLimitPause` onto the mechanism: one reason, one probe whose clear is the pause's end, the old counter retired | Elite | 042C | 🟡 | ✅ Done (2026-10-20; pull request open) |
 
 `042D`, `042E` and `042G` are independent of one another once `042B` is in; the order above is by risk. `042C` is not independent of `042D`: a wait is silent on entry, so the stalled-wait alert (`BOT_RECOVERY_STALLED`) ships with `042C`, and `042D` keeps the recovery alert and the exhaustion text.
 
@@ -48,7 +48,7 @@
 
 ## 5. Out of scope
 - **Futures**: its halt closes the position and `EPIC-039L` governs it. Futures declares no recoverable reason.
-- **The rate-limit resume's migration** (`042F`).
+- **Any other kind's rate limit**: only the Grid waits for the exchange's pause today.
 - A halt reason other than `price_feed_stale` becoming recoverable: each is one rule and one probe, added with its own evidence.
 - Any change to the order session's rule that nothing automatic opens it (`06-runtime.md`): a recovery runs only while the session is open, which a restart closes (D9).
 
@@ -58,7 +58,8 @@
 - **042E:** `RESUME_PROPOSES_STATES` already holds `AWAITING_RECOVERY`; `IBotRunner.has_resume_proposal` is the hook D13 names.
 - **042G:** print `effective_policy(...)` through `recovery_policy_of(kind_layer, venue)`; the generated doc table in `scripts/render_bots_design_tables.py` is the model.
 - **Traps met:** an integration harness that builds its own `GridExecutorDeps` must pass `user_streams` (a default `NoUserStreamStatus` never clears); every code of the effective policy must be clear before an attempt; a failed cancel on entering the wait lands in plain `HALTED`; the 400-line ceiling applies to tests (`grid_world.py` was split).
-- **Not mine to decide:** `EPIC-042F` (rate-limit resume migration, which also closes the D12 exit-check gap) waits for the owner's go.
+- **`EPIC-042F` was released by the owner on 2026-10-20** (the coordinating session's recommendations were pre-approved) and is built; it also closes the D12 exit-check gap for a limit. Every judgement call it made is an agent decision the owner may veto (A1–A7 in its file).
 
 ## Notes (newest first)
+- **2026-10-20** — `042F` built: `rate_limited` is a reason of the Grid's layer, its probe is the pause's end, the timer and the consecutive counter are gone, and a bot waits for a pause in `AWAITING_RECOVERY` (Futures lists the pause as its one reason). Last child: the epic is done, save the owner's Testnet run.
 - **2026-10-17** — The owner's layering requirement (common, kind, venue; merge as data; printable) folded into the design: D15, `042G`. Earlier: epic scaffolded with the design pull request. Real-money behaviour is unchanged until `042C` merges.

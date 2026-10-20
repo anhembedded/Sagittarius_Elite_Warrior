@@ -1,8 +1,8 @@
 """`EPIC-042B` — where the halt-recovery layers are declared, and that opening a kind costs nothing.
 
 A kind that declares nothing recovers nothing of its own (`IBotKind.recovery_layer` is concrete and
-empty, so no implementer changed); the Grid declares an empty layer on purpose, the one place
-`EPIC-042F` adds `rate_limited`; Spot's venue layer is empty and Futures' clears the lower layers.
+empty, so no implementer changed); the Grid declares `rate_limited`, the exchange's pause
+(`EPIC-042F`); Spot's venue layer is empty and Futures' clears the lower layers and lists the pause.
 """
 
 from __future__ import annotations
@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOve
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
     GRID_RECOVERY_LAYER,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    RATE_LIMITED,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -60,9 +63,12 @@ def test_a_kind_that_declares_nothing_has_an_empty_layer_named_after_it() -> Non
     assert not layer.clears_lower_layers
 
 
-def test_the_grid_declares_its_own_layer_and_it_is_empty_today() -> None:
+def test_the_grid_declares_its_own_layer_and_it_holds_the_exchanges_pause_only() -> (
+    None
+):
     assert GRID_RECOVERY_LAYER.name == GRID_KIND_ID
-    assert not GRID_RECOVERY_LAYER.changes
+    assert set(GRID_RECOVERY_LAYER.changes) == {RATE_LIMITED}
+    assert not GRID_RECOVERY_LAYER.withdrawn
 
 
 def test_spots_venue_layer_clears_nothing() -> None:
@@ -74,6 +80,7 @@ def test_every_futures_venue_clears_the_lower_layers() -> None:
         profile = venue_profile_of(venue)
         assert profile is not None
         assert profile.recovery_layer.clears_lower_layers
+        assert set(profile.recovery_layer.changes) == {RATE_LIMITED}, "the pause only"
 
 
 def test_a_profile_built_without_a_layer_says_nothing() -> None:
