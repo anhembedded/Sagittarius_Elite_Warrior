@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QModelIndex, QRect, Qt
-from PySide6.QtWidgets import QLabel, QScrollArea, QTreeView
+from PySide6.QtWidgets import QLabel, QScrollArea, QStyle, QTreeView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import BotsView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks_view import (
     HEADING,
@@ -177,8 +177,9 @@ def test_nothing_overlaps_or_is_cut_at_the_three_window_sizes(
     assert table.visualRect(last).bottom() <= table.viewport().height()
     if checks.isVisibleTo(plan):
         plan.checks.open_passed(True)
-        qtbot.waitUntil(lambda: checks.height() >= checks.sizeHint().height() - 2)
-        assert _rows_not_cut(checks) == []
+        # The rows are measured at the width the layout settles on, which is a pass after the
+        # window shows: wait for that, then judge what is left.
+        qtbot.waitUntil(lambda: _rows_not_cut(checks) == [], timeout=3000)
 
 
 def _visible_indexes(view: QTreeView, parent: QModelIndex | None = None):
@@ -197,6 +198,10 @@ def _rows_not_cut(view: QTreeView) -> list[str]:
     keeps one line's height and the text is cut."""
     problems = []
     metrics = view.fontMetrics()
+    style = view.style()
+    # The text of a cell sits between the style's text margins, and after its icon when it has one.
+    margin = 2 * (style.pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin) + 1)
+    icon = style.pixelMetric(QStyle.PixelMetric.PM_SmallIconSize) + margin
     for index in _visible_indexes(view):
         if view.visualRect(index).bottom() > view.viewport().height():
             problems.append(f"{index.data()!r} runs past the bottom of the list")
@@ -204,7 +209,11 @@ def _rows_not_cut(view: QTreeView) -> list[str]:
             cell = index.siblingAtColumn(column)
             text = cell.data() or ""
             rect = view.visualRect(cell)
-            room = rect.width() - (view.iconSize().width() if column == 0 else 0) - 8
+            room = (
+                rect.width()
+                - margin
+                - (icon if cell.data(Qt.ItemDataRole.DecorationRole) else 0)
+            )
             needed = metrics.boundingRect(
                 QRect(0, 0, max(room, 1), 0), Qt.TextFlag.TextWordWrap, text
             ).height()
