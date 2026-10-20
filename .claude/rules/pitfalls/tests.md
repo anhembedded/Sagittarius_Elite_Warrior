@@ -12,5 +12,6 @@ paths:
 4. Full-dict equality on `to_dict()` — assert the fields you care about.
 5. A test double shaped from the calls your code makes (`BUG-124`, `CS-001`) — derive it from the interface or use the real thing.
 6. Proving a class works and calling that the program working (`BUG-126`, `CS-002`; `BUG-127`, `CS-003`) — ask what constructs it, assert against the real graph.
+7. A parametrized test whose id is a whole log line (`... - ERROR - ...`): the id is printed in the run log, and the log scan fails the gate on `- (WARNING|ERROR|CRITICAL) -` — give the cases short `ids=` (`BOT-199`).
 
 A new trap is one line here with its id; the long form is a case study (`Docs/CASE_STUDIES/README.md`).
