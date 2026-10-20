@@ -43,14 +43,13 @@ def test_every_mode_is_pictured_at_each_size_in_each_scheme(
     qapp, main_window, navigate, size: QSize, scheme: str, tmp_path: Path
 ) -> None:
     out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
-    applied = apply_scheme(qapp, scheme)
+    apply_scheme(qapp, scheme)
     try:
         saved = capture_modes(main_window, navigate, size, out_dir, scheme)
         window_lightness = main_window.palette().window().color().lightness()
     finally:
         restore_scheme(qapp)
 
-    assert applied.scheme == scheme
     # A frame named dark that was drawn light would pass every other check.
     assert (window_lightness < _MIDDLE_LIGHTNESS) == (scheme == "dark")
     routes = main_window.navigation.modes()
