@@ -1,6 +1,9 @@
 # EPIC-026P — `TradingVenue.FUTURES_MAINNET` exists: one reviewed enum member, a venue parameter on the session factory, separate credentials, a fourth alignment state
 
-**Status:** 🔵 Backlog
+> **Closed 2026-10-20** per [`REVIEW_2026-10-20_what_is_still_missing.md`](../REVIEW_2026-10-20_what_is_still_missing.md) §3: done by `EPIC-034E`: the mainnet venues, the factory parameter and separate credentials.
+
+
+**Status:** ✅ Done (2026-10-20, closed by the coordinator from the 2026-10-20 review)
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.3; ADR D3, D4; `EPIC-021`'s ADR §3 ("a
 future epic that has to add a new member here"); the user (2026-09-20): *"hãy cho lô trình để có
 thể giao dịch thật"*.
