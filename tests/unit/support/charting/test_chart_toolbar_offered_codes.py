@@ -51,3 +51,18 @@ def test_a_toolbar_given_no_subset_offers_every_timeframe_as_before(qapp) -> Non
     toolbar = ChartToolbar(active="15m")
 
     assert {"1d", "1s", "15m"} <= _offered(toolbar)
+
+
+def test_the_fallback_after_a_market_change_stays_inside_the_subset(qapp) -> None:
+    """`1s` is not loadable on Futures; the nearest timeframe the market loads is `1m`, which this
+    host did not offer, so the toolbar moves to the nearest one it did."""
+    toolbar = ChartToolbar(
+        timeframes=("1s", "15m", "1h"), active="1s", offered_codes=("1s", "15m", "1h")
+    )
+    seen: list[str] = []
+    toolbar.sig_timeframe_changed.connect(seen.append)
+
+    toolbar.set_market(MarketType.FUTURES_USD_M)
+
+    assert seen == ["15m"]
+    assert toolbar.active_timeframe == "15m"

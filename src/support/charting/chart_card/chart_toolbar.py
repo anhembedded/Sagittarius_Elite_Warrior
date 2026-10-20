@@ -95,6 +95,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
     timeframe_or_fallback,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
     TimeframeActions,
@@ -292,8 +293,8 @@ class ChartToolbar(QToolBar):
         self._offered.market = market
         self._selection.refresh()
         active = self._active_state.code
-        if active and not supports_timeframe(market, active):
-            fallback = timeframe_or_fallback(market, active)
+        if active and not self._offered.offers(active):
+            fallback = self._fallback_for(active, market)
             logger.info(
                 "[chart] timeframe %s is not offered on %s; falling back to %s",
                 active,
@@ -301,6 +302,25 @@ class ChartToolbar(QToolBar):
                 fallback,
             )
             self._selection.choose(fallback)
+
+    def _fallback_for(self, active: str, market: MarketType) -> str:
+        """The offered timeframe to move to when `active` no longer is: the market's own nearest, or,
+        when the host named a subset, the nearest of the subset the market loads."""
+        wanted = timeframe_or_fallback(market, active)
+        if self._offered.offers(wanted):
+            return wanted
+        offered = sorted(
+            (
+                TimeFrame(option.code)
+                for option in all_options()
+                if self._offered.offers(option.code)
+            ),
+            key=lambda timeframe: timeframe.to_seconds(),
+        )
+        target = TimeFrame(wanted).to_seconds()
+        return next(
+            (tf for tf in offered if tf.to_seconds() >= target), offered[-1]
+        ).value
 
     def _open_picker(self) -> None:
         """Opens the full timeframe picker, sharing this toolbar's own

@@ -324,7 +324,27 @@ def _interval_toolbar() -> ChartToolbar:
     toolbar.setWindowTitle("Interval")
     toolbar.setMovable(False)
     toolbar.setFloatable(False)
+    _reach_by_tab(toolbar)
     return toolbar
+
+
+def _reach_by_tab(toolbar: ChartToolbar) -> None:
+    """A toolbar's buttons take no focus, and the drop-down this replaced did: the interval is a run
+    parameter, so a person on the keyboard must still reach it (`ui-presentation-rule.md` §2). The
+    buttons are rebuilt when the pins change, so the policy is set again after each rebuild."""
+
+    def apply() -> None:
+        actions = [
+            *toolbar.timeframes.timeframe_actions(),
+            toolbar.timeframes.more_action,
+        ]
+        for action in actions:
+            button = toolbar.widgetForAction(action)
+            if button is not None:
+                button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+
+    toolbar.timeframes.rebuilt.connect(apply)
+    apply()
 
 
 def _button(text: str, name: str) -> QPushButton:

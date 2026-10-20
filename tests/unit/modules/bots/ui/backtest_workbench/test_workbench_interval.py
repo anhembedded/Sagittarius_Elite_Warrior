@@ -78,3 +78,31 @@ def test_choosing_an_interval_is_what_the_next_run_replays(
 
     assert view.chosen_interval() is TimeFrame.ONE_HOUR
     assert world.dispatcher.queries[0].request.interval is TimeFrame.ONE_HOUR
+
+
+def _reachable_by_tab(workbench: BacktestWorkbench) -> list[str]:
+    toolbar = workbench.view.interval
+    actions = [*toolbar.timeframes.timeframe_actions(), toolbar.timeframes.more_action]
+    return [
+        action.text()
+        for action in actions
+        if (button := toolbar.widgetForAction(action)) is not None
+        and button.focusPolicy() & Qt.FocusPolicy.TabFocus
+    ]
+
+
+def test_every_interval_button_is_reachable_by_the_tab_key(
+    world: WorkbenchWorld,
+) -> None:
+    """The drop-down this replaced was in the tab order; a toolbar's buttons are not by default."""
+    assert _reachable_by_tab(world.workbench) == [*_CODES, "More timeframes…"]
+
+
+def test_a_button_made_by_re_pinning_is_reachable_by_the_tab_key_too(
+    world: WorkbenchWorld,
+) -> None:
+    toolbar = world.workbench.view.interval
+    toolbar._selection.toggle_pinned("5m")
+    toolbar._selection.toggle_pinned("5m")
+
+    assert _reachable_by_tab(world.workbench) == [*_CODES, "More timeframes…"]
