@@ -21,27 +21,41 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.test_workbench_
     WINDOW_SIZES,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
+    SCHEMES,
     SCREENSHOT_DIR_ENV,
+    apply_scheme,
     capture_modes,
     is_blank,
+    restore_scheme,
     screenshot_name,
 )
+
+#: A window colour lighter than this is a light scheme (as `meaning_colours` reads a base).
+_MIDDLE_LIGHTNESS = 128
 
 
 @pytest.mark.parametrize(
     "size", [QSize(*s) for s in WINDOW_SIZES], ids=[f"{w}x{h}" for w, h in WINDOW_SIZES]
 )
+@pytest.mark.parametrize("scheme", SCHEMES)
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
-def test_every_mode_is_pictured_at_each_size(
-    main_window, navigate, size: QSize, tmp_path: Path
+def test_every_mode_is_pictured_at_each_size_in_each_scheme(
+    qapp, main_window, navigate, size: QSize, scheme: str, tmp_path: Path
 ) -> None:
     out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
+    applied = apply_scheme(qapp, scheme)
+    try:
+        saved = capture_modes(main_window, navigate, size, out_dir, scheme)
+        window_lightness = main_window.palette().window().color().lightness()
+    finally:
+        restore_scheme(qapp)
 
-    saved = capture_modes(main_window, navigate, size, out_dir)
-
+    assert applied.scheme == scheme
+    # A frame named dark that was drawn light would pass every other check.
+    assert (window_lightness < _MIDDLE_LIGHTNESS) == (scheme == "dark")
     routes = main_window.navigation.modes()
     assert [shot.path.name for shot in saved] == [
-        screenshot_name(r, size) for r in routes
+        screenshot_name(r, size, scheme) for r in routes
     ]
     unreadable = [s.path.name for s in saved if QImage(str(s.path)).isNull()]
     blank = [shot.route for shot in saved if is_blank(shot.centre)]
