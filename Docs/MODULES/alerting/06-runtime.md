@@ -160,8 +160,22 @@ The first tick is at start. The URL is read from the secret store at each ping a
 exception (`dead_mans_switch.py` → `DeadMansSwitch`, `DeadMansSwitch._ping`; the beacon logs an
 escaped exception by its type name, `threaded_delivery_host.py` → `ThreadedDeliveryHost._run_beacon`).
 The ping proves the process and its alert worker are alive, not that each bot is healthy: that is the
-heartbeat's body (`EPIC-036E`, after `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
+heartbeat's body (`EPIC-036E`, `heartbeat_service.py` → `HeartbeatService`; its per-bot health waits for `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
 its grace, which is wanted while resting orders stay on the exchange.
+
+## Built: the heartbeat and the daily summary (`EPIC-036E`)
+Once a second the housekeeping thread calls `HeartbeatService.tick` and then the hub's flush
+(`alerting_bindings.py` → `_housekeeping_of`; `heartbeat_service.py` → `HeartbeatService.tick`).
+The first tick of a process reads the newest 500 alerts of the outbox to learn when a heartbeat was
+last sent and which days have a summary (`HeartbeatService._prime`); a process started after the
+day's summary time marks that day done, so a summary is missed rather than sent late. A heartbeat is
+due when none was sent or `heartbeat_every` has passed; it asks the bots' status report through
+`ICommandDispatcher` and publishes one INFO `HEARTBEAT` (`HeartbeatService._send_heartbeat`). A
+report that cannot be read still produces a heartbeat that says so, with only the error's type. The
+summary adds the last day's alerts counted from the same history
+(`heartbeat_text.py` → `summary_text`) and is keyed by its date, so it never meets the quiet-hours
+digest, which is keyed by its instant. Both go through `IAlertPublisher.publish`, so routing,
+loudness (silent by default) and quiet hours treat them like any other INFO alert.
 
 ## Built: an early warning — the position nears liquidation, the stream stays down
 

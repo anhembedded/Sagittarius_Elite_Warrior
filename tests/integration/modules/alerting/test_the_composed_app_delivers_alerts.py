@@ -82,6 +82,16 @@ def _declare(monkeypatch: pytest.MonkeyPatch, channel: FakeAlertChannel) -> None
     )
 
 
+def _kinds(channel: FakeAlertChannel) -> list[AlertKind]:
+    """What the channel received, without the heartbeat the booted app sends on its own
+    schedule (`EPIC-036E`): these tests are about the alert they publish."""
+    return [
+        r.alert.kind
+        for r in channel.received
+        if r.alert.kind is not AlertKind.HEARTBEAT
+    ]
+
+
 def _alerting_threads() -> frozenset[threading.Thread]:
     return frozenset(t for t in threading.enumerate() if t.name.startswith("alerting-"))
 
@@ -116,7 +126,7 @@ def test_a_published_alert_reaches_a_declared_channel(
     app.container.resolve(IAlertPublisher).publish(_alert())  # type: ignore[type-abstract]
 
     assert channel.done.wait(WAIT_S)
-    assert [r.alert.kind for r in channel.received] == [AlertKind.APP_FAILURE]
+    assert _kinds(channel) == [AlertKind.APP_FAILURE]
 
 
 def test_an_undelivered_alert_is_sent_after_a_restart(
@@ -142,7 +152,7 @@ def test_an_undelivered_alert_is_sent_after_a_restart(
     finally:
         second.stop()
 
-    assert [r.alert.kind for r in back.received] == [AlertKind.APP_FAILURE]
+    assert _kinds(back) == [AlertKind.APP_FAILURE]
 
 
 def test_stopping_the_app_leaves_no_alerting_thread(

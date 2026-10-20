@@ -181,6 +181,17 @@ The Options page (`EPIC-036D1`) added:
   (`alerting/adapters/worker_liveness.py` → `WorkerLiveness`, `STALL_AFTER`) is the one stamp per
   worker thread that `ThreadedDeliveryHost` touches after each pass.
 
+- **The heartbeat and the daily summary** (`EPIC-036E`): `HeartbeatService`
+  (`alerting/application/heartbeat_service.py` → `HeartbeatService`, `HeartbeatService.tick`) runs on the
+  housekeeping thread, before the hub's flush (`alerting_bindings.py` → `_housekeeping_of`). It asks
+  the bots' status report (`GetBotStatusReportQuery`, `EPIC-038C`) through `ICommandDispatcher`, the
+  model the Bots tab and `status` read, and publishes a `HEARTBEAT` every
+  `HeartbeatPolicy.heartbeat_every` and a `DAILY_SUMMARY` once a day after `HeartbeatPolicy.summary_at`
+  (`alerting/domain/alert_policies.py` → `HeartbeatPolicy`). The texts are pure functions
+  (`alerting/application/heartbeat_text.py` → `heartbeat_text`, `summary_text`); the report's `health`
+  slot is printed verbatim and is empty until `EPIC-035W`. What was last sent is read back from the
+  outbox's history, so a restart repeats neither.
+
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
 and the switch's among them.
 
@@ -191,5 +202,4 @@ and the switch's among them.
 | `SystemAlertSource` (replaces `NotificationEventHandler`), the market-data stream's `PRICE_FEED_STALE`, the rate-limit pause, the revoked key and the storage pause as kinds of their own, the full (state, reason) table | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
-| `HeartbeatService` and the daily summary (the heartbeat reads `EPIC-035W`'s snapshot) | `alerting/application/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

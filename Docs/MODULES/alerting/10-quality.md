@@ -36,5 +36,5 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 ## Planned
 
 `EPIC-036C` adds the channel's own pacing under Discord's limit (research 036 §1: about 5 messages
-per 2 s per webhook, to be measured). `EPIC-036E` adds the heartbeat (6 h, N4). By decision D4 of `EPIC-041` this table becomes generated from the
+per 2 s per webhook, to be measured). The heartbeat (6 h, N4) and the daily summary (01:00 UTC) are `HeartbeatPolicy` (`EPIC-036E`). By decision D4 of `EPIC-041` this table becomes generated from the
 constants, in the task that fills this view.
