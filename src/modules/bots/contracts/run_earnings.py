@@ -40,7 +40,7 @@ TOTAL_PNL_HEAD = TOTAL_PNL_TITLE.upper()
 #: Said under `bot list`, so the head can stay short.
 TOTAL_PNL_LEGEND = (
     f"{TOTAL_PNL_HEAD.removesuffix(' (NET)')} is {TOTAL_PNL_BASIS}. A Futures exchange's "
-    "position PNL is gross of fees, excludes funding and uses its mark price, so it reads higher."
+    "position PNL is gross of fees, excludes funding and uses its mark price, so the two differ."
 )
 #: `bot show` on a position venue: Binance's number is `inventory x (mark - entry)`, and the bot
 #: saves the last trade price, not the mark price, so it cannot rebuild that number.
@@ -82,6 +82,9 @@ class RunEarnings:
     holds_base: bool = False
     #: The last price the bot heard.
     mark_price: Decimal | None = None
+    #: `BOT-202` - whether the run holds a position of either sign (a Futures SHORT has negative
+    #: inventory, which `holds_base` does not count).
+    holds_position: bool = False
     #: `BOT-202` - what the run's fills paid in commission, in the quote asset; `None` when not judged.
     commissions: Decimal | None = None
     #: `BOT-202` - funding settled on the position, signed (earned positive); `None` when not judged.
@@ -105,6 +108,7 @@ class RunEarnings:
             unpriced_fees=pnl.unpriced_fees if pnl is not None else 0,
             unrealised=pnl.unrealised if pnl is not None else None,
             holds_base=progress.inventory > 0 and progress.average_cost is not None,
+            holds_position=progress.inventory != 0,
             mark_price=progress.mark_price,
             commissions=pnl.commissions if pnl is not None else None,
             funding=pnl.funding if pnl is not None else None,
@@ -155,6 +159,6 @@ def exchange_unrealised_text(earnings: RunEarnings | None) -> str:
     the mark price is heard live and not saved, so this says so rather than quoting a figure at a
     price nobody heard.
     """
-    if earnings is None or not earnings.holds_base:
+    if earnings is None or not earnings.holds_position:
         return NO_VALUE
     return NO_MARK_PRICE_SAVED

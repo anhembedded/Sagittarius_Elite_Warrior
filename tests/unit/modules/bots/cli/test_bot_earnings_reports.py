@@ -82,6 +82,10 @@ _FUTURES_HELD = replace(
     mark_price=Decimal("2412.81"),
     mark_price_at=datetime(2026, 10, 19, 0, 0, 30, tzinfo=UTC),
 )
+#: `BOT-202`: a Futures SHORT holds a position as negative inventory.
+_FUTURES_SHORT = replace(
+    _FUTURES_HELD, inventory=Decimal("-0.297"), cost=Decimal("-714.2")
+)
 
 
 def _world() -> BotQueryDispatcher:
@@ -89,6 +93,13 @@ def _world() -> BotQueryDispatcher:
     seed(store, "aaaaaa", S.STOPPED, runtime=encode_runtime(_EARNED))
     seed(store, "bbbbbb", S.RUNNING, runtime=encode_runtime(_UNPRICED))
     seed(store, "cccccc", S.DRAFT, runtime={})
+    seed(
+        store,
+        "eeeeee",
+        S.RUNNING,
+        runtime=encode_runtime(_FUTURES_SHORT),
+        venue=TradingVenue.FUTURES_TESTNET,
+    )
     seed(
         store,
         "dddddd",
@@ -237,3 +248,12 @@ def test_show_json_carries_what_reconciles_the_total_as_exact_text(
     assert earnings["cost"] == "715.5655"
     assert earnings["mark_price"] == "2412.81"
     assert earnings["mark_price_at"] == "2026-10-19T00:00:30Z"
+
+
+def test_a_futures_short_position_says_the_exchange_basis_is_not_available_not_nothing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    short = _text(ShowBotVerb(), capsys, bot_id="eeeeee")
+
+    assert "Unrealised, exchange basis" in short
+    assert "not available: the bot saves its last trade price" in short
