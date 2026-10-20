@@ -128,6 +128,17 @@ counter order is laid. `HOLDS_ORDER` is the set of states with an order on the e
 | `FILLED` | `settled` | `EMPTY` |
 <!-- end generated: grid-level -->
 
+## Built: the Backtest workbench's run
+
+`bots/ui/backtest_workbench/backtest_run_fsm_matrix.py` → `RunActivity`, `RunEvent`,
+`RUN_TRANSITIONS`, `next_activity`: three activities (`IDLE`, `RUNNING`, `SYNCING`). `IDLE` takes
+`RUN_STARTED` into `RUNNING` and `SYNC_STARTED` into `SYNCING`; either of those, on an answer, a
+cancel, a failure or another selection, returns to `IDLE`. Every other pair has no row and
+`next_activity` raises `IllegalRunTransitionError`: a second action while one is in flight is a bug,
+and the Run and Sync commands are off while the activity is not `IDLE`. What the page shows (the last
+result, a refusal and its offers) is not an activity, so a cancelled run returns to `IDLE` with the
+last result still on screen.
+
 ## Built: the protective stop's life cycle (Futures)
 
 `bots/domain/grid/protective_stop_fsm_matrix.py` → `ProtectiveStopState`, `ProtectiveStopEvent`,

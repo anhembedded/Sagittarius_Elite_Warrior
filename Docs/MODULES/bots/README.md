@@ -47,4 +47,5 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | The account-level loss cap: one figure per host, every bot stopped through the existing Stop, none restarts until the owner acknowledges (`bot loss-cap-ack`) | **Built** | `EPIC-026L` ([`06-runtime.md`](06-runtime.md)) |
 | The kind-neutral backtest result and simulator port, with the Grid answering through it | **Built** | `EPIC-040B` ([`05-building-blocks.md`](05-building-blocks.md)) |
 | A backtest's sandbox plan: a copy of a bot's saved plan, judged by the symbol's rules with no account, sending no command | **Built** | `EPIC-040C` ([`08-concepts.md`](08-concepts.md)) |
-| The workbench that draws any kind's outcome and hosts the sandbox; the strategy kind | Planned | `EPIC-040D`, `EPIC-040G` |
+| The workbench page that draws any kind's outcome and hosts the sandbox (not yet shown in the Bots screen) | **Built** | `EPIC-040D` ([`05-building-blocks.md`](05-building-blocks.md)) |
+| The workbench shown as the Bots screen's Backtest tab; the Grid on it; the strategy kind | Planned | `EPIC-040E`, `EPIC-040F`, `EPIC-040G` |

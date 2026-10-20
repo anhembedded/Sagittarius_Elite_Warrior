@@ -50,6 +50,10 @@ ACCOUNT_CHECKS = {
 }
 
 
+#: The verdicts that say a check did not run in a simulation, which the workbench shows even
+#: though they are OK, so a check that did not run is never read as a pass.
+UNCHECKED_CODES = frozenset({*ACCOUNT_CHECKS, "LIQUIDATION_FACTS_NOT_READ"})
+
 _LIQUIDATION_NOT_READ = Verdict(
     VerdictSeverity.OK,
     "LIQUIDATION_FACTS_NOT_READ",
