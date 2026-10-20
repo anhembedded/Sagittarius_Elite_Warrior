@@ -250,3 +250,20 @@ def test_the_ping_url_never_appears_in_a_log_or_error(
 )
 def test_what_counts_as_a_check_in_url(value: str, expected: bool) -> None:
     assert is_check_in_url(value) is expected
+
+
+@pytest.mark.parametrize(
+    ("stored", "level"),
+    [(URL, logging.INFO), (None, logging.INFO), ("not a url", logging.WARNING)],
+    ids=["on", "off", "invalid"],
+)
+def test_the_log_lines_name_the_credential_the_switch_reads(
+    caplog: pytest.LogCaptureFixture, stored: str | None, level: int
+) -> None:
+    world = _World(url=stored)
+    with caplog.at_level(logging.INFO, logger="App.Alerting"):
+        world.switch.tick()
+
+    [record] = [r for r in caplog.records if "[dead-mans-switch]" in r.getMessage()]
+    assert DEAD_MANS_SWITCH_SECRET in record.getMessage()
+    assert record.levelno == level

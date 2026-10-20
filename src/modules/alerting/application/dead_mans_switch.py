@@ -141,21 +141,23 @@ class DeadMansSwitch:
         if state == self._announced:
             return
         self._announced = state
+        # The credential is named in the text, never passed to the logger: no value tied to
+        # the secret store reaches a log call (CodeQL py/clear-text-logging-sensitive-data).
+        # `test_the_log_lines_name_the_credential_the_switch_reads` keeps the text and
+        # `DEAD_MANS_SWITCH_SECRET` together.
         if state == _ON:
             logger.info(
                 "[dead-mans-switch] on: pinging the check-in URL in the credential "
-                "%s every %s s",
-                DEAD_MANS_SWITCH_SECRET,
+                "alerting_deadman_ping_url every %s s",
                 int(PING_EVERY.total_seconds()),
             )
         elif state == _INVALID:
             logger.warning(
-                "[dead-mans-switch] off: the credential %s does not hold an https "
-                "URL; nothing will tell you if this host goes silent",
-                DEAD_MANS_SWITCH_SECRET,
+                "[dead-mans-switch] off: the credential alerting_deadman_ping_url does "
+                "not hold an https URL; nothing will tell you if this host goes silent"
             )
         else:
             logger.info(
-                "[dead-mans-switch] off: no check-in URL is stored in the credential %s",
-                DEAD_MANS_SWITCH_SECRET,
+                "[dead-mans-switch] off: no check-in URL is stored in the credential "
+                "alerting_deadman_ping_url"
             )
