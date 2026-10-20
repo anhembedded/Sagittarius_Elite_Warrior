@@ -6,7 +6,8 @@ symptom of a real bug in `EPIC-021G`'s own bookkeeping, not routine noise.
 The exception is a symbol a budgeted owner trades (`BUG-203`): the owner's orders never
 mark it open, so the session learns the owner's position only from the exchange and the
 correction is logged at `DEBUG`. The owner's own divergence is confirmed, and warned about,
-by the owner's watch.
+by the owner's watch. So is the flat report that follows the owner's close: the stop clears
+the owner's book before it arrives (`BUG-233`).
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ def reconcile_position_state(
     """@brief Corrects `session_state.known_open_symbols` for `symbol` to
     match `has_position` (what the exchange just reported), logging
     `WARNING` only when this app's prior belief disagreed on a symbol no
-    budgeted owner trades (on one, the session was only learning it: `DEBUG`).
+    budgeted owner trades (on one, the session was only learning it: `DEBUG`) and
+    was not the flat report after a budgeted owner closed and left (`DEBUG`).
 
     @details `BUG-088` — the actual mutation is `session_state`'s own
     lock-guarded `reconcile_position()`: this function runs on
@@ -39,6 +41,7 @@ def reconcile_position_state(
     `EnsureSessionReadyCommand`/`EmergencyStopCommand` pool workers, so it must
     never touch `known_open_symbols` directly.
     """
+    owner_left = not has_position and session_state.owner_books.take_departure(symbol)
     disagreed = session_state.reconcile_position(symbol, has_position=has_position)
     if disagreed and session_state.owner_books.has_owner_on(symbol):
         # `BUG-203` - a budgeted owner's order never marks the symbol open (`ExecuteOrderHandler`),
@@ -48,6 +51,13 @@ def reconcile_position_state(
             "Position state for %s learned from the exchange: %s (a budgeted owner trades it)",
             symbol,
             "open" if has_position else "flat",
+        )
+    elif disagreed and owner_left:
+        # `BUG-233` - the owner's stop closed the position and cleared its book before this
+        # flat report arrived: the end of what the session learned from the exchange.
+        logger.debug(
+            "Position state for %s is flat: the budgeted owner that traded it closed and left",
+            symbol,
         )
     elif disagreed:
         logger.warning(
