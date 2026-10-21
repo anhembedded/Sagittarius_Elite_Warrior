@@ -13,6 +13,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QTableView,
     QVBoxLayout,
@@ -60,6 +61,10 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         self._notices.setObjectName(f"lbl{name}Notices")
         self._notices.setWordWrap(True)
         self._notices.hide()
+        # The words are never cut (`BUG-251`): a panel too short for everything gives the rows
+        # less, not the sentence that says which fills are missing.
+        for words in (self._scope, self._notices):
+            words.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         self._table = QTableView()
         self._table.setObjectName(f"tbl{name}")
