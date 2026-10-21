@@ -66,6 +66,7 @@ TERMS = ExchangeTerms(
 _PATHS = {
     "a_plain_climb": ([95, 97, 99, 101, 104], {}),
     "the_bound_itself": ([95, 97, 99, "99.99", 100, 104], {}),
+    "an_entry_from_above_through_the_upper_bound": ([145, 142, 140, 138], {}),
     "a_wick_into_the_range_that_closes_outside": (
         [95, 97, 99, 98, 101, 104],
         {2: 103, 3: 110},
@@ -125,7 +126,8 @@ def _entry_step_replay(
     assert isinstance(result, GridBacktestResult)
     if result.range_entry is None:
         return None
-    return int((result.range_entry.time - START).total_seconds())
+    # The step that closed inside ended at `index + 1` seconds.
+    return int((result.range_entry.time - START).total_seconds()) - 1
 
 
 @pytest.mark.parametrize("path", sorted(_PATHS))

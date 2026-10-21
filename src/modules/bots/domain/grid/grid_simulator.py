@@ -108,7 +108,9 @@ def simulate_grid(
         last = bar
         if engine.may_trade_in(bar.low, bar.high):
             steps = steps_for(
-                bar, inputs.fine.within(bar.time, bar.time + inputs.bar_length)
+                bar,
+                inputs.fine.within(bar.time, bar.time + inputs.bar_length),
+                inputs.bar_length,
             )
             if steps[0].coarse:
                 coarse.append(bar.time)

@@ -32,14 +32,14 @@ ADR D11; `range_position` is the shared definition.
 | :--- | :--- |
 | `bots/domain/grid/waiting_replay.py` (new) | `engine_starting_at`, `WaitingReplay` |
 | `bots/domain/grid/replay_engine.py` | `waited_for_range` and `range_entry`, concrete defaults on the port |
-| `bots/domain/grid/grid_fill_rule.py` | `PriceStep.close` (a 1-second kline's close, a coarse step's candle close) |
+| `bots/domain/grid/grid_fill_rule.py` | `PriceStep.close` and `PriceStep.end` (a 1-second kline's close and end, a coarse step's candle close and end); `steps_for` takes the candle's length |
 | `bots/domain/grid/grid_backtest_result.py`, `grid_simulator.py` | `RangeEntry`, the two result fields, the walk starts through `engine_starting_at` |
 | `bots/domain/grid/grid_figures.py` | the words: where it entered, or that it never did, and the Futures mark limit |
 
 `grid_replay.py` and `futures_replay.py` are unchanged: the venue's engine is built at the entry through the same factory, so a third kind needs nothing.
 
 ## 5. Testing
-`tests/unit/modules/bots/domain/grid/test_a_replay_waits_for_the_range.py` (22 cases), `tests/unit/modules/bots/application/services/test_the_replay_and_the_live_bot_enter_on_the_same_step.py` (12), the spot oracle unchanged. Mutation-checked: an exclusive bound, entering on any step, a wait that never walks the candle: each turns tests red.
+`tests/unit/modules/bots/domain/grid/test_a_replay_waits_for_the_range.py` (25 cases), `tests/unit/modules/bots/application/services/test_the_replay_and_the_live_bot_enter_on_the_same_step.py` (16, an entry from above included), the spot oracle unchanged. Mutation-checked: an exclusive bound, entering on any step, a wait that never walks the candle: each turns tests red.
 
 ## 6. Docs touched
 `Docs/MODULES/bots/05-building-blocks.md`, `Docs/SPEC/SPEC-014_run_a_grid_bot.md`, `Docs/VOCABULARY/README.md` (the Grid backtest row).
@@ -47,4 +47,5 @@ ADR D11; `range_position` is the shared definition.
 ## Implementation notes (written when done)
 - The wait is a wrapper over the venue's engine, built at the entry step's close with a one-price synthetic first candle, because both engines plan and open in their constructors; that keeps them unchanged and the oracles untouched.
 - Before the entry the wrapper keeps an unstepped probe engine planned at the nearest range edge, only to give the result a plan and the shape of an empty outcome (a Futures outcome keeps its funding terms, with nothing charged).
+- Review round 1: the entry is dated when its step **ends** (`PriceStep.end`, set by `steps_for` from the candle's length or a 1-second kline's), because a step's close is not known before; the entry candle is closed for the engine as the price it entered at when the entry was its last step, so neither a settlement nor an extreme from before the entry reaches a Futures position. The never-entered outcome is built explicitly, keeping only the run's direction, leverage and funding terms from the probe.
 - Stated limit (ADR D11): the entry is judged on the trade close; a live Futures bot judges it on the mark.

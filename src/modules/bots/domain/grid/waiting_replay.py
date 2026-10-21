@@ -27,12 +27,15 @@ Futures (and a third kind) need nothing of their own.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_outcome import (
+    FuturesOutcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     RangeEntry,
+    StopReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     PriceBar,
@@ -81,6 +84,8 @@ class WaitingReplay(ReplayEngine):
         self._probe = build(_at_the_edge(first, params))
         self._inner: ReplayEngine | None = None
         self._entry: RangeEntry | None = None
+        #: The candle the bot entered in has not closed yet, and no step of it ran after the entry.
+        self._entry_bar_open = False
 
     @property
     def waited_for_range(self) -> bool:
@@ -105,16 +110,26 @@ class WaitingReplay(ReplayEngine):
 
     def run_step(self, step: PriceStep) -> None:
         if self._inner is not None:
+            self._entry_bar_open = False
             self._inner.run_step(step)
             return
-        if step.close is None:
-            raise ValueError("a step that a waiting replay judges carries its close")
+        if step.close is None or step.end is None:
+            raise ValueError(
+                "a step that a waiting replay judges carries its close and end"
+            )
         if _inside(step.close, self._params):
-            self._enter(step.time, step.close)
+            self._enter(step.end, step.close)
 
     def close_bar(self, bar: PriceBar, end: datetime) -> None:
-        if self._inner is not None:
-            self._inner.close_bar(bar, end)
+        if self._inner is None:
+            return
+        if self._entry_bar_open:
+            # The entry was the last thing in this candle: what the candle traded before it is
+            # not what the position saw, so the engine closes it as the price it entered at.
+            self._entry_bar_open = False
+            held = bar.close
+            bar = PriceBar(bar.time, held, held, held, held)
+        self._inner.close_bar(bar, end)
 
     def value_at(self, price: Decimal) -> Decimal:
         if self._inner is not None:
@@ -136,6 +151,7 @@ class WaitingReplay(ReplayEngine):
         opens there, and the step itself is not replayed through it (the ladder rests from the
         next one)."""
         self._entry = RangeEntry(at, price)
+        self._entry_bar_open = True
         self._inner = self._build(PriceBar(at, price, price, price, price))
 
 
@@ -149,11 +165,16 @@ def _at_the_edge(first: PriceBar, params: GridParams) -> PriceBar:
 
 
 def _nothing_happened(probe: ReplayOutcome) -> ReplayOutcome:
-    """The probe's outcome with everything the opening would have put in it taken out."""
+    """The outcome of a run that placed nothing, built explicitly: only what describes the run
+    (the Futures direction, leverage and funding terms) is kept from the probe, so a field added
+    to either type later is not inherited from an opening that never happened."""
     futures = probe.futures
     if futures is not None:
-        futures = replace(
-            futures,
+        futures = FuturesOutcome(
+            direction=futures.direction,
+            leverage=futures.leverage,
+            funding_included=futures.funding_included,
+            funding_note=futures.funding_note,
             funding_paid=_ZERO,
             funding_settlements_charged=0,
             final_position=_ZERO,
@@ -162,12 +183,12 @@ def _nothing_happened(probe: ReplayOutcome) -> ReplayOutcome:
             margin_lost=_ZERO,
             closest_to_liquidation=None,
         )
-    return replace(
-        probe,
+    return ReplayOutcome(
         fills=(),
         grid_profit=_ZERO,
         unrealised=_ZERO,
         completed_cycles=0,
+        stop_reason=StopReason.END_OF_DATA,
         maker_fees=_ZERO,
         taker_fees=_ZERO,
         final_states=tuple(

@@ -17,6 +17,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
     FineKlinesByCandle,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding import (
+    FundingSettlement,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestResult,
     RangeEntry,
@@ -80,7 +83,8 @@ _CLIMB_SECONDS = (
     _kline(1, 2, "60000", "59999.99"),
     _kline(1, 3, "61000", "60000"),
 )
-_ENTERED_AT = START + timedelta(minutes=1, seconds=2)
+#: The step that closed at 60,000 started at second 2 and ended at second 3: the bot is in from then.
+_ENTERED_AT = START + timedelta(minutes=1, seconds=3)
 _FINE = {_CLIMB.time: _CLIMB_SECONDS}
 #: The range's own bounds are inside it; the price just under the lower bound is not.
 
@@ -112,7 +116,7 @@ def test_the_bound_itself_is_inside_and_a_price_just_under_it_is_not() -> None:
     result = _spot([_BELOW, _CLIMB], _FINE)
 
     assert result.range_entry is not None
-    assert result.range_entry.time == START + timedelta(minutes=1, seconds=2)
+    assert result.range_entry.time == _ENTERED_AT
 
 
 def test_nothing_is_placed_before_the_entry_and_the_opening_trade_is_at_the_entry() -> (
@@ -194,7 +198,7 @@ def test_a_coarse_candle_that_closes_inside_enters_on_its_close() -> None:
 
     result = _spot([_BELOW, closing_in])
 
-    assert result.range_entry == RangeEntry(closing_in.time, D(61000))
+    assert result.range_entry == RangeEntry(closing_in.time + MINUTE, D(61000))
     assert result.coarse_periods == (closing_in.time,)
 
 
@@ -261,7 +265,7 @@ def _notes(result: GridBacktestResult) -> str:
 def test_the_result_says_where_the_bot_entered() -> None:
     notes = _notes(_spot([_BELOW, _CLIMB], _FINE))
 
-    assert "waited and entered at 2026-09-01 00:01:02 UTC, at 60000" in notes
+    assert "waited and entered at 2026-09-01 00:01:03 UTC, at 60000" in notes
     assert "buy-and-hold benchmark buys at the same step" in notes
     assert "mark-price history" not in notes, "a Spot replay has no mark"
 
@@ -282,3 +286,82 @@ def test_a_window_that_starts_inside_says_nothing_about_waiting() -> None:
     notes = _notes(_spot([_bar(0, "65000", "65100", "64900", "65000")]))
 
     assert "waited" not in notes and "outside the range" not in notes
+
+
+# -- the entry is when its step ends, and nothing earlier in the candle reaches the position -- #
+
+
+def _long_x20(**changes: str) -> dict[str, str]:
+    return position_config("LONG", 20, **changes)
+
+
+def test_a_coarse_entry_is_dated_at_the_end_of_the_candle_and_owes_no_earlier_funding() -> (
+    None
+):
+    """No 1-second klines: the candle's close is known only at its end, so a settlement inside it
+    is the bot's to owe only if it came after."""
+    closing_in = _bar(0, "75000", "75000", "50000", "61000")
+
+    result = futures_replay(
+        [closing_in],
+        _long_x20(),
+        funding=schedule(settlement(0, "0.0003", "65000")),
+    )
+
+    assert result.range_entry == RangeEntry(closing_in.time + MINUTE, D(61000))
+    assert result.futures is not None
+    assert result.futures.funding_settlements_charged == 0
+    assert result.futures.funding_paid == 0
+
+
+def test_a_settlement_inside_the_entry_candle_but_before_the_entry_is_not_charged() -> (
+    None
+):
+    """A settlement at second 1 of the entry minute, before the entry at second 3, is not owed; one
+    after it is."""
+    funding = schedule(
+        settlement(1, "0.0003"),
+        _settlement_at(minute=1, seconds=30),
+    )
+
+    result = futures_replay([_BELOW, _CLIMB], _long_x20(), funding, fine=_FINE)
+
+    assert result.futures is not None
+    assert result.futures.funding_settlements_charged == 1
+
+
+def _settlement_at(minute: int, seconds: int) -> FundingSettlement:
+    return FundingSettlement(
+        START + timedelta(minutes=minute, seconds=seconds), D("0.0003"), D(65000)
+    )
+
+
+def test_a_dip_before_the_entry_does_not_become_the_closest_to_liquidation() -> None:
+    """The candle dipped to 50,000 and recovered into the range on its last second: the position
+    never saw 50,000, so the figure is the same as for the candle without the dip."""
+    with_dip = _bar(1, "59000", "60500", "50000", "60500")
+    fine_with_dip = {
+        with_dip.time: (
+            _kline(1, 0, "52000", "59000"),
+            _kline(1, 1, "59900", "52000"),
+            _kline(1, 2, "60500", "59900"),
+        )
+    }
+    without = _bar(1, "59000", "60500", "58900", "60500")
+    fine_without = {
+        without.time: (
+            _kline(1, 0, "58900", "59000"),
+            _kline(1, 1, "59900", "58900"),
+            _kline(1, 2, "60500", "59900"),
+        )
+    }
+
+    dipped = futures_replay([_BELOW, with_dip], _long_x20(), fine=fine_with_dip)
+    control = futures_replay([_BELOW, without], _long_x20(), fine=fine_without)
+
+    assert dipped.range_entry is not None and control.range_entry is not None
+    assert dipped.futures is not None and control.futures is not None
+    assert dipped.futures.closest_to_liquidation != 0
+    assert (
+        dipped.futures.closest_to_liquidation == control.futures.closest_to_liquidation
+    )
