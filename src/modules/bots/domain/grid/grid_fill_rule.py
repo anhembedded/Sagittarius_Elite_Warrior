@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 
@@ -76,6 +76,14 @@ class PriceStep:
     high: Decimal
     legs: tuple[Leg, Leg]
     coarse: bool = False
+    #: Where the step ended (a 1-second kline's close, a coarse step's candle close): the price a
+    #: Grid waiting for its range is judged on (`EPIC-044D`, ADR 044 D11). `None` only for a step
+    #: built by hand that never asks.
+    close: Decimal | None = None
+    #: When the step ended, which is when its close was known (a 1-second kline's time plus a
+    #: second, a coarse step's candle's end): a Grid that enters on the step is in from then,
+    #: never from the step's start (`EPIC-044D`).
+    end: datetime | None = None
 
 
 def buy_fills(level_price: Decimal, low: Decimal, tick: Decimal) -> bool:
@@ -88,11 +96,24 @@ def sell_fills(level_price: Decimal, high: Decimal, tick: Decimal) -> bool:
     return high >= level_price + tick
 
 
-def steps_for(bar: PriceBar, fine: Sequence[PriceBar]) -> tuple[PriceStep, ...]:
-    """The steps one candle is replayed as: its 1-second klines when they
+def steps_for(
+    bar: PriceBar, fine: Sequence[PriceBar], length: timedelta
+) -> tuple[PriceStep, ...]:
+    """The steps one candle of `length` is replayed as: its 1-second klines when they
     span its range, or else itself, coarse."""
     if not spans(bar, fine):
-        return (PriceStep(bar.time, bar.open, bar.low, bar.high, _ADVERSE, True),)
+        return (
+            PriceStep(
+                bar.time,
+                bar.open,
+                bar.low,
+                bar.high,
+                _ADVERSE,
+                True,
+                bar.close,
+                bar.time + length,
+            ),
+        )
     return tuple(_fine_step(kline) for kline in fine)
 
 
@@ -105,8 +126,18 @@ def spans(bar: PriceBar, fine: Sequence[PriceBar]) -> bool:
 
 
 _ADVERSE = (Leg.DOWN, Leg.UP)
+#: What a 1-second kline spans.
+_FINE_LENGTH = timedelta(seconds=1)
 
 
 def _fine_step(kline: PriceBar) -> PriceStep:
     legs = (Leg.DOWN, Leg.UP) if kline.close >= kline.open else (Leg.UP, Leg.DOWN)
-    return PriceStep(kline.time, kline.open, kline.low, kline.high, legs)
+    return PriceStep(
+        kline.time,
+        kline.open,
+        kline.low,
+        kline.high,
+        legs,
+        close=kline.close,
+        end=kline.time + _FINE_LENGTH,
+    )

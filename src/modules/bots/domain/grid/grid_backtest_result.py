@@ -96,6 +96,14 @@ class EquityPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class RangeEntry:
+    """Where a replay that started away from its range entered it (`EPIC-044D`)."""
+
+    time: datetime
+    price: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class GridBacktestResult:
     """A whole replay: curves, profit split, fills, fees and caveats."""
 
@@ -119,6 +127,11 @@ class GridBacktestResult:
     stop_detail: str = ""
     #: The Futures-only figures; `None` for a Spot replay (`EPIC-039K`).
     futures: FuturesOutcome | None = None
+    #: The first candle opened outside the range, so the replay waited and placed nothing until a
+    #: step closed inside it (`EPIC-044D`, ADR 044 D11).
+    waited_for_range: bool = False
+    #: Where the wait ended; `None` when the window never entered the range (no fill, flat equity).
+    range_entry: RangeEntry | None = None
 
     def activity(self) -> GridActivity:
         """What the chart draws on top of the plan (`grid_overlay`)."""
