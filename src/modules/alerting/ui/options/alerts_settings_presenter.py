@@ -73,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
     alerts_words,
     quiet_hours_words,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.action_results import (
+    ActionResults,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_action_relay import (
     AlertsActionRelay,
 )
@@ -148,6 +151,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._quiet = QuietHoursSetup(
             container.resolve(IQuietHoursSetting), display_zone_key_of(container)
         )
+        self._results = ActionResults(self._settings_view_model)
         self._bots = BotModeList(
             container.resolve(IBotAlertModes),
             container.resolve(ICommandDispatcher),
@@ -333,51 +337,24 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if kind is _Kind.BOTS:
             self._bots.publish_rows(cast(tuple[BotModeRow, ...], result))
         elif kind is _Kind.SAVE:
-            self._on_webhook_saved(cast(WebhookSave, result))
+            self._results.webhook_kept(cast(WebhookSave, result))
         elif kind is _Kind.REMOVE:
-            self._on_webhook_removed(cast(WebhookRemoval, result))
+            self._results.webhook_forgotten(cast(WebhookRemoval, result))
         elif kind is _Kind.TELEGRAM_SAVE:
-            self._on_telegram_saved(cast(TelegramSave, result))
+            self._results.telegram_kept(cast(TelegramSave, result))
         elif kind is _Kind.TELEGRAM_REMOVE:
-            self._on_telegram_removed(cast(TelegramRemoval, result))
+            self._results.telegram_forgotten(cast(TelegramRemoval, result))
         elif kind is _Kind.QUIET:
             self._on_quiet_saved(cast(QuietHoursSave, result))
         elif kind is _Kind.MODE:
-            self._on_mode_saved(cast(BotAlertMode, result))
+            self._results.mode_kept(cast(BotAlertMode, result))
         else:
-            self._on_test_done(cast(tuple[ChannelTestOutcome, ...], result))
-
-    def _on_mode_saved(self, mode: BotAlertMode) -> None:
-        self._settings_view_model.set_status(alerts_words.MODE_SAVED[mode], False)
+            self._results.test_sent(cast(tuple[ChannelTestOutcome, ...], result))
 
     def _on_quiet_saved(self, outcome: QuietHoursSave) -> None:
         sentence, is_error = quiet_hours_words.SAVE_WORDS[outcome]
         if outcome is not QuietHoursSave.NO_PERIOD:  # a refused period stays typed
             self._settings_view_model.quiet.take_state(self._quiet.state())
-        self._settings_view_model.set_status(sentence, is_error)
-
-    def _on_test_done(self, outcomes: tuple[ChannelTestOutcome, ...]) -> None:
-        sentence, is_error = alerts_words.send_test_words(outcomes)
-        self._settings_view_model.set_status(sentence, is_error)
-
-    def _on_telegram_saved(self, outcome: TelegramSave) -> None:
-        sentence, is_error = alerts_words.TELEGRAM_SAVE_WORDS[outcome]
-        if outcome in (TelegramSave.SAVED, TelegramSave.OVERRIDDEN):
-            self._settings_view_model.telegram.keep_credentials()
-        self._settings_view_model.set_status(sentence, is_error)
-
-    def _on_telegram_removed(self, outcome: TelegramRemoval) -> None:
-        sentence, is_error = alerts_words.TELEGRAM_REMOVAL_WORDS[outcome]
-        self._settings_view_model.set_status(sentence, is_error)
-
-    def _on_webhook_saved(self, outcome: WebhookSave) -> None:
-        sentence, is_error = alerts_words.SAVE_WORDS[outcome]
-        if outcome in (WebhookSave.SAVED, WebhookSave.OVERRIDDEN):
-            self._settings_view_model.keep_webhook()
-        self._settings_view_model.set_status(sentence, is_error)
-
-    def _on_webhook_removed(self, outcome: WebhookRemoval) -> None:
-        sentence, is_error = alerts_words.REMOVAL_WORDS[outcome]
         self._settings_view_model.set_status(sentence, is_error)
 
     # -- failures -----------------------------------------------------------
