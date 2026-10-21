@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 864, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 866, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -182,6 +182,7 @@
 ["ss", "Bot ", ": reconcile waits — history: ", ""],
 ["ssdd", "Bot ", ": recovered from ", " on attempt ", " of ", " [bot-halt-recovery]"],
 ["ss", "Bot ", ": recovery report ignored in ", ""],
+["ss", "Bot ", ": refused, ", " [other-owner]"],
 ["ss", "Bot ", ": released its ", " price stream"],
 ["ss", "Bot ", ": resume from RECOVERING dropped, the bot is ", " [recovering-resume]"],
 ["ss", "Bot ", ": resume ignored in ", ""],
@@ -216,6 +217,7 @@
 ["s", "Bot ", ": the ladder on the exchange could not be read [protective-stop]"],
 ["ssss", "Bot ", ": the mark price ", " left the range, ", " ", "; closing [range-exit]"],
 ["ss", "Bot ", ": the mark price could not be read (", "); stop loss and take profit are not judged until it can [mark-exit]"],
+["sss", "Bot ", ": the open orders of ", " could not be read (", ") [other-owner]"],
 ["s", "Bot ", ": the open protective stops could not be read [protective-stop]"],
 ["ss", "Bot ", ": the order ", " could not be read"],
 ["ss", "Bot ", ": the order session was opened for ", "; waiting for its own resume [recovering-waits]"],

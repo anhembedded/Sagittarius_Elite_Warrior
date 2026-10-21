@@ -76,7 +76,7 @@ def _bot(world: StartWorld) -> Bot:
 def test_all_preconditions_held_register_the_budget_for_this_run() -> None:
     world = start_world()
 
-    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+    assert world.preconditions.check(_bot(world), world.clock.now(), ()) is None
 
     registration = world.session.budgets[f"bot.{BOT}"]
     assert registration.tag == BOT
@@ -94,7 +94,7 @@ def test_start_opens_a_closed_session_before_anything_else() -> None:
     world = start_world()
     assert world.session.snapshot().enabled is False
 
-    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+    assert world.preconditions.check(_bot(world), world.clock.now(), ()) is None
 
     assert world.session.snapshot().enabled is True
     assert world.session.ready_requests == 1
@@ -105,7 +105,7 @@ def test_a_start_passes_no_position_claim_so_every_position_refuses_it() -> None
     bot does not, whatever other bots wait on the venue."""
     world = start_world()
 
-    world.preconditions.check(_bot(world), world.clock.now())
+    world.preconditions.check(_bot(world), world.clock.now(), ())
 
     assert world.session.claims_given == [()]
 
@@ -123,7 +123,7 @@ def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> 
         )
     )
 
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY
@@ -136,7 +136,7 @@ def test_a_symbol_held_by_another_owner_is_refused() -> None:
     world = start_world()
     world.session.claim_symbol(SYMBOL, "strategy")
 
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.SYMBOL_LEASED
@@ -152,7 +152,7 @@ def test_a_refused_budget_gives_the_lease_back() -> None:
         )
     )
 
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.BUDGET_REFUSED
@@ -177,7 +177,7 @@ def test_a_budget_that_cannot_be_read_refuses_the_start_and_claims_nothing() -> 
         world.preconditions._ports, _BudgetsThatCannotBeRead()
     )
 
-    refusal = preconditions.check(_bot(world), world.clock.now())
+    refusal = preconditions.check(_bot(world), world.clock.now(), ())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY
@@ -261,7 +261,7 @@ def test_a_definition_with_a_leverage_the_venue_does_not_allow_is_refused_before
         world.clock.now(),
     )
 
-    result = world.preconditions.check(bot, world.clock.now())
+    result = world.preconditions.check(bot, world.clock.now(), ())
 
     assert result is not None
     assert result.refusal is BotRefusal.PARAMETERS_REFUSED
@@ -274,6 +274,6 @@ def test_start_opens_the_session_for_the_bot_it_starts() -> None:
     """`BOT-183`: a Start's opening is announced as the started bot's."""
     world = start_world()
 
-    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+    assert world.preconditions.check(_bot(world), world.clock.now(), ()) is None
 
     assert world.session.opened_for == [BOT]
