@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_wor
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.quiet_hours_group import (
     QuietHoursGroup,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.routing_matrix_group import (
+    RoutingMatrixGroup,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.telegram_settings_group import (
     TelegramSettingsGroup,
 )
@@ -76,6 +79,7 @@ class AlertsSettingsView(BaseView):
         self._remove_button.clicked.connect(view_model.request_remove)
         self._telegram.connect_view_model(view_model.telegram)
         self._quiet.connect_view_model(view_model.quiet)
+        self._routing.connect_view_model(view_model.routing)
         self._test_button.clicked.connect(view_model.request_send_test)
         view_model.channel_changed.connect(lambda: self._apply_channel(view_model))
         view_model.working_changed.connect(lambda: self._apply_working(view_model))
@@ -108,6 +112,7 @@ class AlertsSettingsView(BaseView):
         self._test_button.setEnabled(idle and view_model.can_send_test)
         self._telegram.set_idle(idle)
         self._quiet.set_idle(idle)
+        self._routing.set_idle(idle)
         for box in self._mode_boxes:
             box.setEnabled(idle and view_model.bots_editable)
 
@@ -218,6 +223,10 @@ class AlertsSettingsView(BaseView):
         self._bots_note.setWordWrap(True)
         bots_layout.addWidget(self._bots_note)
         layout.addWidget(bots_box)
+
+        self._routing = RoutingMatrixGroup()
+        self._routing.setObjectName("grpRouting")
+        layout.addWidget(self._routing)
 
         self._quiet = QuietHoursGroup()
         self._quiet.setObjectName("grpQuietHours")

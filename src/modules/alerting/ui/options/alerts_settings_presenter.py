@@ -36,8 +36,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
-    FailureKind,
-    FailureNotice,
     INotifier,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
@@ -48,6 +46,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
     QuietHoursSave,
     QuietHoursSetup,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.routing_setup import (
+    RouteSave,
+    RoutingSetup,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
     ChannelTestOutcome,
@@ -60,15 +62,23 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credent
     TelegramRemoval,
     TelegramSave,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
+    IAlertChannelCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_routing import (
+    IAlertRouting,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
     BotAlertMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
     alerts_words,
     quiet_hours_words,
@@ -111,10 +121,6 @@ if TYPE_CHECKING:
 _TITLE = "Alerts"
 
 
-#: `BOT-169` — the causes of the page's commands, one message each.
-_CAUSE = "alerting.settings.{kind}"
-
-
 class _Kind(str, Enum):
     """`ActionOwnershipTracker`'s `TKind`: the three things the page runs off the UI thread."""
 
@@ -126,6 +132,7 @@ class _Kind(str, Enum):
     TELEGRAM_SAVE = "telegram_save"
     TELEGRAM_REMOVE = "telegram_remove"
     QUIET = "quiet"
+    ROUTE = "route"
 
 
 class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
@@ -133,7 +140,6 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     def __init__(self, view: AlertsSettingsView, container: IContainer) -> None:
         super().__init__(view, container, title=_TITLE)
-        self._notifier: INotifier = container.resolve(INotifier)
         self._setup: DiscordWebhookSetup = container.resolve(DiscordWebhookSetup)
         self._telegram_setup: TelegramCredentialsSetup = container.resolve(
             TelegramCredentialsSetup
@@ -148,10 +154,15 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._relay = AlertsActionRelay(self._on_action_done)
 
         self._settings_view_model = AlertsSettingsViewModel()
+        self._routing = RoutingSetup(
+            container.resolve(IAlertRouting), container.resolve(IAlertChannelCatalog)
+        )
         self._quiet = QuietHoursSetup(
             container.resolve(IQuietHoursSetting), display_zone_key_of(container)
         )
-        self._results = ActionResults(self._settings_view_model)
+        self._results = ActionResults(
+            self._settings_view_model, container.resolve(INotifier), self.logger
+        )
         self._bots = BotModeList(
             container.resolve(IBotAlertModes),
             container.resolve(ICommandDispatcher),
@@ -166,6 +177,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         view_model.telegram.save_requested.connect(self._on_telegram_save_requested)
         view_model.telegram.remove_requested.connect(self._on_telegram_remove_requested)
         view_model.send_test_requested.connect(self._on_send_test_requested)
+        view_model.routing.cell_requested.connect(self._on_route_requested)
         view_model.quiet.period_requested.connect(self._on_quiet_period_requested)
         view_model.quiet.turn_off_requested.connect(self._on_quiet_turn_off_requested)
         view_model.bot_mode_requested.connect(self._on_bot_mode_requested)
@@ -181,6 +193,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     def _load_from_config(self) -> None:
         self._publish_state()
+        self._settings_view_model.routing.take_state(self._routing.state())
         self._settings_view_model.quiet.take_state(self._quiet.state())
 
     def _current_fields(self) -> tuple[()]:
@@ -231,6 +244,20 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         except ValueError:
             return
         self._begin(_Kind.MODE, lambda: self._bots.keep(bot_id, mode))
+
+    @Slot(str, str, str)
+    @safe_ui_action
+    def _on_route_requested(self, group: str, channel_id: str, value: str) -> None:
+        if self._settings_view_model.is_working:
+            return
+        try:
+            wanted = Loudness(value) if value else None
+            cell = AlertGroup(group)
+        except ValueError:
+            return
+        self._begin(
+            _Kind.ROUTE, lambda: self._routing.set_cell(cell, channel_id, wanted)
+        )
 
     @Slot(object, object)
     @safe_ui_action
@@ -330,7 +357,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if kind is _Kind.BOTS:
             self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
         else:
-            self._tell_failed(kind, error_type)
+            self._results.failed(kind.value, error_type)
 
     def _show_result(self, kind: _Kind, result: object) -> None:
         """What each action's answer is told as; `result` is what that kind's work returned."""
@@ -344,6 +371,9 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             self._results.telegram_kept(cast(TelegramSave, result))
         elif kind is _Kind.TELEGRAM_REMOVE:
             self._results.telegram_forgotten(cast(TelegramRemoval, result))
+        elif kind is _Kind.ROUTE:
+            self._results.route_kept(cast(RouteSave, result))
+            self._settings_view_model.routing.take_state(self._routing.state())
         elif kind is _Kind.QUIET:
             self._on_quiet_saved(cast(QuietHoursSave, result))
         elif kind is _Kind.MODE:
@@ -356,22 +386,3 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if outcome is not QuietHoursSave.NO_PERIOD:  # a refused period stays typed
             self._settings_view_model.quiet.take_state(self._quiet.state())
         self._settings_view_model.set_status(sentence, is_error)
-
-    # -- failures -----------------------------------------------------------
-
-    def _tell_failed(self, kind: _Kind, error_type: str) -> None:
-        """A command the user just ran did not do what they asked (`BOT-169`): a
-        message box, with only the exception's type behind Details…."""
-        self.logger.warning(
-            f"AlertsSettingsPresenter: {kind.value} raised {error_type} [alert-setup]"
-        )
-        self._notifier.report_failure(
-            FailureNotice(
-                kind=FailureKind.COMMAND,
-                cause=_CAUSE.format(kind=kind.value),
-                headline=alerts_words.UNEXPECTED_HEADLINE.format(
-                    doing=alerts_words.DOING_WORDS[kind.value]
-                ),
-                detail=error_type,
-            )
-        )

@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
     JsonAlertSettings,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_routing import (
+    IAlertRouting,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
     IAlertSettingsSource,
 )
@@ -40,4 +43,7 @@ def bind_settings(container: IContainer, settings_path: Callable[[], Path]) -> N
     )
     container.singleton(
         IQuietHoursSetting, lambda resolver: resolver.resolve(JsonAlertSettings)
+    )
+    container.singleton(
+        IAlertRouting, lambda resolver: resolver.resolve(JsonAlertSettings)
     )

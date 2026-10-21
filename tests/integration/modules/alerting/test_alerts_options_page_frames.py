@@ -14,7 +14,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QApplication, QCheckBox, QGroupBox, QLineEdit
+from PySide6.QtWidgets import QApplication, QCheckBox, QComboBox, QGroupBox, QLineEdit
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
 )
@@ -57,7 +57,17 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
 
         assert not is_blank(image)
         titles = {box.title() for box in view.findChildren(QGroupBox)}
-        assert {"Discord", "Telegram", "Bots", "Quiet hours"} <= titles
+        assert {
+            "Discord",
+            "Telegram",
+            "Bots",
+            "Quiet hours",
+            "Who hears what",
+        } <= titles
+        routing = view.findChild(QGroupBox, "grpRouting")
+        assert routing is not None and routing.isVisible()
+        cells = routing.findChildren(QComboBox)
+        assert len(cells) == 8 and all(box.isVisible() for box in cells)
         quiet = view.findChild(QGroupBox, "grpQuietHours")
         assert quiet is not None and quiet.isVisible()
         assert quiet.findChild(QCheckBox, "chkQuietHours").isChecked()

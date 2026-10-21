@@ -33,18 +33,24 @@ records that cross the port are in `alerting/contracts/outbox_records.py`.
 
 ## Built: the settings file
 
-What the owner set per bot is one JSON file, `<data root>/state/alert_settings.json`
+What the owner set is one JSON file, `<data root>/state/alert_settings.json`
 (`alerting/composition/alerting_bindings.py` → `alert_settings_path`), shaped
-`{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}, "quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}}`
-(`alerting/adapters/json_alert_settings.py` → `SETTINGS_SCHEMA`, `JsonAlertSettings`). It holds bot
-ids and modes and the quiet hours (`quiet_hours` is absent when there are none, and an entry this build
-cannot read is off and told once, and is not kept: the next save writes the file without it), no secret. A mode `on` is not written. **A missing file is every default**: nothing
-creates it until the owner sets a mode. **A file this build cannot read** (not JSON, another schema)
-is every default, told once in the log with `[alert-settings]`, and moved aside to
-`alert_settings.json.unreadable` when the owner next sets a mode. **A mode this build does not know**
-is skipped and the rest kept; a file that names a member twice is not trusted. A second unreadable file is kept beside the first (`.unreadable.2`), never over it. Every default means every bot may tell everything: the safe side
-for alerts. Written by write-temp-then-rename with an fsync, the temporary file removed on any failure; a read-only copy of
-the app refuses a change, because its alerting never runs (`JsonAlertSettings.set_mode`).
+`{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}, "quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}, "routes": [{"group": "routine", "channel": "discord", "loudness": "off"}]}`
+(`alerting/adapters/settings_document.py` → `SETTINGS_SCHEMA`, `read_document`; the lock, the commit
+and the three ports are `alerting/adapters/json_alert_settings.py` → `JsonAlertSettings`). It holds
+bot ids and modes, the quiet hours and the routing cells, no secret. A mode `on` is not written;
+`quiet_hours` and `routes` are absent when none is set. **A missing file is every default**: nothing
+creates it until the owner sets something. **A file this build cannot read** (not JSON, another
+schema) is every default, told once in the log with `[alert-settings]`, and moved aside to
+`alert_settings.json.unreadable` when the owner next saves. **An entry this build does not know** (a
+mode, a route of an unknown group or loudness, a quiet-hours entry it cannot read) is skipped, told
+once, and the rest kept; it is not written back by the next save. A skipped entry is its default,
+which is the safe side: an unknown route is the N4 default, never a silence nobody chose, and bad
+quiet hours are off, never a hold. A file that names a member twice is not trusted. A second
+unreadable file is kept beside the first (`.unreadable.2`), never over it. Every default means every
+bot may tell everything. Written by write-temp-then-rename with an fsync, the temporary file removed
+on any failure; a read-only copy of the app refuses a change, because its alerting never runs
+(`JsonAlertSettings.set_mode`).
 
 ## Built: in memory, on purpose
 
