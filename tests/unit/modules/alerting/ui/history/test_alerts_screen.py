@@ -20,13 +20,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_repo
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
     DeliveryResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
-    IAlertHistory,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history import history_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_presenter import (
+    HISTORY_LIMIT,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.history.alerts_world import (
     AlertsScreen,
+    RecordingHistory,
     build_screen,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_page_world import (
@@ -115,20 +116,10 @@ def test_the_filter_narrows_what_is_shown_without_reading_again(
     assert screen.view.shown_count == 2
 
 
-class _Failing(IAlertHistory):
-    def __init__(self) -> None:
-        self.fail = False
-
-    def read(self, limit: int) -> AlertHistoryReport:
-        if self.fail:
-            raise RuntimeError("secret detail the screen must not show")
-        return AlertHistoryReport((), ())
-
-
 def test_a_failed_read_is_told_by_type_and_keeps_the_screen_alive(
     qapp, request, tmp_path: Path
 ) -> None:
-    history = _Failing()
+    history = RecordingHistory()
     screen = build_screen(request, tmp_path, history=history)
     history.fail = True
 
@@ -179,32 +170,19 @@ def test_an_answer_for_a_read_that_is_no_longer_current_is_dropped(
     assert screen.view.history_note == history_words.READING
 
 
-class _Counting(IAlertHistory):
-    def __init__(self) -> None:
-        self.reads = 0
-
-    def read(self, limit: int) -> AlertHistoryReport:
-        self.reads += 1
-        return AlertHistoryReport((), ())
-
-
-def test_nothing_is_read_until_the_mode_is_shown_and_nothing_while_it_is_hidden(
+def test_nothing_is_read_at_build_and_showing_the_mode_reads_the_whole_list(
     qapp, request, tmp_path: Path
 ) -> None:
-    """Every mode is built at start; a hidden Alerts mode must not query the outbox."""
-    history = _Counting()
+    """Every mode is built at start; a read then would start pool threads the window's shutdown
+    does not own (`test_the_window_shuts_down_within_budget`). Timers wait for their first tick."""
+    history = RecordingHistory()
     screen = build_screen(request, tmp_path, history=history)
-    assert history.reads == 0
-
-    screen.presenter.on_mode_shown(NavigationSource.USER_INTENT)
-    assert history.reads == 1
+    assert history.limits == []
     assert screen.presenter._timer.isActive()
 
-    screen.presenter._refresh_if_visible()
-    assert history.reads == 1, "a tick reads nothing while the view is not visible"
-    screen.view.show()
-    screen.presenter._refresh_if_visible()
-    assert history.reads == 2
+    screen.presenter.on_mode_shown(NavigationSource.USER_INTENT)
+
+    assert history.limits == [HISTORY_LIMIT]
 
 
 def test_the_timers_read_is_silent_and_a_refresh_the_owner_asked_for_is_not(
@@ -214,7 +192,7 @@ def test_the_timers_read_is_silent_and_a_refresh_the_owner_asked_for_is_not(
     screen.view.show()
     screen.threads.held = []
 
-    screen.presenter._refresh_if_visible()
+    screen.presenter._poll()
 
     assert len(screen.threads.held) == 1
     assert screen.view.history_note == ""
@@ -238,7 +216,7 @@ def test_a_pool_that_refuses_the_read_does_not_leave_the_screen_stuck(
     screen.presenter._thread_manager = _Refusing()
 
     with pytest.raises(RuntimeError):
-        screen.presenter._start_read()
+        screen.presenter._start_read(HISTORY_LIMIT)
 
     assert screen.view.refresh_button.isEnabled()
     assert not screen.presenter._reading

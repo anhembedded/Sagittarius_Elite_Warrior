@@ -14,7 +14,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QStatusBar
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_view import (
     AlertsView,
 )
@@ -64,5 +64,28 @@ def test_the_alerts_screen_fits_and_reads_in_both_schemes(
         assert notice is not None and notice.isVisible()
         assert view.notice_text.startswith("Telegram is not getting your alerts")
         assert view.notice_text.endswith("Tools → Options → Alerts.")
+        _status_bar_frame(qtbot, view, out_dir, size, scheme)
     finally:
         restore_scheme(app)
+
+
+def _status_bar_frame(
+    qtbot, view: AlertsView, out_dir: Path, size: QSize, scheme: str
+) -> None:
+    """The indicator where the window puts it (`EPIC-036D3`): a status bar holding the widget the
+    view offers, with a channel failing, so its words and icon are in the picture."""
+    bar = QStatusBar()
+    qtbot.addWidget(bar)
+    (indicator,) = view.status_widgets()
+    bar.addPermanentWidget(indicator)
+    bar.resize(size.width() // 2, 32)
+    bar.show()
+    qtbot.waitExposed(bar)
+
+    image = bar.grab().toImage()
+
+    assert image.save(str(out_dir / screenshot_name("alerts_indicator", size, scheme)))
+    assert indicator.text() == "Alerts: Telegram failing"
+    assert indicator.isVisible()
+    assert not indicator.icon().isNull()
+    assert not is_blank(image)

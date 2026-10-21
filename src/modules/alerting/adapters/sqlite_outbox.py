@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.outbox_row_codec im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
+    DeliveryRecord,
     DeliveryTarget,
     DeliveryUpdate,
     DueDelivery,
@@ -307,6 +308,17 @@ class SqliteOutbox(IOutbox):
                     )
                 )
         return tuple(entries)
+
+    def latest_real_delivery(self, channel_id: str) -> DeliveryRecord | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT delivery_id, alert_id, channel_id, loudness, state, attempts, "
+                "next_attempt_at, reason FROM deliveries WHERE channel_id = ? AND "
+                "state NOT IN ('pending', 'dropped') "
+                "ORDER BY delivery_id DESC LIMIT 1",
+                (channel_id,),
+            ).fetchone()
+        return None if row is None else delivery_from_row(row)
 
     def latest_alert_at(self, kind: AlertKind) -> datetime | None:
         with self._lock:
