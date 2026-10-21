@@ -119,6 +119,9 @@ def test_the_exchanges_pause_on_the_openings_second_slice_closes_the_start_and_k
             runtime.reason_detail,
         )
         assert runtime.reason is GridReason.START_REFUSED
+        assert "retry 1 of" in runtime.reason_detail, (
+            "the stop's own timed retry is scheduled"
+        )
         assert _held(futures) > 0, (
             "nothing can be sent during the pause: the close waits"
         )
