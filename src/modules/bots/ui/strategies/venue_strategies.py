@@ -217,8 +217,13 @@ class VenueStrategies(QObject):
                 self.armed_lines(),
             )
         )
-        if chosen is None or chosen not in self._venues:
+        if chosen is None or chosen not in (v.controls.venue for v in candidates):
             logger.info("[strategies] arming: cancelled")
+            return
+        if not self.can_arm() or self._venues[chosen].armed() is not None:
+            # The questions ran nested event loops: that venue was armed, or an action went in
+            # flight, while they were open.
+            logger.info("[strategies] arming: %s changed while asking", chosen.value)
             return
         self._venues[chosen].coordinator.on_arm_clicked()
         self.commands_changed.emit()

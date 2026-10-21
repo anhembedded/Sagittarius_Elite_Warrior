@@ -150,6 +150,34 @@ def test_arming_a_strategy_on_a_mainnet_venue_asks_after_the_venue_is_chosen_and
     assert consent.asked == [(_MAINNET, "arm a strategy")]
 
 
+def test_arming_a_strategy_on_a_mainnet_venue_once_agreed_returns_that_venue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        bots_dialogs, "ask_arm_with_dialog", lambda _parent, _question: _MAINNET
+    )
+    consent = FakeRealMoneyConsent(agrees=True)
+
+    venue = _dialogs(consent).ask_arm_strategy(ArmQuestion({_MAINNET: Mock()}))
+
+    assert venue is _MAINNET
+    assert consent.asked == [(_MAINNET, "arm a strategy")]
+
+
+def test_a_cancelled_arm_dialog_asks_no_real_money_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        bots_dialogs, "ask_arm_with_dialog", lambda _parent, _question: None
+    )
+    consent = FakeRealMoneyConsent(agrees=True)
+
+    venue = _dialogs(consent).ask_arm_strategy(ArmQuestion({_MAINNET: Mock()}))
+
+    assert venue is None
+    assert consent.asked == []
+
+
 def test_arming_a_strategy_on_a_testnet_venue_is_not_asked_about_real_money(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

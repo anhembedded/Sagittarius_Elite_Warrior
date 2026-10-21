@@ -124,6 +124,25 @@ def test_cancelling_the_question_arms_nothing(world) -> None:
     assert world.told == []
 
 
+def test_a_venue_armed_while_the_questions_were_open_is_not_armed_again(world) -> None:
+    """The dialog and the real-money question run nested event loops: an arm from elsewhere can
+    land in them, and the answer then names a venue that is no longer free."""
+    world.asked.venue = FUTURES
+
+    def armed_meanwhile(_form: StrategyFormViewModel) -> None:
+        world.futures.armed.seed(
+            LiveStrategyConfig(
+                strategy_key=STRATEGY_KEY, symbol="BNBUSDT", interval="1h"
+            )
+        )
+
+    world.asked.edit = armed_meanwhile
+
+    world.strategies.arm()
+
+    assert world.futures.arming.armed_with is None
+
+
 def test_a_refused_arm_is_said_in_words_and_arms_nothing(world) -> None:
     world.futures.arming.script_arm(
         ArmStrategyResult(
