@@ -76,6 +76,8 @@ _READ_ONLY = {
     ("bot", "start"),
     # `EPIC-038L` - the same: a command file for the host, which changes the bot, never this process.
     ("bot", "edit"),
+    ("bot", "add"),
+    ("bot", "delete"),
     # `EPIC-026L` - the same again: a command file for the host, which clears the cap, never this process.
     ("bot", "loss-cap-ack"),
     ("preflight", None),

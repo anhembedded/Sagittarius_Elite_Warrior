@@ -15,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     IBotExecutorFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import JsonValue
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
     IKindBacktester,
 )
@@ -28,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
     evaluate_grid,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_left import (
+    grid_exposure_left,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import (
     GridOverlaySource,
@@ -90,6 +94,9 @@ class GridKind(IBotKind):
         self, config: Mapping[str, str], changed: Collection[str]
     ) -> str | None:
         return grid_parameter_problem(config, changed)
+
+    def exposure_left(self, runtime: Mapping[str, JsonValue]) -> str | None:
+        return grid_exposure_left(runtime)
 
     def overlay(self, inputs: BotKindInputs) -> BotOverlay:
         """The planner preview's overlay: the plan, its range and exits, and

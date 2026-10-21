@@ -1,4 +1,4 @@
-"""Ask a running host to stop, pause, resume, start or edit one bot (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, decision O4, channel A).
+"""Ask a running host to stop, pause, resume, start, edit, add or delete one bot (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, `EPIC-045`, decision O4, channel A).
 
 @details The `bot` command belongs to `bots`, and the thing that carries a request to the
 host belongs to `operations`, which depends on `bots`; a verb therefore cannot import its
@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
@@ -39,6 +40,11 @@ class HostControlAction(StrEnum):
     START = "start"
     #: `EPIC-038L`: change the parameters of a DRAFT or STOPPED bot, as the Bots tab's Save does.
     EDIT = "edit"
+    #: `EPIC-045A`: create one DRAFT bot from a plan entry, as the Bots tab's New bot does. It names
+    #: no existing bot: `bot_id` is the fixed word `ADD_SUBJECT`, and the entry travels in `entry`.
+    ADD = "add"
+    #: `EPIC-045B`: forget a DRAFT or STOPPED bot that holds nothing, as the Bots tab's Delete does.
+    DELETE = "delete"
     #: `EPIC-026L`: the owner accepts the account-level loss and lets bots start again. It names no
     #: bot: `bot_id` is the fixed word `LOSS_CAP_SUBJECT`.
     ACKNOWLEDGE_LOSS_CAP = "loss-cap-ack"
@@ -46,6 +52,8 @@ class HostControlAction(StrEnum):
 
 #: What an acknowledgement's `bot_id` says: it is about the account, not a bot.
 LOSS_CAP_SUBJECT = "loss-cap"
+#: What an add's `bot_id` says: the bot does not exist yet, the host gives it its id.
+ADD_SUBJECT = "new-bot"
 
 
 class HostControlStatus(StrEnum):
@@ -72,13 +80,15 @@ class HostControlRequest:
     """One action on one bot. `confirmed_venue` is the operator's typed answer to the
     real-money question (decision O8), where the bot's own command asks it (stop, resume, start). `close_position` is
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
-    `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action."""
+    `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action.
+    `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action."""
 
     action: HostControlAction
     bot_id: str
     confirmed_venue: str | None = None
     close_position: bool = False
     settings: tuple[ParameterSetting, ...] = ()
+    entry: NewBotEntry | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
@@ -18,6 +19,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
+    AddBotForHostCommand,
+    DeleteBotForHostCommand,
     EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
@@ -44,6 +47,9 @@ class _Dispatcher(ICommandDispatcher):
         return self.answer
 
 
+_ENTRY = NewBotEntry("sol grid", "grid", "spot_testnet", "SOLUSDT")
+
+
 def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
     dispatcher = _Dispatcher(BotCommandResult.done(BOT))
     executor = BotHostCommandExecutor(dispatcher)
@@ -54,6 +60,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
                 action=action,
                 confirmed_venue="spot_mainnet",
                 settings=(ParameterSetting("lower", "81000"),),
+                entry=_ENTRY,
             )
         )
 
@@ -63,6 +70,8 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
         StartBotForHostCommand(BOT, "spot_mainnet"),
         EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
+        AddBotForHostCommand(_ENTRY),
+        DeleteBotForHostCommand(BOT),
         AcknowledgeLossCapForHostCommand(),
     ]
 
@@ -134,7 +143,7 @@ def test_an_accepted_edit_without_a_sentence_still_says_the_bot_is_draft() -> No
     assert outcome.accepted and "DRAFT" in outcome.message
 
 
-def test_only_an_edit_speaks_the_hosts_own_sentence_every_other_action_keeps_its_fixed_words() -> (
+def test_only_an_edit_an_add_and_a_delete_speak_the_hosts_own_sentence_every_other_action_keeps_its_fixed_words() -> (
     None
 ):
     said = BotCommandResult(accepted=True, bot_id=BOT, message="something else")
@@ -172,3 +181,37 @@ def test_an_acknowledgement_of_a_cap_that_is_not_tripped_is_refused_in_the_caps_
     )
 
     assert not outcome.accepted and outcome.message == "the loss cap is not tripped"
+
+
+def test_an_accepted_add_speaks_the_hosts_sentence_naming_the_new_id() -> None:
+    said = BotCommandResult(
+        accepted=True, bot_id="x03yij", message="bot x03yij was created"
+    )
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(
+        command(action=HostControlAction.ADD, bot_id="new-bot", entry=_ENTRY)
+    )
+
+    assert outcome.accepted and outcome.message == "bot x03yij was created"
+
+
+def test_an_accepted_delete_without_a_sentence_still_says_the_bot_was_deleted() -> None:
+    executor = BotHostCommandExecutor(_Dispatcher(BotCommandResult.done(BOT)))
+
+    outcome = executor.execute(command(action=HostControlAction.DELETE))
+
+    assert outcome.accepted and "deleted" in outcome.message
+
+
+def test_a_refused_delete_carries_the_bots_own_words() -> None:
+    refused = BotCommandResult.refused(
+        BotRefusal.EXPOSURE_LEFT, "Bot 44wa1x is kept: its record holds 0.5", BOT
+    )
+
+    outcome = BotHostCommandExecutor(_Dispatcher(refused)).execute(
+        command(action=HostControlAction.DELETE)
+    )
+
+    assert not outcome.accepted
+    assert outcome.message == "Bot 44wa1x is kept: its record holds 0.5"

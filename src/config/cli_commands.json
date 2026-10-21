@@ -719,6 +719,72 @@
                 "help": "Output format: text (default), json, or any other registered format"
               }
             ]
+          },
+          "add": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to create ONE bot from a plan file's entry, as the Bots tab's New bot does, while the other bots keep trading: bot add plan.json --name sol-grid. The bot lands DRAFT with the entry's parameters; it places no order, needs no --confirm-venue and is started by bot start, whose guard is unchanged. The plan's desired_state is ignored and nothing is recorded in state/bot_plan.json, so run --start-planned does not start it. A kind, venue or parameter the host cannot store, and a name already used on that venue, are refused in words and create nothing. Exit 2 when the plan entry is refused, 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "plan",
+                "type": "str",
+                "help": "The plan file (see bot export)"
+              },
+              {
+                "name": "--name",
+                "type": "str",
+                "help": "Which bot of the plan to add; not needed when the plan holds exactly one"
+              },
+              {
+                "name": "--venue",
+                "type": "str",
+                "help": "The entry's venue, for a name that the plan holds on two venues"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "delete": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to delete ONE DRAFT or STOPPED bot, as the Bots tab's Delete does, while the other bots keep trading. It sends nothing to the exchange: no order is cancelled and no coin is sold. A bot in any other state, and a bot whose record still shows a held base, a live order or an order it owes, is refused in words and kept. Your plan file is not changed: delete the entry too, or the next bot apply creates the bot again. Exit 2 when the bot is refused, 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
           }
         }
       }

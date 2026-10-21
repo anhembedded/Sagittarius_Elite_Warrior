@@ -46,6 +46,11 @@ _SECRET_NAME = re.compile(
 _NO_SECRETS = "a plan holds no key, secret or account identifier"
 
 
+def is_secret_name(name: str) -> bool:
+    """Whether a field or parameter name reads like a credential; a plan, and an add, refuse it."""
+    return _SECRET_NAME.search(name) is not None
+
+
 class InvalidBotPlanError(ValueError):
     """The file is not a plan this build can apply; `problems` says every reason."""
 
@@ -177,7 +182,7 @@ def _params(raw: object, where: str, problems: list[str]) -> dict[str, str] | No
         if not isinstance(name, str) or not name.strip():
             problems.append(f"{here} needs a name")
             ok = False
-        elif _SECRET_NAME.search(name):
+        elif is_secret_name(name):
             problems.append(
                 f"{here} is named like a secret and is refused; {_NO_SECRETS}"
             )
