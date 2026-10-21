@@ -208,16 +208,16 @@ def wrapped_text_problems(window: QMainWindow, page: QWidget) -> list[str]:
     """A word-wrapped label is as tall as its text needs at the width it has: a column squeezed
     below that clips the end of its sentence and leaves the next label's lines beside it
     (`BUG-246`). A label whose own box is cut by a scroll area is not clipped, it scrolls. A label
-    that is not drawn (a panel tabbed behind another, which Qt keeps "visible" at its minimum
-    width) clips nothing; `wrapped_text_in_every_tab` reads it with its tab in front
-    (`BUG-248`)."""
+    that has a size but is not drawn (a panel tabbed behind another, which Qt keeps "visible" at its
+    minimum width) clips nothing; `wrapped_text_in_every_tab` reads it with its tab in front
+    (`BUG-248`). A label squeezed to no height at all is drawn nowhere and is still reported."""
     return [
         f"{label.objectName() or label.text()[:30]!r} is {label.height()}px tall, its text needs "
         f"{label.heightForWidth(label.width())}px at {label.width()}px wide"
         for label in page.findChildren(QLabel)
         if label.wordWrap()
         and label.isVisibleTo(page)
-        and not label.visibleRegion().isEmpty()
+        and not (label.height() > 0 and label.visibleRegion().isEmpty())
         and label.text()
         and label.heightForWidth(label.width()) > label.height()
     ]
@@ -227,14 +227,14 @@ def wrapped_text_in_every_tab(window: QMainWindow, page: QWidget) -> list[str]:
     """`wrapped_text_problems` over the page as shown, then over each panel tabbed behind another
     with its tab in front (`BUG-248`: the Trade history panels and the Bots Ladder and Fills were
     "clipped" only while parked behind the front tab). It raises tabs, so it runs after the
-    checks of the layout the person first sees."""
+    checks of the layout the person first sees, and the caller puts the front tab back."""
     found = wrapped_text_problems(window, page)
     for host in _hosts(page):
         for dock in host.findChildren(QDockWidget):
             if dock.parentWidget() is not host or not host.tabifiedDockWidgets(dock):
                 continue
             dock.raise_()
-            for _ in range(12):
+            for _ in range(3):
                 QApplication.processEvents()
             found += [
                 f"{problem} (tab {dock.windowTitle()!r})"

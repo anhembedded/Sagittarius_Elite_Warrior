@@ -95,31 +95,36 @@ def test_the_trade_mode_conforms_with_each_venue_shown(
             assert not is_blank(host.centralWidget().grab().toImage()), venue
             checks = {name: check(window, host) for name, check in MODE_CHECKS.items()}
             checks["fits_the_window"] = fit_problems(window, host, size)
-            checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, host)
+            if (venue.value, label) == _TABS_EXCEPTION:
+                checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, host)
+            else:
+                checks["wrapped_text_shown_whole"] = wrapped_text_in_every_tab(
+                    window, host
+                )
             report[f"{TRADE_ROUTE}~{venue.value}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)
     assert not problems, "\n".join(problems)
 
 
-#: The Order history and Trade history panels are tabbed behind another and start at their minimum
-#: height (`MinimumHintSlot`), which cuts the end of a three-line notice on Futures at 1024x700:
-#: they are read with their tab in front only once `BUG-251` is fixed.
+#: The one run in which a tabbed panel's wrapped text is not read with its tab in front: the Order
+#: history notices on Futures at 1024x700 are cut short at the panel's minimum height until
+#: `BUG-251` is fixed. Every other run reads every tab.
 _TABS_BUG = "BUG-251"
+_TABS_EXCEPTION = ("futures_testnet", "1024x700")
 _TABS_REPORT = (
     "BUG-251_the_order_history_notices_are_cut_short_at_the_panels_minimum_height.md"
 )
 
 
-def test_the_tabbed_panels_wait_for_a_bug_that_is_still_open() -> None:
-    """The tabbed panels' wrapped text is measured with their tab in front when the report leaves
-    `incomplete/`; this fails then, naming the check to add to the conformance test."""
+def test_the_one_run_that_skips_the_tabs_waits_for_a_bug_that_is_still_open() -> None:
+    """When the report leaves `incomplete/` this fails: drop `_TABS_EXCEPTION`, so that every run
+    reads the tabbed panels."""
     report = repo_root() / "Tasks" / "bug_report" / "incomplete" / _TABS_REPORT
 
-    assert wrapped_text_in_every_tab is not None
     assert report.is_file(), (
-        f"{_TABS_BUG} is not open any more: measure the tabbed panels in the conformance "
-        "test (`wrapped_text_in_every_tab` in place of `wrapped_text_problems`)"
+        f"{_TABS_BUG} is not open any more: read the tabbed panels in every run of the "
+        "conformance test (drop `_TABS_EXCEPTION`)"
     )
 
 

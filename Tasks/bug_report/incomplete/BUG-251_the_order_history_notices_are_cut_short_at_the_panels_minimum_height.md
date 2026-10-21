@@ -8,7 +8,7 @@
 - **Environment:** Qt offscreen platform under pytest, PySide6 as locked, Linux container fonts; app at `master-warrior` ee768d83. Wrapped heights depend on the machine's font; Unknown on a real Windows display.
 
 ## Reproduction
-1. In `test_trade_mode_conformance.py`, replace `wrapped_text_problems(window, host)` by `wrapped_text_in_every_tab(window, host)` (`workbench_layout_checks.py`), which raises each tabbed panel before reading its labels.
+1. In `test_trade_mode_conformance.py`, drop `_TABS_EXCEPTION`: the Futures run at 1024×700 then reads the tabbed panels too (`wrapped_text_in_every_tab`, `workbench_layout_checks.py`, which raises each before reading its labels).
 2. Run the Futures case at 1024×700. Expected: no wrapped label shorter than its text. Actual: `'lblOrderHistoryNotices' is 42px tall, its text needs 60px at 446px wide (tab 'Order history')`. The other five runs (Spot, and Futures at 1366×768 and 1920×1080) pass.
 Frequency: every run here.
 
@@ -25,7 +25,7 @@ Established by reading, not yet by a fix (read at `master-warrior` ee768d83): `M
 Pending. It is a trade: the notice shown whole costs the Trade mode height at 1024×700 that it does not have, so either the panel scrolls once at itself, or the notices move out of the shrinking layout, or the mode gives the history docks less of something else. Needs a decision before code.
 
 ## Regression test
-`test_trade_mode_conformance.py` with `wrapped_text_in_every_tab` in place of `wrapped_text_problems`: it holds the expectation once the bug is fixed. While this report is open `test_the_tabbed_panels_wait_for_a_bug_that_is_still_open` stands in for it and fails the day the report leaves `incomplete/`.
+`test_trade_mode_conformance.py` reads every tabbed panel in five of its six runs; the sixth, Futures at 1024×700, reads the drawn page while this report is open, and `test_the_one_run_that_skips_the_tabs_waits_for_a_bug_that_is_still_open` fails the day the report leaves `incomplete/`, so the exception cannot stay.
 
 ## Verification
 Not run.
