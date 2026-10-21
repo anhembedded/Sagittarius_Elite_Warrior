@@ -45,7 +45,8 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Retry failed (the owner puts failed deliveries back in the queue) and the Alerts table's severity tone | **Built** | `EPIC-036D5` |
 | Quiet hours on the Options page, kept in the settings file | **Built** | `EPIC-036D6` |
 | The routing matrix: who hears what, per kind of alert and channel | **Built** | `EPIC-036D7` |
-| The rest of 036D: the channels table, the heartbeat's interval | Planned | `EPIC-036D` |
+| The channel switches: a channel switched off keeps its secret and hears nothing | **Built** | `EPIC-036D8` |
+| The rest of 036D: the heartbeat's interval | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
 | The heartbeat message (every 6 h) and the daily summary (once a day), from the bots' status report | **Built** | `EPIC-036E` (the per-bot health in the heartbeat waits for `EPIC-035W`) |
 | Remote control from Discord | Planned | `EPIC-036F` |

@@ -72,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_routing im
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_enabling import (
+    IChannelEnabling,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
 )
@@ -269,6 +272,7 @@ def build_page(
         IBotAlertModes: modes,
         IQuietHoursSetting: modes,
         IAlertRouting: modes,
+        IChannelEnabling: modes,
         IAlertChannelCatalog: catalog,
         ICommandDispatcher: bots if bots is not None else Bots(),
         INotifier: notifier,

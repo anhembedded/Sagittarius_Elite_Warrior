@@ -97,6 +97,11 @@ class TelegramCredentialsSetup:
         self._spec = spec
         self._catalog = catalog
 
+    @property
+    def channel_id(self) -> str:
+        """The id of the channel this sets up: what `IChannelEnabling` switches."""
+        return self._spec.channel_id
+
     def state(self) -> TelegramChannelState:
         token, chat = self._stored()
         usable = bool(token and chat) and (

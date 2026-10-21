@@ -101,6 +101,7 @@ FILTER_CHOICES: tuple[tuple[str, Severity | None], ...] = (
 #: The status-bar indicator (`EPIC-036D3`): the state in words, a failing channel also by icon.
 INDICATOR_OK = "Alerts: ok"
 INDICATOR_OFF = "Alerts: no channel"
+INDICATOR_ALL_OFF = "Alerts: all channels off"
 INDICATOR_UNKNOWN = "Alerts: unknown"
 INDICATOR_UNKNOWN_TIP = (
     "The alert history could not be read ({error_type}), so the channels' state is not known. "
@@ -110,9 +111,12 @@ INDICATOR_TIP = "Open the Alerts mode to see what was sent and where it stands."
 
 
 def indicator_text(channels: Sequence[ChannelHealth]) -> str:
-    """`Alerts: ok`, `Alerts: no channel`, or `Alerts: Discord failing`."""
+    """`Alerts: ok`, `Alerts: no channel`, `Alerts: all channels off` (every channel the owner
+    switched off, `EPIC-036D8`), or `Alerts: Discord failing`."""
     if not channels:
         return INDICATOR_OFF
+    if not any(c.enabled for c in channels):
+        return INDICATOR_ALL_OFF
     failing = [channel_name(c.channel_id) for c in channels if c.failing]
     if not failing:
         return INDICATOR_OK
@@ -149,7 +153,14 @@ def channels_line(channels: Sequence[ChannelHealth]) -> str:
 
 
 def _channel_text(channel: ChannelHealth) -> str:
-    text = f"{channel_name(channel.channel_id)}: {'failing' if channel.failing else 'working'}"
+    state = (
+        "switched off"
+        if not channel.enabled
+        else "failing"
+        if channel.failing
+        else "working"
+    )
+    text = f"{channel_name(channel.channel_id)}: {state}"
     return f"{text} ({channel.waiting} waiting)" if channel.waiting else text
 
 

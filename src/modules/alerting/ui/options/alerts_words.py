@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import
     BotAlertMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
+    channels_words,
     quiet_hours_words,
     routing_words,
 )
@@ -100,6 +101,7 @@ DOING_WORDS = {
     "telegram_remove": "Removing the Telegram bot",
     "quiet": quiet_hours_words.DOING,
     "route": routing_words.DOING,
+    "channel": channels_words.DOING,
 }
 WORKING_WORDS = {
     "save": "Saving the webhook…",
@@ -111,6 +113,7 @@ WORKING_WORDS = {
     "telegram_remove": "Removing the Telegram bot…",
     "quiet": quiet_hours_words.WORKING,
     "route": routing_words.WORKING,
+    "channel": channels_words.WORKING,
 }
 
 #: `BOT-191` — what each `BotAlertMode` is called on the page, and what it means.

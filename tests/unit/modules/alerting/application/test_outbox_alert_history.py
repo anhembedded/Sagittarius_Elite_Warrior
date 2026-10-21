@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result im
     DeliveryResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_settings import (
+    AlertSettings,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
     AlertSubject,
 )
@@ -34,7 +37,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
 
 
 def _history(rig: Rig) -> OutboxAlertHistory:
-    return OutboxAlertHistory(rig.outbox, RegisteredChannelCatalog(rig.channels))
+    return OutboxAlertHistory(
+        rig.outbox, RegisteredChannelCatalog(rig.channels), rig.settings
+    )
 
 
 def test_a_sent_alert_is_listed_with_where_it_went(tmp_path: Path) -> None:
@@ -236,3 +241,19 @@ def test_the_health_is_the_same_whatever_the_window_when_nothing_is_wrong(
     assert [_history(rig).read(limit).channels for limit in (1, 500)] == [
         _history(rig).read(500).channels
     ] * 2
+
+
+def test_a_channel_the_owner_switched_off_is_never_failing_and_says_it_is_off(
+    tmp_path: Path,
+) -> None:
+    """Review of PR #672: the status bar must see the switch (`EPIC-036D8`)."""
+    rig = build_rig(tmp_path, ("phone", "backup"), delivery_policy=FAST)
+    rig.channels["phone"].script.append(DeliveryResult.refused("refused"))
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+    rig.deliver_all()
+    rig.settings.replace(AlertSettings(disabled_channels=frozenset({"phone"})))
+
+    channels = {c.channel_id: c for c in _history(rig).read(50).channels}
+
+    assert not channels["phone"].enabled and not channels["phone"].failing
+    assert channels["backup"].enabled
