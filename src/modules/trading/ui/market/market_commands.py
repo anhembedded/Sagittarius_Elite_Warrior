@@ -127,6 +127,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             shortcut="Ctrl+L",
             group=SYMBOLS,
             needs_input=True,
+            icon="search",
         ),
         CommandContribution(
             contributor_id="trading",
@@ -137,6 +138,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             group=SYMBOLS,
             needs_input=True,
+            icon="eye",
         ),
         CommandContribution(
             contributor_id="trading",
@@ -154,6 +156,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             on_toolbar=True,
             group=CHART_HISTORY,
+            icon="chevron-left",
         ),
         CommandContribution(
             contributor_id="trading",
@@ -164,6 +167,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             group=CHART_HISTORY,
             needs_input=True,
+            icon="calendar",
         ),
         CommandContribution(
             contributor_id="trading",
@@ -173,6 +177,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             on_toolbar=True,
             group=CHART_HISTORY,
+            icon="zap",
         ),
         *chart_commands("trading", CHART_PREFIX, route, CHART_MENU),
         live_stream_command("trading", CHART_PREFIX, route, CHART_MENU),

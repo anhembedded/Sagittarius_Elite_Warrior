@@ -287,6 +287,20 @@ if the tracker says it is still the current one (`AlertsPresenter._on_read_done`
 exception's type name only. The read takes the outbox's short lock like any other caller and holds
 none across the view.
 
+**Retry failed** (`EPIC-036D5`) is a second action on the same presenter, with its own tracker and
+relay so a read and a retry never supersede each other: the button greys at once, the work
+(`RetryFailedDeliveries.run`, one `UPDATE` in a transaction of its own on the outbox file, which is in
+WAL mode) runs on the pool, and the answer ("n failed deliveries queued again" or "nothing to retry")
+stays on screen over the full read that follows it, until the owner presses Refresh; a read that was already out when the answer arrived predates the write, so one more full read follows it (`_full_read_wanted`, as for Refresh). The lane that owns
+the channel finds the `PENDING` deliveries at its next look (`LANE_POLL_SECONDS`) and sends them at the
+channel's pace. A read-only copy of the app has the button off: it must not write the outbox.
+
+**The Quiet hours group** (`EPIC-036D6`) is one more action of the Alerts options page presenter
+(`_Kind.QUIET`): Save and Turn off run on the pool through the page's tracker and relay, because
+`JsonAlertSettings` writes a file; the state shown is read from memory (the file is loaded at start).
+A change reaches the hub's next alert without a restart (`IAlertSettingsSource.current` is read for
+every alert).
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when

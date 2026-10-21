@@ -1,8 +1,10 @@
-"""`IAlertSettingsSource` that survives a restart (`BOT-191`).
+"""`IAlertSettingsSource` that survives a restart (`BOT-191`, `EPIC-036D6`).
 
-One JSON file in the data root's state holds what the owner set: today each bot's mode, in the
-shape `{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}}`. A new
-setting is a new key with a default, so an older file stays readable.
+One JSON file in the data root's state holds what the owner set: each bot's mode and the quiet
+hours, in the shape `{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"},
+"quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}}`. A new setting is a
+new key with a default, so an older file stays readable; a `quiet_hours` entry this build cannot
+read is ignored, told once, and the rest kept.
 
 **A missing or unreadable file is every default** (all bots `ON`), the safe side for an alert
 system: more messages, never fewer. No file exists until the owner sets a mode; a file this
@@ -24,8 +26,11 @@ import logging
 import os
 import threading
 from collections.abc import Mapping
+from dataclasses import dataclass, field
+from datetime import time, tzinfo
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
     IAlertSettingsSource,
@@ -33,12 +38,18 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_s
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
+    SYSTEM_ZONE,
+    IQuietHoursSetting,
+    QuietHoursChoice,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_settings import (
     AlertSettings,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
     BotAlertMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.quiet_hours import QuietHours
 
 logger = logging.getLogger("App.Alerting")
 
@@ -46,13 +57,24 @@ SETTINGS_SCHEMA = "sew.alert-settings/1"
 _UNREADABLE_SUFFIX = ".unreadable"
 
 
-class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
+@dataclass(frozen=True)
+class _Document:
+    """What the file said: the modes, the quiet hours, and whether it existed but was unusable."""
+
+    modes: dict[str, BotAlertMode] = field(default_factory=dict)
+    quiet: QuietHoursChoice | None = None
+    unreadable: bool = False
+
+
+class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes, IQuietHoursSetting):
     def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self._path = path
         self._read_only = read_only
         self._lock = threading.Lock()
-        modes, self._unreadable = _read(path)
-        self._modes: dict[str, BotAlertMode] = modes
+        document = _read(path)
+        self._unreadable = document.unreadable
+        self._modes: dict[str, BotAlertMode] = document.modes
+        self._quiet: QuietHoursChoice | None = document.quiet
 
     @property
     def read_only(self) -> bool:
@@ -60,7 +82,9 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
 
     def current(self) -> AlertSettings:
         with self._lock:
-            return AlertSettings(bot_modes=dict(self._modes))
+            return AlertSettings(
+                bot_modes=dict(self._modes), quiet_hours=_quiet_hours_of(self._quiet)
+            )
 
     def modes(self) -> Mapping[str, BotAlertMode]:
         with self._lock:
@@ -77,11 +101,33 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
                 updated.pop(bot_id, None)
             else:
                 updated[bot_id] = mode
-            self._write(updated)
+            self._write(updated, self._quiet)
             self._modes = updated
         logger.info("Bot %s may tell: %s [alert-settings]", bot_id, mode.value)
 
-    def _write(self, modes: Mapping[str, BotAlertMode]) -> None:
+    def quiet_hours(self) -> QuietHoursChoice | None:
+        with self._lock:
+            return self._quiet
+
+    def set_quiet_hours(self, choice: QuietHoursChoice | None) -> None:
+        if self._read_only:
+            raise PermissionError(
+                "this copy of the app is read-only: nothing was changed"
+            )
+        if choice is not None:
+            _zone_of(
+                choice.zone_key
+            )  # a name that is no zone is refused before anything is written
+        with self._lock:
+            self._write(self._modes, choice)
+            self._quiet = choice
+        logger.info(
+            "Quiet hours are %s [alert-settings]", "off" if choice is None else "set"
+        )
+
+    def _write(
+        self, modes: Mapping[str, BotAlertMode], quiet: QuietHoursChoice | None
+    ) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         if self._unreadable and self._path.exists():
             self._path.replace(self._aside())
@@ -90,6 +136,12 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
             "schema": SETTINGS_SCHEMA,
             "bot_modes": {bot_id: mode.value for bot_id, mode in sorted(modes.items())},
         }
+        if quiet is not None:
+            document["quiet_hours"] = {
+                "start": quiet.start.strftime("%H:%M"),
+                "end": quiet.end.strftime("%H:%M"),
+                "zone": quiet.zone_key,
+            }
         temporary = self._path.with_name(self._path.name + ".tmp")
         try:
             with temporary.open("w", encoding="utf-8") as handle:
@@ -112,12 +164,12 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
         return candidate
 
 
-def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
-    """The modes in the file, and whether the file exists but could not be read."""
+def _read(path: Path) -> _Document:
+    """What the file holds, and whether it exists but could not be read."""
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        return {}, False
+        return _Document()
     except (OSError, UnicodeDecodeError) as exc:
         return _defaults(path, f"it cannot be read ({type(exc).__name__})")
     try:
@@ -143,7 +195,57 @@ def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
             path.name,
             skipped,
         )
-    return modes, False
+    return _Document(modes, _quiet_choice_in(path, raw.get("quiet_hours")))
+
+
+def _quiet_choice_in(path: Path, raw: object) -> QuietHoursChoice | None:
+    """The `quiet_hours` entry, or `None` for none or one this build cannot read (told once:
+    quiet hours are the safe side off, so a bad entry never holds an alert back)."""
+    if raw is None:
+        return None
+    try:
+        return _parse_quiet(raw)
+    except (KeyError, ValueError, TypeError):
+        logger.warning(
+            "%s: the quiet hours are not ones this build can read and are ignored "
+            "[alert-settings]",
+            path.name,
+        )
+        return None
+
+
+def _parse_quiet(raw: object) -> QuietHoursChoice:
+    if not isinstance(raw, dict):
+        raise TypeError("quiet_hours is not an object")
+    choice = QuietHoursChoice(
+        time.fromisoformat(str(raw["start"])),
+        time.fromisoformat(str(raw["end"])),
+        str(raw["zone"]),
+    )
+    _zone_of(choice.zone_key)
+    return choice
+
+
+def _zone_of(zone_key: str) -> tzinfo | None:
+    """The zone a name stands for; `None` is the machine's clock. Raises `ValueError` for a name
+    that is no zone."""
+    if zone_key == SYSTEM_ZONE:
+        return None
+    try:
+        return ZoneInfo(zone_key)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError(f"not a time zone: {zone_key!r}") from exc
+
+
+def _quiet_hours_of(choice: QuietHoursChoice | None) -> QuietHours | None:
+    """The hub's view; never raises, because the hub asks for every alert, Critical included.
+    A name that is no zone (a file edited by hand, a bug upstream) is off, not a failure."""
+    if choice is None:
+        return None
+    try:
+        return QuietHours(choice.start, choice.end, _zone_of(choice.zone_key))
+    except ValueError:
+        return None
 
 
 def _without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -155,11 +257,11 @@ def _without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return dict(pairs)
 
 
-def _defaults(path: Path, why: str) -> tuple[dict[str, BotAlertMode], bool]:
+def _defaults(path: Path, why: str) -> _Document:
     logger.warning(
         "%s is not used, every bot may tell everything: %s; it is kept aside when you "
         "next set a bot's mode [alert-settings]",
         path.name,
         why,
     )
-    return {}, True
+    return _Document(unreadable=True)

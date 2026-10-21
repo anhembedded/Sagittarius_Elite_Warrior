@@ -66,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
+    IQuietHoursSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
 )
@@ -258,6 +261,7 @@ def build_page(
     )
     services = {
         IBotAlertModes: modes,
+        IQuietHoursSetting: modes,
         ICommandDispatcher: bots if bots is not None else Bots(),
         INotifier: notifier,
         ILogger: ForwardingLogger(),

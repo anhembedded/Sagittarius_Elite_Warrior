@@ -32,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.wrapped_rows impo
     wrapped_line_count,
     wrapped_row_size,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.verdict_tone import verdict_tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text_at
 from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_delegate import (
     TONE_ROLE,
@@ -59,13 +59,6 @@ HEADING = "Checks"
 _PASSED_ROW = Qt.ItemDataRole.UserRole + 2
 #: The share of the width the title column takes; the findings are the longer text.
 _TITLE_SHARE = 0.4
-
-#: What a check's severity means, in the colour beside its icon and its words.
-_TONES = {
-    VerdictSeverity.REFUSED: Tone.NEGATIVE,
-    VerdictSeverity.WARNING: Tone.CAUTION,
-    VerdictSeverity.OK: Tone.NEUTRAL,
-}
 
 _ICONS = {
     VerdictSeverity.REFUSED: QStyle.StandardPixmap.SP_MessageBoxCritical,
@@ -176,7 +169,7 @@ class PlanChecksView:
         finding = QStandardItem(check.headline)
         for item in (title, finding):
             item.setEditable(False)
-            item.setData(_TONES[check.severity], TONE_ROLE)
+            item.setData(verdict_tone(check.severity), TONE_ROLE)
             item.setToolTip(check.detail)
             item.setData(check.detail, Qt.ItemDataRole.AccessibleDescriptionRole)
         return [title, finding]
