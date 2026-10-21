@@ -37,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     AddBotVerb,
     DeleteBotVerb,
     EditBotVerb,
+    MoveBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
     StartBotVerb,
@@ -123,5 +124,6 @@ BOT_VERBS: tuple[IBotVerb, ...] = (
     EditBotVerb(),
     AddBotVerb(),
     DeleteBotVerb(),
+    MoveBotVerb(),
     AcknowledgeLossCapVerb(),
 )
