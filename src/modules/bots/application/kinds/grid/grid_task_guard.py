@@ -60,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    whole_seconds,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
 )
@@ -175,6 +178,8 @@ class GridTaskGuard:
     def _park(self) -> None:
         try:
             note = self._parking.park()
+        except ExchangeRateLimitedError as limited:
+            note = self._pause_met_while_parking(limited)
         except Exception as error:
             logger.exception(
                 "Bot %s: taking the ladder off failed", self._context.state.bot_id
@@ -191,6 +196,25 @@ class GridTaskGuard:
             # what might have.
             note = _CANCEL_FAILED_STOP_TOOK_IT_OFF
         self._note(note)
+
+    def _pause_met_while_parking(self, limited: ExchangeRateLimitedError) -> str | None:
+        """The exchange's pause stopped the cancel (`BUG-257`): told once as `[exchange-pause]`, not
+        as an ERROR with a traceback. A bot that holds no order, a refused start that laid no
+        ladder, has nothing resting to name, so the note is empty; one that does hold orders says
+        they may still rest."""
+        state = self._context.state
+        logger.info(
+            "Bot %s: taking the ladder off waits for the exchange's pause of %d s "
+            "[exchange-pause]",
+            state.bot_id,
+            whole_seconds(limited.retry_after),
+        )
+        if not state.runtime.open_orders:
+            return None
+        return (
+            "its orders may still rest: the exchange asked for a pause of "
+            f"{whole_seconds(limited.retry_after)} s"
+        )
 
     def _halt_unparked(self, note: str) -> None:
         """A wait whose premise is a ladder off the exchange cannot stand when the cancel was

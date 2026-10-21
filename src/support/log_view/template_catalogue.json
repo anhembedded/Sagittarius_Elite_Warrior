@@ -198,6 +198,7 @@
 ["ssd", "Bot ", ": still waiting for ", " to clear after ", " s [bot-halt-recovery]"],
 ["ss", "Bot ", ": stop ignored in ", ""],
 ["s", "Bot ", ": taking the ladder off failed"],
+["sd", "Bot ", ": taking the ladder off waits for the exchange's pause of ", " s [exchange-pause]"],
 ["s", "Bot ", ": the attempt changed nothing; waiting for the cause to stay clear again [bot-halt-recovery]"],
 ["ss", "Bot ", ": the attempt left the bot ", " [bot-halt-recovery]"],
 ["s", "Bot ", ": the book could not be read to re-price the resume"],

@@ -48,7 +48,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.grid_runtime_
 
 from .bots_screen_fixtures import NOW, stored
 
-_EARNINGS = {"grid_profit", "cycles", "total_pnl", "unrealised"}
+_EARNINGS = {"realised", "grid_profit", "cycles", "total_pnl", "unrealised"}
 _HELD = BotProgress(
     realised_profit=Decimal("12.5"),
     completed_cycles=3,
@@ -95,11 +95,13 @@ def test_grid_profit_comes_first_with_the_total_and_the_unrealised_kept_apart() 
 
     assert facts.total_pnl == "▲ +30.00"
     assert facts.grid_profit == "▲ +12.50"
+    # `BOT-229`: the order that adds up: realised, of which the grid cycles, what is held, the total.
     assert [key for key in PROPERTY_KEYS if key in _EARNINGS] == [
+        "realised",
         "grid_profit",
         "cycles",
-        "total_pnl",
         "unrealised",
+        "total_pnl",
     ]
 
 
@@ -271,3 +273,15 @@ def test_each_earnings_figure_says_whether_it_is_a_profit_or_a_loss() -> None:
     assert facts.tones["unrealised"] is Tone.POSITIVE
     assert facts.tones["hodl"] is Tone.POSITIVE
     assert bot_facts(_running(None), NOW).tones["total_pnl"] is Tone.NEUTRAL
+
+
+def test_the_realised_figure_is_shown_beside_the_grid_profit_with_its_basis() -> None:
+    """`BOT-229`: realised (against the average cost) is its own row, the basis is said once, and a
+    bot with no run account shows neither."""
+    facts = bot_facts(_running(_PRICED), NOW)
+
+    assert facts.realised != NO_VALUE
+    assert facts.earnings_basis.startswith(
+        "Realised is measured against the average cost"
+    )
+    assert bot_facts(_running(None), NOW).earnings_basis == NO_VALUE

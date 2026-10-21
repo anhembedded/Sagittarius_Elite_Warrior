@@ -13,8 +13,10 @@ They are pure over `PlanRiskInputs`; the numbers are `FuturesGridThresholds`', n
   · per exposed side, with the liquidation price estimated for the worst-case position
     (`futures_worst_case.py`, the bracket looked up for *its* notional):
     `LIQUIDATION_INSIDE_RANGE` (REFUSED), `STOP_LOSS_NEEDED` (REFUSED above leverage 1,
-    WARNING at 1 - O3), `STOP_LOSS_AFTER_LIQUIDATION` (REFUSED), `STOP_LOSS_NEAR_LIQUIDATION`
-    (WARNING, closer than `min_liq_buffer_atr` daily ATRs); when none objects, one OK verdict
+    WARNING at 1 - O3), `STOP_LOSS_AFTER_LIQUIDATION` (REFUSED),
+    `STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION` (REFUSED, closer than `min_liq_gap_ratio` of the exit's
+    price, needs no ATR: `BUG-255`), `STOP_LOSS_NEAR_LIQUIDATION` (WARNING, closer than
+    `min_liq_buffer_atr` daily ATRs); when none objects, one OK verdict
     that says *estimate*.
 
 The exit on a side is the exit that closes that side at a loss: a LONG's is the stop loss
@@ -71,6 +73,7 @@ FUTURES_PLAN_TITLES: Mapping[str, str] = MappingProxyType(
         "STOP_LOSS_NEEDED": "Exit on the losing side",
         "STOP_LOSS_AFTER_LIQUIDATION": "Exit before liquidation",
         "STOP_LOSS_NEAR_LIQUIDATION": "Exit before liquidation",
+        "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION": "Exit before liquidation",
         "LIQUIDATION_ESTIMATE": "Liquidation distance",
     }
 )
@@ -193,7 +196,7 @@ def _side(
         *_inside_range(side, estimates),
         *_stop(inputs, side, full_position, exit_price),
     ]
-    said = found or [_ok(inputs, side, full_position, exit_price)]
+    said = found or [_ok(inputs, side, estimates[-1], exit_price)]
     # A Neutral plan has two sides and the same code can speak for each: the verdict says which.
     return [replace(verdict, subject=side.name.lower()) for verdict in said]
 
@@ -288,6 +291,24 @@ def _stop(
                 {"exit_price": exit_price, "liquidation_price": liquidation},
             )
         ]
+    floor = inputs.thresholds.min_liq_gap_ratio * exit_price
+    if gap < floor:
+        return [
+            Verdict(
+                _REFUSED,
+                "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION",
+                f"The exit at {exit_price} is only {gap:.2f} before the estimated liquidation "
+                f"price {liquidation:.2f} for a plan made at {inputs.plan.last_price}; a "
+                f"gap through the exit could reach the liquidation first. Keep at least {floor:.2f} "
+                f"({inputs.thresholds.min_liq_gap_ratio:.1%} of the exit)",
+                {
+                    "gap": gap,
+                    "liquidation_price": liquidation,
+                    "exit_price": exit_price,
+                    "min_gap": floor,
+                },
+            )
+        ]
     atr = inputs.daily_atr
     buffer = inputs.thresholds.min_liq_buffer_atr
     if atr is not None and gap < buffer * atr:
@@ -323,9 +344,10 @@ def _before_liquidation(
 def _ok(
     inputs: PlanRiskInputs,
     side: PositionSide,
-    liquidation: Decimal | None,
+    worst: tuple[LadderStep, Decimal | None],
     exit_price: Decimal | None,
 ) -> Verdict:
+    step, liquidation = worst
     way = side.name.lower()
     if liquidation is None:
         return Verdict(
@@ -343,6 +365,8 @@ def _ok(
         _OK,
         "LIQUIDATION_ESTIMATE",
         f"Estimated liquidation price of the {way} at its worst case: "
-        f"{liquidation:.2f}{where} - an estimate, not a guarantee",
-        numbers,
+        f"{liquidation:.2f}{where} - an estimate, not a guarantee (plan made at "
+        f"{inputs.plan.last_price}, worst-case position {step.position.quantity})",
+        numbers
+        | {"plan_price": inputs.plan.last_price, "position": step.position.quantity},
     )

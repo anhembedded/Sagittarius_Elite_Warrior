@@ -319,8 +319,10 @@ def _running_bot() -> BotsView:
         mark_price=_LAST,
         mark_price_at=_NOW - timedelta(seconds=40),
         pnl=PnlSummary(
-            total=Decimal("48.9"),
-            realised=Decimal("41.20"),
+            # `BOT-229`: realised (against the average cost) is the grid cycles plus the sells of
+            # the opening inventory; the total is realised + unrealised + funding.
+            total=Decimal("49.54"),
+            realised=Decimal("42.15"),
             unrealised=Decimal("7.7"),
             grid_profit=Decimal("41.20"),
             hodl=None,

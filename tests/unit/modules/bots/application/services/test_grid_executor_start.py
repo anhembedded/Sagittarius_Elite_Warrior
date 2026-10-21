@@ -309,4 +309,6 @@ def test_a_budget_trading_refuses_after_the_opening_buy_halts_naming_why() -> No
     assert all(r.order_type is OrderType.MARKET for r in world.book.requests)
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
     assert runtime.reason is GridReason.START_REFUSED
-    assert OwnerBudgetRefusal.INVENTORY_UNAVAILABLE.value in runtime.reason_detail
+    assert (
+        "records could not be read" in runtime.reason_detail
+    )  # `BUG-257`: words, not the code
