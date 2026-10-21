@@ -37,9 +37,9 @@ def read_mark_price(terms: IOrderEntryTerms, symbol: str) -> Decimal:
 
 
 class ExchangeMarkSource(IMarkSource):
-    """The mark of the bot's symbol: the reading the venue's bots share when there is one
-    (`BOT-221`, at most half a beat old, dropped by any order or fill of the symbol), else a read.
-    The exit watch and the risk watch of one bot are two of these over the one reading."""
+    """The mark of the bot's symbol, read from the exchange now. What places an order judges on
+    this one (the protective stop is checked against the mark it is placed on): a placement is a
+    confirmation, and never takes the shared reading (`BOT-221`)."""
 
     def __init__(self, context: GridRunContext, ports: IVenueTradingPorts) -> None:
         self._context = context
@@ -47,8 +47,19 @@ class ExchangeMarkSource(IMarkSource):
 
     def read(self) -> Decimal:
         definition = self._context.state.bot.definition
-        shared = self._context.gateway.account_reads.shared_mark
-        if shared is not None:
-            return shared.current()
         terms = self._ports.get(definition.venue).order_entry_terms
         return read_mark_price(terms, definition.symbol)
+
+
+class WatchedMarkSource(IMarkSource):
+    """The mark of the bot's symbol for an idle watch: the reading its watches share when there
+    is one (`BOT-221`, at most half a beat old, dropped by any order or fill of the symbol), else
+    a read. The exit watch and the risk watch of one bot are two of these over the one reading."""
+
+    def __init__(self, context: GridRunContext, ports: IVenueTradingPorts) -> None:
+        self._context = context
+        self._fresh = ExchangeMarkSource(context, ports)
+
+    def read(self) -> Decimal:
+        shared = self._context.gateway.account_reads.shared_mark
+        return self._fresh.read() if shared is None else shared.current()

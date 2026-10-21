@@ -155,6 +155,8 @@ def test_a_stop_cancelled_by_hand_between_two_beats_is_seen_and_placed_again_at_
 
         assert meter.by_path_since(mark)[OPEN_ORDERS_PATH] == 1
         assert len(stops(app)) == 1
+        # The placement was checked against a mark read now, not the watches' reading.
+        assert meter.by_path_since(mark)[MARK_PATH] == 1
 
 
 @pytest.mark.parametrize("count", COUNTS)

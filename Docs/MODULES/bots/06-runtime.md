@@ -76,12 +76,12 @@ the measurements are in the task file's §5a.)
   (`GridMarkExit`) and the risk watch (`PositionRiskSnapshots`) of one bot each read the symbol's
   `premiumIndex` every beat: two requests (weight 1 each). `SharedMarkReads.of(venue, symbol)` hands
   both the same `BoundedAgeReading` (`bots/application/services/risk/`, the mechanism `VenuePositionReads`
-  also stands on), reached through `BotAccountReads.shared_mark` by `ExchangeMarkSource`. It is
+  also stands on), reached through `BotAccountReads.shared_mark` by `WatchedMarkSource`. It is
   served for at most half a beat, dropped by every order or cancel the bot sends and every fill it
   hears (`BotAccountReads.account_changed`, the same call that drops the positions), and a failed
   read is raised and not kept. Two bots never hold one symbol of a venue (`other_active_bot`), so
   today the sharers are the two watches of one bot, not several bots: an idle bot costs 103, 55 and 46
-  weight at 1, 5 and 20 (it was 115, 67, 58). **Not shared on purpose:** the open orders and open algo
+  weight at 1, 5 and 20 (it was 115, 67, 58). **Not shared on purpose:** the mark a protective stop is placed on (`ExchangeMarkSource` reads it now: a placement is a confirmation); the open orders and open algo
   orders (`BotAccountReads.protective_orders`, one read a beat, no second reader on the symbol, so
   sharing saves nothing and would sit between the bot and the question whether its stop still stands);
   and every confirmation. **Limit:** what an idle bot still costs is symbol-scoped and linear in the

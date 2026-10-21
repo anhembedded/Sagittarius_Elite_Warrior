@@ -1,7 +1,7 @@
 """`BOT-221` — the two watches of a bot read its symbol's mark once between them, and never judge
 on a mark older than half a beat or older than the last order or fill of the symbol.
 
-`SharedMarkReads` is the reading, found by venue and symbol; `ExchangeMarkSource` serves a bot's
+`SharedMarkReads` is the reading, found by venue and symbol; `WatchedMarkSource` serves a bot's
 exit watch and risk watch from it; `BotOrderGateway` and `account_changed` drop it. A confirmation
 never takes it, and a failed read is never kept."""
 
@@ -12,6 +12,12 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_facts import (
+    GridFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
+    GridRunContext,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_account_reads import (
     BotAccountReads,
 )
@@ -21,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_shared_reads import (
     BotSharedReads,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.bounded_age_reading import (
+    BoundedAgeReading,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_mark_reads import (
     SharedMarkReads,
@@ -225,3 +234,41 @@ def test_a_bot_without_a_shared_mark_reads_for_itself() -> None:
 
     assert reads.shared_mark is None
     reads.account_changed()  # nothing to drop, and nothing raised
+
+
+def test_a_reading_is_aged_from_when_its_request_was_made() -> None:
+    """A slow read must not look younger than it is: begun at 0 and answered at 2 s, it is past
+    the half-beat bound 0.6 s later, though only 0.6 s old by the time of its answer."""
+    clock = FakeMonotonicClock()
+    reads: list[int] = []
+
+    def slow_read() -> int:
+        clock.advance(2.0)
+        reads.append(1)
+        return len(reads)
+
+    reading = BoundedAgeReading(slow_read, clock, SHARED_READING_MAX_AGE_SECONDS)
+    reading.current()
+    clock.advance(SHARED_READING_MAX_AGE_SECONDS - 2.0 + 0.1)
+
+    reading.current()
+
+    assert len(reads) == 2
+
+
+def test_a_fill_heard_by_the_stream_drops_the_mark_before_any_order_follows() -> None:
+    """`GridFacts.on_fill` drops the symbol's reading on the stream's thread, on its own: the
+    order the grid places after a fill would drop it too, so this is the case with none."""
+    terms, clock = _Terms("100"), FakeMonotonicClock()
+    gateway = _gateway(terms, clock, FakeOrderSubmission())
+    shared = gateway.account_reads.shared_mark
+    assert shared is not None
+    shared.current()
+    terms.price = Decimal(90)
+    context = Mock(spec=GridRunContext)
+    context.gateway = gateway
+    facts = GridFacts(context, Mock(), lambda _what, _apply: None, lambda: None)
+
+    facts.on_fill(Mock(client_order_id="bot:abc123-1"))
+
+    assert shared.current() == Decimal(90)

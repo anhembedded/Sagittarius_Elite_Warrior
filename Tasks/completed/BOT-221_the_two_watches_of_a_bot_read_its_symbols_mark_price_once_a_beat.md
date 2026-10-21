@@ -41,7 +41,8 @@ After `BOT-184` an idle Futures bot spent 115 weight a minute alone and 58 each 
 | `bots/application/services/risk/shared_mark_reads.py` | new: one mark reading per venue and symbol |
 | `bots/application/services/orders/bot_shared_reads.py` | new: the readings one bot's gateway holds |
 | `bots/application/services/orders/bot_account_reads.py`, `bot_order_gateway.py` | `shared_mark`; `account_changed` drops both readings; the gateway takes `BotSharedReads` |
-| `bots/application/services/venue/mark_source_futures.py` | `read_mark_price`; `ExchangeMarkSource` serves from the shared reading when there is one |
+| `bots/application/services/venue/mark_source_futures.py` | `read_mark_price`; `WatchedMarkSource` serves the two watches from the shared reading when there is one; `ExchangeMarkSource` still reads now (the protective stop's placement) |
+| `bots/composition/futures_wiring.py` | the exit watch and the risk watch take `WatchedMarkSource`; the protective stop keeps `ExchangeMarkSource` |
 | `bots/application/kinds/grid/grid_executor_factory.py`, `bots/composition/executor_bindings.py` | `GridExecutorDeps.marks`; built once |
 
 ## 5. Testing
@@ -51,14 +52,14 @@ Measured on the fake Futures exchange's `WeightMeter`, an idle minute (12 beats,
 | ---: | :--- | :--- |
 | 1 | 115 / 115 / 24 | 103 / 103 / 12 |
 | 5 | 335 / 67 / 120 | 275 / 55 / 60 |
-| 20 | 1,160 / 58 / 480 | 920 / 46 / 240 |
+| 20 | 1,160 / 58 / 480 | 920–940 / 46–47 / 240 |
 
-(`positionRisk` 60, open orders and open algo orders 12 per bot, unchanged.) Before = master `ed2bc9a`, after = this branch.
+(`positionRisk` 60, 65 at 20 bots when an order drops the reading mid-minute; the total varies with timing; open orders and open algo orders 12 per bot, unchanged.) Before = master `ed2bc9a`, after = this branch.
 
-Unit, `test_shared_mark_reads.py` (10 cases): one request for the two watches, the next beat reads again, the half-beat bound at its edge, one reading per venue and symbol, a failed read not kept, a venue with no mark is an unread mark, an order and a fill each drop the reading, a read that raced an order is not kept, a bot without a shared reading. Integration (9 cases): the figures above, a second look inside half a beat reads nothing and one after it reads, a fill drops the mark, the limit with every drop switched off, a stop that runs between two beats ends the bot as triggered with the mark shared, a stop cancelled by hand is seen at the next look. Mutated, each red: marks not shared (7 integration cases), no mark invalidation (the fill journey and 3 unit cases), the age bound tripled (3 cases).
+Unit, `test_shared_mark_reads.py` (10 cases): one request for the two watches, the next beat reads again, the half-beat bound at its edge, one reading per venue and symbol, a failed read not kept, a venue with no mark is an unread mark, an order and a fill each drop the reading, a read that raced an order is not kept, a bot without a shared reading. Integration (9 cases): the figures above, a second look inside half a beat reads nothing and one after it reads, a fill drops the mark (`GridFacts.on_fill`, pinned by its own unit case), the limit with every drop switched off, a stop that runs between two beats ends the bot as triggered with the mark shared, a stop cancelled by hand is seen at the next look. The protective stop's placement reads the mark now (the hand-cancelled-stop journey asserts a `premiumIndex` request at the placement while the watches' reading is fresh). Mutated, each red: marks not shared (7 integration cases), no mark invalidation (the fill journey and 3 unit cases), the age bound tripled (3 cases).
 
 ## 6. Docs touched
 `Docs/MODULES/bots/06-runtime.md` ("several bots on one venue": the shared mark, its bound and invalidation, the figures, what is not shared and why, the limit).
 
 ## Implementation notes
-The ask assumed bots share symbols; they cannot (`other_active_bot`), which is why the saving is the bot's own second mark read and why the open orders are not shared. Reported to the delivery coordinator before building. `BotOrderGateway` kept its four constructor arguments by taking one `BotSharedReads` where it took the positions reading; the one test file that built it with a positions reading wraps it.
+A review found a third reader of the first version, the protective stop's placement (its mark is the reference price the stop is checked against, so a half-beat-old one could refuse a stop a fresh mark would place): it keeps a mark read now. The ask assumed bots share symbols; they cannot (`other_active_bot`), which is why the saving is the bot's own second mark read and why the open orders are not shared. Reported to the delivery coordinator before building. `BotOrderGateway` kept its four constructor arguments by taking one `BotSharedReads` where it took the positions reading; the one test file that built it with a positions reading wraps it.
