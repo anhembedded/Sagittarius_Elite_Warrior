@@ -186,6 +186,9 @@ class GridFacts(IBotFacts):
         self._exit_report = GridExitReport(context)
 
     def on_fill(self, fill: BotOrderFill) -> None:
+        # A fill changes the account's position: the venue's shared reading of it is dropped here,
+        # on the stream's thread, before any watch of the venue can look at it (`BOT-184`).
+        self._context.gateway.account_reads.account_changed()
         self._post(f"fill of {fill.client_order_id}", lambda: self._apply_fill(fill))
 
     def on_end(self, end: BotOrderEnd) -> None:

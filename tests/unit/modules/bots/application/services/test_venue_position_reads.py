@@ -155,24 +155,84 @@ def test_a_failed_read_is_raised_and_not_kept() -> None:
     assert account.requests == 3
 
 
-def test_bots_asking_together_on_different_threads_make_one_request() -> None:
-    account, clock = _Account(_position("BTCUSDT", "1")), FakeMonotonicClock()
+class _SlowAccount(_Account):
+    """An account whose read waits to be let finish, so a test can act while it is in flight."""
+
+    def __init__(self, *held: LivePosition) -> None:
+        super().__init__(*held)
+        self.began = threading.Event()
+        self.finish = threading.Event()
+
+    def open_positions(self) -> tuple[LivePosition, ...]:
+        self.began.set()
+        assert self.finish.wait(timeout=10)
+        return super().open_positions()
+
+
+def _ask_in_a_thread(
+    reads: VenuePositionReads, answers: list[tuple[LivePosition, ...]]
+) -> threading.Thread:
+    thread = threading.Thread(target=lambda: answers.append(reads.positions()))
+    thread.start()
+    return thread
+
+
+def test_bots_asking_while_a_read_is_in_flight_wait_for_it_and_make_no_second_request() -> (
+    None
+):
+    """The read lock: a second bot that arrives while the first is reading takes its answer."""
+    account, clock = _SlowAccount(_position("BTCUSDT", "1")), FakeMonotonicClock()
     reads = _reads(account, clock)
-    start = threading.Barrier(8)
     answers: list[tuple[LivePosition, ...]] = []
+    first = _ask_in_a_thread(reads, answers)
+    assert account.began.wait(timeout=10)
+    second = _ask_in_a_thread(reads, answers)
 
-    def ask() -> None:
-        start.wait()
-        answers.append(reads.positions())
+    second.join(timeout=0.3)
+    still_waiting = second.is_alive()
+    account.finish.set()
+    first.join(timeout=10)
+    second.join(timeout=10)
 
-    threads = [threading.Thread(target=ask) for _ in range(8)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
-
+    assert still_waiting, "the second bot read instead of waiting for the first"
     assert account.requests == 1
-    assert len(answers) == 8
+    assert answers == [account.held, account.held]
+
+
+def test_invalidating_never_waits_for_a_read_in_flight() -> None:
+    """An order is never delayed by another bot's slow `positionRisk`."""
+    account, clock = _SlowAccount(_position("BTCUSDT", "1")), FakeMonotonicClock()
+    reads = _reads(account, clock)
+    reader = _ask_in_a_thread(reads, [])
+    assert account.began.wait(timeout=10)
+    invalidator = threading.Thread(target=reads.invalidate)
+
+    invalidator.start()
+    invalidator.join(timeout=2)
+    returned = not invalidator.is_alive()
+    account.finish.set()
+    reader.join(timeout=10)
+
+    assert returned, "invalidate() waited behind a read in flight"
+
+
+def test_a_read_in_flight_when_the_reading_is_invalidated_is_not_kept() -> None:
+    account, clock = _SlowAccount(_position("BTCUSDT", "1")), FakeMonotonicClock()
+    reads = _reads(account, clock)
+    answers: list[tuple[LivePosition, ...]] = []
+    reader = _ask_in_a_thread(reads, answers)
+    assert account.began.wait(timeout=10)
+
+    reads.invalidate()  # an order was sent while the read was on its way
+    account.finish.set()
+    reader.join(timeout=10)
+    account.held = (_position("BTCUSDT", "0.5"),)
+
+    assert answers == [
+        (_position("BTCUSDT", "1"),)
+    ]  # the asker still gets what it read
+    assert reads.positions() == account.held  # but nobody after it is served that
+    assert account.requests == 2
 
 
 def test_each_venue_has_its_own_reading() -> None:
@@ -256,6 +316,38 @@ def test_an_order_sent_drops_the_shared_reading() -> None:
     gateway.market_sell(Decimal("0.5"), Decimal(100))
 
     assert gateway.account_reads.watched_position() == Decimal("0.5")
+
+
+def test_a_read_that_races_an_order_is_not_kept_after_it() -> None:
+    """Another bot's watch reads while the order is in flight: the reading it takes is from before
+    the order, and must not be served after it (review of `BOT-184`)."""
+    account, clock = _Account(_position("BTCUSDT", "1")), FakeMonotonicClock()
+    reads = _reads(account, clock)
+
+    class _ReadsMidSend(FakeOrderSubmission):
+        def submit(self, request, live=False):  # type: ignore[no-untyped-def]
+            reads.positions()
+            account.held = (_position("BTCUSDT", "0.5"),)
+            return super().submit(request, live=live)
+
+    submission = _ReadsMidSend()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    gateway = _gateway(account, reads, submission)
+
+    gateway.market_sell(Decimal("0.5"), Decimal(100))
+
+    assert gateway.account_reads.watched_position() == Decimal("0.5")
+
+
+def test_a_fill_the_bot_hears_drops_the_shared_reading() -> None:
+    account, clock = _Account(_position("BTCUSDT", "1")), FakeMonotonicClock()
+    gateway = _gateway(account, _reads(account, clock), FakeOrderSubmission())
+    gateway.account_reads.watched_position()
+    account.held = ()
+
+    gateway.account_reads.account_changed()
+
+    assert gateway.account_reads.watched_position() == Decimal(0)
 
 
 def test_a_cancel_drops_the_shared_reading() -> None:

@@ -79,6 +79,12 @@ class BotAccountReads:
             return self.position()
         return self._position_in(self._shared.positions)
 
+    def account_changed(self) -> None:
+        """Something this bot did or heard changes what the account holds: the venue's shared
+        reading of the positions, if there is one, is dropped (`BOT-184`)."""
+        if self._shared is not None:
+            self._shared.invalidate()
+
     def _position_in(
         self, read: Callable[[], tuple[LivePosition, ...]]
     ) -> Decimal | None:

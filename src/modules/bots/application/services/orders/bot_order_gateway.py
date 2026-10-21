@@ -206,7 +206,15 @@ class BotOrderGateway:
         )
 
     def cancel(self, client_order_id: str) -> OrderOutcome:
-        self._the_account_may_change()
+        """Cancels one order. The venue's shared reading of the positions is dropped before the
+        call and again after it: a read that raced it must not outlive it (`BOT-184`)."""
+        self._reads.account_changed()
+        try:
+            return self._cancel(client_order_id)
+        finally:
+            self._reads.account_changed()
+
+    def _cancel(self, client_order_id: str) -> OrderOutcome:
         try:
             result = self._ports.order_submission.cancel(
                 self._identity.symbol, client_order_id
@@ -301,16 +309,16 @@ class BotOrderGateway:
         self._pacer.wait_turn()
         return self._submit(request)
 
-    def _the_account_may_change(self) -> None:
-        """An order is about to be sent or cancelled, so the venue's shared reading of the
-        positions no longer says what the account holds (`BOT-184`). Dropped before the call, so
-        a read that races it is not kept either."""
-        if self._shared_positions is not None:
-            self._shared_positions.invalidate()
-
     def _submit(self, request: OrderRequest) -> OrderOutcome:
+        """Sends one order, dropping the shared reading of the positions before and after."""
         self._submissions += 1
-        self._the_account_may_change()
+        self._reads.account_changed()
+        try:
+            return self._send(request)
+        finally:
+            self._reads.account_changed()
+
+    def _send(self, request: OrderRequest) -> OrderOutcome:
         try:
             result = self._ports.order_submission.submit(request, live=True)
         except ExchangeRateLimitedError as limited:

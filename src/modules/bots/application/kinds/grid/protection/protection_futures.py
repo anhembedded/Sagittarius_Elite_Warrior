@@ -255,6 +255,9 @@ class ProtectiveStopService(IExposureProtection):
         trading side serves up to 15 s old and which names a fill by an id the stream may not
         have linked (decision D4)."""
         standing = stop.state is ProtectiveStopState.STANDING
+        if standing and position != 0:  # a shared reading may predate the fill
+            confirmed = self._context.gateway.position()
+            position = position if confirmed is None else confirmed
         logger.info(
             "Bot %s: protective stop %s %s is on no open list and the position is %s "
             "[protective-stop]",
