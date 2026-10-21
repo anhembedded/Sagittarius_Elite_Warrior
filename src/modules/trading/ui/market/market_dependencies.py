@@ -61,6 +61,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_interval,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+    find_tick_flash_preference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
     find_state_coordinator,
 )
@@ -133,6 +137,8 @@ class MarketDependencies:
     #: The exchange filters the Watchlist writes prices and volumes in;
     #: `None` rounds them by magnitude (`EPIC-033N`).
     filters: MarketFilters | None = None
+    #: Whether the Watchlist's prices flash on a tick (`EPIC-043D`); `None` keeps them still.
+    tick_flash: TickFlashPreference | None = None
 
 
 def market_dependencies_for(container: IContainer) -> MarketDependencies:
@@ -165,4 +171,5 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
             container.resolve(ISymbolMarketMetadataCache),
             container.resolve(ISymbolMetadataProvider),
         ),
+        tick_flash=find_tick_flash_preference(container),
     )

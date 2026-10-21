@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel, QToolBar
 from Sagittarius_Elite_Warrior.src.support.ui_kit import meaning_colours
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
@@ -102,4 +102,22 @@ def test_toning_twice_keeps_one_follower(qapp, restore_app_palette) -> None:
     assert len(label.findChildren(type(label.children()[0]))) == 1
     assert label.palette().color(_TEXT) == tone_colour(
         Tone.NEGATIVE, QGuiApplication.palette()
+    )
+
+
+def test_a_label_in_a_toolbar_is_toned_on_the_role_it_draws_with(
+    qapp, qtbot, restore_app_palette
+) -> None:
+    """A toolbar's labels draw with `ButtonText`, not `WindowText`: the desk's headline, in the
+    header toolbar, showed its profit in black until the tone covered every text role."""
+    QGuiApplication.setPalette(_app_palette("white"))
+    bar = QToolBar()
+    qtbot.addWidget(bar)
+    label = QLabel("+1.00")
+    bar.addWidget(label)
+
+    paint_label_tone(label, Tone.POSITIVE)
+
+    assert label.palette().color(label.foregroundRole()) == tone_colour(
+        Tone.POSITIVE, QGuiApplication.palette()
     )

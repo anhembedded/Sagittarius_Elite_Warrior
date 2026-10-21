@@ -12,15 +12,36 @@ from __future__ import annotations
 import json
 
 from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtWidgets import QDialogButtonBox, QLabel, QLineEdit, QPushButton
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialogButtonBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_dependencies import (
+    market_dependencies_for,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.remembered_state_wiring import (
+    register_remembered_state,
+)
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
 from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_pages
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
+    InMemoryStateStore,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.main_window_fakes import (
     DisposeLog,
     engine,
@@ -213,3 +234,25 @@ def test_tools_options_opens_again_after_it_was_closed(qtbot, qapp, app_engine) 
         dialog = window.show_options()
         qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         assert dialog is not None
+
+
+def test_the_appearance_page_and_the_market_mode_share_the_one_tick_flash_preference(
+    qtbot, qapp, app_engine
+) -> None:
+    """`EPIC-043D`: the check box changes the preference the booted app registered, and the
+    Market mode's dependencies are built from that same object (CS-002, CS-003: a wiring
+    asserted against the real graph, not against a preference the test made)."""
+    container = app_engine.context.container
+    # The bootstrapper registers the remembered state before it builds the pages.
+    register_remembered_state(container, UiStateCoordinator(InMemoryStateStore()))
+    registered = container.resolve(TickFlashPreference)
+    assert registered.enabled is False
+    appearance = next(page for page in _pages(app_engine) if page.title == "Appearance")
+
+    box = appearance.widget().findChild(QCheckBox, "options::appearance::tick_flash")
+    assert box is not None
+    box.setChecked(True)
+    appearance.apply()
+
+    assert registered.enabled is True
+    assert market_dependencies_for(container).tick_flash is registered

@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_dependencies
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
     InMemoryStateStore,
 )
@@ -154,3 +157,26 @@ def test_the_watchlist_reads_the_filters_the_provider_fills(qapp):
     assert dependencies.filters is not None
     assert dependencies.filters.cache is cache
     assert dependencies.filters.provider is provider
+
+
+def test_the_registered_tick_flash_preference_reaches_the_market_mode(qapp):
+    """The mode follows the preference the Options page changes: the one the container holds."""
+    preference = TickFlashPreference()
+
+    dependencies = market_dependencies_for(
+        _container(
+            FakeHistoricalKlines(),
+            FakeMarketStream(),
+            {TickFlashPreference: preference},
+        )
+    )
+
+    assert dependencies.tick_flash is preference
+
+
+def test_without_a_tick_flash_preference_the_prices_stay_still(qapp):
+    dependencies = market_dependencies_for(
+        _container(FakeHistoricalKlines(), FakeMarketStream())
+    )
+
+    assert dependencies.tick_flash is None
