@@ -52,6 +52,11 @@ def test_a_letter_that_is_not_in_the_title_is_refused_by_name() -> None:
         mode_labels([_nav("Alerts", "z")], [])
 
 
+def test_a_character_that_is_not_a_letter_is_refused() -> None:
+    with pytest.raises(ModeAccessKeyError, match="'Backtest engine'"):
+        mode_labels([_nav("Backtest engine", " ")], [])
+
+
 def test_more_than_one_letter_is_refused() -> None:
     with pytest.raises(ModeAccessKeyError, match="'Alerts'"):
         mode_labels([_nav("Alerts", "al")], [])
@@ -127,10 +132,15 @@ def test_the_real_modes_keys_are_none_of_a_view_commands(contributions) -> None:
     assert not clashes, "\n".join(sorted(clashes))
 
 
-def test_the_real_modes_keep_the_keys_they_had() -> None:
-    """No existing key moved when the keys were declared: the labels the window showed."""
-    registry = real_contributions(Mock(), dev_mode=True)
-    navs = _real_navs(registry)
+@pytest.mark.parametrize("dev_mode", [True, False], ids=["developer", "normal"])
+def test_the_real_modes_show_the_same_keys_with_or_without_developer_mode(
+    dev_mode: bool,
+) -> None:
+    """The keys the window shows, pinned for both runs. In developer mode they are the ones the
+    window assigned before the keys were declared; in a normal run Backtest engine was `&engine`
+    (no Developer mode took `e` away from it) and is now `Ba&cktest engine`: one key in both runs
+    is the stability the declaration is for, and the one key a normal user sees move."""
+    navs = _real_navs(real_contributions(Mock(), dev_mode=dev_mode))
 
     labels = dict(
         zip(
@@ -140,12 +150,14 @@ def test_the_real_modes_keep_the_keys_they_had() -> None:
         )
     )
 
-    assert labels == {
+    expected = {
         "Market": "&Market",
         "Trade": "&Trade",
         "Bots": "&Bots",
         "Data": "&Data",
         "Alerts": "&Alerts",
-        "Developer": "D&eveloper",
         "Backtest engine": "Ba&cktest engine",
     }
+    if dev_mode:
+        expected["Developer"] = "D&eveloper"
+    assert labels == expected

@@ -1,7 +1,7 @@
 # BOT-210 — Adding a mode cannot make the workbench refuse a View command's access key
 
 **Status:** ✅ Done (2026-10-21)
-**Board:** A mode declares its View access key in its `NavMetadata` (`access_key`), so adding a mode moves no other mode's key; the window refuses a letter not in the title, one two modes share, or one a View item holds, and a test holds every real mode and every real View command to it (option 3, as recommended). No existing key changed.
+**Board:** A mode declares its View access key in its `NavMetadata` (`access_key`), so adding a mode moves no other mode's key; the window refuses a letter not in the title, one two modes share, or one a View item holds, and a test holds every real mode and every real View command to it (option 3, as recommended). Developer-mode keys are unchanged; in a normal run Backtest engine moves from `e` to `c` (it took `e` only because Developer was absent), so one key now serves both runs.
 **Source:** the delivery coordinator, 2026-10-20: "file the mode access-key collision as a backlog BOT task (one file, the root-fix design question)", after `EPIC-036D2` hit it.
 **Risk:** 🟢 — menu text only; the suite already refuses a clash, so a wrong choice fails loudly
 **Complexity:** S — one function and its inputs, once the choice is made
@@ -17,7 +17,7 @@ Observed at `bd5eefa` plus `EPIC-036D2` (PR #656): with `Alerts` before `Backtes
 
 ## 2. Acceptance criteria
 - [x] Adding a mode to the mode bar cannot produce an access-key clash with a View command, for any mode order, by construction: keys are declared and do not depend on order (`test_adding_a_mode_moves_no_other_modes_key`), and a property over the real modes and the real View commands names any mode key a command also holds (`test_the_real_modes_keys_are_none_of_a_view_commands`; mutated: Alerts on `l`, Backtest on `k`).
-- [x] No existing key changes (`test_the_real_modes_keep_the_keys_they_had`), and HLD §11.2.3 names the keys the modes get.
+- [x] No key changes in developer mode, and one in a normal run, stated here and in HLD §11.2.3: Backtest engine was `&engine` (no Developer mode took `e`) and is `Ba&cktest engine`, the same key in both runs, which is the stability the task asked for (`test_the_real_modes_show_the_same_keys_with_or_without_developer_mode`, both runs).
 
 ## 3. Design
 **Chosen: option 3**, a declared key per mode, as recommended. Checked against the code before taking it: `MainWindow._add_modes` (`src/presentation/ui/main_window.py`) did hand each title the first letter no earlier title used, in mode order, so the clash was order-dependent as §1 says; option 1 (command keys as taken) would need the View commands of every mode to leave letters free for modes that do not exist yet; option 2 needs the Engine's registry (`ONBOARDING.md` §2: its own confirmation). Option 3 needs neither.
@@ -46,4 +46,4 @@ The declaration does not prevent a View command taking a mode's letter; it moves
 `Docs/HLD/11_desktop_workbench.md` §11.2.3 (the View row).
 
 ## Implementation notes
-Mutation (each turned the new tests red and was restored): Alerts on `l` (a Live chart tab key), Backtest engine on `k` (Mar&ket, Bac&ktest tab), Trade undeclared, the window ignoring a declared key.
+Mutation (each turned the new tests red and was restored): Alerts on `l` (a Live chart tab key), Backtest engine on `k` (Mar&ket, Bac&ktest tab), Trade undeclared, `mode_labels` ignoring a declared key, and (review round 1) the window going back to the first-free-letter rule, which only the window-level test `test_the_window_gives_each_mode_the_access_key_it_declares` catches. `access_key` must be a letter (a space is refused).

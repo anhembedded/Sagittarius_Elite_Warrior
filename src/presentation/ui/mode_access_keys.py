@@ -49,7 +49,7 @@ def mode_labels(navs: Sequence[NavMetadata], reserved: Sequence[str]) -> list[st
 def _check(
     nav: NavMetadata, key: str, held: set[str], declared: dict[str, str]
 ) -> None:
-    if len(key) != 1 or key not in nav.title.lower():
+    if len(key) != 1 or not key.isalpha() or key not in nav.title.lower():
         raise ModeAccessKeyError(
             f"mode {nav.title!r} declares access key {nav.access_key!r}, "
             "which is not one letter of its title"
