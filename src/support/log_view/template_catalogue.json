@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 858, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 859, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -38,6 +38,7 @@
 ["sfss", "", ": no request is sent for ", " s, until ", " [", "]"],
 ["ssd", "", ": order session not opened: ", " (", " position(s) not excused) [order-session]"],
 ["ss", "", ": order session open (already open: ", ") [order-session]"],
+["sfss", "", ": routine requests are not sent for ", " s, until ", "; the reads that guard exits still pass, except while a pause of the exchange's own runs [", "]"],
 ["ss", "", ": the answer could not be read (", ") [key-probe]"],
 ["s", "", ": the heartbeat interval is not one this build offers and is ignored [alert-settings]"],
 ["s", "", ": the key can withdraw; refused before reading anything [key-gate]"],

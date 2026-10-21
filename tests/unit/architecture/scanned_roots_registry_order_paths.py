@@ -15,6 +15,11 @@ ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_start_journeys_run_at_production_pacing.py",
         (("tests/integration/modules/bots", "test_*.py"),),
     ),
+    # `BOT-226` - only the three query handlers open the request-priority scope.
+    (
+        "tests/unit/architecture/test_only_the_query_handlers_open_a_request_priority_scope.py",
+        (("src", "*.py"),),
+    ),
     (
         "tests/unit/architecture/test_every_secret_store_is_in_the_contract_suite.py",
         (("src", "*.py"),),

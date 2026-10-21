@@ -66,7 +66,7 @@ def test_a_ban_during_a_soft_pause_is_told_with_the_end_of_the_ban(
     _refuse_with(
         policy,
         rate_limited(418, retry_after="600"),
-        while_in_flight=lambda: policy.note_used_weight(900),
+        while_in_flight=lambda: policy.note_used_weight(1100),
     )
 
     told = _told(caplog)
@@ -106,7 +106,7 @@ def test_a_shorter_or_equal_pause_inside_a_pause_is_not_told_again(
 
     _refuse_with(policy, rate_limited(429, retry_after="60"))
     _refuse_with(policy, rate_limited(429, retry_after="60"))  # same end
-    policy.note_used_weight(900)  # the minute ends in 16 s: shorter
+    policy.note_used_weight(1100)  # the minute ends in 16 s: shorter
     policy.note_used_weight(950)
 
     assert len(_told(caplog)) == 1
@@ -139,7 +139,7 @@ def test_a_ban_is_told_even_when_it_ends_before_the_pause_that_was_running(
     _refuse_with(
         policy,
         rate_limited(418, retry_after="5"),
-        while_in_flight=lambda: policy.note_used_weight(900),
+        while_in_flight=lambda: policy.note_used_weight(1100),
     )
 
     told = _told(caplog)
@@ -164,7 +164,7 @@ def test_a_ban_is_told_again_in_the_next_pause_once_the_first_has_ended(
     _refuse_with(
         policy,
         rate_limited(418, retry_after="5"),
-        while_in_flight=lambda: policy.note_used_weight(900),
+        while_in_flight=lambda: policy.note_used_weight(1100),
     )
 
     bans = [m for m in _told(caplog) if "[rate-limit-ban]" in m]

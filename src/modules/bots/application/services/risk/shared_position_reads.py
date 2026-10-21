@@ -8,6 +8,7 @@ to the risk watch and to every bot's gateway, so they share the same reading.
 from __future__ import annotations
 
 import threading
+from functools import partial
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
     VenuePositionReads,
@@ -20,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -51,7 +55,11 @@ class SharedPositionReads:
             if reads is None:
                 snapshot = self._ports.get(venue).account_snapshot
                 reads = VenuePositionReads(
-                    snapshot.open_positions, self._monotonic, self._max_age
+                    partial(
+                        snapshot.open_positions, priority=RequestPriority.EXIT_GUARD
+                    ),
+                    self._monotonic,
+                    self._max_age,
                 )
                 self._by_venue[venue] = reads
             return reads

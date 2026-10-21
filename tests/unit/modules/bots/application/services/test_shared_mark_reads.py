@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.mark_price import M
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable import (
     NotApplicable,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
     FuturesReads,
@@ -81,10 +84,14 @@ class _Terms(FakeOrderEntryTerms):
         self.failing = False
         self.no_mark = False
 
-    def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
+    def mark_price_for(
+        self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> MarkPrice | NotApplicable:
         self.requests += 1
         if self.failing:
-            return super().mark_price_for("UNSEEDED")  # raises: no mark seeded
+            return super().mark_price_for(
+                "UNSEEDED", priority
+            )  # raises: no mark seeded
         if self.no_mark:
             return NotApplicable.ON_THIS_VENUE
         return MarkPrice(symbol, self.price, _AT)
@@ -216,8 +223,10 @@ def test_a_read_that_races_an_order_is_not_kept_after_it() -> None:
     )
     original = terms.mark_price_for
 
-    def read_then_the_order_lands(symbol: str) -> MarkPrice | NotApplicable:
-        answer = original(symbol)
+    def read_then_the_order_lands(
+        symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> MarkPrice | NotApplicable:
+        answer = original(symbol, priority)
         reads.account_changed()  # the order came back while the read was on its way
         return answer
 

@@ -182,8 +182,11 @@ def _recheck(values: tuple[object, ...]) -> str:
 
 
 def _gate(values: tuple[object, ...]) -> str:
-    ratio, spot, futures, ttl = values
-    return f"{float(str(ratio)) * 100:g} % of {spot} on Spot, of {futures} on Futures; {seconds(ttl)}"
+    soft, hard, spot, futures, ttl = values
+    return (
+        f"{float(str(soft)) * 100:g} % (routine), {float(str(hard)) * 100:g} % (every request) "
+        f"of {spot} on Spot, of {futures} on Futures; {seconds(ttl)}"
+    )
 
 
 _BOTS = "src/modules/bots"
@@ -334,12 +337,16 @@ TIMING: tuple[TimingRow, ...] = (
         _recheck,
     ),
     TimingRow(
-        "The request gate closes at this share of the minute's weight; "
-        "a One-way position mode is kept",
+        "The request gate closes to routine requests at this share of the minute's weight, "
+        "to every request at the next; a One-way position mode is kept",
         (
             Constant(
                 f"{_TRADING}/adapters/binance/exchange_call_policy.py",
                 "SOFT_WEIGHT_RATIO",
+            ),
+            Constant(
+                f"{_TRADING}/adapters/binance/exchange_call_policy.py",
+                "HARD_WEIGHT_RATIO",
             ),
             Constant(
                 f"{_TRADING}/adapters/binance/exchange_call_policy.py",

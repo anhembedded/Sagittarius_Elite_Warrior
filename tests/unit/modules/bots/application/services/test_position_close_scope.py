@@ -73,7 +73,9 @@ def test_a_flat_bot_beside_a_position_by_hand_closes_nothing_and_is_flat(
     nothing of its own to send and ends; it never waits for a position it cannot derive."""
     world, _ = a_position_world()
     monkeypatch.setattr(
-        world.snapshot, "open_positions", lambda: (a_long_position("0.05"),)
+        world.snapshot,
+        "open_positions",
+        lambda priority=None: (a_long_position("0.05"),),
     )
     foreign = OwnerBudgetRegistrationResult(
         OwnerBudgetRefusal.FOREIGN_POSITION,
@@ -140,7 +142,9 @@ def test_a_position_that_did_not_shrink_by_what_was_sold_still_waits(
     """The exchange keeps reporting 0.05 after the bot sold its 0.03: the close did not happen."""
     world, _ = a_position_world()
     monkeypatch.setattr(
-        world.snapshot, "open_positions", lambda: (a_long_position("0.05"),)
+        world.snapshot,
+        "open_positions",
+        lambda priority=None: (a_long_position("0.05"),),
     )
 
     progress = closer_of(world).close(a_registration("0.03"), LAST_PRICE)
@@ -190,7 +194,9 @@ def test_a_position_on_the_other_side_of_the_bots_is_not_the_bots_to_close(
     """The bot derives a long; the exchange holds a short the owner opened: nothing is sent."""
     world, _ = a_position_world()
     monkeypatch.setattr(
-        world.snapshot, "open_positions", lambda: (a_long_position("-0.02"),)
+        world.snapshot,
+        "open_positions",
+        lambda priority=None: (a_long_position("-0.02"),),
     )
 
     progress = closer_of(world).close(a_registration("0.03"), LAST_PRICE)

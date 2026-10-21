@@ -23,12 +23,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavai
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable import (
     NotApplicable,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 
 
 def read_mark_price(terms: IOrderEntryTerms, symbol: str) -> Decimal:
-    """The venue's mark price of `symbol` now. @raise MarkReadError it could not be read."""
+    """The venue's mark price of `symbol` now, read as a guard of the bot's exits, so it uses the
+    venue's weight reserve (`BOT-226`). @raise MarkReadError it could not be read."""
     try:
-        mark = terms.mark_price_for(symbol)
+        mark = terms.mark_price_for(symbol, RequestPriority.EXIT_GUARD)
     except MarketPriceUnavailableError as error:
         raise MarkReadError(f"{symbol}: {error}") from error
     if isinstance(mark, NotApplicable):

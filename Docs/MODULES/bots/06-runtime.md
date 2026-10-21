@@ -148,6 +148,36 @@ the measurements are in the task file's §5a.)
   and every confirmation. **Limit:** what an idle bot still costs is symbol-scoped and linear in the
   bots; the next lever is `premiumIndex` without a symbol (weight 10 for every symbol, worth it only
   above about ten bots on a venue, past today's cap).
+- **A reserve of weight for the reads that guard exits** (`BOT-226`, `BUG-247` option C). The venue's gate
+  closes at 70 % of the minute's weight (`SOFT_WEIGHT_RATIO`); two wide ladders placed in one minute
+  reached it and left every bot's position, mark and open-stop reads refused until the minute turned,
+  so no stop loss or take profit was judged. The gate now has two lines. At 70 % it closes to *routine*
+  requests (`RequestPriority.ROUTINE`: ladder placement, reconciliation, housekeeping, a screen's
+  refresh, a start's checks), as before. A read that guards an exit (`EXIT_GUARD`) still passes up to
+  90 % (`HARD_WEIGHT_RATIO`, 480 of Futures' 2,400), where the gate closes to everything, as a 429
+  does; a 429 or a 418 closes it to the guards at once. What is a guard is classed at the three ports
+  that serve the facts, never by call site: `BotAccountReads.position`, `protective_orders`,
+  `read_mark_price` and the venue's shared position reading (`SharedPositionReads`) name `EXIT_GUARD`;
+  `ladder_orders` and every other read keep the default. The query handler carries the priority to the
+  session (`prioritised`, a `ContextVar` scope, because `ITradingClient` stays unchanged) and
+  `ExchangeCallPolicy` reads it; only the three handlers open the scope (an architecture guard).
+  Orders and cancels are never guards, and the owner's caps (150 open orders, 60 orders a minute,
+  250 ms spacing) are the pacer's and the budget's, untouched. **Limits:** (1) the reserve is spent
+  by the guards of all the venue's bots. An idle minute of them weighs 96, 240 and about 780 at 1, 5
+  and 20 bots (positions 60 for the venue, then 36 a bot: mark 12, open orders 12, open algo orders
+  12; `test_many_bots_on_one_venue_cost_on_the_fake_exchange.py -k "measured and idle"`), against the
+  reserve's 480: the cap is five active bots a venue (`MAX_ACTIVE_BOTS_PER_VENUE`), so the reserve serves every
+  bot the cap allows through a pause that begins at the top of the minute; were the cap lifted to
+  20, the reserve would last about 37 s of it and the hard line would then hold the guards too. (2) The weight is
+  known only from the answer's header, so requests already in flight when the header crosses a line
+  still land: the 10 % above the hard line is for them. (3) A guard refused at the hard line is
+  unchanged from before: the bot's exits wait for the minute's end. (4) 90 % is later than `BUG-216`
+  found right for the soft line, and is safe because above 70 % no routine chain starts: each of its
+  requests meets the gate on its own and a chain stops at its next one, so what is in flight at 90 %
+  is the guard reads of at most five bots (1 to 5 weight each) and single routine requests, inside
+  the 240 weight above the line; the owner confirms the figure. (5) The coverage read of the run host
+  (`StopCoverageReader`, which decides between leaving and closing a flat bot) is a ladder read and
+  stays routine: in the reserve it answers "unread", while the position and the stops are read.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
