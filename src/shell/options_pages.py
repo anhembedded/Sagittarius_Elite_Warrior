@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.shell.developer_options.developer_options_pag
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_preference import (
     ColourSchemePreference,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -50,5 +53,8 @@ def build_options_pages(
         container.resolve(IConfigWriter),
         running_with_dev_mode=running_with_dev_mode,
     )
-    appearance = AppearanceOptionsPage(container.resolve(ColourSchemePreference))
+    appearance = AppearanceOptionsPage(
+        container.resolve(ColourSchemePreference),
+        container.resolve(TickFlashPreference),
+    )
     return (*module_pages, appearance, developer)
