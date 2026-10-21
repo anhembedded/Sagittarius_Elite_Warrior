@@ -49,6 +49,28 @@ NO_MARK_PRICE_SAVED = (
     "not available: the bot saves its last trade price, not the exchange's mark price"
 )
 
+#: `BOT-229` - the run's earnings in the order that adds up, each figure with its basis. Realised is
+#: every sell and buy-back measured against the average cost, net of the fees on the sells; the
+#: cost of what is held carries the buy fees. Grid profit is a different lens on part of the same
+#: realised money: each completed cycle's sell against its own paired buy. It is not an addition.
+REALISED_TITLE = "Realised (in the wallet), net of fees"
+GRID_CYCLES_TITLE = "of which grid cycles"
+UNREALISED_TITLE = "Unrealised (held, at last price)"
+FEES_TITLE = "Fees paid (inside the figures above)"
+FUNDING_TITLE = "Funding (earned +, paid -)"
+TOTAL_SUM_TITLE = "Total PnL = realised + unrealised + funding"
+#: Said once under the figures (`bot show`) and in the legend of `bot list`.
+EARNINGS_BASIS = (
+    "Realised is measured against the average cost; grid profit against each cycle's own buy, "
+    "so grid profit is a different view of part of the realised money, not an addition to it."
+)
+#: `bot list` - what the two columns are, so a Total PnL far above the Grid profit is read right.
+GRID_PROFIT_LEGEND = (
+    "GRID PROFIT counts only completed buy to sell cycles. The rest of TOTAL PNL is the held "
+    "position's gain or loss and the sells of the opening inventory; the held part reverses if "
+    "the price falls back."
+)
+
 type MoneyWriter = Callable[[Decimal], str]
 type PriceWriter = Callable[[Decimal], str]
 
@@ -93,6 +115,12 @@ class RunEarnings:
     cost: Decimal = Decimal(0)
     #: `BOT-202` - when the bot heard `mark_price` (its own clock); `None` before one.
     mark_price_at: datetime | None = None
+    #: `BOT-229` - every sell and buy-back against the average cost, net of fees (`PnlSummary.realised`);
+    #: `None` when the run's PnL was not judged.
+    realised: Decimal | None = None
+    #: `BOT-229` - the quantity held (signed on a position venue) and its average cost.
+    held: Decimal = Decimal(0)
+    average_cost: Decimal | None = None
 
     @classmethod
     def of(cls, progress: BotProgress | None) -> RunEarnings | None:
@@ -114,6 +142,9 @@ class RunEarnings:
             funding=pnl.funding if pnl is not None else None,
             cost=progress.cost,
             mark_price_at=progress.mark_price_at,
+            realised=pnl.realised if pnl is not None else None,
+            held=progress.inventory,
+            average_cost=progress.average_cost,
         )
 
 
@@ -139,6 +170,20 @@ def total_pnl_text(earnings: RunEarnings | None, money: MoneyWriter) -> str:
         else ""
     )
     return f"{money(earnings.total_pnl)}{note}"
+
+
+def realised_text(earnings: RunEarnings | None, money: MoneyWriter) -> str:
+    """What the run has taken in against the average cost, net of fees."""
+    if earnings is None or earnings.realised is None:
+        return NO_VALUE
+    return money(earnings.realised)
+
+
+def held_text(earnings: RunEarnings | None, price: PriceWriter) -> str:
+    """The quantity held and what it cost on average: the position the unrealised figure values."""
+    if earnings is None or earnings.held == 0 or earnings.average_cost is None:
+        return NO_VALUE
+    return f"{earnings.held:f} at an average cost of {price(earnings.average_cost)}"
 
 
 def unrealised_text(

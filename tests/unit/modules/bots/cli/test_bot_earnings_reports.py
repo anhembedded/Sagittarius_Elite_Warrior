@@ -148,8 +148,14 @@ def test_bot_show_prints_the_figures_the_bots_tab_shows(
     assert f"Total PnL    {total_pnl}" in out
     assert "Cycles       7" in out
     assert f"Unrealised   {tab.unrealised}" in out
-    assert out.index("Grid profit") < out.index("Cycles") < out.index("Total PnL")
-    assert out.index("Total PnL") < out.index("Unrealised")
+    # `BOT-229`: in the order that adds up, the total last with its sum and the basis beneath.
+    assert f"Realised     {_undecorated(tab.realised)}" in out
+    assert out.index("Realised") < out.index("Grid profit") < out.index("Cycles")
+    assert out.index("Cycles") < out.index("Unrealised") < out.index("Total PnL")
+    assert "= realised 1,230.25 + unrealised 0.00 + funding 0.00" in out
+    assert (
+        "Realised is measured against the average cost; grid profit against each" in out
+    )
 
 
 def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
@@ -163,6 +169,9 @@ def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
     assert "Unrealised   no price yet" in out
     assert _tab("bbbbbb").unrealised == "no price yet"
     assert bot["earnings"] == {
+        "realised": "1230.25",
+        "held": "0.01",
+        "average_cost": "64000",
         "grid_profit": "5.74",
         "completed_cycles": 1,
         "total_pnl": None,
@@ -200,6 +209,9 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
     row = next(line for line in out.splitlines() if line.startswith("aaaaaa"))
     assert "1,234.50" in row and "1,230.25" in row
     assert bots["aaaaaa"]["earnings"] == {
+        "realised": "1230.25",
+        "held": "0",
+        "average_cost": None,
         "grid_profit": "1234.5",
         "completed_cycles": 7,
         "total_pnl": "1230.25",

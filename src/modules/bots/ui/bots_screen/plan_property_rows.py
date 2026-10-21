@@ -18,7 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     ReadinessStep,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
-    TOTAL_PNL_BASIS,
+    FEES_TITLE,
+    FUNDING_TITLE,
+    GRID_CYCLES_TITLE,
+    REALISED_TITLE,
+    TOTAL_SUM_TITLE,
+    UNREALISED_TITLE,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
@@ -97,14 +102,18 @@ PROPERTY_GROUPS: tuple[PropertyGroup, ...] = (
         "Results",
         _rows(
             ("running_time", "Running time", ColumnKind.DURATION),
-            ("grid_profit", "Profit from completed cycles", _MONEY),
+            # `BOT-229`: in the order that adds up. Realised, of which the grid cycles (a different
+            # view of part of it), then what is held and valued, the costs, and the total.
+            ("realised", REALISED_TITLE, _MONEY),
+            ("grid_profit", GRID_CYCLES_TITLE, _MONEY),
             ("cycles", "Completed cycles", _QUANTITY),
             ("cycle_average", "Average per cycle (net of fees)", _MONEY),
-            ("total_pnl", f"Total PnL ({TOTAL_PNL_BASIS})", _MONEY),
-            ("unrealised", "of which unrealised", _MONEY),
+            ("unrealised", UNREALISED_TITLE, _MONEY),
+            ("commissions", FEES_TITLE, _QUANTITY),
+            ("funding", FUNDING_TITLE, _QUANTITY),
+            ("total_pnl", TOTAL_SUM_TITLE, _MONEY),
             ("hodl", "HODL benchmark", _MONEY),
-            ("commissions", "Commissions paid", _QUANTITY),
-            ("funding", "Funding (earned +, paid −)", _QUANTITY),
+            ("earnings_basis", "How to read these", _TEXT),
         ),
     ),
     PropertyGroup(
