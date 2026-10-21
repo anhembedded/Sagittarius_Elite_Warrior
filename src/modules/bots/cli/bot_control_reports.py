@@ -25,11 +25,11 @@ SCHEMA_VERSION = 1
 def control_report(request: HostControlRequest, reply: HostControlReply) -> Report:
     payload: dict[str, JsonValue] = {
         "action": request.action.value,
-        "bot_id": request.bot_id,
+        "bot_id": reply.bot_id or request.bot_id,
         "status": reply.status.value,
         "message": reply.message,
         "command_id": reply.command_id,
     }
-    heading = f"bot {request.action.value} {request.bot_id}"
+    heading = f"bot {request.action.value} {reply.bot_id or request.bot_id}"
     layout = (ReportSection(None, (ReportRow.of(f"{heading}: {reply.message}"),)),)
     return Report(CONTROL_COMMAND, SCHEMA_VERSION, payload, layout)

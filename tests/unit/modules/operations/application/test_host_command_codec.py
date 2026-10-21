@@ -138,12 +138,12 @@ def test_the_new_action_is_a_new_word_not_a_new_key() -> None:
     assert document["action"] == "start"
 
 
-def test_delete_is_not_an_action_the_host_knows() -> None:
-    """The owner dropped `bot delete` from `EPIC-038K` (2026-10-17): no word for it on the wire."""
+def test_delete_is_an_action_the_host_knows_since_epic_045() -> None:
+    """`EPIC-045` D2 reverses the 2026-10-17 drop of `bot delete`: the word is on the wire again."""
     parsed = parse_command(_document(action="delete"))
 
-    assert isinstance(parsed, MalformedDocument)
-    assert "action" in parsed.reason
+    assert not isinstance(parsed, MalformedDocument)
+    assert parsed.action is HostControlAction.DELETE
 
 
 def test_the_refusal_of_an_unknown_action_lists_every_action_the_host_knows() -> None:

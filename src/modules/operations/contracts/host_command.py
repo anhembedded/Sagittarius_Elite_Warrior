@@ -15,6 +15,7 @@ from enum import StrEnum
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
@@ -39,6 +40,8 @@ class HostCommand:
     close_position: bool = False
     #: The `--set key=value` of an edit (`EPIC-038L`); absent from older files and from every other action.
     settings: tuple[ParameterSetting, ...] = ()
+    #: The bot an add creates (`EPIC-045A`); absent from older files and from every other action.
+    entry: NewBotEntry | None = None
 
 
 class ControlVerdict(StrEnum):

@@ -52,6 +52,17 @@ def test_a_command_written_by_the_operator_is_run_by_the_host_and_answered(
 
 
 @posix_only
+def test_the_bot_the_host_made_comes_back_in_the_reply(tmp_path: Path) -> None:
+    rig = HostAndWriter(tmp_path)
+    rig.executor.outcome = ExecutionOutcome(True, "bot x03yij was created", "x03yij")
+
+    reply = rig.send()
+
+    assert reply.status is HostControlStatus.DONE
+    assert reply.bot_id == "x03yij"
+
+
+@posix_only
 def test_the_command_file_is_written_owner_only(tmp_path: Path) -> None:
     rig = HostAndWriter(tmp_path, host_alive=False)
     seen: list[int] = []

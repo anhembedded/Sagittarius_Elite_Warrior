@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     AcknowledgeLossCapVerb,
+    DeleteBotVerb,
     EditBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
@@ -75,6 +76,7 @@ def _run(
         (PauseBotVerb(), HostControlAction.PAUSE),
         (ResumeBotVerb(), HostControlAction.RESUME),
         (StartBotVerb(), HostControlAction.START),
+        (DeleteBotVerb(), HostControlAction.DELETE),
     ],
 )
 def test_each_verb_asks_the_host_for_its_action_on_the_named_bot(
