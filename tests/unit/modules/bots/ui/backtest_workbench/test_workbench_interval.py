@@ -106,3 +106,29 @@ def test_a_button_made_by_re_pinning_is_reachable_by_the_tab_key_too(
     toolbar._selection.toggle_pinned("5m")
 
     assert _reachable_by_tab(world.workbench) == [*_CODES, "More timeframes…"]
+
+
+def test_the_result_chart_has_no_timeframe_row_of_its_own(
+    world: WorkbenchWorld,
+) -> None:
+    """`EPIC-040` F3: the replay is at the interval that was run; a second chooser beside the
+    picker would change nothing the person ran, and offered `1d`."""
+    card = world.workbench.view.card
+    timeframes = card.toolbar.timeframes
+
+    visible = [
+        action
+        for action in (*timeframes.timeframe_actions(), timeframes.more_action)
+        if action.isVisible()
+    ]
+
+    assert visible == []
+
+
+def test_the_interval_picker_keeps_one_interval_pinned(world: WorkbenchWorld) -> None:
+    """`EPIC-040` F4: Run replays the chosen interval, and the row always shows one."""
+    toolbar = world.workbench.view.interval
+    for code in _CODES:
+        toolbar._selection.toggle_pinned(code)
+
+    assert len(toolbar.timeframes.timeframe_actions()) == 1

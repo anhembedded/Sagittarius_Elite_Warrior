@@ -29,6 +29,7 @@ from .catalogue import (
 )
 from .dialog import PinnedTimeframes, TimeframePickerDialog
 from .selection import (
+    PinFloor,
     PinnedTimeframe,
     TimeframeChoice,
     TimeframeGroupView,
@@ -39,6 +40,7 @@ from .timeframe_actions import TimeframeActions
 __all__ = [
     "GROUP_CAPTIONS",
     "GROUP_LABELS",
+    "PinFloor",
     "PinnedTimeframe",
     "PinnedTimeframes",
     "TimeframeActions",

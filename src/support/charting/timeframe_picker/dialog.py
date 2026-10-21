@@ -171,6 +171,12 @@ class TimeframePickerDialog(QDialog):
         self._warning.setWordWrap(True)
         body.addWidget(self._warning)
 
+        self._pin_refusal = plain_label()
+        self._pin_refusal.setObjectName("lblTimeframePinFloor")
+        self._pin_refusal.setWordWrap(True)
+        self._pin_refusal.hide()
+        body.addWidget(self._pin_refusal)
+
         self._current = plain_label()
         self._current.setObjectName("lblTimeframeCurrent")
         body.addWidget(self._current)
@@ -184,6 +190,7 @@ class TimeframePickerDialog(QDialog):
 
         selection.stateChanged.connect(self._render)
         selection.chosen.connect(self._on_chosen)
+        selection.pin_refused.connect(self._show_pin_refusal)
         self._render()
 
     def sizeHint(self) -> QSize:
@@ -359,12 +366,17 @@ class TimeframePickerDialog(QDialog):
         code = item.data(_INTERVAL_COLUMN, _CODE_ROLE)
         if not isinstance(code, str) or not code:
             return
+        self._pin_refusal.hide()
         pinned = item.checkState(_PIN_COLUMN) is Qt.CheckState.Checked
         # `toggle_pinned` flips whatever the selection currently holds, so it is
         # only called when the box disagrees with it — a re-render writing the
         # same state back must not flip it again.
         if pinned != self._is_pinned(code):
             self._selection.toggle_pinned(code)
+
+    def _show_pin_refusal(self, reason: str) -> None:
+        self._pin_refusal.setText(reason)
+        self._pin_refusal.show()
 
     def _is_pinned(self, code: str) -> bool:
         return any(pill.code == code for pill in self._selection.pinned_rows)

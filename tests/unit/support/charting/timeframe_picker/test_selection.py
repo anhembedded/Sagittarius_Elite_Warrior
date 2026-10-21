@@ -19,6 +19,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    PinFloor,
     TimeframeSelection,
 )
 
@@ -43,12 +44,13 @@ class _Host:
         else:
             self.pinned.remove(code)
 
-    def build(self) -> TimeframeSelection:
+    def build(self, pin_floor: PinFloor | None = None) -> TimeframeSelection:
         selection = TimeframeSelection(
             get_codes=lambda: self.codes,
             get_current=lambda: self.current,
             get_pinned=lambda: self.pinned,
             set_pinned=self.set_pinned,
+            pin_floor=pin_floor,
         )
         selection.refresh()
         return selection
@@ -197,3 +199,46 @@ def test_every_change_announces_itself_once(host):
     selection.set_current("1m")
 
     assert len(changes) == 3
+
+
+def test_the_last_pin_under_a_floor_cannot_be_unpinned_and_says_why(host):
+    """`EPIC-040` F4: the host asked for one pin to stay; the second unpin is refused, the host's
+    store is untouched, the views are told to read again, and the reason is announced."""
+    host.pinned = ["4h", "1m"]
+    selection = host.build(PinFloor(1, "One interval stays pinned."))
+    reasons: list[str] = []
+    changes: list[None] = []
+    selection.pin_refused.connect(reasons.append)
+
+    selection.toggle_pinned("4h")
+    selection.stateChanged.connect(lambda: changes.append(None))
+    selection.toggle_pinned("1m")
+
+    assert host.writes == [("4h", False)]
+    assert [row.code for row in selection.pinned_rows] == ["1m"]
+    assert reasons == ["One interval stays pinned."]
+    assert changes, "the views must read again, so the cleared box is checked"
+
+
+def test_a_floor_does_not_stop_pinning_or_an_unpin_above_it(host):
+    host.pinned = ["4h", "1m"]
+    selection = host.build(PinFloor(1, "x"))
+    reasons: list[str] = []
+    selection.pin_refused.connect(reasons.append)
+
+    selection.toggle_pinned("1h")
+    selection.toggle_pinned("4h")
+    selection.toggle_pinned("1m")
+
+    assert host.writes == [("1h", True), ("4h", False), ("1m", False)]
+    assert reasons == []
+
+
+def test_without_a_floor_every_pin_can_go(host):
+    host.pinned = ["4h"]
+    selection = host.build()
+
+    selection.toggle_pinned("4h")
+
+    assert host.writes == [("4h", False)]
+    assert selection.pinned_rows == ()

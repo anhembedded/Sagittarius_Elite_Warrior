@@ -57,6 +57,16 @@ class TimeframeChoice:
 
 
 @dataclass(frozen=True)
+class PinFloor:
+    """The fewest pinned timeframes a host lets the row keep, and what it tells a person who
+    tries to go below it (`EPIC-040` F4: the interval row of the backtest workbench always shows
+    an interval)."""
+
+    count: int
+    reason: str
+
+
+@dataclass(frozen=True)
 class TimeframeGroupView:
     """One titled group of the grid — the catalogue's own grouping, with its
     caption."""
@@ -82,6 +92,9 @@ class TimeframeSelection(QObject):
     #: A code the **user** picked. `set_current()` deliberately does not emit
     #: it — see that method.
     chosen = Signal(str)
+    #: The person tried to unpin below the `PinFloor`; carries its reason. The views have already
+    #: been told to re-read, so a box they cleared is checked again.
+    pin_refused = Signal(str)
 
     def __init__(
         self,
@@ -90,9 +103,11 @@ class TimeframeSelection(QObject):
         get_current: Callable[[], str],
         get_pinned: Callable[[], Sequence[str]],
         set_pinned: Callable[[str, bool], None],
+        pin_floor: PinFloor | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        self._pin_floor = pin_floor
         self._get_codes = get_codes
         self._get_current = get_current
         self._get_pinned = get_pinned
@@ -168,6 +183,11 @@ class TimeframeSelection(QObject):
         if not any(option.code == code for option in self._options):
             return
         pin = code not in self._pinned
+        if not pin and self._at_pin_floor():
+            self._recompute()
+            if self._pin_floor is not None:
+                self.pin_refused.emit(self._pin_floor.reason)
+            return
         if pin:
             self._pinned.add(code)
         else:
@@ -176,6 +196,11 @@ class TimeframeSelection(QObject):
         self._recompute()
 
     # -- internal ----------------------------------------------------------
+
+    def _at_pin_floor(self) -> bool:
+        """Whether unpinning one more would leave fewer pinned timeframes than the host allows."""
+        floor = self._pin_floor
+        return floor is not None and len(self._pinned_rows) <= floor.count
 
     def _recompute(self) -> None:
         self._pinned_rows = tuple(

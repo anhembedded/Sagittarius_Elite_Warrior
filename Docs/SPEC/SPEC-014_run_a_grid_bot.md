@@ -174,7 +174,7 @@ sound, I start it, and I watch what it does."*
    unsaved edits: the person edits the copy freely, sees what differs, resets it to the bot's plan, and a
    run never writes the bot, sends an order or reads the account's balance. The tab is off, with its reason as
    a tooltip, for a bot whose kind has no backtest or whose venue the kind does not trade on. The workbench
-   replays the sandbox over an interval (1m, 5m, 15m or 1h), chosen like a chart's timeframe (the pinned intervals as actions and More timeframes…, offering only those four), and a UTC period, last seven days by default.
+   replays the sandbox over an interval (1m, 5m, 15m or 1h), chosen like a chart's timeframe (the pinned intervals as actions and More timeframes…, offering only those four; the picker keeps one interval pinned, and View → Chart → More timeframes… opens it from the keyboard), and a UTC period, last seven days by default. The result chart has no timeframe row of its own: it replays at the interval that was run.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
    bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures
    as a read-out: grid profit apart from unrealised, both curves' end against the capital, fees by

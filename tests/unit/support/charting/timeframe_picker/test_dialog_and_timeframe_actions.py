@@ -25,8 +25,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QAbstractItemView
+from PySide6.QtWidgets import QAbstractItemView, QLabel
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    PinFloor,
     PinnedTimeframes,
     TimeframeActions,
     TimeframePickerDialog,
@@ -206,6 +207,37 @@ def test_unticking_a_pin_writes_the_removal_through(qapp, dialog, pinned):
     qapp.processEvents()
 
     assert "1m" not in pinned.get()
+
+
+def test_unticking_the_last_pin_under_a_floor_checks_it_again_and_says_why(qapp, seed):
+    """`EPIC-040` F4. The box the person cleared goes back, and the dialog says why in words, not
+    only by refusing."""
+    store = PinnedTimeframes(initial=["1m"])
+    selection = TimeframeSelection(
+        get_codes=lambda: seed.codes,
+        get_current=lambda: seed.current,
+        get_pinned=store.get,
+        set_pinned=store.set,
+        pin_floor=PinFloor(1, "One interval stays pinned."),
+    )
+    dialog = TimeframePickerDialog(selection)
+    dialog.open_dialog()
+    qapp.processEvents()
+    notice = dialog.findChild(QLabel, "lblTimeframePinFloor")
+    assert notice is not None and not notice.isVisibleTo(dialog)
+
+    dialog.item_for("1m").setCheckState(_PIN_COLUMN, Qt.CheckState.Unchecked)
+    qapp.processEvents()
+
+    assert store.get() == ["1m"]
+    assert dialog.item_for("1m").checkState(_PIN_COLUMN) is Qt.CheckState.Checked
+    assert notice.isVisibleTo(dialog) and notice.text() == "One interval stays pinned."
+
+    dialog.item_for("4h").setCheckState(_PIN_COLUMN, Qt.CheckState.Checked)
+    qapp.processEvents()
+
+    assert not notice.isVisibleTo(dialog)
+    dialog.close()
 
 
 def test_reopening_picks_up_a_changed_current_code(qapp, dialog, seed):
