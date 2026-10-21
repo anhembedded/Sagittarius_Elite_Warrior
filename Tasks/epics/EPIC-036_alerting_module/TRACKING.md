@@ -64,7 +64,7 @@ gantt
 | EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🟡 Partly done (036D2) | — |
 | EPIC-036E1 | [Dead man's switch](completed/EPIC-036E1_dead_mans_switch.md) | `claude/epic-036e1-dead-mans-switch` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036E | [Heartbeat and daily summary](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | `claude/epic-036e-heartbeat-and-daily-summary` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
-| EPIC-036F | [Remote control from Discord](incomplete/EPIC-036F_remote_control_from_discord.md) | — | 🔴 | 🔵 Planned; waits for 035X and the owner's library approval | — |
+| EPIC-036F | [Remote control from Discord](incomplete/EPIC-036F_remote_control_from_discord.md) | — | 🔴 | 🔵 Designed and approved by the owner (2026-10-21); blocked on 035X | — |
 
 ---
 
@@ -89,4 +89,4 @@ gantt
 | The health snapshot of [`EPIC-035W`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) (the owner asked that it not be started yet) | 036E | Resolved 2026-10-20: 036E shipped without waiting; the heartbeat prints the status report's `health` slot verbatim once 035W fills it | ✅ Closed |
 | The owner's answers on O1 (the webhook as a systemd credential, D3) and O2 (the host's warning, D5) of the [2026-10-15 decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md) | 036G | The owner: both accepted 2026-10-16 | ✅ Closed |
 | The audit journal of [`EPIC-035X`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | 036F | Land 035X first | 🟡 Open |
-| A Discord gateway library is a new dependency (`requirements.txt`, `ONBOARDING.md` §7) | 036F | The owner approves the library when 036F starts | 🟡 Open |
+| A Discord gateway library is a new dependency (`requirements.txt`, `ONBOARDING.md` §7) | 036F | The owner approved the library on 2026-10-21; it is added when 036F code starts | 🟢 Approved |

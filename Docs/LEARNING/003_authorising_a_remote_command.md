@@ -2,7 +2,7 @@ Status: Current
 
 # 003 — Authorising a remote command: one gated door for a trading app
 
-**Teaches:** who may tell a trading app what to do from a phone, and how to make a mistaken or hostile command cost as little as possible. **Decision:** [`DECISION_2026-10-21_remote_control_from_discord.md`](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-21_remote_control_from_discord.md) (proposed, `EPIC-036F`). This page teaches; the record decides.
+**Teaches:** who may tell a trading app what to do from a phone, and how to make a mistaken or hostile command cost as little as possible. **Decision:** [`DECISION_2026-10-21_remote_control_from_discord.md`](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-21_remote_control_from_discord.md) (accepted by the owner, 2026-10-21, `EPIC-036F`). This page teaches; the record decides.
 
 ## 1. The problem
 An alert says a bot halted. The owner is away and wants to answer. The same door that lets the owner stop a bot lets anyone with the same access do it, a command can arrive twice, and an app that trades real money must not turn "I tapped something" into "I opened a position".
@@ -19,7 +19,7 @@ An alert says a bot halted. The owner is away and wants to answer. The same door
 | Webhook as a command path | Post to the chat, the app reads it | A webhook has no identity; anyone with the URL is the owner. Never |
 | Authorise by channel or role | "Anyone in #ops may stop a bot" | Adding the bot to a server, or a role grant, hands over control |
 | HTTP interactions endpoint | Discord calls the app | Needs an inbound port and a signature library |
-| **Outbound gateway + allowlist of user ids + one gate** | The app connects out; each command carries the sender's id | **Chosen (proposed):** identity is the user id Discord signs into each event; nothing listens |
+| **Outbound gateway + allowlist of user ids + one gate** | The app connects out; each command carries the sender's id | **Chosen (accepted by the owner, 2026-10-21):** identity is the user id Discord signs into each event; nothing listens |
 
 ## 4. The choice and why
 One class, the **gate**, stands in front of the command handlers. Every remote command passes the same five steps in order: *is this user on the allowlist* (an empty list refuses all), *has this request id been spent* (durable, so a restart cannot replay it), *which tier is the command* (status, pause and stop at once; start and resume not remotely in the first release), *audit before*, *run through the UI's own dispatcher*, *audit after*.
