@@ -37,6 +37,7 @@ gantt
 | EPIC-045A | `bot add` | `claude/epic-045-runtime-bot-add-delete` | 🟡 | 🟡 Active | 2026-10-23 |
 | EPIC-045B | `bot delete` | `claude/epic-045-runtime-bot-add-delete` | 🟡 | 🟡 Active | 2026-10-23 |
 | EPIC-045E | Runbook | `claude/epic-045-runtime-bot-add-delete` | 🟢 | 🟡 Active | 2026-10-23 |
+| EPIC-045F | `--start-planned` skips an unconfirmed mainnet bot | not started | 🟡 | 🔵 Planned | 2026-10-25 |
 | EPIC-045D | Parity guard | not started | 🟢 | 🔵 Planned | 2026-10-24 |
 | EPIC-045C | `bot apply` beside a host | not started | 🔴 | 🔵 Planned | 2026-10-28 |
 
@@ -54,4 +55,4 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| Delete's exposure rule is stricter than the tab's (D4) | B | the owner may veto in the PR | 🟡 Open |
+| Delete's exposure rule is stricter than the tab's (D4) | B | accepted by the owner, 2026-10-21 | ✅ Resolved |
