@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.acknowledg
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_for_host import (
     AddBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.arm_strategy_for_host import (
+    ArmStrategyForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue import (
     ChangeBotVenueCommand,
     ChangeBotVenueCommandHandler,
@@ -32,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot_for_host import (
     DeleteBotForHostCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.disarm_strategy_for_host import (
+    DisarmStrategyForHostCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot import (
     EditBotCommand,
@@ -83,8 +89,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
+    DisarmStrategyForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
     PauseBotForHostCommand,
@@ -129,6 +137,9 @@ def bind_commands(container: IContainer) -> None:
     container.bind(DeleteBotForHostCommand, DeleteBotForHostCommandHandler)
     # `EPIC-045G` - `bot move` on the running host; the screen's `ChangeBotVenueCommand` is bound above.
     container.bind(MoveBotForHostCommand, MoveBotForHostCommandHandler)
+    # `EPIC-045G` - `bot arm-strategy` and `bot disarm-strategy`: the venue's own strategy arming controls.
+    container.bind(ArmStrategyForHostCommand, ArmStrategyForHostCommandHandler)
+    container.bind(DisarmStrategyForHostCommand, DisarmStrategyForHostCommandHandler)
     # `EPIC-026L` - the owner's `bot loss-cap-ack` on the running host.
     container.bind(
         AcknowledgeLossCapForHostCommand, AcknowledgeLossCapForHostCommandHandler

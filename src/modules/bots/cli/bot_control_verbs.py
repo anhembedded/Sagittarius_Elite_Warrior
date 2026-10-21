@@ -35,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     ADD_SUBJECT,
     LOSS_CAP_SUBJECT,
+    STRATEGY_SUBJECT,
     HostControlAction,
     HostControlReply,
     HostControlRequest,
@@ -287,3 +288,49 @@ class AcknowledgeLossCapVerb(_ControlVerb):
         self, args: argparse.Namespace, world: BotVerbWorld
     ) -> HostControlRequest | CliOutcome:
         return HostControlRequest(self.action, LOSS_CAP_SUBJECT)
+
+
+class ArmStrategyVerb(_ControlVerb):
+    """`bot arm-strategy --venue <venue>`: the screen's Arm strategy, for the venue's saved arming, on the running host (`EPIC-045G`).
+
+    It names no bot (the request's `bot_id` is the fixed subject word) and types no parameter: the strategy,
+    symbol, interval, sizing, leverage and parameters are the saved arming's (owner decision O2). An armed
+    strategy places orders by itself, so on a mainnet venue `--confirm-venue` must repeat the venue.
+    """
+
+    name = "arm-strategy"
+    action = HostControlAction.ARM_STRATEGY
+
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
+        if not args.venue:
+            return CliOutcome(ExitCode.USAGE, "bot arm-strategy needs --venue <venue>")
+        return HostControlRequest(
+            self.action,
+            STRATEGY_SUBJECT,
+            getattr(args, "confirm_venue", None),
+            strategy_venue=args.venue,
+        )
+
+
+class DisarmStrategyVerb(_ControlVerb):
+    """`bot disarm-strategy --venue <venue>`: the screen's Disarm strategy, on the running host (`EPIC-045G`).
+
+    It sells and cancels nothing, so it asks no `--confirm-venue`; a position open on the strategy's symbol
+    refuses it, in the screen's words.
+    """
+
+    name = "disarm-strategy"
+    action = HostControlAction.DISARM_STRATEGY
+
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
+        if not args.venue:
+            return CliOutcome(
+                ExitCode.USAGE, "bot disarm-strategy needs --venue <venue>"
+            )
+        return HostControlRequest(
+            self.action, STRATEGY_SUBJECT, strategy_venue=args.venue
+        )

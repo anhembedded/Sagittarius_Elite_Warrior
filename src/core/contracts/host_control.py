@@ -54,12 +54,19 @@ class HostControlAction(StrEnum):
     #: `EPIC-026L`: the owner accepts the account-level loss and lets bots start again. It names no
     #: bot: `bot_id` is the fixed word `LOSS_CAP_SUBJECT`.
     ACKNOWLEDGE_LOSS_CAP = "loss-cap-ack"
+    #: `EPIC-045G`: arm the venue's saved strategy arming, as the Bots tab's Arm strategy does. It names no
+    #: bot: `bot_id` is the fixed word `STRATEGY_SUBJECT`, and the venue travels in `strategy_venue`.
+    ARM_STRATEGY = "arm-strategy"
+    #: `EPIC-045G`: remove the venue's armed strategy, as the Bots tab's Disarm strategy does. Same subject.
+    DISARM_STRATEGY = "disarm-strategy"
 
 
 #: What an acknowledgement's `bot_id` says: it is about the account, not a bot.
 LOSS_CAP_SUBJECT = "loss-cap"
 #: What an add's `bot_id` says: the bot does not exist yet, the host gives it its id.
 ADD_SUBJECT = "new-bot"
+#: What an arm's or a disarm's `bot_id` says: it is about a venue's armed strategy, not a bot.
+STRATEGY_SUBJECT = "strategy"
 
 
 class HostControlStatus(StrEnum):
@@ -88,7 +95,8 @@ class HostControlRequest:
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
     `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action.
     `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action. `to_venue` is the venue
-    a move goes to (`EPIC-045G`); `None` for every other action."""
+    a move goes to (`EPIC-045G`); `None` for every other action. `strategy_venue` is the venue whose armed strategy
+    an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); `None` for every other action."""
 
     action: HostControlAction
     bot_id: str
@@ -97,6 +105,7 @@ class HostControlRequest:
     settings: tuple[ParameterSetting, ...] = ()
     entry: NewBotEntry | None = None
     to_venue: str | None = None
+    strategy_venue: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

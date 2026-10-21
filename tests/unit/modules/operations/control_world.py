@@ -60,6 +60,7 @@ def command(
     settings: tuple[ParameterSetting, ...] = (),
     entry: NewBotEntry | None = None,
     to_venue: str | None = None,
+    strategy_venue: str | None = None,
 ) -> HostCommand:
     return HostCommand(
         command_id,
@@ -71,6 +72,7 @@ def command(
         settings,
         entry,
         to_venue,
+        strategy_venue,
     )
 
 

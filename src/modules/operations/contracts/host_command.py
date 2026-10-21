@@ -44,6 +44,8 @@ class HostCommand:
     entry: NewBotEntry | None = None
     #: The venue a move goes to (`EPIC-045G`); absent from older files and from every other action.
     to_venue: str | None = None
+    #: The venue an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); absent from older files and from every other action.
+    strategy_venue: str | None = None
 
 
 class ControlVerdict(StrEnum):

@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "loss-cap-ack"
+  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "arm-strategy" | "disarm-strategy" | "loss-cap-ack"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
@@ -24,6 +24,11 @@ the audit can say which command was refused.
                   Required for "move", refused for any other action. A move asks no venue
                   (`confirmed_venue` must be null: it places no order, the real-money question is
                   at `bot start`) and names an existing bot.
+  strategy_venue  an arm-strategy's or a disarm-strategy's venue (`EPIC-045G`): a venue word of 1 to
+                  32 characters of [a-z0-9_]. Required for those two, refused for any other action,
+                  and `bot_id` is then the fixed word `strategy`. An arm may carry `confirmed_venue`
+                  (a mainnet arm needs it: the strategy then places orders on its own with real
+                  money); a disarm asks none, it sells and cancels nothing.
   entry           an add's bot (`EPIC-045A`): an object of exactly name, kind, venue, symbol and
                   params (an object of 0 to `MAX_SETTINGS_PER_EDIT` text values), each of the shape
                   `NewBotEntry` states. Required for "add", refused for any other action. An add
@@ -48,6 +53,10 @@ the audit can say which command was refused.
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
   never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
   document an older host wrote, because `set` is absent from them.
+
+@par Older hosts (`EPIC-045G`, arm-strategy and disarm-strategy)
+  Both are new `action` words and `strategy_venue` is a new key: an older host reads a document with
+  it as *malformed* ("it has an unknown key (strategy_venue)"), audits it and arms or disarms nothing.
 
 @par Older hosts (`EPIC-045G`, confirm-resume)
   `confirm-resume` is a new `action` word and adds no key: an older host reads it as *malformed*
@@ -75,6 +84,7 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     ADD_SUBJECT,
     LOSS_CAP_SUBJECT,
+    STRATEGY_SUBJECT,
     HostControlAction,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
@@ -102,6 +112,7 @@ _KEYS = frozenset(
         "set",
         "entry",
         "to_venue",
+        "strategy_venue",
     }
 )
 _ENTRY_KEYS = frozenset({"name", "kind", "venue", "symbol", "params"})
@@ -130,6 +141,8 @@ def encode_command(command: HostCommand) -> str:
         document["set"] = {setting.key: setting.value for setting in command.settings}
     if command.to_venue is not None:
         document["to_venue"] = command.to_venue
+    if command.strategy_venue is not None:
+        document["strategy_venue"] = command.strategy_venue
     if command.entry is not None:
         document["entry"] = {
             "name": command.entry.name,
@@ -162,6 +175,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         settings=_settings_of(document.get("set")),
         entry=_entry_of(document.get("entry")),
         to_venue=document.get("to_venue"),
+        strategy_venue=document.get("strategy_venue"),
     )
 
 
@@ -201,6 +215,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
         or _add_problem(document, action, venue, bot_id)
         or _delete_problem(action, venue)
         or _move_problem(document, action, venue)
+        or _strategy_problem(document, action, venue, bot_id)
         or _acknowledgement_problem(document, action, venue, bot_id)
     )
     if problem is not None:
@@ -288,6 +303,33 @@ def _move_problem(
     target = document.get("to_venue")
     if not isinstance(target, str) or not _VENUE_SHAPE.fullmatch(target):
         return "a move needs to_venue, a venue word"
+    return None
+
+
+def _strategy_problem(
+    document: dict[str, object], action: str, venue: object, bot_id: str
+) -> str | None:
+    """`strategy_venue` is an arm's and a disarm's and no other action's; both are about a venue's armed strategy, not a bot.
+
+    An arm may carry the typed venue (a mainnet arm needs it, the host judges that); a disarm sells
+    and cancels nothing, so it asks none.
+    """
+    named = bot_id == STRATEGY_SUBJECT
+    arms = action == HostControlAction.ARM_STRATEGY.value
+    disarms = action == HostControlAction.DISARM_STRATEGY.value
+    if not (arms or disarms):
+        if "strategy_venue" in document:
+            return "strategy_venue belongs to an arm-strategy or a disarm-strategy"
+        return f"{STRATEGY_SUBJECT} is not a bot id" if named else None
+    if not named:
+        return f"{action} names no bot: bot_id is {STRATEGY_SUBJECT}"
+    target = document.get("strategy_venue")
+    if not isinstance(target, str) or not _VENUE_SHAPE.fullmatch(target):
+        return f"{action} needs strategy_venue, a venue word"
+    if disarms and venue is not None:
+        return "a disarm-strategy asks no venue: confirmed_venue must be null"
+    if "set" in document or "close_position" in document:
+        return f"{action} carries no set or close_position"
     return None
 
 

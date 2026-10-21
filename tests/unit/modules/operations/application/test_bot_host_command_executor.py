@@ -20,8 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
+    DisarmStrategyForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
     PauseBotForHostCommand,
@@ -64,6 +66,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
                 settings=(ParameterSetting("lower", "81000"),),
                 entry=_ENTRY,
                 to_venue="spot_mainnet",
+                strategy_venue="spot_testnet",
             )
         )
 
@@ -78,6 +81,8 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         DeleteBotForHostCommand(BOT),
         MoveBotForHostCommand(BOT, "spot_mainnet"),
         AcknowledgeLossCapForHostCommand(),
+        ArmStrategyForHostCommand("spot_testnet", "spot_mainnet"),
+        DisarmStrategyForHostCommand("spot_testnet"),
     ]
 
 
@@ -270,3 +275,16 @@ def test_an_accepted_confirm_resume_speaks_the_hosts_sentence() -> None:
     outcome = executor.execute(command(action=HostControlAction.CONFIRM_RESUME))
 
     assert outcome.accepted and outcome.message == "the confirmation is queued"
+
+
+def test_an_accepted_arm_and_disarm_speak_the_hosts_sentence() -> None:
+    said = BotCommandResult(
+        accepted=True, bot_id="strategy", message="strategy armed on spot_testnet"
+    )
+
+    for action in (HostControlAction.ARM_STRATEGY, HostControlAction.DISARM_STRATEGY):
+        outcome = BotHostCommandExecutor(_Dispatcher(said)).execute(
+            command(action=action, bot_id="strategy", strategy_venue="spot_testnet")
+        )
+
+        assert outcome.accepted and outcome.message == said.message

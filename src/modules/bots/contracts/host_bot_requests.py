@@ -226,3 +226,26 @@ class AcknowledgeLossCapForHostCommand:
     bots may start again. It clears the trip and nothing else - no bot is started or resumed by
     it - and the day's count is not reset, so it is refused while today's loss is still at or
     above the figure, and the cap trips again at the figure unless the owner raised it."""
+
+
+@dataclass(frozen=True, slots=True)
+class ArmStrategyForHostCommand:
+    """The operator's `bot arm-strategy` (`EPIC-045G`): arm a venue's saved strategy arming, as the Bots tab's
+    Arm strategy does with the form it filled from that same saved arming.
+
+    `venue` is the venue word to arm on. The arming's strategy, symbol, interval, sizing, leverage and
+    parameters are the saved ones and are never typed on a command line. A strategy places orders on its own
+    once armed, so on a mainnet venue `confirmed_venue` must be that venue (decision O8, owner decision O2).
+    """
+
+    venue: str
+    confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DisarmStrategyForHostCommand:
+    """The operator's `bot disarm-strategy` (`EPIC-045G`): remove a venue's armed strategy, as the Bots tab's
+    Disarm strategy does. It sells and cancels nothing, so it asks no venue confirmation; a position open on the
+    strategy's symbol refuses it, in words."""
+
+    venue: str

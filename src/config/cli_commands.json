@@ -855,6 +855,71 @@
                 "help": "Output format: text (default), json, or any other registered format"
               }
             ]
+          },
+          "arm-strategy": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to arm the venue's SAVED strategy arming, as the Bots tab's Arm strategy does with the form it fills from that same saved arming: bot arm-strategy --venue spot_testnet. The strategy, symbol, interval, sizing, leverage and parameters are the saved ones (the last successful arm; arm once from the desktop first) and are never typed here. An armed strategy places orders by itself, so on a mainnet venue --confirm-venue must repeat the venue. A venue that already has a strategy armed, a venue this run does not serve, no saved arming, and every refusal the tab shows (invalid parameters, a symbol leased by another strategy, a position open) are refused in words and nothing is armed. Exit 2 when refused, 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "--venue",
+                "type": "str",
+                "help": "The venue to arm the saved strategy on (spot_testnet, spot_mainnet, futures_testnet, futures_mainnet)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to arm on it: the strategy then places orders with real money by itself. Not needed on a testnet"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "disarm-strategy": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to remove the venue's armed strategy, as the Bots tab's Disarm strategy does: bot disarm-strategy --venue spot_testnet. It sells and cancels nothing and asks no --confirm-venue; a position open on the strategy's symbol refuses it in words, and so does a venue with nothing armed. Exit 2 when refused, 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "--venue",
+                "type": "str",
+                "help": "The venue whose armed strategy is removed"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
           }
         }
       }
