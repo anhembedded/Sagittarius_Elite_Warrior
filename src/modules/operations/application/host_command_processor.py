@@ -142,7 +142,9 @@ class HostCommandProcessor:
             verdict.value,
             outcome.message,
         )
-        self._record(command.command_id, verdict, outcome.message, command)
+        self._record(
+            command.command_id, verdict, outcome.message, command, outcome.bot_id
+        )
 
     def _refuse(
         self,
@@ -162,13 +164,14 @@ class HostCommandProcessor:
         verdict: ControlVerdict,
         message: str,
         command: HostCommand | None,
+        made_bot_id: str = "",
     ) -> bool:
         entry = ControlAuditEntry(
             command_id=command_id,
             at=self._clock.now(),
             verdict=verdict,
             action=command.action.value if command else "",
-            bot_id=command.bot_id if command else "",
+            bot_id=made_bot_id or (command.bot_id if command else ""),
             message=message,
         )
         try:

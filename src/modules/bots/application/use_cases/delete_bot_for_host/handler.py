@@ -114,7 +114,7 @@ class DeleteBotForHostCommandHandler(
             kind = self._kinds.kind(stored.bot.definition.kind)
         except UnknownBotKindError:
             return "this build has no such kind of bot, so what it holds is not known"
-        return kind.exposure_left(stored.runtime) or ""
+        return kind.exposure_left(stored.bot.definition.symbol, stored.runtime) or ""
 
 
 def _refused(

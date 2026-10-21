@@ -98,3 +98,6 @@ class HostControlReply:
     status: HostControlStatus
     message: str
     command_id: str = ""
+    #: The bot the host's answer is about: for an add, the id the host chose (`EPIC-045A`); otherwise
+    #: the bot the request named. Empty when nothing was written.
+    bot_id: str = ""

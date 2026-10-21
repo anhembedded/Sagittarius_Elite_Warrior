@@ -280,3 +280,35 @@ def test_the_help_of_delete_says_nothing_is_sent_to_the_exchange_and_the_plan_is
 
     assert "sends nothing to the exchange" in help_text
     assert "plan file is not changed" in help_text
+
+
+def test_add_json_names_the_bot_the_host_made_not_the_subject_word(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    host = RecordingHostControl(
+        HostControlReply(S.DONE, "bot x03yij was created", "c" * 32, "x03yij")
+    )
+
+    _add(host, _plan(tmp_path, _PLAN_ENTRY))
+
+    document = json.loads(capsys.readouterr().out)
+    assert document["data"]["bot_id"] == "x03yij"
+
+
+def test_add_text_heading_names_the_bot_the_host_made(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    host = RecordingHostControl(
+        HostControlReply(S.DONE, "was created", "c" * 32, "x03yij")
+    )
+
+    _run(
+        AddBotVerb(),
+        host,
+        plan=_plan(tmp_path, _PLAN_ENTRY),
+        name=None,
+        venue=None,
+        json=False,
+    )
+
+    assert "bot add x03yij" in capsys.readouterr().out

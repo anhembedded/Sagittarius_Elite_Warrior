@@ -225,3 +225,37 @@ def test_a_remainder_with_no_price_to_value_it_by_is_never_let_go() -> None:
     result = host.delete()
 
     assert result.refusal is BotRefusal.EXPOSURE_LEFT
+
+
+def test_on_a_quote_that_is_not_a_dollar_every_nonzero_base_keeps_the_bot() -> None:
+    """0.5 ETH at 0.035 BTC is 0.0175 of the quote: under 10, and worth about a thousand dollars."""
+    host = a_host()
+    holding = replace(_flat(), inventory=Decimal("0.5"), mark_price=Decimal("0.035"))
+    host.hold(S.STOPPED, _record(holding), symbol="ETHBTC")
+
+    result = host.delete()
+
+    assert result.refusal is BotRefusal.EXPOSURE_LEFT
+    assert host.ids == [BOT]
+
+
+@pytest.mark.parametrize("symbol", ["BTCUSDT", "BTCUSDC", "BTCFDUSD"])
+def test_a_dust_remainder_is_let_go_on_every_usd_stable_quote(symbol: str) -> None:
+    host = a_host()
+    dust = replace(_flat(), inventory=Decimal("0.000006"), mark_price=Decimal(50000))
+    host.hold(S.STOPPED, _record(dust), symbol=symbol)
+
+    assert host.delete().accepted
+
+
+def test_a_short_and_an_earlier_long_do_not_cancel_each_other_out() -> None:
+    host = a_host()
+    opposed = replace(
+        _flat(),
+        inventory=Decimal(-1),
+        earlier_runs_base=Decimal(1),
+        mark_price=Decimal(50000),
+    )
+    host.hold(S.STOPPED, _record(opposed))
+
+    assert host.delete().refusal is BotRefusal.EXPOSURE_LEFT

@@ -182,7 +182,9 @@ class DirectoryHostControl(IHostControl):
 
 def _reply_of(entry: ControlAuditEntry) -> HostControlReply:
     if entry.verdict is ControlVerdict.EXECUTED:
-        return HostControlReply(HostControlStatus.DONE, entry.message, entry.command_id)
+        return HostControlReply(
+            HostControlStatus.DONE, entry.message, entry.command_id, entry.bot_id
+        )
     if entry.verdict is ControlVerdict.REFUSED:
         return HostControlReply(
             HostControlStatus.REFUSED, entry.message, entry.command_id

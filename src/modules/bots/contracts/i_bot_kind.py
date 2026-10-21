@@ -100,14 +100,16 @@ class IBotKind(ABC):
             "change; use the Bots tab"
         )
 
-    def exposure_left(self, runtime: Mapping[str, JsonValue]) -> str | None:
+    def exposure_left(
+        self, symbol: str, runtime: Mapping[str, JsonValue]
+    ) -> str | None:
         """What a bot of this kind, at rest, still holds according to its record, in a sentence; `None` when nothing (`EPIC-045B`).
 
         `bot delete` on the running host asks it: forgetting a bot that still holds a base asset, a
         live order or an order it owes would orphan them, and a host delete has no dialog. It can
         only refuse, never permit a delete the lifecycle table refuses, and the record is not the
         exchange: a `None` promises nothing the exchange did not say, a sentence keeps the bot.
-        An empty `runtime` is a bot that never ran.
+        `symbol` names the pair, because a figure in the quote asset means nothing without it. An empty `runtime` is a bot that never ran.
 
         Concrete and **closed by default**: a kind that has not declared how to read its record is
         never deleted by a command line (the Bots tab still deletes it) and no implementer changes

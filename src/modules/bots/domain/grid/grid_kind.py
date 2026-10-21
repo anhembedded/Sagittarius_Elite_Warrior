@@ -95,8 +95,10 @@ class GridKind(IBotKind):
     ) -> str | None:
         return grid_parameter_problem(config, changed)
 
-    def exposure_left(self, runtime: Mapping[str, JsonValue]) -> str | None:
-        return grid_exposure_left(runtime)
+    def exposure_left(
+        self, symbol: str, runtime: Mapping[str, JsonValue]
+    ) -> str | None:
+        return grid_exposure_left(symbol, runtime)
 
     def overlay(self, inputs: BotKindInputs) -> BotOverlay:
         """The planner preview's overlay: the plan, its range and exits, and

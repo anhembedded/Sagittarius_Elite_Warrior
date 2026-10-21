@@ -116,10 +116,11 @@ class AddDeleteHost:
         state: BotLifecycleState,
         runtime: Mapping[str, JsonValue] | None = None,
         bot_id: str = BOT,
+        symbol: str = SYMBOL,
     ) -> None:
         """A bot in `state` whose record is `runtime` (an empty record is a bot that never ran)."""
         definition = BotDefinition(
-            "grid one", "grid", TradingVenue.SPOT_TESTNET, SYMBOL, CONFIG
+            "grid one", "grid", TradingVenue.SPOT_TESTNET, symbol, CONFIG
         )
         self.world.store.save(
             StoredBot(

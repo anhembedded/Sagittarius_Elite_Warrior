@@ -8,6 +8,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_processor import (
     HostCommandProcessor,
 )
@@ -64,6 +65,30 @@ def test_a_command_is_executed_once_audited_and_removed() -> None:
     ]
     assert rig.audit.verdicts() == ["received", "executed"]
     assert [e.name for e in rig.inbox.discarded] == [f"cmd-{ID_A}.json"]
+
+
+def test_an_add_is_audited_under_the_bot_the_host_made_after_a_received_line_under_the_subject() -> (
+    None
+):
+    """`EPIC-045A`: the operator's reply is read from the final audit line, so the id the host chose
+    is recorded there; the line written before the dispatch still names the subject word."""
+    rig = _Rig(
+        entry_of(
+            command(
+                action=HostControlAction.ADD,
+                bot_id="new-bot",
+                entry=NewBotEntry("a", "grid", "spot_testnet", "SOLUSDT"),
+            )
+        )
+    )
+    rig.executor.outcome = ExecutionOutcome(True, "bot x03yij was created", "x03yij")
+
+    rig.poll()
+
+    assert [(e.verdict.value, e.bot_id) for e in rig.audit.entries] == [
+        ("received", "new-bot"),
+        ("executed", "x03yij"),
+    ]
 
 
 def test_the_command_is_audited_as_received_before_it_is_executed() -> None:

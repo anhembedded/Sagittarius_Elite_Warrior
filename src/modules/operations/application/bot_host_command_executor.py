@@ -116,5 +116,9 @@ class BotHostCommandExecutor(IHostCommandExecutor):
             BotCommandResult, self._dispatcher.dispatch(type(request), request)
         )
         if result.accepted:
-            return ExecutionOutcome(True, _accepted_words(command, result))
+            return ExecutionOutcome(
+                True,
+                _accepted_words(command, result),
+                result.bot_id or "" if command.action is HostControlAction.ADD else "",
+            )
         return ExecutionOutcome(False, result.message)

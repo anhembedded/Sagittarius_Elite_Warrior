@@ -194,6 +194,15 @@ def test_an_accepted_add_speaks_the_hosts_sentence_naming_the_new_id() -> None:
     )
 
     assert outcome.accepted and outcome.message == "bot x03yij was created"
+    assert outcome.bot_id == "x03yij", "the operator gets the id the host chose"
+
+
+def test_only_an_add_carries_a_bot_id_back() -> None:
+    executor = BotHostCommandExecutor(_Dispatcher(BotCommandResult.done(BOT)))
+
+    outcome = executor.execute(command(action=HostControlAction.DELETE))
+
+    assert outcome.bot_id == ""
 
 
 def test_an_accepted_delete_without_a_sentence_still_says_the_bot_was_deleted() -> None:
