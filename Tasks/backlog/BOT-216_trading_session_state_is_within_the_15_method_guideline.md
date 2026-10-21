@@ -1,4 +1,4 @@
-# BOT-215 — `TradingSessionState` is within the 15-public-member guideline, its switch, its leases and its position bookkeeping apart
+# BOT-216 — `TradingSessionState` is within the 15-public-member guideline, its switch, its leases and its position bookkeeping apart
 
 **Status:** 🔵 Backlog
 **Priority:** P3
