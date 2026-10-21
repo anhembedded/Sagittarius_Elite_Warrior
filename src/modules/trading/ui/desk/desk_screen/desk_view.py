@@ -3,7 +3,8 @@
 
 - **Central:** the chart of the traded symbol.
 - **Header toolbar:** the symbol, and the venue's status line in words (an
-  error reads "Error: …", as the order entry's does).
+  error reads "Error: …", as the order entry's does); under them, once the
+  account is read, the headline figures (`EPIC-043D`).
 - **Right:** Order entry above Account summary, both in view; the order
   entry scrolls, once, at its panel.
 - **Bottom, tabbed:** Positions (Futures) or Assets (Spot), Open orders,
@@ -57,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL
+from Sagittarius_Elite_Warrior.src.support.ui_kit.headline_strip import HeadlineStrip
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
@@ -118,6 +120,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         # It owns the tables and draws none of them: each is a panel.
         self.account_tabs.hide()
         self.account_summary = AccountSummaryPanel()
+        self.headline = HeadlineStrip()
         self._symbol = QComboBox()
         self._symbol.setObjectName("cboDeskSymbol")
         self._status = plain_label()
@@ -198,13 +201,17 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
     def _context_bar(self) -> QWidget:
         bar = QWidget()
         bar.setObjectName("deskContextBar")
-        row = QHBoxLayout(bar)
-        row.setContentsMargins(0, 0, 0, 0)
+        rows = QVBoxLayout(bar)
+        rows.setContentsMargins(0, 0, 0, 0)
+        context = QHBoxLayout()
         symbol = plain_label("&Symbol:")
         symbol.setBuddy(self._symbol)
-        row.addWidget(symbol)
-        row.addWidget(self._symbol)
-        row.addWidget(self._status, 1)
+        context.addWidget(symbol)
+        context.addWidget(self._symbol)
+        context.addWidget(self._status, 1)
+        rows.addLayout(context)
+        # The headline figures (`EPIC-043D`): one row above the detail, hidden until read.
+        rows.addWidget(self.headline)
         return bar
 
     def _apply_symbols(self, desk: DeskViewModel) -> None:

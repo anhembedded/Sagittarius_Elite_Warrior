@@ -82,6 +82,9 @@ class AccountSummaryPresenter(QObject):
     """@brief One desk's summary figures, read once and then kept."""
 
     _read = Signal(object)
+    #: The summary now shown, or `None` when the account could not be read (`EPIC-043D`: the
+    #: desk's headline says the same figures once more).
+    summaryShown = Signal(object)
 
     def __init__(
         self,
@@ -164,3 +167,4 @@ class AccountSummaryPresenter(QObject):
         self._notifier.clear_failure(self._cause)
         self._view.show_readout(summary_readout(summary))
         self._view.clear_stale()
+        self.summaryShown.emit(summary)

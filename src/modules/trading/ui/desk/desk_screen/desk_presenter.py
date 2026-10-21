@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_depe
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_equity import (
     DeskEquity,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_headline import (
+    DeskHeadline,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
     DeskSessionControls,
 )
@@ -178,6 +181,9 @@ class DeskPresenter(BasePresenter):
             deps.notifier,
             profile.venue,
         )
+        self.headline = DeskHeadline(view.headline, self)
+        self.summary.summaryShown.connect(self.headline.on_summary)
+        view.account_tabs.positionsShown.connect(self.headline.on_positions)
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
         feeds.orders.orderFilled.connect(self.chart.record_fill)
         # A fill moves what is available and what can be sold (`EPIC-028S`).

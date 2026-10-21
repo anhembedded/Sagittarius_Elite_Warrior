@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_prefere
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
     DisplayTimezonePreference,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
@@ -115,3 +118,10 @@ def register_remembered_state(
     colour_scheme.set_on_changed(lambda: state_coordinator.mark_dirty(colour_scheme))
     container.singleton(ColourSchemePreference, colour_scheme)
     ColourSchemeApplier(colour_scheme, QGuiApplication.styleHints()).apply_now()
+
+    # `EPIC-043D` - whether a price flashes when it ticks: off until the person turns it on in
+    # the same page. The Market mode's watchlist follows it (`follow_tick_flash`).
+    tick_flash = TickFlashPreference()
+    state_coordinator.restore_into(tick_flash)
+    tick_flash.set_on_changed(lambda: state_coordinator.mark_dirty(tick_flash))
+    container.singleton(TickFlashPreference, tick_flash)

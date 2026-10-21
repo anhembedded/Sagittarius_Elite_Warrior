@@ -85,6 +85,7 @@ from .market_view import IndicatorChoice, MarketView
 from .symbol_commands import symbol_commands_for
 from .watchlist_stream import WATCHLIST_INTERVAL, WatchlistStream
 from .watchlist_symbols import WatchlistSymbols
+from .watchlist_tick_flash import follow_tick_flash
 
 logger = logging.getLogger("App.Trading.Market")
 
@@ -129,6 +130,7 @@ class MarketPresenter(CommandPresenter):
         self._params.edited.connect(self._redraw_indicator)
         self.tracked = WatchlistSymbols(dependencies.symbols, dependencies.state, self)
         view.watchlist.set_symbols(list(self.tracked.entries))
+        follow_tick_flash(view.watchlist, dependencies.tick_flash)
         self._watchlist = WatchlistStream(
             view,
             dependencies,
@@ -372,16 +374,14 @@ class MarketPresenter(CommandPresenter):
 
     def _on_tick(self, event: MarketTickEvent) -> None:
         if event.market_type is not self.choice.current:
-            # The Feed asks the market on the bus's thread; a tick queued to
-            # this thread before a switch lands after it (`EPIC-033Q`).
+            # A tick queued from the bus's thread before a switch lands after it (`EPIC-033Q`).
             return
         candle = event.market_data
         chart = self._charts.get(candle.symbol)
         if chart is not None:
             chart.apply_candle(candle)
         if candle.interval != WATCHLIST_INTERVAL.value:
-            # A chart tab streams at its own timeframe; only the Watchlist's
-            # own candles say its row's change (the PR #353 review).
+            # A chart tab streams at its own timeframe; only the Watchlist's says a row's change.
             return
         if candle.open_price == 0.0:
             logger.warning(
