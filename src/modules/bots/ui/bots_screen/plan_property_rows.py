@@ -1,8 +1,9 @@
 """`BOT-206` — what the Plan's property table lists: its groups and, under each, its rows.
 
 Data only. A row's key is the name of the `BotFacts` field or the `ladder_facts` row that writes
-it; a row's title is the label the dock always had (`run_earnings.TOTAL_PNL_BASIS` is
-`BOT-202`'s wording and is spelled in no other place). The three readiness steps are rows too, keyed
+it; a row's title is the label the dock always had, except the Results titles, which are the
+`BOT-229` constants of `run_earnings.py` (`REALISED_TITLE`, `TOTAL_SUM_TITLE`, ...) that `bot show`
+prints too. The three readiness steps are rows too, keyed
 by the step.
 
 Extension cases: another group is one `PropertyGroup` in `PROPERTY_GROUPS`; another figure is one

@@ -48,7 +48,7 @@ def earnings_rows(bot: BotStatusEntry) -> tuple[ReportRow, ...]:
         _row("Fees paid", _money_or_none(earnings.commissions if earnings else None)),
         _row("Funding", _money_or_none(earnings.funding if earnings else None)),
         _row("Total PnL", total_pnl_text(earnings, plain_money)),
-        _row("", _sum_text(earnings)),
+        _row("", earnings_sum_text(earnings)),
         _row("", f"({TOTAL_PNL_BASIS})"),
         _row("", f"({EARNINGS_BASIS})"),
     )
@@ -58,7 +58,7 @@ def _money_or_none(value: Decimal | None) -> str:
     return NO_VALUE if value is None else plain_money(value)
 
 
-def _sum_text(earnings: RunEarnings | None) -> str:
+def earnings_sum_text(earnings: RunEarnings | None) -> str:
     """The total as the sum of the figures above it, so it visibly adds up."""
     if (
         earnings is None

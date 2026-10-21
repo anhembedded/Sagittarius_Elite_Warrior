@@ -20,12 +20,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_earnings_rows import (
+    earnings_sum_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import (
     ListBotsVerb,
     ShowBotVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    RunEarnings,
+    held_text,
+    plain_price,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
@@ -276,3 +284,37 @@ def test_a_futures_short_position_says_the_exchange_basis_is_not_available_not_n
 
     assert "Unrealised, exchange basis" in short
     assert "not available: the bot saves its last trade price" in short
+
+
+def _earnings(**changes: object) -> RunEarnings:
+    base = RunEarnings(
+        grid_profit=Decimal("1.83"),
+        completed_cycles=20,
+        total_pnl=Decimal("19.48"),
+        judged=True,
+        unrealised=Decimal("18.60"),
+        realised=Decimal("0.97"),
+        funding=Decimal("-0.09"),
+    )
+    return replace(base, **changes)  # type: ignore[arg-type]
+
+
+def test_the_sum_line_adds_realised_unrealised_and_funding_of_a_futures_run() -> None:
+    """`BOT-229`: 0.97 + 18.60 - 0.09 = 19.48, with funding signed."""
+    assert earnings_sum_text(_earnings()) == (
+        "= realised 0.97 + unrealised 18.60 + funding -0.09"
+    )
+
+
+def test_a_run_that_was_not_judged_or_has_no_price_prints_no_sum() -> None:
+    assert earnings_sum_text(None) == ""
+    assert earnings_sum_text(_earnings(realised=None, judged=False)) == ""
+    assert earnings_sum_text(_earnings(total_pnl=None)) == ""
+
+
+def test_a_short_position_is_held_as_a_negative_quantity_at_its_average() -> None:
+    held = held_text(
+        _earnings(held=Decimal("-0.5"), average_cost=Decimal(2500)), plain_price
+    )
+
+    assert held.startswith("-0.5 at an average cost of")

@@ -62,7 +62,8 @@ TOTAL_SUM_TITLE = "Total PnL = realised + unrealised + funding"
 #: Said once under the figures (`bot show`) and in the legend of `bot list`.
 EARNINGS_BASIS = (
     "Realised is measured against the average cost; grid profit against each cycle's own buy, "
-    "so grid profit is a different view of part of the realised money, not an addition to it."
+    "so grid profit is a different view of part of the realised money, not an addition to it. "
+    "Each figure is rounded on its own."
 )
 #: `bot list` - what the two columns are, so a Total PnL far above the Grid profit is read right.
 GRID_PROFIT_LEGEND = (

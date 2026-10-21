@@ -56,7 +56,9 @@ def test_the_table_lists_four_groups_each_with_its_rows(qtbot) -> None:
     assert plan["holdings"] == ["inventory", "earlier_runs", "last_price"]
 
 
-def test_every_figure_the_dock_had_is_still_on_it_with_its_old_title(qtbot) -> None:
+def test_every_figure_the_dock_had_is_still_on_it_under_its_current_title(
+    qtbot,
+) -> None:
     grid = _grid(qtbot)
 
     assert (

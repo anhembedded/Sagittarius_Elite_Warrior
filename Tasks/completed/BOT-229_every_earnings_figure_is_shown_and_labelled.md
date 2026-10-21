@@ -38,9 +38,11 @@
 `tests/unit/modules/bots/cli/test_bot_earnings_reports.py` (order, sum line, basis, JSON keys), `test_bot_facts.py` (row order), `test_plan_property_grid.py` (titles). Frames: `BOT-229_assets/results-{light,dark}.png` (a dark Fusion palette stands in for the Windows scheme on the offscreen platform).
 
 ## 6. Docs touched
-`Docs/SPEC/SPEC-014_run_a_grid_bot.md` (earnings row), `Docs/OPERATIONS/headless_runbook.md` (`bot list`, `bot show`, `--json`).
+`Docs/SPEC/SPEC-014_run_a_grid_bot.md` (earnings row), `Docs/OPERATIONS/headless_runbook.md` (`bot list`, `bot show`, `--json`, the panel rows), `Docs/MODULES/bots/07-deployment.md` (the earnings paragraph).
 
 ## 7. Implementation notes (2026-10-21)
 - The coordinator's "Position PnL" figure is not a separate book: it is unrealised plus the realised result of the sells that are not cycles, both already held. The full breakdown replaces it, as the coordinator widened the task.
 - The earlier frame of the running bot had a total that left out the funding; it now adds up (42.15 + 7.70 - 0.31 = 49.54).
+- Each printed figure is rounded to the cent on its own, so the parts of the sum can differ from the printed total by a cent or two (review round 1); the basis line says so.
+- A rare edge: an exit fill that covers more than a SHORT or NEUTRAL position held books only its covered share of the fee into realised while `commissions` counts all of it, so "Fees paid (inside the figures above)" can overstate by the uncovered share in that recovery path.
 - Not changed: `Total PnL (net)` column heads and the exchange-basis unrealised row.
