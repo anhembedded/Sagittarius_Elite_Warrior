@@ -13,8 +13,10 @@ They are pure over `PlanRiskInputs`; the numbers are `FuturesGridThresholds`', n
   · per exposed side, with the liquidation price estimated for the worst-case position
     (`futures_worst_case.py`, the bracket looked up for *its* notional):
     `LIQUIDATION_INSIDE_RANGE` (REFUSED), `STOP_LOSS_NEEDED` (REFUSED above leverage 1,
-    WARNING at 1 - O3), `STOP_LOSS_AFTER_LIQUIDATION` (REFUSED), `STOP_LOSS_NEAR_LIQUIDATION`
-    (WARNING, closer than `min_liq_buffer_atr` daily ATRs); when none objects, one OK verdict
+    WARNING at 1 - O3), `STOP_LOSS_AFTER_LIQUIDATION` (REFUSED),
+    `STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION` (REFUSED, closer than `min_liq_gap_ratio` of the exit's
+    price, needs no ATR: `BUG-255`), `STOP_LOSS_NEAR_LIQUIDATION` (WARNING, closer than
+    `min_liq_buffer_atr` daily ATRs); when none objects, one OK verdict
     that says *estimate*.
 
 The exit on a side is the exit that closes that side at a loss: a LONG's is the stop loss
@@ -71,6 +73,7 @@ FUTURES_PLAN_TITLES: Mapping[str, str] = MappingProxyType(
         "STOP_LOSS_NEEDED": "Exit on the losing side",
         "STOP_LOSS_AFTER_LIQUIDATION": "Exit before liquidation",
         "STOP_LOSS_NEAR_LIQUIDATION": "Exit before liquidation",
+        "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION": "Exit before liquidation",
         "LIQUIDATION_ESTIMATE": "Liquidation distance",
     }
 )
@@ -286,6 +289,24 @@ def _stop(
                 f"The exit at {exit_price} is beyond the estimated liquidation price "
                 f"{liquidation:.2f}: the position would be liquidated first",
                 {"exit_price": exit_price, "liquidation_price": liquidation},
+            )
+        ]
+    floor = inputs.thresholds.min_liq_gap_ratio * exit_price
+    if gap < floor:
+        return [
+            Verdict(
+                _REFUSED,
+                "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION",
+                f"The exit at {exit_price} is only {gap:.2f} before the estimated liquidation "
+                f"price {liquidation:.2f} for a plan made at {inputs.plan.last_price}; a "
+                f"gap through the exit would leave the liquidation. Keep at least {floor:.2f} "
+                f"({inputs.thresholds.min_liq_gap_ratio:.1%} of the exit)",
+                {
+                    "gap": gap,
+                    "liquidation_price": liquidation,
+                    "exit_price": exit_price,
+                    "min_gap": floor,
+                },
             )
         ]
     atr = inputs.daily_atr

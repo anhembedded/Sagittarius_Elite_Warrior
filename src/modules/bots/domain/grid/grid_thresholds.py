@@ -24,6 +24,10 @@ class FuturesGridThresholds:
     #: The stop loss should sit at least this many daily ATRs before the liquidation
     #: price (`EPIC-029K`); nearer is a WARNING.
     min_liq_buffer_atr: Decimal = Decimal(1)
+    #: A stop loss nearer the estimated liquidation than this share of its own price is REFUSED
+    #: (`BUG-255`), with or without a daily ATR: a gap through a stop that close would leave only
+    #: the liquidation. The ATR buffer above stays an advisory.
+    min_liq_gap_ratio: Decimal = Decimal("0.005")
     #: Leverage above this is a WARNING (decision O4).
     leverage_warn: int = 10
     #: Leverage above this is REFUSED, whatever the bracket allows (decision O4).
@@ -58,6 +62,8 @@ class FuturesGridThresholds:
             raise ValueError("leverage thresholds need 1 <= warn <= ceiling")
         if self.min_liq_buffer_atr < 0:
             raise ValueError("min_liq_buffer_atr must not be negative")
+        if not 0 <= self.min_liq_gap_ratio < 1:
+            raise ValueError("min_liq_gap_ratio must be at least 0 and below 1")
         if self.risk_snapshot_max_age <= timedelta(0):
             raise ValueError("risk_snapshot_max_age must be positive")
         if self.risk_unknown_halt_after <= timedelta(0):
