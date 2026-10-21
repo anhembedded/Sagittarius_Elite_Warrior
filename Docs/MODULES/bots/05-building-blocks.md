@@ -279,6 +279,8 @@ What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery
 
 **A Grid that waits for its range** (`EPIC-044B`): the state is `AWAITING_RANGE`; `bots/application/kinds/grid/watch/grid_range_entry.py` → `GridRangeEntry` decides on every price the exits are judged on (`waits_for_the_range` for the first Start, `on_price` while it waits), `GridPriceReaction` hands it the price and arms the range-exit close's one skipped beat, and the contract `bots/contracts/i_entry_readiness.py` → `IEntryReadiness` is what it asks of the Bots screen's readiness at the price that enters (`bots/application/services/readiness/bot_entry_readiness.py` → `BotEntryReadiness`, resolved lazily in `bots/composition/executor_bindings.py` because the readiness reader needs the kind catalogue these deps build). `bots/domain/bot_lifecycle_fsm_matrix.py` → `may_hold_exposure` is what the exposure watches ask instead of naming states.
 
+**What shows a waiting Grid** (`EPIC-044C`): `GridPriceReaction._enter_if_waiting` keeps the price the bot hears as the run's last price while it waits (nothing else of the exits is watched), so every surface has a "now" to say; `bots/contracts/grid_ladder_texts.py` → `waiting_text` is the one sentence ("Waiting for the price to enter X–Y (last price Z, N s ago); nothing is placed until it does", the price with how long ago the bot heard it, since a waiting bot watches no stale-feed halt) the Plan's banner (`bots/ui/bots_screen/bot_facts.py` → `bot_facts`), `bot list` and `bot show` (`bots/cli/bot_waiting_reason.py` → `reason_cell`) and the heartbeat (`alerting/application/heartbeat_text.py`) print; `BotsHealthContributor` and the `[health]` line count `awaiting_range` apart from `running`; `bots/contracts/events/bot_range_entered_event.py` → `BotRangeEnteredEvent` is published once by `GridRangeEntry._tell_the_ladder_is_laid` when the ladder is laid, and the alerting module turns it into one INFO alert.
+
 The exchange's pause is the third reason the probe knows (`EPIC-042F`): the Grid's layer declares
 `rate_limited` (`bots/domain/grid/grid_kind.py` → `GRID_RECOVERY_LAYER`, with the shared rule
 `bots/domain/halt_recovery_policy.py` → `PAUSE_RULE`), and *clear* is `bots/application/kinds/grid/watch/grid_rate_limit_pause.py`
@@ -318,7 +320,7 @@ the constants in [`10-quality.md`](10-quality.md).
   `bots/cli/bot_control_verbs.py` → `AcknowledgeLossCapVerb` and the host's command directory
   (`operations/application/bot_host_command_executor.py`, `HostControlAction.ACKNOWLEDGE_LOSS_CAP`).
 - **The alert.** `alerting` turns `AccountLossCapTrippedEvent` into `AlertKind.ACCOUNT_LOSS_CAP_TRIPPED`
-  (`alerting/application/sources/bot_alert_source.py` → `BotAlertSource.on_account_loss_cap_tripped`).
+  (`alerting/application/sources/account_alert_source.py` → `AccountAlertSource.on_account_loss_cap_tripped`).
 
 ## Planned
 

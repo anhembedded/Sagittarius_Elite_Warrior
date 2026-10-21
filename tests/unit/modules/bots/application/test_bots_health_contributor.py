@@ -128,3 +128,16 @@ def test_the_section_counts_the_bots_waiting_to_recover() -> None:
         1,
         0,
     )
+
+
+def test_the_section_counts_the_bots_waiting_for_their_range_apart_from_running() -> (
+    None
+):
+    """`EPIC-044C`: a bot that holds nothing and waits for the price is not a running bot."""
+    store = FakeBotStore()
+    seed(store, "aaaaaa", BotLifecycleState.AWAITING_RANGE)
+    seed(store, "bbbbbb", BotLifecycleState.RUNNING)
+
+    section = BotsHealthContributor(BotQueryDispatcher(store)).snapshot()
+
+    assert (section["awaiting_range"], section["running"]) == (1, 1)

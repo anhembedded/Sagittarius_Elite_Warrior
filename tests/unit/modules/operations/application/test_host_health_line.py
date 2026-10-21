@@ -78,9 +78,10 @@ def test_the_bots_are_counted_in_the_contract_order_zeros_included() -> None:
         BotCount("starting", 1),
         BotCount("stopping", 0),
         BotCount("awaiting_recovery", 0),
+        BotCount("awaiting_range", 0),
     )
     assert (
-        "bots=running:3,paused:1,halted:0,recovering:0,error:2,starting:1,stopping:0,awaiting_recovery:0"
+        "bots=running:3,paused:1,halted:0,recovering:0,error:2,starting:1,stopping:0,awaiting_recovery:0,awaiting_range:0"
         in (format_health_line(line))
     )
 
@@ -153,3 +154,12 @@ def test_a_bot_waiting_to_recover_is_on_the_line_not_hidden() -> None:
 
     assert BotCount("awaiting_recovery", 2) in line.bots
     assert "awaiting_recovery:2" in format_health_line(line)
+
+
+def test_a_bot_waiting_for_its_range_is_counted_apart_on_the_line() -> None:
+    """`EPIC-044C`: it holds nothing and lays nothing, so it is neither running nor halted."""
+    line = _line({"bots": {**_BOTS, "states": {"AWAITING_RANGE": 2}}})
+
+    assert BotCount("awaiting_range", 2) in line.bots
+    assert "awaiting_range:2" in format_health_line(line)
+    assert parse_health_line(format_health_line(line)) == line

@@ -52,6 +52,9 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.BOT_AUTO_RECOVERED: KindProfile(
             AlertGroup.BOT_EVENTS, _WARNING, "Bot recovered by itself"
         ),
+        AlertKind.BOT_RANGE_ENTERED: KindProfile(
+            AlertGroup.BOT_EVENTS, _INFO, "Bot entered its range"
+        ),
         AlertKind.LIQUIDATION_RISK: KindProfile(
             AlertGroup.BOT_EVENTS, _WARNING, "Liquidation risk"
         ),

@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_exchange_unrealised_rows import (
     exchange_unrealised_rows,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_waiting_reason import (
+    reason_cell,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     RECORDED_STATES_NOTE,
     BotRecoveryTable,
@@ -189,7 +192,7 @@ def _bot_row(bot: BotStatusEntry) -> ReportRow:
             total_pnl_text(bot.earnings, plain_money),
         ),
         _step_cell(bot),
-        bot.reason,
+        reason_cell(bot),
     )
 
 
@@ -245,7 +248,7 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
             _field("Name", bot.name),
             _field("Kind", bot.kind),
             _field("State", bot.state),
-            _field("Reason", bot.reason or "-"),
+            _field("Reason", reason_cell(bot) or "-"),
             _field("Venue", bot.venue),
             _field("Symbol", bot.symbol),
             _field(

@@ -143,10 +143,12 @@ class GridPriceReaction:
 
     def _enter_if_waiting(self, price: Decimal) -> bool:
         """Hand the price to the entry of a bot waiting for its range; answers whether the bot
-        left the wait on it. An entry that went on to lay the ladder arms the range-exit close's
-        one skipped beat (ADR 044 D7)."""
+        left the wait on it. The price is kept as the bot's last (the Plan says "last price Z" from it, and
+        `bot show` the price position), though nothing else of the exits is watched. An entry that
+        went on to lay the ladder arms the range-exit close's one skipped beat (ADR 044 D7)."""
         if self._context.state.state is not BotLifecycleState.AWAITING_RANGE:
             return False
+        self._save_mark_price(price)
         self._entry.on_price(price)
         if self._context.state.state is BotLifecycleState.AWAITING_RANGE:
             return False

@@ -63,6 +63,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_exit
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_reason_routes import (
     own_route_on_entry,
+    reason_line,
     stalled_route,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_subject import (
@@ -89,9 +90,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
-    AccountLossCapTrippedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
     BotAutoRecoveredEvent,
 )
@@ -105,11 +103,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_changed_event import (
     BotRangeChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_entered_event import (
+    BotRangeEnteredEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    plain_price,
 )
 
 logger = logging.getLogger("App.Alerting")
@@ -135,6 +139,16 @@ CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
             AlertKind.KEY_REJECTED,
             AlertKind.STORAGE_FAILURE,
             AlertKind.PRICE_FEED_STALE,
+        ),
+        # A halted bot resumed flat with the price outside its range waits, holding nothing: its
+        # halt, error and stalled-wait conditions are over (`EPIC-044B`). The conditions with a
+        # route of their own (a quiet feed, a storage failure, the exchange's pause, a rejected
+        # key) stay open until RUNNING: the wait places no order and reads no stream of its own,
+        # so it proves none of them mended (`EPIC-044C`, review round 1).
+        "AWAITING_RANGE": (
+            AlertKind.BOT_HALTED,
+            AlertKind.BOT_ERROR,
+            AlertKind.BOT_RECOVERY_STALLED,
         ),
         "HALTED": (AlertKind.BOT_RECOVERY_STALLED,),
         "ERROR": (AlertKind.BOT_RECOVERY_STALLED,),
@@ -196,37 +210,9 @@ class BotAlertSource:
         detail = (
             f"The stop gave up after {event.retries} automatic retries and the bot "
             "is still STOPPING: orders it placed may still be open on the exchange. "
-            f"Press Stop to try again.\n{_reason_line(reason)}"
+            f"Press Stop to try again.\n{reason_line(reason)}"
         )
         self._publish(AlertKind.STOP_FAILED, subject, detail)
-
-    def on_account_loss_cap_tripped(self, event: AccountLossCapTrippedEvent) -> None:
-        """`EPIC-026L`: the account-level loss cap tripped; the owner must hear it at once.
-
-        About the whole host, not a bot, so its subject is the app. It has no recovery message: the
-        owner's acknowledgement is the end of it, and a cap that trips again is a new alert.
-        """
-        figure = f" (cap {event.figure})" if event.figure else ""
-        detail = (
-            f"The account-level loss cap tripped{figure}: {event.detail}.\n"
-            f"{event.bots_stopped} bot(s) are being stopped. No bot starts or resumes until you "
-            "acknowledge it with `main.py bot loss-cap-ack` on the running host. A Spot bot keeps "
-            "the coin it holds; a Futures bot's position is closed at market."
-        )
-        self._publisher.publish(
-            Alert.raised(
-                AlertKind.ACCOUNT_LOSS_CAP_TRIPPED,
-                AlertSubject.app(),
-                label_of(AlertKind.ACCOUNT_LOSS_CAP_TRIPPED),
-                detail,
-                self._clock.now(),
-                reason=event.reason,
-            )
-        )
-        logger.info(
-            "[alert-source] account loss cap tripped (%s): alert published",
-            event.reason,
-        )
 
     def on_recovery_stalled(self, event: BotRecoveryStalledEvent) -> None:
         """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""
@@ -238,7 +224,7 @@ class BotAlertSource:
             # `EPIC-036B2`: a wait on a quiet price feed or an exchange pause is its own
             # condition, which the hub can group across bots and hide behind a venue outage.
             detail = f"{route.text} It has waited {minutes} minute(s).\n"
-            self._publish(route.kind, subject, detail + _reason_line(event.reason))
+            self._publish(route.kind, subject, detail + reason_line(event.reason))
             return
         detail = (
             f"The bot has waited {minutes} minute(s) to recover and is still "
@@ -291,6 +277,17 @@ class BotAlertSource:
             AlertKind.RANGE_EXIT, subject, detail, reason=event.position.value
         )
 
+    def on_range_entered(self, event: BotRangeEnteredEvent) -> None:
+        """`EPIC-044C` (ADR 044 D10): a bot that waited for its range has entered it and laid its
+        ladder. Told once per entry; a bot that starts inside its range is not a wait that ended."""
+        subject = subject_or_bare(self._entry(event.bot_id), event.bot_id)
+        detail = (
+            f"The price {plain_price(event.price)} entered the range "
+            f"{plain_price(event.lower)}-{plain_price(event.upper)}. "
+            f"The bot laid {event.orders} order(s) and is running."
+        )
+        self._publish(AlertKind.BOT_RANGE_ENTERED, subject, detail)
+
     def on_protective_stop(self, event: BotProtectiveStopEvent) -> None:
         """`BOT-189`: the stop standing on the exchange ran, so the position is closed."""
         if event.change is not ProtectiveStopChange.TRIGGERED:
@@ -322,7 +319,7 @@ class BotAlertSource:
         if own is not None and own.kind is not None:
             # A reason that is its own condition: a fixed sentence, never the bot's detail, which
             # carries the failure text of a request or of the disk (`bot_reason_routes`).
-            detail = f"{own.text}\n{_reason_line(entry.reason)}"
+            detail = f"{own.text}\n{reason_line(entry.reason)}"
             self._publish(own.kind, subject_of(entry), detail)
             return
         kind = ALERT_ON_ENTRY.get(entry.state)
@@ -330,7 +327,7 @@ class BotAlertSource:
             return
         detail = (
             f"Was {previous or 'not yet seen'}.\n"
-            f"{_reason_line(entry.reason, entry.reason_detail)}"
+            f"{reason_line(entry.reason, entry.reason_detail)}"
         )
         self._publish(kind, subject_of(entry), detail)
 
@@ -372,12 +369,3 @@ class BotAlertSource:
         return cast(
             BotStatusReport, self._dispatcher.dispatch(GetBotStatusReportQuery, query)
         )
-
-
-def _reason_line(reason: str, detail: str = "") -> str:
-    """The `Reason:` line; the detail follows it when the bot wrote one (`EPIC-042D`: the
-    sentence that says the automatic recoveries are used up lives only there)."""
-    if not reason:
-        return "No reason recorded."
-    detail = detail.lstrip("; ")
-    return f"Reason: {reason} ({detail})" if detail else f"Reason: {reason}"

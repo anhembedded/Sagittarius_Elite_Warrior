@@ -75,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_servic
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.account_alert_source import (
+    AccountAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
@@ -293,6 +296,12 @@ def bind_alerting(container: IContainer) -> None:
     container.singleton(
         ISystemFailureReporter,
         lambda resolver: SystemAlertSource(
+            resolver.resolve(IAlertPublisher), resolver.resolve(IAlertClock)
+        ),
+    )
+    container.singleton(
+        AccountAlertSource,
+        lambda resolver: AccountAlertSource(
             resolver.resolve(IAlertPublisher), resolver.resolve(IAlertClock)
         ),
     )

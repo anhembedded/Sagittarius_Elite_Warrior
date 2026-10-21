@@ -55,6 +55,7 @@ class BotsHealthContributor(IHealthContributor):
             "awaiting_recovery": counts.get(
                 BotLifecycleState.AWAITING_RECOVERY.value, 0
             ),
+            "awaiting_range": counts.get(BotLifecycleState.AWAITING_RANGE.value, 0),
             "unreadable": counts.get(UNREADABLE_STATE, 0),
             "states": dict(counts),
         }

@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_status_gate import (
     SymbolStatusGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_entered_event import (
+    BotRangeEnteredEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
@@ -266,6 +269,24 @@ class GridRangeEntry:
         )
         state.transition(BotLifecycleEvent.RANGE_ENTERED)
         self._lay(ladder)
+        self._tell_the_ladder_is_laid(price)
+
+    def _tell_the_ladder_is_laid(self, price: Decimal) -> None:
+        """The owner hears once that the wait ended in a running ladder; a start sequence that
+        halted or stopped instead has its own alert (`BotRangeEnteredEvent`)."""
+        state = self._context.state
+        if state.state is not _S.RUNNING:
+            return
+        params = self._context.params
+        self._context.events.publish(
+            BotRangeEnteredEvent(
+                state.bot_id,
+                price,
+                params.lower,
+                params.upper,
+                len(state.runtime.open_orders),
+            )
+        )
 
     def _refuse(self, detail: str) -> None:
         state = self._context.state

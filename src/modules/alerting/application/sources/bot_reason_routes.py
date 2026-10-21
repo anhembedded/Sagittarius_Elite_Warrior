@@ -204,3 +204,12 @@ def stalled_route(reason: str) -> ReasonRoute | None:
     if route is not None and route.disposition is Disposition.STALLED:
         return route
     return None
+
+
+def reason_line(reason: str, detail: str = "") -> str:
+    """The `Reason:` line; the detail follows it when the bot wrote one (`EPIC-042D`: the
+    sentence that says the automatic recoveries are used up lives only there)."""
+    if not reason:
+        return "No reason recorded."
+    detail = detail.lstrip("; ")
+    return f"Reason: {reason} ({detail})" if detail else f"Reason: {reason}"

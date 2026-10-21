@@ -70,7 +70,11 @@ bot with `ENTRY_REFUSED`; a cause that passes (trading off, the symbol not in TR
 price that cannot be read, the venue not readable) keeps it waiting and is told once. Only then
 `range_entered` takes the bot to `STARTING` and `GridStartSequence.run` lays the ladder; whatever that
 sequence meets follows `STARTING`'s rows and its own reasons. A price that flickers across a bound
-writes no journal row and no log line per beat.
+writes no journal row and no log line per beat. When the ladder is laid and the bot is `RUNNING`,
+`GridRangeEntry._tell_the_ladder_is_laid` publishes one `BotRangeEnteredEvent` (price, range, orders
+laid), which the owner receives as one alert; an entry that ends in a halt publishes none. While it
+waits the bot keeps the price it hears as its last, so the Plan, `bot show` and the heartbeat say
+"last price Z, N s ago".
 
 Stop loss, take profit, the range-exit close, the stale-feed halt, the rate-limit halt and the
 protective-stop supervision do nothing while the bot waits (`BotRunState.may_hold_exposure`); after an
