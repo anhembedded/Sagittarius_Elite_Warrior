@@ -173,6 +173,25 @@ class DeleteBotVerb(_ControlVerb):
     action = HostControlAction.DELETE
 
 
+class MoveBotVerb(_ControlVerb):
+    """`bot move <id> --venue <venue>`: the screen's Venue field, for one DRAFT that never ran, on the running host (`EPIC-045G`).
+
+    The bot keeps its id and stays DRAFT; a move places no order and asks no `--confirm-venue` (the
+    real-money question is at `bot start`). Whether the bot may move (a Spot bot, a DRAFT that never ran)
+    and whether the venue is one this build trades on is the host's answer, in words.
+    """
+
+    name = "move"
+    action = HostControlAction.MOVE
+
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
+        if not args.venue:
+            return CliOutcome(ExitCode.USAGE, "bot move needs --venue <venue>")
+        return HostControlRequest(self.action, args.bot_id, to_venue=args.venue)
+
+
 class AddBotVerb(_ControlVerb):
     """`bot add <plan.json> [--name X] [--venue V]`: the screen's New bot, from one entry of a plan file, on the running host (`EPIC-045A`).
 

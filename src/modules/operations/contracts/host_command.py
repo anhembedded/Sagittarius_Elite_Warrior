@@ -42,6 +42,8 @@ class HostCommand:
     settings: tuple[ParameterSetting, ...] = ()
     #: The bot an add creates (`EPIC-045A`); absent from older files and from every other action.
     entry: NewBotEntry | None = None
+    #: The venue a move goes to (`EPIC-045G`); absent from older files and from every other action.
+    to_venue: str | None = None
 
 
 class ControlVerdict(StrEnum):
