@@ -18,8 +18,11 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_identity import (
     BotIdentity,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
-    VenuePositionReads,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_shared_reads import (
+    BotSharedReads,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.bounded_age_reading import (
+    BoundedAgeReading,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -51,11 +54,11 @@ class BotAccountReads:
         self,
         ports: VenueTradingPorts,
         identity: BotIdentity,
-        shared: VenuePositionReads | None = None,
+        shared: BotSharedReads | None = None,
     ) -> None:
         self._ports = ports
         self._identity = identity
-        self._shared = shared
+        self._shared = shared if shared is not None else BotSharedReads()
 
     def holding(self, asset: str) -> Decimal | None:
         """The account's whole holding of `asset` (free and locked), or
@@ -78,15 +81,25 @@ class BotAccountReads:
         """The same, for a watch of the idle beat: the venue's reading the bots of the venue
         share when there is one (`BOT-184`, `VenuePositionReads`), at most half a beat old and
         never older than the bot's own last order; a confirmation never asks this."""
-        if self._shared is None:
+        positions = self._shared.positions
+        if positions is None:
             return self.position()
-        return self._position_in(self._shared.positions)
+        return self._position_in(positions.positions)
+
+    @property
+    def shared_mark(self) -> BoundedAgeReading[Decimal] | None:
+        """The reading of the bot's symbol's mark its two watches share, if there is one
+        (`BOT-221`)."""
+        return self._shared.mark
 
     def account_changed(self) -> None:
         """Something this bot did or heard changes what the account holds: the venue's shared
-        reading of the positions, if there is one, is dropped (`BOT-184`)."""
-        if self._shared is not None:
-            self._shared.invalidate()
+        reading of the positions and the symbol's shared mark, if there are any, are dropped
+        (`BOT-184`, `BOT-221`)."""
+        if self._shared.positions is not None:
+            self._shared.positions.invalidate()
+        if self._shared.mark is not None:
+            self._shared.mark.invalidate()
 
     def _position_in(
         self, read: Callable[[], tuple[LivePosition, ...]]
