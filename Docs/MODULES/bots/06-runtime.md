@@ -26,7 +26,7 @@ retires the earlier run's worker, so no task of that run can save over the new o
 goes back to the caller with nothing saved and nothing queued. Only once they pass does the runner
 save the bot `STARTING` and queue `start` on a fresh worker. On the worker the executor plans and
 places the ladder (`.../grid_executor.py` → `GridExecutor._run_start`; `.../grid_start_sequence.py` →
-`GridStartSequence.run`), and `ladder_ready` moves the bot to `RUNNING`. The order-session opening and
+`GridStartSequence.run`): once the opening is counted from the exchange, its fills are booked into the runtime from the order history before the stop and the ladder (`.../opening_fills_booking.py` → `OpeningFillsBooking.book`; `BUG-258`; the stream's report of the same trade is then counted once), and `ladder_ready` moves the bot to `RUNNING`. The order-session opening and
 the budget registration are calls to `trading` the caller waits on.
 
 ## Built: a Grid started away from its range waits (EPIC-044B)

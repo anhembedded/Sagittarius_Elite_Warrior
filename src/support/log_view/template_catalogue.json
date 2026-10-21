@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 859, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 861, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -161,6 +161,7 @@
 ["ssss", "Bot ", ": opening buy counted from the exchange's record: ", " ", " held, the ladder sells ", ""],
 ["sdsss", "Bot ", ": opening buy slice ", " of ", " USDT -> ", " ", ""],
 ["ssss", "Bot ", ": opening counted from the exchange's record: a position of ", ", the ladder's reduce-only ", "s add up to ", " [position-opened]"],
+["sssss", "Bot ", ": opening fill ", " of ", " booked from the exchange's record: ", " at ", " [opening-fills]"],
 ["sdsss", "Bot ", ": opening slice ", " of ", " -> ", " ", ""],
 ["ss", "Bot ", ": order ", " filled whole, announced [order-filled]"],
 ["sss", "Bot ", ": order ", " outcome unknown, it may be live: ", ""],
@@ -206,6 +207,7 @@
 ["ss", "Bot ", ": the exchange's facts are unavailable: ", " [exchange-facts]"],
 ["ss", "Bot ", ": the exchange's position could not be read (", "); the last reading ages [liquidation-risk]"],
 ["ssss", "Bot ", ": the exit of ", " closed the position, ", " left; result ", " [exit-closed]"],
+["sss", "Bot ", ": the history of opening slice ", " did not answer (", "); the stream will report its fills [opening-fills]"],
 ["s", "Bot ", ": the holding changed or could not be read while the resume cancelled the ladder; the bot is resumed as one that holds [range-wait]"],
 ["s", "Bot ", ": the interrupted start could not be cleaned"],
 ["s", "Bot ", ": the key probe failed; asking again"],
