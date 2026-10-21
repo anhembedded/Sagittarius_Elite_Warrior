@@ -92,7 +92,7 @@ def test_a_confirmation_that_names_another_proposal_is_refused_and_queues_nothin
 
 
 def test_no_held_proposal_is_still_refused_as_before() -> None:
-    runner = ProposalRunner(proposal=None)
+    runner = ProposalRunner(None)
 
     result = _handler(runner).execute(ConfirmBotResumeCommand("aaaaaa", "deadbeef"))
 

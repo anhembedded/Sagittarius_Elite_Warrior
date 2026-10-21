@@ -95,6 +95,9 @@ class ResumeBotForHostCommandHandler(
                 f"reopens its order session and needs --confirm-venue {venue.value}.",
                 command.bot_id,
             )
+        # What was held before this resume: the worker replaces it, and a reply that read it first
+        # would hand the operator a fingerprint the resume is about to make stale (review of #715).
+        before = self._runner.resume_proposal(command.bot_id) if proposes else None
         result = cast(
             BotCommandResult,
             self._dispatcher.dispatch(
@@ -103,21 +106,25 @@ class ResumeBotForHostCommandHandler(
             ),
         )
         if result.accepted and proposes:
-            return self._proposal_reply(command.bot_id, venue.value, venue.is_mainnet)
+            return self._proposal_reply(
+                command.bot_id,
+                venue.value if venue.is_mainnet else None,
+                before.sequence if before is not None else 0,
+            )
         return result
 
     def _proposal_reply(
-        self, bot_id: str, venue: str, mainnet: bool
+        self, bot_id: str, mainnet_venue: str | None, newer_than: int
     ) -> BotCommandResult:
-        """The proposal the worker made, in words; or the refusal when none appeared in time."""
+        """The proposal this resume made, in words; or the refusal when none newer appeared in time."""
         deadline = self._clock.seconds() + PROPOSAL_REPLY_WAIT_S
         while True:
             held = self._runner.resume_proposal(bot_id)
-            if held is not None:
+            if held is not None and held.sequence > newer_than:
                 return BotCommandResult(
                     accepted=True,
                     bot_id=bot_id,
-                    message=_proposed_words(bot_id, held, venue if mainnet else None),
+                    message=_proposed_words(bot_id, held, mainnet_venue),
                 )
             if self._clock.seconds() >= deadline:
                 break

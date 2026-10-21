@@ -151,3 +151,35 @@ def test_a_confirmation_with_no_proposal_is_refused_and_lays_nothing(
         assert f"`bot resume {bot_id}`" in refused.message
         assert state_of(app.store, bot_id) is S.HALTED
         assert resting(app.urls) == {}
+
+
+def test_a_second_resume_after_a_refused_confirmation_gives_a_fingerprint_that_confirms(
+    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review of #715: the retry the refusal tells the operator to make must end in a confirmable fingerprint."""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(exchange.tmp_path))
+    with booted(exchange) as app:
+        app.stream.start = lambda: None  # type: ignore[method-assign]
+        bot_id = _halted(app)
+        operator = operator_of(app.engine, exchange.tmp_path, app.deliver)
+        first = operator.ask(HostControlRequest(HostControlAction.RESUME, bot_id))
+        wrong = operator.ask(
+            HostControlRequest(
+                HostControlAction.CONFIRM_RESUME, bot_id, proposal="0" * 8
+            )
+        )
+
+        again = operator.ask(HostControlRequest(HostControlAction.RESUME, bot_id))
+        confirmed = operator.ask(
+            HostControlRequest(
+                HostControlAction.CONFIRM_RESUME,
+                bot_id,
+                proposal=_fingerprint_of(again.message),
+            )
+        )
+        app.deliver()
+
+        assert first.status is again.status is HostControlStatus.DONE
+        assert wrong.status is HostControlStatus.REFUSED
+        assert confirmed.status is HostControlStatus.DONE, confirmed.message
+        assert state_of(app.store, bot_id) is S.RUNNING

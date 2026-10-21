@@ -64,10 +64,10 @@ class IBotRunner(ABC):
         holds in its queue (`EPIC-042E`): a caller that gave up waiting for a proposal must not
         leave one behind for a later Confirm or to block the automatic recovery."""
 
-    @abstractmethod
     def has_resume_proposal(self, bot_id: str) -> bool:
-        """The bot's executor holds a resume proposal to confirm. A proposal
-        lives in memory only: after a restart there is none."""
+        """The bot's executor holds a resume proposal to confirm, which is what `resume_proposal`
+        says. A proposal lives in memory only: after a restart there is none."""
+        return self.resume_proposal(bot_id) is not None
 
     def resume_proposal(self, bot_id: str) -> ResumeProposalSummary | None:
         """What the bot's held resume proposal says (`EPIC-045G`); `None` when none is held."""

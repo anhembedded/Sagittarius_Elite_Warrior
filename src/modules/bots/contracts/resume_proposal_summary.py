@@ -29,3 +29,7 @@ class ResumeProposalSummary:
     price: Decimal
     #: The base the bot holds, which the SELL side was sized to.
     held: Decimal
+    #: Which proposal this is, in the order the process made them: every resume that proposes makes a
+    #: newer one, even over an identical ladder, so a caller that read one before asking for another can
+    #: tell the new proposal from the one that was already held. Not part of the fingerprint.
+    sequence: int = 0

@@ -135,7 +135,7 @@ class ConfirmResumeBotVerb(_ControlVerb):
             self.action,
             args.bot_id,
             getattr(args, "confirm_venue", None),
-            proposal=args.proposal,
+            proposal=args.proposal.strip().lower(),
         )
 
 

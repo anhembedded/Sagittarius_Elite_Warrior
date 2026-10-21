@@ -21,8 +21,9 @@ again, which proposes afresh from the exchange as it then is.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
@@ -91,6 +92,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: Counts the proposals this process has made; `ResumeProposal.sequence` takes the next number.
+_PROPOSALS_MADE = itertools.count(1)
+
 
 @dataclass(frozen=True, slots=True)
 class ResumeProposal:
@@ -100,6 +104,8 @@ class ResumeProposal:
     inventory: OwnerInventory
     #: The base the plan's SELL levels do not reach (`EPIC-035R`); it stays held.
     unplaced_inventory: Decimal
+    #: Taken when the proposal is made, so a later one is always greater (`EPIC-045G`); not part of what it says.
+    sequence: int = field(default_factory=lambda: next(_PROPOSALS_MADE), compare=False)
 
     @property
     def summary(self) -> ResumeProposalSummary:
@@ -116,6 +122,7 @@ class ResumeProposal:
             len(self.plan.order_levels),
             self.plan.last_price,
             self.inventory.quantity,
+            self.sequence,
         )
 
 

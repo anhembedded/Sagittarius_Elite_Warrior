@@ -662,7 +662,7 @@
               {
                 "name": "--proposal",
                 "type": "str",
-                "help": "The fingerprint bot resume printed for the proposal you read; the confirmation lays that proposal and nothing else"
+                "help": "The fingerprint bot resume printed for the proposal you read (8 hex characters, any case); the confirmation lays that proposal and nothing else"
               },
               {
                 "name": "--confirm-venue",

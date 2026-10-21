@@ -168,3 +168,21 @@ def test_every_part_of_the_proposal_is_in_its_name() -> None:
         ).summary.fingerprint
         != name
     )
+
+
+def test_every_proposal_is_newer_than_the_one_it_replaces_even_over_the_same_ladder() -> (
+    None
+):
+    """Review of #715: a caller that read the held proposal before a resume tells the new one by this."""
+    world = _proposed()
+    first = world.executor.resume_proposal()
+    assert first is not None
+
+    world.executor.resume()
+    second = world.executor.resume_proposal()
+
+    assert second is not None
+    assert second.sequence > first.sequence
+    assert second.fingerprint == first.fingerprint, (
+        "the sequence is not part of what the proposal says"
+    )

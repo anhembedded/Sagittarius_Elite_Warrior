@@ -24,35 +24,40 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summar
     ResumeProposalSummary,
 )
 
-PROPOSAL = ResumeProposalSummary("1a2b3c4d", 7, Decimal("50000.5"), Decimal("0.02"))
+PROPOSAL = ResumeProposalSummary(
+    "1a2b3c4d", 7, Decimal("50000.5"), Decimal("0.02"), sequence=2
+)
+#: The proposal a resume replaced: held before it, with an older sequence.
+OLDER = ResumeProposalSummary(
+    "0ldf1ngr", 5, Decimal(49000), Decimal("0.02"), sequence=1
+)
 
 
 class ProposalRunner(IBotRunner):
-    """Answers `resume_proposal` with `None` for `polls_before_proposal` asks, then with `proposal`."""
+    """Answers each `resume_proposal` with the next of `reads`, the last one again once they run out.
 
-    def __init__(
-        self,
-        proposal: ResumeProposalSummary | None = PROPOSAL,
-        polls_before_proposal: int = 0,
-    ) -> None:
-        self.proposal = proposal
-        self.polls_before_proposal = polls_before_proposal
+    By default the proposal is held from the start (what the confirmation handlers read). A resume
+    scripts what the worker does around it: the first read is the one before the resume, so
+    `[None, PROPOSAL]` is a worker that proposes at once, `[None, None, None, PROPOSAL]` a slow one,
+    `[OLDER, OLDER, PROPOSAL]` one that replaces a proposal that was held, and `[OLDER]` one that never does.
+    """
+
+    def __init__(self, *reads: ResumeProposalSummary | None) -> None:
+        self.reads: tuple[ResumeProposalSummary | None, ...] = reads or (PROPOSAL,)
         self.asked = 0
         self.withdrawn: list[str] = []
         self.confirmed: list[tuple[str, str | None]] = []
 
     def resume_proposal(self, bot_id: str) -> ResumeProposalSummary | None:
+        read = self.reads[min(self.asked, len(self.reads) - 1)]
         self.asked += 1
-        return self.proposal if self.asked > self.polls_before_proposal else None
+        return read
 
     def withdraw_resume_proposal(self, bot_id: str) -> None:
         self.withdrawn.append(bot_id)
 
     def confirm_resume(self, bot_id: str, expected: str | None = None) -> None:
         self.confirmed.append((bot_id, expected))
-
-    def has_resume_proposal(self, bot_id: str) -> bool:
-        return self.proposal is not None
 
     def start(self, bot_id: str) -> BotCommandResult:
         raise AssertionError("the host's resume does not start a bot")

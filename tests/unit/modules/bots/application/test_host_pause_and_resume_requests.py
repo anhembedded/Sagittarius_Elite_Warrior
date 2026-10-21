@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.proposal_runner_world import (
+    OLDER,
     PROPOSAL,
     ProposalRunner,
 )
@@ -94,7 +95,11 @@ def _resume_handler(
 ) -> ResumeBotForHostCommandHandler:
     clock = FakeMonotonicClock()
     return ResumeBotForHostCommandHandler(
-        store, dispatcher, runner or ProposalRunner(), clock, FakeBotWaiter(clock)
+        store,
+        dispatcher,
+        runner or ProposalRunner(None, PROPOSAL),
+        clock,
+        FakeBotWaiter(clock),
     )
 
 
@@ -145,7 +150,7 @@ def test_resuming_a_halted_bot_proposes_and_the_reply_carries_the_proposal_and_i
 def test_a_proposal_that_appears_after_a_few_asks_is_waited_for_without_sleeping() -> (
     None
 ):
-    runner = ProposalRunner(polls_before_proposal=3)
+    runner = ProposalRunner(None, None, None, None, PROPOSAL)
     handler = _resume_handler(
         _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
     )
@@ -153,11 +158,11 @@ def test_a_proposal_that_appears_after_a_few_asks_is_waited_for_without_sleeping
     result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
 
     assert result.accepted and PROPOSAL.fingerprint in result.message
-    assert runner.asked == 4 and runner.withdrawn == []
+    assert runner.asked == 5 and runner.withdrawn == []
 
 
 def test_no_proposal_in_time_is_a_refusal_and_the_request_is_withdrawn() -> None:
-    runner = ProposalRunner(proposal=None)
+    runner = ProposalRunner(None)
     handler = _resume_handler(
         _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
     )
@@ -265,3 +270,37 @@ def test_resuming_a_bot_that_does_not_exist_is_refused_not_dispatched() -> None:
 
     assert result.refusal is BotRefusal.NOT_FOUND
     assert dispatcher.dispatched == []
+
+
+def test_a_resume_over_a_held_proposal_replies_with_the_one_it_made_not_the_one_that_was_held() -> (
+    None
+):
+    """Review of #715: the first read after the dispatch still sees the older proposal, the worker
+    replaces it a moment later, and a reply that took the first read named a fingerprint already stale."""
+    runner = ProposalRunner(OLDER, OLDER, OLDER, PROPOSAL)
+    handler = _resume_handler(
+        _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
+    )
+
+    result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert result.accepted
+    assert PROPOSAL.fingerprint in result.message
+    assert OLDER.fingerprint not in result.message
+    assert runner.withdrawn == []
+
+
+def test_a_resume_that_leaves_the_older_proposal_in_place_is_refused_and_withdraws_it() -> (
+    None
+):
+    """The worker proposed nothing (the price could not be read): the held one is not this resume's."""
+    runner = ProposalRunner(OLDER)
+    handler = _resume_handler(
+        _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
+    )
+
+    result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert result.refusal is BotRefusal.NO_RESUME_PROPOSAL
+    assert OLDER.fingerprint not in result.message
+    assert runner.withdrawn == ["aaaaaa"]
