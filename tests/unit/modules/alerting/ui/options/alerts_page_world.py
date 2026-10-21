@@ -60,8 +60,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
+    IAlertChannelCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_routing import (
+    IAlertRouting,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
@@ -262,6 +268,8 @@ def build_page(
     services = {
         IBotAlertModes: modes,
         IQuietHoursSetting: modes,
+        IAlertRouting: modes,
+        IAlertChannelCatalog: catalog,
         ICommandDispatcher: bots if bots is not None else Bots(),
         INotifier: notifier,
         ILogger: ForwardingLogger(),

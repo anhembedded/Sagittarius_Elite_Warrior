@@ -15,6 +15,9 @@ from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.quiet_hours_view_model import (
     QuietHoursViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.routing_matrix_view_model import (
+    RoutingMatrixViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.telegram_settings_view_model import (
     TelegramSettingsViewModel,
 )
@@ -54,6 +57,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
         self.telegram = TelegramSettingsViewModel(self)
         #: The Quiet hours part (`EPIC-036D6`).
         self.quiet = QuietHoursViewModel(self)
+        #: The routing matrix part (`EPIC-036D7`).
+        self.routing = RoutingMatrixViewModel(self)
         self._channel_line = ""
         self._saved_line = ""
         self._can_remove = False
