@@ -107,7 +107,13 @@ and its risk facts (`DetailEffects.refresh`). A bot whose kind has no `backteste
 venue the kind's `supported_profiles()` leaves out, turns the tab off with its reason as the tooltip
 (`BotsView.set_backtest_available`, `TabAvailability`): disabled, never hidden. View → Live chart tab
 and View → Backtest tab (Ctrl+J) switch the tabs (`bots_command_binding.py`); the second follows the
-tab. A window state saved with the old Backtest dock still loads: Qt skips a dock name the window no
+tab. View → Chart (`EPIC-040` F1) holds the chart commands (`chart_commands`) for the chart in front, kept in step by one
+`ChartCommandMirror` (`bots_chart_commands.py` → `BotsChartCommands`, parented to the view model by `bind_bots_commands`):
+on the Live tab the selected bot's chart (More timeframes…, zoom, Follow latest), on the Backtest tab the workbench's
+interval row (More timeframes… only), and every command off while a tab shows a note. It re-follows on
+`BotsView.front_chart_changed`, which the tab, the chart slot and the page slot raise. The workbench's result chart has
+no timeframe row of its own (`ChartToolbar.hide_timeframes`, F3: the replay is at the interval that was run), and the
+interval picker keeps one pin (`PinFloor`, F4: the dialog refuses the last unpin and says why). A window state saved with the old Backtest dock still loads: Qt skips a dock name the window no
 longer has. A run in flight when the selection moves to a bot of another venue keeps running on its
 hidden workbench (it is that bot's run, and the hidden page stays a child of the tab, never a window of its own: `widget_slot.replace_in`, `BUG-242`); its result is there when the person comes back, and a run
 that fails still tells the person through the notifier, naming the action. The page keeps its

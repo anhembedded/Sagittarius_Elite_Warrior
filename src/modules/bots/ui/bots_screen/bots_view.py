@@ -84,7 +84,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
-from .widget_slot import replace_in
+from .widget_slot import held_in, replace_in
 
 _EMPTY_TEXT = "No bots yet. Create one with Bots → New bot…."
 NO_CHART_TEXT = "Select a bot in Bots to see its chart."
@@ -133,6 +133,9 @@ class BotsView(BaseView):
 
     #: Whether the Backtest tab can be used, as the host last said (`EPIC-040E`).
     backtest_enabled_changed = Signal(bool)
+    #: What the centre shows in front changed: the tab, or the chart or the page in a tab
+    #: (`EPIC-040` F1: the chart commands follow it).
+    front_chart_changed = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -228,6 +231,15 @@ class BotsView(BaseView):
 
     def set_chart(self, chart: QWidget | None) -> None:
         replace_in(self._chart_slot, chart or _note(NO_CHART_TEXT, "lblBotsNoChart"))
+        self.front_chart_changed.emit()
+
+    def shown_chart(self) -> QWidget | None:
+        """What the Live tab holds: the bot's chart, or the note that stands in for it."""
+        return held_in(self._chart_slot)
+
+    def shown_backtest_page(self) -> QWidget | None:
+        """What the Backtest tab holds: the venue's workbench page, or a note."""
+        return held_in(self._backtest_slot)
 
     def status_widgets(self) -> Sequence[QWidget]:
         """`IStatusSource`: the selected bot's venue, in the status bar."""
@@ -236,6 +248,7 @@ class BotsView(BaseView):
     def lock_chart(self, reason: str) -> None:
         """The chart's place says why there is no chart yet (`EPIC-034D`)."""
         replace_in(self._chart_slot, _note(reason, "lblBotsChartLocked"))
+        self.front_chart_changed.emit()
 
     def set_backtest_page(self, page: QWidget | None, note: str) -> None:
         """The workbench of the selected bot's venue; `None` leaves `note` where it would be."""
@@ -243,6 +256,7 @@ class BotsView(BaseView):
             self._backtest_slot,
             page or _note(note or NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
         )
+        self.front_chart_changed.emit()
 
     def set_backtest_available(self, tab: TabAvailability) -> None:
         """The Backtest tab is off, with `tab.reason` as its tooltip, for a bot the workbench
@@ -320,6 +334,7 @@ class BotsView(BaseView):
         self.model.chart_note_changed.connect(self._show_chart_note)
         self.model.connect_changed.connect(self._lock_plan)
         self.table.selectionModel().selectionChanged.connect(self._on_row_selected)
+        self.centre.currentChanged.connect(self.front_chart_changed)
 
     def _show_chart_note(self) -> None:
         self.chart_note.setText(self.model.chart_note)
