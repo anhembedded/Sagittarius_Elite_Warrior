@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_live_stream_s
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_testnet_flag,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.closing_on_cancel import (
+    create_closing_on_cancel,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
@@ -41,6 +44,8 @@ class KlineStreamError(OSError):
 
 #: Delay before retrying the WebSocket connection after an `OSError`.
 _RECONNECT_DELAY_SECONDS = 5
+
+
 #: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG`, on only under `--debug`.
 _TRACE = 5
 
@@ -216,8 +221,9 @@ class BinanceWebsocketService(ILiveStreamService):
         is_closing = False
         client = None
         try:
-            client = await AsyncClient.create(
-                testnet=resolve_testnet_flag(self._market_data_venue)
+            client = await create_closing_on_cancel(
+                AsyncClient.create,
+                testnet=resolve_testnet_flag(self._market_data_venue),
             )
             bsm = BinanceSocketManager(client)
 
