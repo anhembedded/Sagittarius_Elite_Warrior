@@ -1,6 +1,6 @@
 # EPIC-044B — A Grid started away from its range waits in `AWAITING_RANGE` and lays its ladder when the price enters
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, through the coordinating session (quoted once in the epic README: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"* — if the price is out of the range the bot still starts but only begins laying orders once the price is inside).
 **Risk:** 🔴 — it changes what a real-money bot does at Start, in every direction and on both markets, and adds a lifecycle state.
 **Complexity:** L — the lifecycle table, the start path, the entry watch, the checks, the restore row and the red-before tests of every direction × side.
@@ -30,7 +30,7 @@ The ADR's D1–D9 and D12. Established on `849d973`: five behaviours depending o
 - [x] The new guard: every hand-written state set (enum and string sets of ADR §2.4) classifies every state, and so classifies `AWAITING_RANGE`.
 - [x] Mainnet and testnet behave the same (the same test over both venues).
 - [x] Log lines of ADR D12 seen through the real logging configuration; `render_log_templates.py --write` run.
-- [ ] The Futures restart test on the VPS path: needs the separate fix for a Futures `bot resume` refused "unexpected open positions" after a host restart (not done here; the unit test of the reconcile into the wait passes without it).
+- [x] The Futures restart test on the VPS path: needed the separate fix for a Futures `bot resume` refused "unexpected open positions" after a host restart (`BUG-250`, #680). The owner's run on the VPS, 2026-10-21, after `sew-update` to a master carrying #680, a service restart with `--on-stop leave-orders` and `bot resume`: `bot list` shows two Futures Testnet bots `RUNNING` (grid profit 1.64 over 18 cycles and 2.27 over 12), and `bot show` of the first shows the same run carried across the restart (run started 2026-10-20T14:42:30), its stop loss and take profit unchanged, its range 2,345–2,816 and a last price heard 11 s ago. What this shows and what it does not: a restart and a resume of Futures bots work on the VPS path, which was the blocker; neither bot was waiting for its range at the time, so the reconcile into the wait stays proven by the unit and integration tests (`test_a_waiting_grid_survives_a_restart.py` and the fake-exchange journey), not by that run.
 
 ## 3. Design
 The ADR §2. A new `GridRangeEntry` collaborator in `application/kinds/grid/watch/` decides on each tick; the executor posts the entry as the same `STARTING` start sequence that lays every ladder.
@@ -73,4 +73,4 @@ Decisions taken while building, within the ADR:
 - `GridFacts._SWITCHED_OFF_FROM` gains the state (D8); the alerting reason routes gain `entry_refused` (a halt reason the owner reads in the bot's `Reason:` line).
 - The grid executor was at 390 lines; the start-or-wait decision moved into `GridRangeEntry` and `GridStartSequence.run_at` to stay under the ceiling.
 
-Not done here: the Futures restart on the VPS (the separate resume bug); `EPIC-044C` (surfaces, the entry alert and `BotRangeEnteredEvent`) and `EPIC-044D` (the replay).
+Not done here, done in the siblings: `EPIC-044C` (surfaces, the entry alert and `BotRangeEnteredEvent`, #686) and `EPIC-044D` (the replay, #687). The Futures restart on the VPS was closed afterwards with the owner's output above.

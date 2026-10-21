@@ -6,7 +6,7 @@
 **Complexity:** M — six surfaces, one alert, frames.
 **Epic (optional):** [EPIC-044](../README.md)
 **SPEC (optional):** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-044B](../incomplete/EPIC-044B_the_state_and_the_entry.md) (merged, #682); #674 does not touch what this changes (the coordinator allowed the start, 2026-10-21)
+**Depends on:** [EPIC-044B](EPIC-044B_the_state_and_the_entry.md) (merged, #682); #674 does not touch what this changes (the coordinator allowed the start, 2026-10-21)
 
 ---
 

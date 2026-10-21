@@ -1,6 +1,6 @@
 # EPIC-044D — The Grid's backtest waits and enters by the same rule as the live bot
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, through the coordinating session (quoted once in the epic README: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"* — if the price is out of the range the bot still starts but only begins laying orders once the price is inside).
 **Risk:** 🟡 — it changes what a replay reports for a window that starts away from the range.
 **Complexity:** M — both replay engines, the benchmark, the result's wording.

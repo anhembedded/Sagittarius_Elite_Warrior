@@ -1,6 +1,6 @@
 # EPIC-044 — A Grid started away from its range waits for the price, then lays its ladder
 
-- **Status:** 🟡 Phase 4 in progress (the state and the entry #682 and the surfaces #686 are merged; the backtest is in review)
+- **Status:** ✅ Done (2026-10-21): the decision (#679), the state and the entry (#682), the surfaces (#686) and the backtest (#687) are merged; the Futures restart on the VPS was verified by the owner's `bot list`/`bot show` after the resume fix (#680)
 - **Repositories:** Elite
 - **Origin:** the owner, 2026-10-21, through the coordinating session: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"*, then *"không thời hạn chờ"*, then *"OK"* to always waiting with the logic mirrored for Short. Translated: if the price is out of the range the bot still starts, but only begins laying orders when the price is inside the range; no time limit; always wait, mirrored for Short.
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (Start with the price outside the range) and [`Docs/MODULES/bots/state-machines.md`](../../../Docs/MODULES/bots/state-machines.md); both change with the code slices.
@@ -26,9 +26,9 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-044A](completed/EPIC-044A_the_decision_record.md) | The decision record and this epic's scaffold (docs PR) | Elite | None | 🟢 | Done (2026-10-21) |
-| [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | `AWAITING_RANGE`: the state, the entry, the informational checks, the restart row, with the red-before tests | Elite | 044A accepted | 🔴 | Merged (#682); the Futures restart test on the VPS is open |
+| [EPIC-044B](completed/EPIC-044B_the_state_and_the_entry.md) | `AWAITING_RANGE`: the state, the entry, the informational checks, the restart row, with the red-before tests | Elite | 044A accepted | 🔴 | Done (2026-10-21, #682; the VPS restart verified the same day) |
 | [EPIC-044C](completed/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | The badge, the Plan banner line, the table, `bot list`/`bot show`, the heartbeat and daily summary, the entry alert, with frames | Elite | 044B; `#677`, `#678`, `#674` merged | 🟡 | Done (2026-10-21, #686) |
-| [EPIC-044D](incomplete/EPIC-044D_the_backtest_waits_the_same_way.md) | The Grid's replay waits and enters by the same rule; live and backtest agree on the entry bar | Elite | 044B | 🟡 | Planned |
+| [EPIC-044D](completed/EPIC-044D_the_backtest_waits_the_same_way.md) | The Grid's replay waits and enters by the same rule; live and backtest agree on the entry bar | Elite | 044B | 🟡 | Done (2026-10-21, #687) |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
