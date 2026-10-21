@@ -234,10 +234,25 @@ The Options page (`EPIC-036D1`) added:
 Every binding is in `alerting/composition/alerting_bindings.py` → `bind_alerting`, the page's three
 and the switch's among them.
 
+The Alerts screen (`EPIC-036D2`) added:
+
+- **The read model**: `IAlertHistory` (`alerting/contracts/i_alert_history.py` → `IAlertHistory.read`)
+  answers `AlertHistoryReport` (`alert_history_report.py` → `AlertHistoryRow`, `ChannelOutcome`,
+  `ChannelHealth`); `OutboxAlertHistory` (`alerting/application/outbox_alert_history.py` →
+  `OutboxAlertHistory.read`) builds it from `IOutbox.history` and `IAlertChannelCatalog`. A
+  channel is failing when its newest delivery in the window is retrying, failed or expired; a
+  pending or dropped one says nothing about whether it works.
+- **The screen**, in `alerting/ui/history/`: `AlertsView` over `AlertHistoryTableModel` (one row
+  per alert; the severity filter narrows the rows already read), `AlertsPresenter`
+  (`alerts_presenter.py` → `AlertsPresenter`), the words in `history_words.py`, a `preview.py`.
+  The surface `alerts` is declared by the shell (`shell/surfaces.py` → `ALERTS_SURFACE_ID`) and
+  by the view (`alerts_view.py` → `ALERTS_SURFACE`), a test holding the two equal; the mode is
+  contributed by `AlertingModule.contribute` (`alerts_screen.py` → `alerts_screen`).
+
 ## Planned
 
 | Class | Where | Task |
 | :--- | :--- | :--- |
 | The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
-| The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| The channels table, routing matrix and schedule of the Options page, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

@@ -89,10 +89,13 @@ def test_every_implementer_takes_the_ports_one_source_argument() -> None:
         assert annotation.id == "NavigationSource", where
 
 
-def test_the_implementers_are_the_known_two() -> None:
+def test_the_implementers_are_the_known_three() -> None:
     """A new implementer is a deliberate change: add it here, with its reason
-    for going live on a show rather than on construction."""
+    for going live on a show rather than on construction. The Alerts mode (`EPIC-036D2`) reads
+    the outbox only once it is shown: every mode is built at start, and a read at build started
+    pool threads the window's shutdown does not own."""
     assert set(_implementers()) == {
+        "modules/alerting/ui/history/alerts_presenter.py::AlertsPresenter",
         "modules/market_data/ui/data_management_presenter.py::DataManagementPresenter",
         "modules/trading/ui/market/market_presenter.py::MarketPresenter",
     }

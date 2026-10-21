@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (10/13) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1` and `036C2` done 2026-10-20
+- **Status:** 🟡 In progress (11/14) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -56,7 +56,8 @@ gantt
 | EPIC-036C2 | [Channels keep under their rate limit](completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) | `claude/epic-036c2-pacing-and-embed` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D1 | [Options page: the Discord webhook, Send test](completed/EPIC-036D1_options_alerts_page_discord_webhook.md) | `claude/alerts-options-page-036d1` | 🟡 | ✅ Done (2026-10-16), awaiting merge of this record | — |
-| EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-036D2 | [The Alerts mode: history and channel status](completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) | `claude/epic-036d-alerts-history` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🟡 Partly done (036D2) | — |
 | EPIC-036E1 | [Dead man's switch](completed/EPIC-036E1_dead_mans_switch.md) | `claude/epic-036e1-dead-mans-switch` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036E | [Heartbeat and daily summary](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | `claude/epic-036e-heartbeat-and-daily-summary` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036F | [Remote control from Discord](incomplete/EPIC-036F_remote_control_from_discord.md) | — | 🔴 | 🔵 Planned; waits for 035X and the owner's library approval | — |

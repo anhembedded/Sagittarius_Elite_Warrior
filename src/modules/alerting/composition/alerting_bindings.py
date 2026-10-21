@@ -72,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_service import (
     HeartbeatService,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.outbox_alert_history import (
+    OutboxAlertHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
 )
@@ -107,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_ca
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
+    IAlertHistory,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_publisher import (
     IAlertPublisher,
@@ -234,6 +240,13 @@ def bind_alerting(container: IContainer) -> None:
         ),
     )
     container.singleton(IOutbox, lambda _resolver: SqliteOutbox(outbox_path()))
+    # `EPIC-036D2`: the Alerts screen's read model.
+    container.singleton(
+        IAlertHistory,
+        lambda resolver: OutboxAlertHistory(
+            resolver.resolve(IOutbox), resolver.resolve(IAlertChannelCatalog)
+        ),
+    )
     container.singleton(DeliveryPolicy, DeliveryPolicy())
     container.singleton(NoisePolicy, NoisePolicy())
     container.singleton(

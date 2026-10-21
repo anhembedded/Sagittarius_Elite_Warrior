@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 816, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 818, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -66,6 +66,8 @@
 ["ss", "Account tabs on ", " failed: ", ""],
 ["ss", "Account tabs on ", ": ", ""],
 ["sdds", "Account tabs read ", " page ", " of ", " (", ")"],
+["dd", "Alerts screen: reads up to ", " alert(s) when shown, again every ", " ms while shown."],
+["s", "Alerts screen: the history read raised ", ""],
 ["hh", "AlertsSettingsPresenter: ", " raised ", " [alert-setup]"],
 ["sss", "Armed live strategy '", "' on ", " ", "."],
 ["s", "Background failure with no message bar to show it: ", " [notice-unhosted]"],

@@ -32,6 +32,8 @@ DEV_MODE_GATE = "dev.mode"
 #: The Developer mode's surface (`EPIC-033P`): the event log central, the
 #: probes docked right (HLD §11.2.1, §11.2.5).
 DEVELOPER_SURFACE_ID = "developer"
+#: The Alerts mode's surface (`EPIC-036D2`): the alert history, owned by `alerting`.
+ALERTS_SURFACE_ID = "alerts"
 
 _WORKBENCH_PLACES = frozenset(
     {
@@ -77,6 +79,7 @@ SURFACES: tuple[Surface, ...] = (
         owner="trading",
         accepts=frozenset({Place.WORKSPACE, Place.HEADER, Place.RAIL, Place.CONSOLE}),
     ),
+    Surface(ALERTS_SURFACE_ID, owner="alerting", accepts=frozenset({Place.WORKSPACE})),
     Surface(
         "data_management",
         owner="market_data",

@@ -141,7 +141,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
         CommandContribution(
             contributor_id="trading",
             command_id=REMOVE_FROM_WATCHLIST,
-            text="Remove from Wat&chlist",
+            text="Remove &from Watchlist",
             menu_path=VIEW_MENU,
             mode=route,
             group=SYMBOLS,
