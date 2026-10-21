@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QImage
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_table_model import (
     FLASH_MILLISECONDS,
     WatchlistTableModel,
@@ -152,23 +152,92 @@ def test_a_symbol_that_leaves_the_table_takes_its_flash_with_it(qapp) -> None:
     assert not model._flash_timer.isActive()
 
 
-def test_the_percent_change_column_keeps_its_arrow_beside_a_flashing_price(
-    qapp,
-) -> None:
-    """Colour is never the only signal: the direction is in the text of the next column."""
+_DECORATION = Qt.ItemDataRole.DecorationRole
+
+
+def _arrow(model: WatchlistTableModel, row: int = 0):
+    """The shape beside the price (its alpha channel, so colour is not part of it); `None` when
+    there is none."""
+    icon = model.data(model.index(row, WatchlistTableModel.PRICE_COLUMN), _DECORATION)
+    if icon is None:
+        return None
+    image = icon.pixmap(16, 16).toImage().convertToFormat(QImage.Format.Format_Alpha8)
+    return bytes(image.constBits())
+
+
+def test_a_flashing_price_has_its_direction_as_a_shape_not_only_a_colour(qapp) -> None:
+    """The colour is never the only signal. The `% Change` column's arrow is the change since the
+    day's open, a different fact: a symbol down on the day that ticks up must still say up."""
+    model = _model(qapp, _Clock())
+    model.update_tick("BTCUSDT", 100.0, -3.0, 1.0)
+    assert _arrow(model) is None
+
+    model.update_tick("BTCUSDT", 101.0, -3.0, 1.0)
+    up = _arrow(model)
+    model.update_tick("BTCUSDT", 99.0, -3.0, 1.0)
+    down = _arrow(model)
+
+    assert up is not None and down is not None and up != down
+
+
+def test_the_shape_goes_with_the_flash_and_is_never_on_another_column(qapp) -> None:
+    clock = _Clock()
+    model = _model(qapp, clock)
+    model.update_tick("BTCUSDT", 100.0, 0.0, 1.0)
+    model.update_tick("BTCUSDT", 101.0, 0.0, 1.0)
+    assert _arrow(model) is not None
+    for column in (0, 2, 3):
+        assert model.data(model.index(0, column), _DECORATION) is None
+
+    clock.pass_ms(FLASH_MILLISECONDS)
+
+    assert _arrow(model) is None
+
+
+def test_with_the_flash_off_a_price_has_no_shape_either(qapp) -> None:
+    model = _model(qapp, _Clock(), flash=False)
+    model.update_tick("BTCUSDT", 100.0, 0.0, 1.0)
+    model.update_tick("BTCUSDT", 101.0, 0.0, 1.0)
+
+    assert _arrow(model) is None
+
+
+def test_two_flashes_that_end_at_different_times_each_get_their_repaint(qapp) -> None:
+    """One timer ends every flash: after the first ends it is armed again for the next."""
+    clock = _Clock()
+    model = _model(qapp, clock)
+    model.update_tick("BTCUSDT", 100.0, 0.0, 1.0)
+    model.update_tick("ETHUSDT", 100.0, 0.0, 1.0)
+    model.update_tick("BTCUSDT", 101.0, 0.0, 1.0)
+    clock.pass_ms(300)
+    model.update_tick("ETHUSDT", 101.0, 0.0, 1.0)
+    repainted: list[int] = []
+    model.dataChanged.connect(lambda top, _bottom: repainted.append(top.row()))
+
+    clock.pass_ms(FLASH_MILLISECONDS - 300)
+    model._flash_timer.stop()  # as it is when it has fired
+    model._end_flashes()
+    assert repainted == [0]
+    assert model._flash_timer.isActive()
+
+    clock.pass_ms(300)
+    model._flash_timer.stop()
+    model._end_flashes()
+
+    assert repainted == [0, 1]
+    assert not model._flash_timer.isActive()
+    assert _price_colour(model, 1) is None
+
+
+def test_replacing_the_symbols_ends_every_flash(qapp) -> None:
     model = _model(qapp, _Clock())
     model.update_tick("BTCUSDT", 100.0, 0.0, 1.0)
-    model.update_tick("BTCUSDT", 101.0, 1.5, 1.0)
+    model.update_tick("BTCUSDT", 101.0, 0.0, 1.0)
 
-    change = model.data(
-        model.index(0, WatchlistTableModel.PERCENT_CHANGE_COLUMN),
-        Qt.ItemDataRole.DisplayRole,
-    )
+    model.set_symbols(["BTCUSDT", "ETHUSDT"])
 
-    assert change == 1.5
-    assert model.data(
-        model.index(0, WatchlistTableModel.PERCENT_CHANGE_COLUMN), _FOREGROUND
-    ) == _tone(Tone.POSITIVE)
+    assert model._flashes == {}
+    assert not model._flash_timer.isActive()
 
 
 def test_the_timer_is_the_models_child_and_is_gone_with_it(qapp) -> None:

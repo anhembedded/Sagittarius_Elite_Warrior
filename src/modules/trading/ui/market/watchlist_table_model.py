@@ -9,8 +9,10 @@ change of exactly zero has neither colour nor arrow.
 
 **The tick flash (`EPIC-043D`).** When the person turns it on (Tools → Options → Appearance,
 off by default) a price that moves takes the up or down tone for `FLASH_MILLISECONDS` and then
-returns to the platform's colour. The direction is also in words: the `% Change` column keeps
-its arrow, so the flash is never the only signal. One single-shot timer, a child of this model,
+returns to the platform's colour. The direction is also a shape: while a price flashes, an up or
+down triangle stands beside it (`triangle-up`, `triangle-down`, in the tone's colour), so the flash
+is never the only signal. (The `% Change` column's arrow is the change since the day's open, a
+different fact, and often the other way.) One single-shot timer, a child of this model,
 ends the flashes; it dies with the model and is stopped whenever no flash is left.
 """
 
@@ -21,18 +23,23 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, Qt, QTimer
+from PySide6.QtWidgets import QApplication, QStyle
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
     sign_tone,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_icon import tone_icon
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
     DisplayValue,
 )
+
+#: The shape beside a price while it flashes, by the direction it moved.
+_FLASH_ICONS: Final = {Tone.POSITIVE: "triangle-up", Tone.NEGATIVE: "triangle-down"}
 
 #: How long a ticking price keeps its tone: long enough to catch the eye, short enough that a
 #: busy symbol is mostly at rest.
@@ -195,6 +202,16 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
 
     def _symbol(self, row: WatchlistRow) -> str | None:
         return row.symbol
+
+    def _role_data(self, row: WatchlistRow, column: int, role: int) -> object:
+        """A flashing price's direction, as a triangle beside it, in the flash's tone."""
+        if role != Qt.ItemDataRole.DecorationRole or column != self.PRICE_COLUMN:
+            return None
+        tone = self._tone(row, column)
+        if tone not in _FLASH_ICONS:
+            return None
+        size = QApplication.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize)
+        return tone_icon(_FLASH_ICONS[tone], tone, size)
 
     def _tone(self, row: WatchlistRow, column: int) -> Tone:
         """No tone before any tick has been seen: painting one direction by

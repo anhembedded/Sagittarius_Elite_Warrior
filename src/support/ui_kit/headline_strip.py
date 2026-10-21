@@ -15,6 +15,9 @@ Capability: A row of headline figures, larger than the detail, each with a capti
     User: src/modules/trading/ui/desk/desk_screen/desk_view.py
     Status: stable
 
+While the figures can no longer be trusted the strip says so in words ("Out of date: …"), as the
+panel they repeat does, and keeps them: they are the last ones read.
+
 Extension cases: a figure that is not a number (a state) is one more `HeadlineFigure` with a
 `ColumnKind.TEXT`; another screen's headline is one more caller of `show_figures`.
 """
@@ -93,6 +96,10 @@ class HeadlineStrip(QWidget):  # base-exempt: a row of read-only labels
         self._row = QHBoxLayout(self)
         self._row.setContentsMargins(0, 0, 0, 0)
         self._row.addStretch(1)
+        self._stale = plain_label()
+        self._stale.setObjectName("headline::stale")
+        self._stale.hide()
+        self._row.addWidget(self._stale)
         self.hide()
 
     @property
@@ -108,6 +115,19 @@ class HeadlineStrip(QWidget):  # base-exempt: a row of read-only labels
         for figure in figures:
             self._cells[figure.key].show_figure(figure)
         self.setVisible(bool(figures))
+
+    def mark_stale(self, reason: str) -> None:
+        """Says in words that the figures shown are the last ones read."""
+        self._stale.setText(f"Out of date: {reason}")
+        self._stale.show()
+
+    def clear_stale(self) -> None:
+        self._stale.clear()
+        self._stale.hide()
+
+    @property
+    def stale_text(self) -> str:
+        return "" if self._stale.isHidden() else self._stale.text()
 
     def clear(self) -> None:
         self.show_figures(())

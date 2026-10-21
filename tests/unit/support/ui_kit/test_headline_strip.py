@@ -132,3 +132,16 @@ def test_a_figure_is_text_never_markup(qtbot) -> None:
     strip.show_figures((HeadlineFigure("x", "<b>caption</b>", "<i>1</i>"),))
 
     assert strip.text_of("x") == "<i>1</i>"
+
+
+def test_a_strip_can_say_its_figures_are_the_last_ones_read_and_clear_it(qtbot) -> None:
+    strip = _strip(qtbot)
+    strip.show_figures((_EQUITY,))
+    assert strip.stale_text == ""
+
+    strip.mark_stale("the venue timed out")
+    assert strip.stale_text == "Out of date: the venue timed out"
+    assert strip.text_of("equity") == "1,000.00"
+
+    strip.clear_stale()
+    assert strip.stale_text == ""

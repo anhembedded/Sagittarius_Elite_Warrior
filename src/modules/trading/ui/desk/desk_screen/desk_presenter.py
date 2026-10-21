@@ -183,6 +183,7 @@ class DeskPresenter(BasePresenter):
         )
         self.headline = DeskHeadline(view.headline, self)
         self.summary.summaryShown.connect(self.headline.on_summary)
+        self.summary.summaryStale.connect(self.headline.on_stale)
         view.account_tabs.positionsShown.connect(self.headline.on_positions)
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
         feeds.orders.orderFilled.connect(self.chart.record_fill)

@@ -86,9 +86,16 @@ def headline_figures(
     if summary is None:
         return ()
     unit = _unit(summary)
+    #: The panel beside calls this number "Margin balance" on Futures and "Account value" on
+    #: Spot; the headline says it in the same words, so one figure never has two names.
+    title = (
+        "Margin balance"
+        if isinstance(summary, FuturesAccountSummary)
+        else "Account value"
+    )
     equity = HeadlineFigure(
         EQUITY_KEY,
-        f"Account value ({unit})",
+        f"{title} ({unit})",
         write_value(ColumnKind.MONEY, float(summary.equity), EQUITY_KEY)
         if summary.equity is not None
         else _UNKNOWN,
@@ -134,7 +141,12 @@ class DeskHeadline(QObject):
 
     def on_summary(self, summary: AccountSummary | None) -> None:
         self._summary = summary
+        self._strip.clear_stale()
         self._show()
+
+    def on_stale(self, reason: str) -> None:
+        """The summary's figures are the last ones read: say so, beside them."""
+        self._strip.mark_stale(reason)
 
     def on_positions(self, positions: Sequence[PositionRow]) -> None:
         self._positions = tuple(positions)

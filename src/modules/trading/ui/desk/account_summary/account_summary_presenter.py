@@ -82,9 +82,11 @@ class AccountSummaryPresenter(QObject):
     """@brief One desk's summary figures, read once and then kept."""
 
     _read = Signal(object)
-    #: The summary now shown, or `None` when the account could not be read (`EPIC-043D`: the
-    #: desk's headline says the same figures once more).
+    #: The summary now shown (`EPIC-043D`: the desk's headline says the same figures once more).
     summaryShown = Signal(object)
+    #: The reason the figures shown can no longer be trusted, told wherever the panel says it
+    #: ("Out of date: …"), so the headline never looks current while the panel says it is not.
+    summaryStale = Signal(str)
 
     def __init__(
         self,
@@ -132,7 +134,7 @@ class AccountSummaryPresenter(QObject):
             logger.warning(
                 "Account summary could not be read: %s", detail or "no answer"
             )
-            self._view.mark_stale(reason or _UNREAD_REASON)
+            self._mark_stale(reason or _UNREAD_REASON)
             if detail is None:
                 # The read answered nothing and raised nothing: the panel's own
                 # stale mark says so, and a bar would add no cause to Details.
@@ -161,7 +163,11 @@ class AccountSummaryPresenter(QObject):
         logger.info(
             "Account summary on %s is stale: %s", event.venue.value, event.reason
         )
-        self._view.mark_stale(event.reason)
+        self._mark_stale(event.reason)
+
+    def _mark_stale(self, reason: str) -> None:
+        self._view.mark_stale(reason)
+        self.summaryStale.emit(reason)
 
     def _show(self, summary: AccountSummary) -> None:
         self._notifier.clear_failure(self._cause)
