@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
     SessionOpener,
 )
@@ -24,3 +27,7 @@ class EnsureSessionReadyCommand:
     #: `BOT-183` - the bot this opening is for, carried on the event it publishes, or
     #: `OpenedByPerson.PERSON` for a person's action (`BOT-197`); `None` when no opener is known.
     opened_for: SessionOpener = field(default=None, kw_only=True)
+    #: `BUG-250` - the runs of the venue that may own a position the account holds, passed by a bot
+    #: acting on its own run (a Resume, a Stop); empty for every other opener, which refuses every
+    #: position as before.
+    claims: tuple[OwnerPositionClaim, ...] = field(default=(), kw_only=True)

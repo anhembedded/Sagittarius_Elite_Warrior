@@ -17,6 +17,12 @@ import time
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_deriver import (
+    OwnerPositionDeriver,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.position_explainer import (
+    PositionExplainer,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
     SessionReadiness,
 )
@@ -53,6 +59,8 @@ def bind_state(container: IContainer) -> None:
     container.singleton(
         SessionReadiness,
         lambda c: SessionReadiness(
-            c.resolve(VenueTradingScopes), c.resolve(IEventPublisher)
+            c.resolve(VenueTradingScopes),
+            c.resolve(IEventPublisher),
+            PositionExplainer(c.resolve(OwnerPositionDeriver)),
         ),
     )

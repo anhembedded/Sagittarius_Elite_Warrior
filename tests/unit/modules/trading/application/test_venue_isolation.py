@@ -65,6 +65,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     venue_context,
     venue_scopes,
 )
@@ -147,6 +148,7 @@ def test_opening_both_venues_starts_both_user_data_streams() -> None:
         SessionReadiness(
             venue_scopes(futures.context, spot.context, session_states=states),
             RecordingPublisher(),
+            position_explainer(),
         )
     )
 
@@ -168,6 +170,7 @@ def test_a_command_for_a_venue_that_is_not_served_is_refused() -> None:
         SessionReadiness(
             venue_scopes(futures.context, session_states={_FUTURES: futures.state}),
             RecordingPublisher(),
+            position_explainer(),
         )
     )
 

@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
     SessionOpener,
 )
@@ -125,7 +128,11 @@ class ITradingSession(ABC):
         after it returns."""
 
     @abstractmethod
-    def ensure_ready(self, opened_for: SessionOpener = None) -> SessionReadyResult:
+    def ensure_ready(
+        self,
+        opened_for: SessionOpener = None,
+        claims: tuple[OwnerPositionClaim, ...] = (),
+    ) -> SessionReadyResult:
         """Open the venue's order session if it is not open: reconcile against
         the exchange and, if that succeeds, allow live submission (`EPIC-034C`,
         decision D3 — there is no switch to turn it on).
@@ -145,6 +152,13 @@ class ITradingSession(ABC):
         another bot's command, or by a person's. A bot id; `OpenedByPerson.PERSON` for a person's
         action that is no bot's (a manual order, a strategy arm; `BOT-197`); `None` only when no
         opener is known, which still wakes them (`SessionOpener`).
+        @param claims `BUG-250` — the runs of this venue that may own a position the account
+        holds, each named by its id, tag, symbol and run start and carrying no figure. Passed only
+        by a bot acting on its own run (a Resume, a Stop): a closed session refuses every position
+        of the account, and a position is excused only when a claim on its symbol is backed by the
+        exchange's own history of that run's tagged orders, within one quantity step. A Start, an
+        arm and a manual order pass none, so they refuse every position as before. On Spot, and on
+        an account with no position, the claims are never read.
         """
 
     @abstractmethod

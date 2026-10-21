@@ -13,6 +13,10 @@ words and the log line: `order_session_refusal_words` is the primitive,
 reconciliation, a stop retry) never asks: a late order must not undo an Emergency Stop.
 
 The opening is announced as opened for the bot that asked (`BOT-183`), so it wakes no other bot.
+
+`BUG-250` — a Resume and a Stop pass the venue's position claims (`grid_position_claims`): a host
+stop leaves a Futures bot's position under its protective stop, and the session a restart leaves
+closed refused every position, the bot's own included. A Start passes none.
 """
 
 from __future__ import annotations
@@ -26,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
     refusal_words,
 )
@@ -37,15 +44,20 @@ logger = logging.getLogger("App.Bots.OrderSession")
 
 
 def order_session_refusal_words(
-    session: ITradingSession, subject: str, opened_for: SessionOpener = None
+    session: ITradingSession,
+    subject: str,
+    opened_for: SessionOpener = None,
+    claims: tuple[OwnerPositionClaim, ...] = (),
 ) -> str | None:
     """Open the venue's order session if it is closed; `None` when it is open,
     else the refusal in the session's own words. `subject` names who asked, for
     the log ("Bot ab12cd", "Venue spot_testnet"). `opened_for` is the bot the opening
     serves (`BOT-183`): the announcement names it, so the venue's other RECOVERING bots
     keep waiting for their own resume; `OpenedByPerson.PERSON` for a person's action that is no
-    bot's (`BOT-197`); `None` only when no opener is known, which still wakes them."""
-    opened = session.ensure_ready(opened_for)
+    bot's (`BOT-197`); `None` only when no opener is known, which still wakes them. `claims`
+    (`BUG-250`) are the venue's runs that may own a position the closed session would otherwise
+    refuse: passed by a bot acting on its own run (a Resume, a Stop), never by a Start."""
+    opened = session.ensure_ready(opened_for, claims)
     if opened.ready:
         logger.info(
             "%s: order session open (already open: %s) [order-session]",
@@ -54,18 +66,21 @@ def order_session_refusal_words(
         )
         return None
     logger.info(
-        "%s: order session not opened: %s [order-session]",
+        "%s: order session not opened: %s (%d position(s) not excused) [order-session]",
         subject,
         opened.block_reason,
+        len(opened.unexplained_positions),
     )
     return refusal_words(opened)
 
 
 def order_session_refusal(
-    session: ITradingSession, bot_id: str
+    session: ITradingSession,
+    bot_id: str,
+    claims: tuple[OwnerPositionClaim, ...] = (),
 ) -> BotCommandResult | None:
     """The same, for a command on one bot: the refusal as a `VENUE_NOT_READY` result."""
-    words = order_session_refusal_words(session, f"Bot {bot_id}", bot_id)
+    words = order_session_refusal_words(session, f"Bot {bot_id}", bot_id, claims)
     if words is None:
         return None
     return BotCommandResult.refused(BotRefusal.VENUE_NOT_READY, words, bot_id)

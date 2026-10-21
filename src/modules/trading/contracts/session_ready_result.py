@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.unexplained_position import (
+    UnexplainedPosition,
+)
 
 
 class SessionBlockReason(str, Enum):
@@ -65,6 +68,9 @@ class SessionReadyResult:
     #: `reconciled_*` tuples are empty because nothing was asked, not because
     #: the account is flat.
     already_open: bool = False
+    #: `BUG-250` — for `UNEXPECTED_POSITIONS`, the positions the opening would not excuse and why;
+    #: empty on a success, and on a refusal decided before the account was read.
+    unexplained_positions: tuple[UnexplainedPosition, ...] = ()
 
     @property
     def account_was_read(self) -> bool:

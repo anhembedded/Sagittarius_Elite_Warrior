@@ -20,11 +20,15 @@ STOPPED with nothing to clean up. In order:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
     grid_registration,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_position_claims import (
+    venue_position_claims,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
     order_session_refusal,
@@ -69,12 +73,21 @@ class GridStartPreconditions:
         self._ports = ports
         self._budgets = budgets
 
-    def open_session_for_resume(self, bot: Bot) -> BotCommandResult | None:
+    def open_session_for_resume(
+        self, bot: Bot, venue_bots: Iterable[Bot]
+    ) -> BotCommandResult | None:
         """A resume from HALTED proposes a ladder, which registers the budget a
         closed session refuses; a resume from RECOVERING (`BUG-204`) waits for the
-        session a restart leaves closed. Open it, as Start does, or say why it will not."""
-        session = self._ports.get(bot.definition.venue).trading_session
-        return order_session_refusal(session, bot.bot_id.value)
+        session a restart leaves closed. Open it, as Start does, or say why it will not.
+
+        `BUG-250`: unlike Start, a resume passes the venue's position claims (`venue_bots` are
+        every bot the store holds): the position a host stop left under the bot's protective
+        stop is its own, and the exchange's tagged history says so."""
+        venue = bot.definition.venue
+        session = self._ports.get(venue).trading_session
+        return order_session_refusal(
+            session, bot.bot_id.value, venue_position_claims(venue, venue_bots)
+        )
 
     def check(self, bot: Bot, now: datetime) -> BotCommandResult | None:
         bot_id = bot.bot_id.value

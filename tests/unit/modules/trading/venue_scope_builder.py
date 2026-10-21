@@ -17,6 +17,12 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_deriver import (
+    OwnerPositionDeriver,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.position_explainer import (
+    PositionExplainer,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -58,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_position_checkpoints import (
+    FakeOwnerPositionCheckpoints,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
@@ -127,6 +136,12 @@ def venue_scopes(
     return VenueTradingScopes(
         FakeVenueContexts(*contexts), _SeededSessionStates(session_states or {})
     )
+
+
+def position_explainer() -> PositionExplainer:
+    """`BUG-250` - the `PositionExplainer` a test hands `SessionReadiness`: the real explainer over
+    the real deriver, its checkpoints in memory (as `owner_budget_handlers` builds the registrar's)."""
+    return PositionExplainer(OwnerPositionDeriver(FakeOwnerPositionCheckpoints()))
 
 
 def single_venue_scopes(

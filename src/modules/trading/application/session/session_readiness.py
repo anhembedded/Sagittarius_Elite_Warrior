@@ -11,7 +11,11 @@ nowhere else (`test_every_order_is_reconciled.py`).
 Reads the whole account every time the session is closed, never trusts a
 previous session's state: `get_positions()`/`get_open_orders()` with no symbol
 read the *whole* account. Any existing position refuses outright — this app
-never auto-adopts or auto-closes a position it did not open itself.
+never auto-adopts or auto-closes a position it did not open itself — unless a bot acting on its
+own run (a Resume, a Stop) names it by a claim and the exchange's history of that run's tagged
+orders explains it (`BUG-250`, `PositionExplainer`): a host stop leaves a Futures bot's position
+under its protective stop (`EPIC-038M`), and the restart's Resume must be able to open the
+session over it.
 
 **Open stays open.** Once the session is open a second call answers `ready`
 with nothing read (`already_open`): reconciling again would refuse on the
@@ -43,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.position_explainer import (
+    PositionExplainer,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
 )
@@ -52,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
     SessionOpener,
@@ -70,29 +80,44 @@ logger = logging.getLogger("App.TradingSession")
 class SessionReadiness:
     """@brief Opens a venue's order session after reconciling its account."""
 
-    def __init__(self, scopes: VenueTradingScopes, publisher: IEventPublisher) -> None:
+    def __init__(
+        self,
+        scopes: VenueTradingScopes,
+        publisher: IEventPublisher,
+        explainer: PositionExplainer,
+    ) -> None:
         self._scopes = scopes
         self._publisher = publisher
+        self._explainer = explainer
         self._venue_locks: dict[TradingVenue, threading.Lock] = {}
 
     def ensure_ready(
-        self, venue: TradingVenue, opened_for: SessionOpener = None
+        self,
+        venue: TradingVenue,
+        opened_for: SessionOpener = None,
+        claims: tuple[OwnerPositionClaim, ...] = (),
     ) -> SessionReadyResult:
         """@brief `venue`'s order session is open when this answers `ready`.
 
         @param opened_for The bot the opening is for, named on the event it publishes
         (`BOT-183`): a bot id, `OpenedByPerson.PERSON` for a person's action that is no bot's
         (`BOT-197`), or `None` when no opener is known (still wakes a waiting bot).
+        @param claims `BUG-250` — the venue's runs that may own a position the account holds
+        (`ITradingSession.ensure_ready`); a position is excused only when a claim on its symbol is
+        backed by the exchange's history of that run's tagged orders (`PositionExplainer`).
 
         Network round trips on a closed session: call it from a worker thread.
         """
         if not venue.supports_order_submission:
             return self._blocked(SessionBlockReason.TRADING_VENUE_DISABLED)
         with self._venue_locks.setdefault(venue, threading.Lock()):
-            return self._ensure_ready_serialised(venue, opened_for)
+            return self._ensure_ready_serialised(venue, opened_for, claims)
 
     def _ensure_ready_serialised(
-        self, venue: TradingVenue, opened_for: SessionOpener
+        self,
+        venue: TradingVenue,
+        opened_for: SessionOpener,
+        claims: tuple[OwnerPositionClaim, ...],
     ) -> SessionReadyResult:
         # `EPIC-028B` — everything below is `venue`'s own: its state,
         # connection, client and user data stream. Opening one venue's session
@@ -125,12 +150,14 @@ class SessionReadiness:
         )
         positions = tuple(trading_client.get_positions())
         open_orders = tuple(trading_client.get_open_orders())
-        if positions:
+        unexplained = self._explainer.unexplained(scope, positions, claims)
+        if unexplained:
             return SessionReadyResult(
                 ready=False,
                 block_reason=SessionBlockReason.UNEXPECTED_POSITIONS,
                 reconciled_positions=positions,
                 reconciled_open_orders=open_orders,
+                unexplained_positions=unexplained,
             )
 
         spot_baseline_holdings = (
@@ -138,10 +165,10 @@ class SessionReadiness:
             if venue.market_type is MarketType.SPOT and status.holdings is not None
             else None
         )
-        # `positions` is provably empty here (the `if positions:` branch above
-        # already returned otherwise) — `set()`, not a set built from it.
+        # Every position is explained here: none on the account, or each by a claim's own history
+        # (`BUG-250`), and those symbols are open, as the stream's reconcile will find them.
         applied = session_state.enable(
-            set(),
+            {position.symbol for position in positions},
             expected_generation=generation_before_reconciliation,
             spot_baseline_holdings=spot_baseline_holdings,
         )
