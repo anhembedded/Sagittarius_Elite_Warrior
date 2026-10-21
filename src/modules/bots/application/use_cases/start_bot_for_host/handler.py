@@ -12,7 +12,8 @@ when the typed venue is the bot's own, and otherwise nothing is dispatched.
   · only a DRAFT or STOPPED bot starts (the lifecycle table decides, before anything else, so a
     refusal never talks about money for a bot that could not start anyway). A HALTED or
     AWAITING_RECOVERY bot is refused in words that name its way back: its resume proposes a ladder
-    a person reads and confirms (decision D13), which is `run --resume-halted` or the Bots tab;
+    a person reads and confirms (decision D13), which is `bot resume` then `bot confirm-resume`
+    (`EPIC-045G`), `run --resume-halted` when the host starts, or the Bots tab;
   · the refusal that asks for the typed mainnet venue names the venue's RECOVERING bots, so the
     person sees that they wait and that the start is refused while any does (the order session a
     start opens resumes none of them since `BOT-183`; `venue_recovering` says what the refusal
@@ -76,9 +77,10 @@ class StartBotForHostCommandHandler(
             return BotCommandResult.refused(
                 BotRefusal.INVALID_TRANSITION,
                 f"Bot {command.bot_id} is {state.value}: it is not started, it is resumed, and "
-                "that resume proposes a ladder that a person reads and confirms, which a command "
-                "file cannot do. Resume it with `run --resume-halted` when the host starts, or "
-                "from the Bots tab.",
+                "that resume proposes a ladder that a person reads and confirms. Run "
+                f"`bot resume {command.bot_id}`, read the proposal in the host's log, then "
+                f"`bot confirm-resume {command.bot_id}`; or use `run --resume-halted` when the "
+                "host starts, or the Bots tab.",
                 command.bot_id,
             )
         refusal = self._gate.refusal(command.bot_id, BotLifecycleEvent.START)
