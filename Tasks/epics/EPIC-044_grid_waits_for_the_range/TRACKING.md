@@ -54,5 +54,6 @@ gantt
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
 | Reviewer's read of the ADR | 044B | Reviewer session, then the coordinator | 🟡 Open |
-| Owner questions O1–O3 (ADR §4) | 044B, 044D | The coordinator relays to the owner | 🟡 Open |
+| Owner questions O1–O3 (ADR §4) | 044B, 044D | Answered as recommended, 2026-10-21 | ✅ Resolved |
+| Bug: Futures `bot resume` after a host restart refused "unexpected open positions" | 044B (Futures restart test) | Separate bug session | 🟡 Open |
 | `#677`, `#678`, `#674` merge | 044C | The coordinator sequences | 🟡 Open |

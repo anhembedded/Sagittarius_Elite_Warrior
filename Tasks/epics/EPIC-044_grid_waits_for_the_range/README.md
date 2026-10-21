@@ -33,7 +33,7 @@
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| 1 — decision | The ADR is accepted by the reviewer and the coordinator, O1–O3 answered | The reviewer's PR comment; the coordinator's acceptance. Not run |
+| 1 — decision | The ADR is read by the reviewer and accepted by the coordinator; O1–O3 are answered (done 2026-10-21) | The reviewer's PR comment; the coordinator's acceptance. Not run |
 | 2 — domain and lifecycle | For each of LONG, SHORT, NEUTRAL × below/above: start waits with zero orders, entry lays the expected ladder at the entry price; a restart while waiting stays waiting; Stop while waiting cancels nothing; SL/TP do nothing; a refusal at entry; mainnet and testnet alike | The tests of 044B red on `849d973`, green after; both gate logs |
 | 3 — surfaces | Every surface that shows a bot says it is waiting; one alert on entry | Frames in the CI artifact; the unit and integration tests of 044C |
 | 4 — backtest | The replay waits; the entry bar equals the live one | The parity test |
