@@ -52,7 +52,7 @@ def test_a_draft_is_moved_to_mainnet_keeping_its_id_and_the_start_still_needs_th
         assert resting(app.urls) == {}, "a move places no order"
         refused = operator.ask(HostControlRequest(HostControlAction.START, bot_id))
         assert refused.status is HostControlStatus.REFUSED
-        assert "spot_mainnet" in refused.message
+        assert "--confirm-venue spot_mainnet" in refused.message
         assert state_of(app.store, bot_id) is S.DRAFT, "nothing started unconfirmed"
 
 

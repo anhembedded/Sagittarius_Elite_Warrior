@@ -32,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_identity import (
+    bot_with_name_on,
+    venue_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
@@ -70,7 +74,7 @@ class MoveBotForHostCommandHandler(
             found = self._lookup.find(command.bot_id)
             if isinstance(found, BotCommandResult):
                 return found
-            venue = _venue_of(command.venue)
+            venue = venue_of(command.venue)
             if not isinstance(venue, TradingVenue):
                 return _refused(venue, command.bot_id)
             was = found.bot.definition.venue
@@ -102,22 +106,13 @@ class MoveBotForHostCommandHandler(
 
     def _duplicate_problem(self, found: StoredBot, venue: TradingVenue) -> str:
         name = found.bot.definition.name
-        for other in self._store.load_all().bots:
-            held = other.bot.definition
-            if held.name == name and held.venue is venue:
-                return (
-                    f"bot {other.bot.bot_id.value} already has the name {name!r} on {venue.value}; "
-                    "delete one of the two (`bot delete`) or leave this bot on its venue"
-                )
-        return ""
-
-
-def _venue_of(text: str) -> TradingVenue | str:
-    for venue in TradingVenue:
-        if venue is not TradingVenue.DISABLED and venue.value == text:
-            return venue
-    allowed = ", ".join(v.value for v in TradingVenue if v is not TradingVenue.DISABLED)
-    return f"{text!r} is not a venue of this build; one of: {allowed}"
+        other = bot_with_name_on(self._store, name, venue)
+        if other is None:
+            return ""
+        return (
+            f"bot {other.bot.bot_id.value} already has the name {name!r} on {venue.value}; "
+            "delete one of the two (`bot delete`) or leave this bot on its venue"
+        )
 
 
 def _refused(words: str, bot_id: str) -> BotCommandResult:

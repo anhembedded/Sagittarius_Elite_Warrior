@@ -58,7 +58,9 @@ def test_a_move_adds_a_new_key_and_a_new_word_so_an_older_host_refuses_it_unread
 def test_every_other_action_is_still_the_document_an_older_host_reads_after_a_move_was_added() -> (
     None
 ):
-    for action in (HostControlAction.STOP, HostControlAction.START):
+    for action in HostControlAction:
+        if action is HostControlAction.MOVE:
+            continue
         assert "to_venue" not in json.loads(encode_command(command(action=action)))
 
 

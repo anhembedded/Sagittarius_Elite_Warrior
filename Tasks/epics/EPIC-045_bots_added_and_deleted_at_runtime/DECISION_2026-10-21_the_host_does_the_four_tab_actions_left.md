@@ -26,7 +26,7 @@
 | G3 | Arm and disarm a strategy at runtime through the command directory, reusing the tab's arm and disarm use cases; an arm on a mainnet venue needs `--confirm-venue`. Shape not decided: see O2. | Proposed | 🔵 | Decided with the owner: it arms real-money trading headless. |
 
 ## 3. Alternatives considered (G1)
-- **`bot edit <id> --set venue=<venue>`** (the coordinator's first suggestion): rejected. The edit path merges settings into the bot's **kind parameters** and asks the kind whether each key is one (`IBotKind.parameter_problem`); a venue is not a parameter. Carrying it would special-case one key in the edit handler and make a move and an edit one non-atomic act (two commands), and a bot would land DRAFT with its parameters re-judged for no reason.
+- **`bot edit <id> --set venue=<venue>`** (the coordinator's first suggestion): rejected. The edit path treats the venue as unchangeable (`edit_bot_for_host/handler.py` docstring: "the unchangeable kind, venue and symbol"), merges settings into the bot's kind parameters and asks the kind whether each key is one (`IBotKind.parameter_problem`), and its lifecycle allows a STOPPED bot, while a move needs a DRAFT that never ran. Folding the two would put two lifecycle rules behind one verb and special-case one key in the edit handler.
 - **Delete then add:** rejected by the coordinator (a new id, and it needs a plan file).
 - **A `venue` field on every command:** rejected; one new key, `to_venue`, only a move may carry.
 
