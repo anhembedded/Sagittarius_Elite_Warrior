@@ -16,21 +16,25 @@
 - [x] At the dialog's minimum size, a refused key's State text is readable whole, light and dark.
 
 ## 3. Design
-To be chosen: a full-width wrapped line under the grid for the selected row, or giving the State column more width.
+A full-width wrapped State line under each venue's row, and the page's content in one `ContentWidthScrollArea` so a sentence taller than the dialog scrolls whole (§7).
 
 ## 3a. Reuse
-To be filled when taken (`StateBadge`, `plain_label`).
+`StateBadge`, `plain_label`: used. Capability catalog: no row fit a page scroll that keeps its content's width; `PlanColumn`'s `BUG-246` logic is extracted as `ContentWidthScrollArea` and catalogued, with `PlanColumn` as its first user.
 
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/modules/trading/ui/settings/trading_settings_view.py` | layout of the State column |
+| `src/modules/trading/ui/settings/trading_settings_view.py` | the State is a full-width line under each venue; the page content sits in one scroll area |
+| `src/support/ui_kit/content_width_scroll_area.py` | new: the minimum-width logic `PlanColumn` had, shared |
+| `src/modules/bots/ui/bots_screen/plan_column.py` | extends `ContentWidthScrollArea`; behaviour unchanged |
+| `src/modules/trading/ui/settings/trading_settings_presenter.py` | the failed-check status says "See its state under the key." |
+| `tests/unit/modules/trading/ui/settings/test_a_refused_keys_sentence_is_shown_whole.py`, `tests/unit/support/ui_kit/test_content_width_scroll_area.py` | the sentence is shown whole; the area keeps its content's width |
 
 ## 5. Testing
 A conformance-style check at the minimum size that the State label's height holds its wrapped text.
 
 ## 6. Docs touched
-none, because it is a layout fix.
+`.claude/rules/capabilities.md` (generated: the new capability row). `Docs/MODULES/bots/05-building-blocks.md` and `Docs/MODULES/trading`: no design change, `PlanColumn` is still one scroll holding the column.
 
 ## 7. Implementation notes (2026-10-21)
 - **Measured before:** at the dialog's minimum size (631×330) the State label was 75 px wide and 12 px tall where its text needs 375 (a column squeezed by the Key and the buttons; the grid does not carry height-for-width into a dialog's minimum size).
