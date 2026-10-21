@@ -53,6 +53,17 @@ Five pictures, drawn by hand at a high level, one question each:
   `RoutingMatrixGroup` (`alerting/ui/options/routing_matrix_group.py` → `RoutingMatrixGroup`) over
   `RoutingMatrixViewModel`; what each outcome is told as is `action_results.py` → `ActionResults`,
   split from the presenter at the file-size ceiling.
+- **The channel switches** (`EPIC-036D8`): `ChannelsSetup` (`alerting/application/channels_setup.py` →
+  `ChannelsSetup`, `ChannelsState`, `ChannelSwitch`) turns a channel on or off through
+  `IChannelEnabling` (`alerting/contracts/i_channel_enabling.py` → `IChannelEnabling`), served by
+  `JsonAlertSettings` (`disable`, `enable`, `disabled`); only a channel the catalog has can be
+  switched. The hub and the router read the result as `AlertSettings.disabled_channels`: a disabled
+  channel keeps its secret and its lane, gets no delivery even for a Critical, and
+  `ChannelAlertingStatus` counts it as not carrying alerts. The file key is `disabled_channels`
+  (`alerting/adapters/settings_document.py` → `SettingsDocument`). The page group is `ChannelsGroup`
+  (`alerting/ui/options/channels_group.py` → `ChannelsGroup`) over `ChannelsViewModel`; the kinds of
+  action the page runs are `alerts_action_kind.py` → `AlertsActionKind`, split from the presenter at
+  the file-size ceiling.
 - **Quiet hours** (`EPIC-036D6`): `QuietHoursSetup` (`alerting/application/quiet_hours_setup.py` →
   `QuietHoursSetup`) keeps a period through `IQuietHoursSetting`
   (`alerting/contracts/i_quiet_hours_setting.py` → `IQuietHoursSetting`, `QuietHoursChoice`), served by
@@ -298,5 +309,5 @@ The Alerts screen (`EPIC-036D2`) added:
 | Class | Where | Task |
 | :--- | :--- | :--- |
 | The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page (built, `EPIC-036D4`) | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
-| The channels table of the Options page, the heartbeat's interval; the persisted disabled channels of `IAlertSettingsSource` (the per-bot modes, `BOT-191`, the quiet hours, `EPIC-036D6`, and the routes, `EPIC-036D7`, are persisted). The per-bot menu item in the bots list is decided against: the Options page covers it (the coordinator for the owner, 2026-10-21) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| The heartbeat's interval, and a channels table with Add, Edit and Rotate once a third channel type exists (the disabled channels, `EPIC-036D8`, the per-bot modes, `BOT-191`, the quiet hours, `EPIC-036D6`, and the routes, `EPIC-036D7`, are persisted). The per-bot menu item in the bots list is decided against: the Options page covers it (the coordinator for the owner, 2026-10-21) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

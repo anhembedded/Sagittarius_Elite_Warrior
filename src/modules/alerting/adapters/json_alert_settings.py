@@ -1,9 +1,9 @@
-"""`IAlertSettingsSource` that survives a restart (`BOT-191`, `EPIC-036D6`, `EPIC-036D7`).
+"""`IAlertSettingsSource` that survives a restart (`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`).
 
 One JSON file in the data root's state holds what the owner set: each bot's mode, the quiet hours
-and the routing matrix (the shape and how it is read are `settings_document.py`). One object
-serves the hub's reads and the Options page's edits (`IBotAlertModes`, `IQuietHoursSetting`,
-`IAlertRouting`).
+and the routing matrix and the channels switched off (the shape and how it is read are
+`settings_document.py`). One object serves the hub's reads and the Options page's edits
+(`IBotAlertModes`, `IQuietHoursSetting`, `IAlertRouting`, `IChannelEnabling`).
 
 **A missing or unreadable file is every default** (all bots `ON`, no quiet hours, no routes), the
 safe side for an alert system: more messages, never fewer. No file exists until the owner sets
@@ -23,7 +23,7 @@ import json
 import logging
 import os
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_s
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_enabling import (
+    IChannelEnabling,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
@@ -64,7 +67,11 @@ _READ_ONLY = "this copy of the app is read-only: nothing was changed"
 
 
 class JsonAlertSettings(
-    IAlertSettingsSource, IBotAlertModes, IQuietHoursSetting, IAlertRouting
+    IAlertSettingsSource,
+    IBotAlertModes,
+    IQuietHoursSetting,
+    IAlertRouting,
+    IChannelEnabling,
 ):
     def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self._path = path
@@ -80,6 +87,7 @@ class JsonAlertSettings(
         with self._lock:
             document = self._document
         return AlertSettings(
+            disabled_channels=document.disabled,
             routes=document.routes,
             bot_modes=dict(document.modes),
             quiet_hours=_quiet_hours_of(document.quiet),
@@ -138,6 +146,27 @@ class JsonAlertSettings(
             channel_id,
             "default" if loudness is None else loudness.value,
         )
+
+    def disabled(self) -> frozenset[str]:
+        with self._lock:
+            return self._document.disabled
+
+    def disable(self, channel_id: str) -> None:
+        self._keep_disabled(lambda off: off | {channel_id})
+        logger.info("Channel %s is off [alert-settings]", channel_id)
+
+    def enable(self, channel_id: str) -> None:
+        self._keep_disabled(lambda off: off - {channel_id})
+        logger.info("Channel %s is on [alert-settings]", channel_id)
+
+    def _keep_disabled(
+        self, change: Callable[[frozenset[str]], frozenset[str]]
+    ) -> None:
+        self._refuse_if_read_only()
+        with self._lock:
+            self._commit(
+                replace(self._document, disabled=change(self._document.disabled))
+            )
 
     def _refuse_if_read_only(self) -> None:
         if self._read_only:

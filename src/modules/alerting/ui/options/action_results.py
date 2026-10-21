@@ -13,9 +13,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureNotice,
     INotifier,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.channels_setup import (
+    ChannelSwitch,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     WebhookRemoval,
     WebhookSave,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
+    QuietHoursSave,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.routing_setup import (
     RouteSave,
@@ -32,6 +38,8 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
     alerts_words,
+    channels_words,
+    quiet_hours_words,
     routing_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view_model import (
@@ -92,6 +100,12 @@ class ActionResults:
 
     def route_kept(self, outcome: RouteSave) -> None:
         self._view_model.set_status(*routing_words.SAVE_WORDS[outcome])
+
+    def channel_switched(self, outcome: ChannelSwitch) -> None:
+        self._view_model.set_status(*channels_words.SAVE_WORDS[outcome])
+
+    def quiet_kept(self, outcome: QuietHoursSave) -> None:
+        self._view_model.set_status(*quiet_hours_words.SAVE_WORDS[outcome])
 
     def webhook_forgotten(self, outcome: WebhookRemoval) -> None:
         self._view_model.set_status(*alerts_words.REMOVAL_WORDS[outcome])
