@@ -72,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeReadinessReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
+    SharedPositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_facts_reader import (
     ExchangeFactsReader,
 )
@@ -263,6 +266,9 @@ def grid_executor_deps(
     """What every Grid executor is built from, as production wires it. A journey that needs its
     bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
     the exposure collaborators and the risk watch are the production ones)."""
+    positions = SharedPositionReads(
+        container.resolve(IVenueTradingPorts), container.resolve(IMonotonicClock)
+    )
     return GridExecutorDeps(
         ports=container.resolve(IVenueTradingPorts),
         store=container.resolve(IBotStore),
@@ -282,7 +288,9 @@ def grid_executor_deps(
             container.resolve(IVenueTradingPorts),
             container.resolve(IBotClock),
             _FUTURES_THRESHOLDS,
+            positions,
         ),
+        positions=positions,
     )
 
 

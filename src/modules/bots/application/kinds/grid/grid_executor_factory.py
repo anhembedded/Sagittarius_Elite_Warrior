@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     BotIdentity,
     BotOrderGateway,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
+    SharedPositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
     exchange_terms_for,
     fresh_exchange_terms_for,
@@ -161,6 +164,9 @@ class GridExecutorDeps:
     #: Whether a venue's user-data stream is connected (`EPIC-042C`): what a halt for the stream
     #: recovers on. The default knows no stream is connected, so that halt never recovers.
     user_streams: IUserStreamStatus = field(default_factory=NoUserStreamStatus)
+    #: The venue's shared reading of its open positions, which the bots of a venue's idle watches
+    #: take instead of one read each (`BOT-184`). `None`: every bot reads for itself.
+    positions: SharedPositionReads | None = None
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -183,6 +189,9 @@ class GridExecutorFactory(IBotExecutorFactory):
             deps.pacers(
                 bot.definition.venue, grid_pacing(grid_budget(params, deps.caps))
             ),
+            deps.positions.of(bot.definition.venue)
+            if deps.positions is not None
+            else None,
         )
         halts = HaltRecoveryDirector(
             recovery_policy_of(GRID_RECOVERY_LAYER, bot.definition.venue)

@@ -60,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.risk_r
     PositionRechecks,
     PositionRiskSnapshots,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
+    SharedPositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futures_start_checks import (
     FuturesStartChecks,
     FuturesStartReads,
@@ -146,7 +149,10 @@ def grid_exposures(
 
 
 def risk_watches(
-    ports: IVenueTradingPorts, clock: IBotClock, thresholds: FuturesGridThresholds
+    ports: IVenueTradingPorts,
+    clock: IBotClock,
+    thresholds: FuturesGridThresholds,
+    positions: SharedPositionReads,
 ) -> Callable[[GridRunContext], GridRiskWatch | None]:
     """The risk watch of a bot: a position venue's, `None` for an inventory venue's."""
     profiles = VenueProfilesByMarket()
@@ -161,7 +167,7 @@ def risk_watches(
             RiskWatchParts(
                 guard,
                 PositionRiskSnapshots(
-                    context, ports, ExchangeMarkSource(context, ports)
+                    context, positions, ExchangeMarkSource(context, ports)
                 ),
                 PositionRechecks(context),
                 clock,
