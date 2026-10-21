@@ -100,6 +100,16 @@ def test_start_opens_a_closed_session_before_anything_else() -> None:
     assert world.session.ready_requests == 1
 
 
+def test_a_start_passes_no_position_claim_so_every_position_refuses_it() -> None:
+    """`BUG-250`: only a Resume or a Stop of a venue's own bot excuses a position; a Start of any
+    bot does not, whatever other bots wait on the venue."""
+    world = start_world()
+
+    world.preconditions.check(_bot(world), world.clock.now())
+
+    assert world.session.claims_given == [()]
+
+
 def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> None:
     """A position the app did not open refuses the start before a lease is
     claimed or a budget registered."""

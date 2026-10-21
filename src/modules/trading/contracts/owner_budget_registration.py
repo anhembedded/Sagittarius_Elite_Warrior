@@ -10,12 +10,8 @@ claims more than the exchange shows changes nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    validate_client_order_tag,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudget,
     OwnerInventory,
@@ -25,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
     OwnerPosition,
     PositionDivergence,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 
 #: The quote asset every budgeted symbol is priced in. The same assumption
 #: Emergency Stop's Spot liquidation makes (`<asset>USDT`).
@@ -32,22 +31,11 @@ BUDGET_QUOTE_ASSET = "USDT"
 
 
 @dataclass(frozen=True)
-class OwnerBudgetRegistration:
-    """Who asks for a budget, on what, since when, and how much."""
+class OwnerBudgetRegistration(OwnerPositionClaim):
+    """Who asks for a budget, on what, since when, and how much: an owner's run (the claim's
+    fields, `run_started_at` being where executions stop being the user's base) and its budget."""
 
-    owner_id: str
-    #: The owner's client order tag (`client_order_id.py`); its orders carry it.
-    tag: str
-    symbol: str
-    #: When the owner's current run started; executions before it are not
-    #: the owner's inventory (base a previous run kept belongs to the user).
-    run_started_at: datetime
     budget: OwnerBudget
-
-    def __post_init__(self) -> None:
-        validate_client_order_tag(self.tag)
-        if self.run_started_at.tzinfo is None:
-            raise ValueError("run_started_at must be timezone-aware")
 
     @property
     def base_asset(self) -> str:

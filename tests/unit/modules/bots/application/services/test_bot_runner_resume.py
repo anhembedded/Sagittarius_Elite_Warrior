@@ -253,3 +253,32 @@ def test_a_resume_opens_the_session_for_the_bot_it_resumes() -> None:
     world.runner.resume(BOT)
 
     assert world.session.opened_for == [BOT]
+
+
+def test_a_resume_passes_the_claim_of_every_run_the_store_holds_on_the_venue() -> None:
+    """`BUG-250`: the position a host stop left under a bot's stop is the bot's own, and the opening
+    is venue-wide, so the resume names every mid-run bot of the venue, not only the one resumed.
+    A stopped bot and another venue's bot name nothing."""
+    world = _world(S.RECOVERING)
+    at = FakeBotClock().now()
+    for other_id, state, venue in (
+        ("bbbbbb", S.RECOVERING, VENUE),
+        ("cccccc", S.STOPPED, VENUE),
+        ("dddddd", S.RECOVERING, TradingVenue.FUTURES_TESTNET),
+    ):
+        world.store.save(
+            StoredBot(
+                Bot(
+                    BotId(other_id),
+                    BotDefinition("grid", "grid", venue, "ETHUSDT", CONFIG),
+                    BotLifecycle(state, at),
+                    at,
+                ),
+                {},
+            )
+        )
+
+    world.runner.resume(BOT)
+
+    (claims,) = world.session.claims_given
+    assert sorted(claim.tag for claim in claims) == sorted([BOT, "bbbbbb"])

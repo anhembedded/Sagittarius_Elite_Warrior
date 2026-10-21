@@ -42,11 +42,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_ch
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
-    OwnerBudgetRegistration,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     EMPTY_POSITION,
     OwnerPosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
@@ -93,27 +95,27 @@ class OwnerPositionDeriver:
 
     def derive(
         self,
-        registration: OwnerBudgetRegistration,
+        claim: OwnerPositionClaim,
         history: IAccountHistoryReader,
         now: datetime,
     ) -> OwnerPositionDerivation:
-        """@brief The position of `registration`'s owner at `now`, the fills it counted, and a
+        """@brief The position of `claim`'s owner at `now`, the fills it counted, and a
         checkpoint saved for the next derivation.
         @throws InventoryBeyondLookbackError The read would start further back than the venue's
         history reaches, and no checkpoint covers the gap.
         @throws AccountHistoryUnavailableError The venue did not answer."""
-        checkpoint = self._checkpoint_for(registration)
+        checkpoint = self._checkpoint_for(claim)
         found = replay_owner_fills(
-            registration,
+            claim,
             history,
             now,
-            _start_of(registration, checkpoint),
+            _start_of(claim, checkpoint),
             lambda position, trade: position_after(position, position_fill_of(trade)),
         )
         self._checkpoints.save(
             OwnerPositionCheckpoint(
-                tag=registration.tag,
-                run_started_at=registration.run_started_at,
+                tag=claim.tag,
+                run_started_at=claim.run_started_at,
                 position=found.state,
                 last_trade_id=found.last_trade_id,
                 open_order_ids=found.open_order_ids,
@@ -122,8 +124,8 @@ class OwnerPositionDeriver:
         )
         logger.info(
             "Derived position for %s on %s: %s at %s (%d fill(s) from %s).",
-            registration.tag,
-            registration.symbol,
+            claim.tag,
+            claim.symbol,
             found.state.quantity,
             found.state.average_entry,
             len(found.counted_trade_ids),
@@ -134,25 +136,25 @@ class OwnerPositionDeriver:
         )
 
     def _checkpoint_for(
-        self, registration: OwnerBudgetRegistration
+        self, claim: OwnerPositionClaim
     ) -> OwnerPositionCheckpoint | None:
-        checkpoint = self._checkpoints.load(registration.tag)
+        checkpoint = self._checkpoints.load(claim.tag)
         if checkpoint is None:
             return None
-        if not checkpoint.belongs_to(registration.tag, registration.run_started_at):
+        if not checkpoint.belongs_to(claim.tag, claim.run_started_at):
             logger.info(
                 "Position checkpoint for %s belongs to another run; deriving in full.",
-                registration.tag,
+                claim.tag,
             )
             return None
         return checkpoint
 
 
 def _start_of(
-    registration: OwnerBudgetRegistration, checkpoint: OwnerPositionCheckpoint | None
+    claim: OwnerPositionClaim, checkpoint: OwnerPositionCheckpoint | None
 ) -> ReplayStart[OwnerPosition]:
     if checkpoint is None:
-        return ReplayStart(EMPTY_POSITION, registration.run_started_at)
+        return ReplayStart(EMPTY_POSITION, claim.run_started_at)
     return ReplayStart(
         checkpoint.position,
         checkpoint.read_from,
