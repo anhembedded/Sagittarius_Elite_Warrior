@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_panel import (
     HistoryPanel,
@@ -16,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_table_models import (
     TradeHistoryTableModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
+    HistoryView,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
@@ -96,11 +100,6 @@ def test_a_realized_pnl_is_toned_by_its_sign_beside_its_arrow(qapp):
 def test_a_long_notice_is_shown_whole_in_a_dock_as_narrow_as_it_goes(qapp):
     """`BUG-251` review: a size policy that caps the label at its hint cuts the notice again once
     the dock is narrowed towards its minimum width, at any window size."""
-    from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
-        HistoryView,
-    )
-
     model = TradeHistoryTableModel()
     panel = HistoryPanel(model, "TradeHistory")
     notice = (
