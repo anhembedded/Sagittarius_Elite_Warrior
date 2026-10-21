@@ -178,7 +178,7 @@ copied here.
 
 The ladder of a Grid bot (`BOT-193`) is a read model in the same layer: `bots/contracts/grid_ladder.py` →
 `grid_ladder_of`, `GridLadder`, `LadderRow`, `PricePosition` builds one row per grid, the summary and the
-distances from a `BotSnapshot` alone (its saved parameters read now, its saved run), calling
+distances from a `BotSnapshot` alone (the parameters it carries read now, its saved run: the saved ones for `bot show`, the design on screen for the Bots tab, which says "Not saved" then), calling
 `bots/domain/grid/grid_derived.py` → `grid_profits` for the step and net arithmetic; no exchange call, no
 host, no Qt. The words are `bots/contracts/grid_ladder_texts.py`, shared by the Bots tab and (next) the
 commands. In the tab `bots/ui/bots_screen/bot_detail.py` → `detail_for` computes it with the clock the

@@ -17,21 +17,22 @@ height its text needs at the column's width and never overlaps the next one (`BU
 
 from __future__ import annotations
 
-from typing import override
-
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QLayout, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLayout, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks_view import (
     PlanChecksView,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status_banner import (
     PlanStatusBanner,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.content_width_scroll_area import (
+    ContentWidthScrollArea,
+)
 
 from .widget_slot import replace_in
 
 
-class PlanColumn(QScrollArea):
+class PlanColumn(ContentWidthScrollArea):
     """@brief The slots of a bot's plan, top to bottom, in one scroll."""
 
     def __init__(
@@ -39,8 +40,6 @@ class PlanColumn(QScrollArea):
     ) -> None:
         super().__init__(parent)
         self.setObjectName(object_name)
-        self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         #: Where the bot stands, or what the sandbox is, in one sentence with the platform's icon.
         self.banner = PlanStatusBanner(banner_name)
         self.checks = PlanChecksView()
@@ -62,15 +61,6 @@ class PlanColumn(QScrollArea):
         self._column.addLayout(self.foot)
         self._column.addStretch(1)
         self.setWidget(self._body)
-
-    @override
-    def minimumSizeHint(self) -> QSize:
-        """As wide as its content needs and no wider: the column never scrolls across, so a pane
-        a splitter gives it less than that would cut the editor's right edge instead of showing
-        it (`BUG-246`); the splitter and the window then keep the width the column asks for."""
-        inner = self._body.minimumSizeHint()
-        extra = self.frameWidth() * 2 + self.verticalScrollBar().sizeHint().width()
-        return QSize(inner.width() + extra, super().minimumSizeHint().height())
 
     def set_editor(self, panel: QWidget | None) -> None:
         """The editor of the selected bot's kind: one built for this selection, deleted when the

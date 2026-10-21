@@ -87,7 +87,7 @@ class SpotOpening(IOpeningStrategy):
             if stop_asked(self._context):
                 return False
             outcome = self._context.gateway.market_buy(piece, plan.last_price)
-            self._context.off_ladder.add(outcome.client_order_id)
+            self._context.off_ladder.add_opening(outcome.client_order_id)
             logger.info(
                 "Bot %s: opening buy slice %d of %s USDT -> %s %s",
                 self._context.state.bot_id,
