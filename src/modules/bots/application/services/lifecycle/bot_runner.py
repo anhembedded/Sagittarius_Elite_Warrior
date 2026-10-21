@@ -92,7 +92,9 @@ class BotRunner(IBotRunner):
             return BotCommandResult.refused(
                 BotRefusal.INVALID_TRANSITION, str(exc), bot_id
             )
-        refusal = self._preconditions.check(found.bot, now)
+        refusal = self._preconditions.check(
+            found.bot, now, (stored.bot for stored in self._store.load_all().bots)
+        )
         if refusal is not None:
             return refusal
         self._store.save(StoredBot(started, {}))

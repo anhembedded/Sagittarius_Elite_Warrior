@@ -20,6 +20,7 @@ STOPPED with nothing to clean up. In order:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import datetime
 
@@ -29,6 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budg
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_position_claims import (
     venue_position_claims,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.other_owner_orders import (
+    other_owner_refusal,
+    other_owner_tags,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
     order_session_refusal,
@@ -64,6 +69,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
     IVenueTradingPorts,
 )
 
+logger = logging.getLogger("App.Bots.GridExecutor")
+
 
 class GridStartPreconditions:
     """Answers `None` when a Grid may start, else the refusal. A Resume from HALTED
@@ -89,7 +96,11 @@ class GridStartPreconditions:
             session, bot.bot_id.value, venue_position_claims(venue, venue_bots)
         )
 
-    def check(self, bot: Bot, now: datetime) -> BotCommandResult | None:
+    def check(
+        self, bot: Bot, now: datetime, venue_bots: Iterable[Bot] = ()
+    ) -> BotCommandResult | None:
+        """`venue_bots` are the bots this data root holds: their tags are not another owner's
+        (`BUG-259`); the starting bot's own is always known."""
         bot_id = bot.bot_id.value
         symbol = bot.definition.symbol
         session = self._ports.get(bot.definition.venue).trading_session
@@ -115,6 +126,9 @@ class GridStartPreconditions:
                 f"The venue's limits for {symbol} could not be read: {exc}",
                 bot_id,
             )
+        other_owners = self._other_owners_refusal(bot, venue_bots)
+        if other_owners is not None:
+            return other_owners
         owner = bot_owner_id(bot_id)
         if not session.claim_symbol(symbol, owner):
             holder = session.lease_holder(symbol) or "another owner"
@@ -139,6 +153,36 @@ class GridStartPreconditions:
             cap = f" ({registration.exceeded_cap})" if registration.exceeded_cap else ""
             return _refused(BotRefusal.BUDGET_REFUSED, f"{refusal}{cap}", bot_id)
         return None
+
+    def _other_owners_refusal(
+        self, bot: Bot, venue_bots: Iterable[Bot]
+    ) -> BotCommandResult | None:
+        """Another owner's tagged orders on the symbol refuse the start (`BUG-259`). Read before
+        the symbol is claimed, so a refusal leaves nothing behind."""
+        bot_id = bot.bot_id.value
+        symbol = bot.definition.symbol
+        activity = self._ports.get(bot.definition.venue).account_activity
+        try:
+            orders = activity.open_orders(symbol)
+        except Exception as exc:  # noqa: BLE001 - converted at the seam into a refusal
+            logger.warning(
+                "Bot %s: the open orders of %s could not be read (%s) [other-owner]",
+                bot_id,
+                symbol,
+                exc,
+            )
+            return _refused(
+                BotRefusal.VENUE_NOT_READY,
+                f"The open orders of {symbol} could not be read: {exc}",
+                bot_id,
+            )
+        known = frozenset({bot_id, *(held.bot_id.value for held in venue_bots)})
+        tags = other_owner_tags(orders, symbol, known)
+        if not tags:
+            return None
+        message = other_owner_refusal(symbol, tags)
+        logger.warning("Bot %s: start refused, %s [other-owner]", bot_id, message)
+        return _refused(BotRefusal.VENUE_NOT_READY, message, bot_id)
 
 
 def _refused(refusal: BotRefusal, message: str, bot_id: str) -> BotCommandResult:

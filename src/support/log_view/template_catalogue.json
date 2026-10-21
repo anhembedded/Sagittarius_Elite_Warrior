@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 860, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 862, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -187,6 +187,7 @@
 ["ss", "Bot ", ": resume refused, its state still cannot be saved (", ") [bot-store-failed]"],
 ["ss", "Bot ", ": start ignored in ", ""],
 ["ss", "Bot ", ": start refused before any order, ", " [order-below-minimum]"],
+["ss", "Bot ", ": start refused, ", " [other-owner]"],
 ["sdds", "Bot ", ": state save failed (", " in a row, the limit of ", " is reached): ", "; memory is ahead of the file until a write succeeds [bot-store-failed]"],
 ["sdds", "Bot ", ": state save failed (", "/", "): ", "; retrying with the next write [bot-store-failed]"],
 ["sd", "Bot ", ": state save recovered after ", " failure(s) [bot-store-recovered]"],
@@ -212,6 +213,7 @@
 ["s", "Bot ", ": the ladder on the exchange could not be read [protective-stop]"],
 ["ssss", "Bot ", ": the mark price ", " left the range, ", " ", "; closing [range-exit]"],
 ["ss", "Bot ", ": the mark price could not be read (", "); stop loss and take profit are not judged until it can [mark-exit]"],
+["sss", "Bot ", ": the open orders of ", " could not be read (", ") [other-owner]"],
 ["s", "Bot ", ": the open protective stops could not be read [protective-stop]"],
 ["ss", "Bot ", ": the order ", " could not be read"],
 ["ss", "Bot ", ": the order session was opened for ", "; waiting for its own resume [recovering-waits]"],
