@@ -47,7 +47,8 @@ Five pictures, drawn by hand at a high level, one question each:
   (`alerting/contracts/i_quiet_hours_setting.py` → `IQuietHoursSetting`, `QuietHoursChoice`), served by
   `JsonAlertSettings`; the hub reads it as `AlertSettings.quiet_hours` and `QuietHoursHold` does the
   holding. The Options page group is `QuietHoursGroup` (`alerting/ui/options/quiet_hours_group.py` →
-  `QuietHoursGroup`) over `QuietHoursViewModel`; the zone is the display zone's name, from
+  `QuietHoursGroup`) over `QuietHoursViewModel`; the zone is the display zone's own name (`UTC`, an IANA key, or `SYSTEM` for
+  the machine's clock, read with `zone=None` in `quiet_hours.py` → `QuietHours.contains`), from
   `display_zone_key.py` → `display_zone_key_of`. The Bots list of the page is `BotModeList`
   (`bot_mode_list.py` → `BotModeList`), split from the presenter at the file-size ceiling.
 - **`JsonAlertSettings`** (`alerting/adapters/json_alert_settings.py` → `JsonAlertSettings`) serves

@@ -15,11 +15,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import time
 
+#: The machine's own clock, as the display time zone setting names it.
+SYSTEM_ZONE = "SYSTEM"
+
 
 @dataclass(frozen=True, slots=True)
 class QuietHoursChoice:
-    """`start` to `end` on the clock of `zone_key` (`UTC` or an IANA name), wrapping midnight
-    when `start` is later than `end`. The zone is a name so the choice can be kept as text."""
+    """`start` to `end` on the clock of `zone_key`, wrapping midnight when `start` is later
+    than `end`. The zone is a name so the choice can be kept as text: `UTC`, an IANA name, or
+    `SYSTEM` for the machine's own clock (`SYSTEM_ZONE`), which has no IANA name to store."""
 
     start: time
     end: time

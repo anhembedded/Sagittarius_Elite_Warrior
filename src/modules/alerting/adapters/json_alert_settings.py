@@ -27,7 +27,7 @@ import os
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import time
+from datetime import time, tzinfo
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes 
     IBotAlertModes,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
+    SYSTEM_ZONE,
     IQuietHoursSetting,
     QuietHoursChoice,
 )
@@ -113,6 +114,10 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes, IQuietHoursSetting
             raise PermissionError(
                 "this copy of the app is read-only: nothing was changed"
             )
+        if choice is not None:
+            _zone_of(
+                choice.zone_key
+            )  # a name that is no zone is refused before anything is written
         with self._lock:
             self._write(self._modes, choice)
             self._quiet = choice
@@ -200,7 +205,7 @@ def _quiet_choice_in(path: Path, raw: object) -> QuietHoursChoice | None:
         return None
     try:
         return _parse_quiet(raw)
-    except (KeyError, ValueError, TypeError, ZoneInfoNotFoundError):
+    except (KeyError, ValueError, TypeError):
         logger.warning(
             "%s: the quiet hours are not ones this build can read and are ignored "
             "[alert-settings]",
@@ -217,14 +222,30 @@ def _parse_quiet(raw: object) -> QuietHoursChoice:
         time.fromisoformat(str(raw["end"])),
         str(raw["zone"]),
     )
-    ZoneInfo(choice.zone_key)
+    _zone_of(choice.zone_key)
     return choice
 
 
+def _zone_of(zone_key: str) -> tzinfo | None:
+    """The zone a name stands for; `None` is the machine's clock. Raises `ValueError` for a name
+    that is no zone."""
+    if zone_key == SYSTEM_ZONE:
+        return None
+    try:
+        return ZoneInfo(zone_key)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError(f"not a time zone: {zone_key!r}") from exc
+
+
 def _quiet_hours_of(choice: QuietHoursChoice | None) -> QuietHours | None:
+    """The hub's view; never raises, because the hub asks for every alert, Critical included.
+    A name that is no zone (a file edited by hand, a bug upstream) is off, not a failure."""
     if choice is None:
         return None
-    return QuietHours(choice.start, choice.end, ZoneInfo(choice.zone_key))
+    try:
+        return QuietHours(choice.start, choice.end, _zone_of(choice.zone_key))
+    except ValueError:
+        return None
 
 
 def _without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

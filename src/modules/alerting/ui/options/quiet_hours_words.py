@@ -6,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setu
     QuietHoursSave,
     QuietHoursState,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
+    SYSTEM_ZONE,
+)
 
 TITLE = "Quiet hours"
 INTRO = (
@@ -38,6 +41,13 @@ SAVE_WORDS: dict[QuietHoursSave, tuple[str, bool]] = {
         "This copy of the app is read-only: nothing was changed.",
         True,
     ),
+    QuietHoursSave.UNKNOWN_ZONE: (
+        (
+            "The display time zone is not one this app can read, so the quiet hours were not "
+            "saved. Choose another time zone, then save again."
+        ),
+        True,
+    ),
     QuietHoursSave.NOT_KEPT: (
         (
             "The quiet hours could not be saved, so they are as they were. Check that the "
@@ -48,9 +58,14 @@ SAVE_WORDS: dict[QuietHoursSave, tuple[str, bool]] = {
 }
 
 
+def _zone_text(zone_key: str) -> str:
+    return "this computer's clock" if zone_key == SYSTEM_ZONE else zone_key
+
+
 def zone_line(state: QuietHoursState) -> str:
+    zone = _zone_text(state.zone_key)
     if state.enabled:
         start = state.start.isoformat(timespec="minutes")
         end = state.end.isoformat(timespec="minutes")
-        return f"Held from {start} to {end} ({state.zone_key})."
-    return f"Off. Times are read in your display time zone ({state.zone_key})."
+        return f"Held from {start} to {end} ({zone})."
+    return f"Off. Times are read in your display time zone ({zone})."

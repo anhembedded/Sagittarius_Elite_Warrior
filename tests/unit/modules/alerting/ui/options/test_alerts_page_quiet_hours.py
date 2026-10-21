@@ -128,6 +128,7 @@ def test_a_read_only_copy_offers_no_change_and_says_why(
     assert not page.button(SAVE).isEnabled()
     assert not page.view.findChild(QCheckBox, "chkQuietHours").isEnabled()
     assert "read-only" in page.label(STATE)
+    assert page.label(STATE).startswith("Off.")  # what is in force is still said
 
 
 def test_the_save_button_is_off_while_the_work_is_out(page: AlertsPage) -> None:
@@ -139,3 +140,14 @@ def test_the_save_button_is_off_while_the_work_is_out(page: AlertsPage) -> None:
 
     page.threads.held[0]()
     assert page.button(SAVE).isEnabled()
+
+
+def test_a_refused_period_stays_typed_in_the_boxes(page: AlertsPage) -> None:
+    _enable(page, True)
+    _times(page, QTime(8, 30), QTime(8, 30))
+
+    page.click(SAVE)
+
+    assert "no quiet period" in page.label(STATUS)
+    assert page.view.findChild(QTimeEdit, "timQuietFrom").time() == QTime(8, 30)
+    assert page.view.findChild(QCheckBox, "chkQuietHours").isChecked()

@@ -59,10 +59,9 @@ class QuietHoursViewModel(QObject):
         self._start = state.start
         self._end = state.end
         self._editable = state.editable
+        line = quiet_hours_words.zone_line(state)
         self._line = (
-            quiet_hours_words.zone_line(state)
-            if state.editable
-            else quiet_hours_words.READ_ONLY_NOTE
+            line if state.editable else f"{line} {quiet_hours_words.READ_ONLY_NOTE}"
         )
         self.state_changed.emit()
 

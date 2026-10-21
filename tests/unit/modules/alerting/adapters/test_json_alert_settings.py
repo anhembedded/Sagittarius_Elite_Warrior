@@ -304,3 +304,41 @@ def test_a_read_only_copy_refuses_a_quiet_hours_change(path: Path) -> None:
         settings.set_quiet_hours(QuietHoursChoice(time(22, 0), time(6, 0), "UTC"))
 
     assert not path.exists()
+
+
+def test_the_machines_own_clock_is_kept_as_system_and_reaches_the_hub_without_a_name(
+    path: Path,
+) -> None:
+    """`SYSTEM` has no IANA key to store (review of PR #666): it stays the word `SYSTEM`, the
+    hub is handed a period read on the machine's clock, and `current()` never raises."""
+    settings = JsonAlertSettings(path)
+
+    settings.set_quiet_hours(QuietHoursChoice(time(22, 0), time(7, 0), "SYSTEM"))
+
+    assert JsonAlertSettings(path).quiet_hours() == QuietHoursChoice(
+        time(22, 0), time(7, 0), "SYSTEM"
+    )
+    quiet = settings.current().quiet_hours
+    assert quiet is not None and quiet.zone is None
+
+
+def test_a_name_that_is_no_zone_is_refused_before_anything_is_written(
+    path: Path,
+) -> None:
+    settings = JsonAlertSettings(path)
+
+    with pytest.raises(ValueError):
+        settings.set_quiet_hours(
+            QuietHoursChoice(time(22, 0), time(7, 0), "ICT, UTC+07:00")
+        )
+
+    assert settings.quiet_hours() is None
+    assert not path.exists()
+
+
+def test_the_hubs_view_never_raises_even_if_a_bad_name_got_in(path: Path) -> None:
+    """The hub asks for every alert, Critical included: a name that is no zone is off."""
+    settings = JsonAlertSettings(path)
+    settings._quiet = QuietHoursChoice(time(22, 0), time(7, 0), "Not/AZone")
+
+    assert settings.current().quiet_hours is None

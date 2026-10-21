@@ -9,20 +9,17 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_pref
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
-    get_system_timezone_name,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
-_SYSTEM = "SYSTEM"
-
 
 def display_zone_key_of(container: IContainer) -> Callable[[], str]:
-    """The zone name now: the chosen display zone (`SYSTEM` is the machine's own, by name), or
-    `UTC` when the container holds no such setting. Asked at each save, so it follows the choice."""
+    """The display zone's name now: `UTC`, `SYSTEM` (the machine's own clock, which has no name
+    the standard library can read) or an IANA key; `UTC` when the container holds no such
+    setting. Asked at each save, so it follows the choice."""
 
     def zone_key() -> str:
         preference = find_display_timezone_preference(container)
-        zone = DEFAULT_TIMEZONE if preference is None else preference.zone
-        return get_system_timezone_name() if zone == _SYSTEM else zone
+        return DEFAULT_TIMEZONE if preference is None else preference.zone
 
     return zone_key

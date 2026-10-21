@@ -2,7 +2,8 @@
 
 Quiet hours hold INFO and WARNING and never CRITICAL (`QuietHoursHold`); this is where the owner
 chooses the period. The period is read on the clock of the owner's display time zone at the time
-of saving, kept as the zone's name: a later change of the display zone does not move a period
+of saving, kept as the zone's name (`SYSTEM` stays "this machine's clock", which has no name to
+store): a later change of the display zone does not move a period
 already set (it would move the night under the owner without a word).
 
 Equal ends are refused rather than kept: `QuietHours` reads them as no period, and a form that
@@ -35,6 +36,7 @@ class QuietHoursSave(Enum):
     NO_PERIOD = "start and end are the same"
     READ_ONLY = "read-only copy"
     NOT_KEPT = "could not be kept"
+    UNKNOWN_ZONE = "time zone not known"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +82,8 @@ class QuietHoursSetup:
     def _keep(self, choice: QuietHoursChoice | None) -> QuietHoursSave:
         try:
             self._setting.set_quiet_hours(choice)
+        except ValueError:
+            return self._told(QuietHoursSave.UNKNOWN_ZONE)
         except OSError as exc:
             logger.warning(
                 "[alert-setup] quiet hours could not be kept (%s)", type(exc).__name__

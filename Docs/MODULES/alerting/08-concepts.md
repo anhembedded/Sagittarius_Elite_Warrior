@@ -38,7 +38,7 @@ What the owner set per bot is one JSON file, `<data root>/state/alert_settings.j
 `{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}, "quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}}`
 (`alerting/adapters/json_alert_settings.py` → `SETTINGS_SCHEMA`, `JsonAlertSettings`). It holds bot
 ids and modes and the quiet hours (`quiet_hours` is absent when there are none, and an entry this build
-cannot read is off and told once: the safe side), no secret. A mode `on` is not written. **A missing file is every default**: nothing
+cannot read is off and told once, and is not kept: the next save writes the file without it), no secret. A mode `on` is not written. **A missing file is every default**: nothing
 creates it until the owner sets a mode. **A file this build cannot read** (not JSON, another schema)
 is every default, told once in the log with `[alert-settings]`, and moved aside to
 `alert_settings.json.unreadable` when the owner next sets a mode. **A mode this build does not know**

@@ -18,7 +18,7 @@
 - [x] **Setting one thing keeps the other.** A bot's mode and the quiet hours are written together. (`test_setting_a_bots_mode_keeps_the_quiet_hours_and_the_other_way_round`)
 - [x] **A bad entry is off, never a hold.** A `quiet_hours` entry this build cannot read is ignored and told once; the modes are kept. (`test_a_quiet_hours_entry_this_build_cannot_read_is_off_told_and_the_modes_kept`)
 - [x] **The same start and end is refused**, in words, and nothing is kept. (`test_the_same_start_and_end_is_refused_and_nothing_is_kept`, `test_the_same_time_twice_is_refused_in_words_and_nothing_is_kept`)
-- [x] **The zone is the display zone at the moment of saving**, kept by name; a later change of the display zone does not move a set night. (`test_a_period_is_kept_in_the_zone_of_the_moment_it_was_saved`)
+- [x] **The zone is the display zone at the moment of saving**, kept by name; a later change of the display zone does not move a set night; `SYSTEM` is the machine's clock, not a label. (`test_a_period_is_kept_in_the_zone_of_the_moment_it_was_saved`, `test_the_machines_own_clock_is_kept_as_system_and_reaches_the_hub_without_a_name`, `test_the_machines_clock_decides_not_utc`, `test_daylight_saving_moves_the_machines_night`, `test_system_stays_system_not_a_label_with_an_offset`, `test_a_name_that_is_no_zone_is_refused_before_anything_is_written`, `test_the_hubs_view_never_raises_even_if_a_bad_name_got_in`)
 - [x] **A store that cannot write is told**, not reported saved; a read-only copy changes nothing and says why. (`test_a_store_that_cannot_write_is_told_not_reported_saved`, `test_a_read_only_copy_offers_no_change_and_says_why`)
 - [x] **The group**: check box, From, To, one line of what is set, Save; Save with the box cleared turns it off; off the UI thread, button off while the work is out. (`test_alerts_page_quiet_hours.py`)
 - [x] **Frames**: the page with the group, light and dark, three widths (`alerts_options@WxH.png`, artifact `ui-screenshots`).
@@ -27,7 +27,7 @@
 ## 3. Design
 - **One page, so a presenter split first.** A module owns one Options page (`ContributionRegistry.contribute_options_page`), and the page's presenter was at 398 of 400 lines. The Bots list (`BotModeList`) moved out; no behaviour changed.
 - **Immediate-apply like the rest of the page.** Save acts at once; OK and Apply have nothing to save here. The check box is what the group means, so there is no second "off" control.
-- **The zone is a name, taken at save.** `QuietHoursChoice.zone_key` is `UTC` or an IANA name; the display zone `SYSTEM` is resolved to the machine's zone name when saved. A night set in Berlin stays Berlin's.
+- **The zone is a name, taken at save.** `QuietHoursChoice.zone_key` is `UTC`, an IANA name, or `SYSTEM` for the machine's own clock. `SYSTEM` is not turned into a name: the machine's zone has no IANA key the standard library can read (`BUG-234`), so `QuietHours.zone` is `None` there and the period is read on the OS's clock instant by instant, daylight saving included. A night set in Berlin stays Berlin's. (Review round 1 found the first cut stored a label such as `ICT, UTC+07:00`, which made `current()` raise on every alert until a restart; a name that is no zone is now refused before anything is written, and the hub's view never raises.)
 - **Equal ends are refused**, not kept, because `QuietHours` reads them as no period.
 - **Per-bot mute in the bots list: skipped** (decided by the coordinator for the owner): the bots list has no context menu and the Options page covers it.
 

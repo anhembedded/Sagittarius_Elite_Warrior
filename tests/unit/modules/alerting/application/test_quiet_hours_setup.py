@@ -101,3 +101,25 @@ def test_a_store_that_cannot_write_is_told_not_reported_saved(
     assert outcome is QuietHoursSave.NOT_KEPT
     assert settings.quiet_hours() is None
     assert any("could not be kept" in r.getMessage() for r in caplog.records)
+
+
+def test_the_machines_clock_is_kept_as_system_and_read_back_as_system(
+    path: Path,
+) -> None:
+    """Review of PR #666: `SYSTEM` is not turned into a label that is no zone."""
+    settings = JsonAlertSettings(path)
+
+    outcome = _setup(settings, "SYSTEM").set_period(time(22, 0), time(7, 0))
+
+    assert outcome is QuietHoursSave.SAVED
+    assert _setup(settings, "UTC").state().zone_key == "SYSTEM"
+    assert settings.current().quiet_hours is not None  # the hub's read does not raise
+
+
+def test_a_zone_name_that_is_no_zone_is_told_and_nothing_is_kept(path: Path) -> None:
+    settings = JsonAlertSettings(path)
+
+    outcome = _setup(settings, "ICT, UTC+07:00").set_period(time(22, 0), time(7, 0))
+
+    assert outcome is QuietHoursSave.UNKNOWN_ZONE
+    assert settings.quiet_hours() is None

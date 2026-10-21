@@ -352,7 +352,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     def _on_quiet_saved(self, outcome: QuietHoursSave) -> None:
         sentence, is_error = quiet_hours_words.SAVE_WORDS[outcome]
-        self._settings_view_model.quiet.take_state(self._quiet.state())
+        if outcome is not QuietHoursSave.NO_PERIOD:  # a refused period stays typed
+            self._settings_view_model.quiet.take_state(self._quiet.state())
         self._settings_view_model.set_status(sentence, is_error)
 
     def _on_test_done(self, outcomes: tuple[ChannelTestOutcome, ...]) -> None:
