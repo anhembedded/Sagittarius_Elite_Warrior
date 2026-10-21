@@ -141,7 +141,9 @@ def test_a_pause_that_stops_the_cancel_of_a_held_ladder_says_the_orders_may_stil
     world = _running()
     oid = world.open_ids_by_price()[Decimal(140)]
     world.book.open.pop(oid)
-    world.book.cancel_raises = [_the_exchange_pauses()]
+    # The pause meets the read that lists the bot's orders, which is not caught per order, so it
+    # leaves `park()` and reaches `GridTaskGuard._pause_met_while_parking`.
+    world.activity.open_orders_error = _the_exchange_pauses()
 
     world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
 
