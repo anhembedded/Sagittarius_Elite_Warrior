@@ -51,7 +51,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
+    RecordedPost,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_catalog import (
+    label_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
     BotAlertMode,
 )
@@ -138,7 +143,35 @@ def _settled(app: BootedApp, transport: FakeWebhookTransport) -> list[str]:
         # The fake clock stands still, so a channel's own pacing (four messages per two
         # seconds, `EPIC-036C2`) would hold the fifth for ever: the test lets time pass.
         clock.advance(PACING_STEP)
-    return [str(post.body["content"]) for post in transport.posts]
+    return [str(post.body["content"]) for post in _posts_about_bots(transport)]
+
+
+def _is_heartbeat(post: RecordedPost) -> bool:
+    """The heartbeat the booted app sends on its own first housekeeping pass (`EPIC-036E`), one
+    second after it starts, is not a message about a bot: its title is the alert kind's label."""
+    first_line = str(post.body["content"]).splitlines()[0]
+    return f"· {label_of(AlertKind.HEARTBEAT)}" in first_line
+
+
+def _posts_about_bots(transport: FakeWebhookTransport) -> list[RecordedPost]:
+    """What the channel was sent, without the heartbeat (`BUG-252`): these journeys are about the
+    messages a bot earns, and the heartbeat lands whenever the run lasts a second, so a count of
+    everything sent depends on how fast the runner is."""
+    return [post for post in transport.posts if not _is_heartbeat(post)]
+
+
+def _until_the_heartbeat_is_told(
+    app: BootedApp, transport: FakeWebhookTransport
+) -> None:
+    """Waits, on what was sent and not on a sleep, until the app's own heartbeat has reached the
+    channel: what the slow runner does by itself, made certain."""
+    clock = app.engine.context.container.resolve(IAlertClock)  # type: ignore[type-abstract]
+    deadline = time.monotonic() + WAIT_S
+    while not any(_is_heartbeat(post) for post in list(transport.posts)):
+        assert time.monotonic() < deadline, "the app never told its heartbeat"
+        transport.posted.wait(0.05)
+        transport.posted.clear()
+        clock.advance(PACING_STEP)
 
 
 def _started(app: BootedApp) -> str:
@@ -198,9 +231,28 @@ def test_one_silent_message_per_full_fill_and_the_cycle_carries_the_profit_booke
     assert "cycle" not in buy
     assert f"{SYMBOL} · SELL" in sell and "(level 2)" in sell
     assert f"cycle {profit} USDT · grid profit {profit} USDT · 1 cycle" in sell
-    assert [post.body["flags"] for post in transport.posts] == [
+    assert [post.body["flags"] for post in _posts_about_bots(transport)] == [
         SUPPRESS_NOTIFICATIONS
     ] * 2
+
+
+def test_the_apps_own_heartbeat_is_not_counted_among_the_messages_a_bot_earns(
+    exchange: FakeExchange,
+) -> None:
+    """`BUG-252`: a run that lasts a second gets a heartbeat beside the bot's fill, and every
+    journey here that counts what was sent failed on a slow runner. The wait makes that certain."""
+    with _told(exchange) as (app, transport):
+        _started(app)
+        app.move_price(48700)
+        _until_the_heartbeat_is_told(app, transport)
+
+        [buy] = _settled(app, transport)
+
+    assert any(_is_heartbeat(post) for post in transport.posts), "no heartbeat was told"
+    assert "Order filled: grid" in buy and f"{SYMBOL} · BUY" in buy
+    assert [post.body["flags"] for post in _posts_about_bots(transport)] == [
+        SUPPRESS_NOTIFICATIONS
+    ]
 
 
 def test_a_restart_sends_nothing_again_and_tells_a_fill_missed_while_closed_once(
