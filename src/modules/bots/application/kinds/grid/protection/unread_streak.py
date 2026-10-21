@@ -35,8 +35,14 @@ class UnreadStreak:
 
 def log_unread_stops(logger: logging.Logger, failure: Exception, bot_id: str) -> None:
     """The open protective stops could not be read: DEBUG for the exchange's pause, else ERROR."""
-    message = "Bot %s: the open protective stops could not be read [protective-stop]"
     if isinstance(failure, ExchangeRateLimitedError):
-        logger.debug(message, bot_id)
+        logger.debug(
+            "Bot %s: the open protective stops could not be read [protective-stop]",
+            bot_id,
+        )
     else:
-        logger.error(message, bot_id, exc_info=failure)
+        logger.error(
+            "Bot %s: the open protective stops could not be read [protective-stop]",
+            bot_id,
+            exc_info=failure,
+        )

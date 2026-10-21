@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 827, "variable_template_calls": 35, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 828, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -204,6 +204,7 @@
 ["s", "Bot ", ": the ladder on the exchange could not be read [protective-stop]"],
 ["ssss", "Bot ", ": the mark price ", " left the range, ", " ", "; closing [range-exit]"],
 ["ss", "Bot ", ": the mark price could not be read (", "); stop loss and take profit are not judged until it can [mark-exit]"],
+["s", "Bot ", ": the open protective stops could not be read [protective-stop]"],
 ["ss", "Bot ", ": the order ", " could not be read"],
 ["ss", "Bot ", ": the order session was opened for ", "; waiting for its own resume [recovering-waits]"],
 ["s", "Bot ", ": the plan has no stop loss, so no stop stands on the exchange and the position is unprotected if the app stops [protective-stop]"],

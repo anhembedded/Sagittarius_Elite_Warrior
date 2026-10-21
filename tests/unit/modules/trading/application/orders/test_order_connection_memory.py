@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 
 import pytest
@@ -148,3 +149,33 @@ def test_a_pause_is_raised_for_each_order_and_never_kept() -> None:
             order_connection_block(scope)
 
     assert reader.checks == 2
+
+
+def test_a_slow_pass_does_not_bring_back_what_a_later_failure_cleared() -> None:
+    """Check A begins first and is slow; check B begins later and fails; A then ends with a pass."""
+
+    class _Overtaken(FakeTradingAccountReader):
+        def __init__(self) -> None:
+            super().__init__(_status())
+            self.during_slow: Callable[[], None] = lambda: None
+
+        def check_connection(self) -> ExchangeConnectionStatus:
+            self.checks += 1
+            if self.checks == 1:
+                self.during_slow()
+            return self._answer
+
+    reader = _Overtaken()
+    reader._answer = _status()
+    memory = OrderConnectionMemory(_Clock())
+
+    def fail_in_between() -> None:
+        reader._answer = _status(ConnectionFailureKind.KEY_REJECTED)
+        assert memory.status(reader).failure is ConnectionFailureKind.KEY_REJECTED
+        reader._answer = _status()
+
+    reader.during_slow = fail_in_between
+    memory.status(reader)  # A: slow, ends with a pass
+
+    memory.status(reader)
+    assert reader.checks == 3, "the older pass was not kept over the newer failure"

@@ -13,7 +13,7 @@ again, as it did before. What the check guards (a key, the network, the account'
 minutes, not within a beat, and `PositionModeMemory` already trusts the mode for 60 s; a failure
 that does arrive inside the window is met by the order itself, which the exchange refuses with its
 own answer. The lock covers the memo only, never the network read, so a slow read never holds up
-another order or a cancel.
+another order or a cancel; and a read whose answer arrives after a newer read's is not kept.
 """
 
 from __future__ import annotations
@@ -54,6 +54,9 @@ class OrderConnectionMemory:
         self._reuse_seconds = reuse_seconds
         self._lock = threading.Lock()
         self._kept: _Kept | None = None
+        #: Reads begun, and the newest one whose result the memo holds.
+        self._begun = 0
+        self._settled = 0
 
     def status(self, reader: ITradingAccountReader) -> ExchangeConnectionStatus:
         """The kept status if it passed less than the window ago, else a read from the exchange."""
@@ -61,12 +64,19 @@ class OrderConnectionMemory:
             kept = self._kept
         if kept is not None and 0 <= self._clock() - kept.read_at < self._reuse_seconds:
             return kept.status
+        with self._lock:
+            self._begun += 1
+            mine = self._begun
         read_at = self._clock()
         status = reader.check_connection()
         with self._lock:
-            self._kept = (
-                _Kept(status, read_at)
-                if status.reachable and status.failure is None
-                else None
-            )
+            # A read that began before one already settled is older news: a slow pass must not
+            # bring back what a later failure cleared.
+            if mine > self._settled:
+                self._settled = mine
+                self._kept = (
+                    _Kept(status, read_at)
+                    if status.reachable and status.failure is None
+                    else None
+                )
         return status

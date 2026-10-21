@@ -10,7 +10,7 @@ one venue's state with another venue's client.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
@@ -43,10 +43,7 @@ class VenueTradingScope:
     ports: VenueContext
     session_state: TradingSessionState
     equity_recorder: EquityCurveRecorder
-    #: A scope built by hand has a memory of its own; `VenueTradingScopes` hands the venue's.
-    order_connection: OrderConnectionMemory = field(
-        default_factory=OrderConnectionMemory
-    )
+    order_connection: OrderConnectionMemory
 
 
 class VenueTradingScopes:
