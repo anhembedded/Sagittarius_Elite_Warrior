@@ -2,7 +2,7 @@
 
 One table per thing the screen says about a state, each complete or the app does not start
 (`EnumLabels`; the looks are checked by a test against every member). The word is what carries the
-meaning, in the Bots table, the Plan dock and the identity strip; the icon and the colour of its tone
+meaning, in the Bots table, the Plan and the identity strip; the icon and the colour of its tone
 (`meaning_colours.py`) are beside it, never instead (`ui-presentation-rule.md` §1). A state that needs
 the owner is a stop sign (a halt, an error); one that waits is a clock or a circle of arrows (paused,
 recovering); one that runs is a play mark.

@@ -8,10 +8,13 @@ the status line says are decided here, from one state, so no text outlives the s
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_run_fsm_matrix import (
     RunActivity,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    PlanChecks,
 )
 
 
@@ -31,7 +34,10 @@ class WorkbenchState:
     source_text: str = ""
     #: The question about discarding edits, `""` while none is open.
     question: str = ""
-    verdict_lines: tuple[str, ...] = ()
+    #: What the kind's rules say about the sandbox, as the Live Plan lists its checks (`BOT-218`).
+    checks: PlanChecks = field(default_factory=PlanChecks)
+    #: What a simulation cannot check, a line each.
+    unchecked_lines: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

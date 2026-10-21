@@ -43,6 +43,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOve
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.equity_pane import (
     EquityPane,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
+    DEFAULT_INTERVAL,
+    interval_toolbar,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.outcome_view import (
     FillsTableModel,
 )
@@ -53,20 +57,21 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_words import (
     BANNER,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_column import (
+    PlanColumn,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status import (
+    PlanStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar import (
-    ChartToolbar,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    CurrentStaysPinned,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
     Readout,
@@ -77,18 +82,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_pref
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
-#: The intervals a backtest offers; the result chart draws in the same one.
-INTERVALS = (
-    TimeFrame.ONE_MINUTE,
-    TimeFrame.FIVE_MINUTES,
-    TimeFrame.FIFTEEN_MINUTES,
-    TimeFrame.ONE_HOUR,
-)
-DEFAULT_INTERVAL = TimeFrame.FIFTEEN_MINUTES
-#: Said when the interval Run replays is unticked in the picker (`EPIC-040` F4).
-_CURRENT_INTERVAL_TEXT = (
-    "The interval Run replays stays pinned, so the row always shows it."
-)
 _DEFAULT_DAYS = 7
 _UTC = QTimeZone.utc()
 
@@ -124,7 +117,7 @@ class BacktestWorkbenchView(QWidget):
         self, chart_ports: LiveChartPorts, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
-        self.interval = _interval_toolbar()
+        self.interval = interval_toolbar()
         now = datetime.now(UTC).replace(second=0, microsecond=0)
         self.start = _datetime_edit(
             "dtBacktestStart", now - timedelta(days=_DEFAULT_DAYS)
@@ -141,15 +134,17 @@ class BacktestWorkbenchView(QWidget):
         self.reset_button = _button("Reset to the bot's plan", "btnBacktestReset")
         self.status = _wrapped_label("lblBacktestStatus")
         self.banner = _wrapped_label("lblBacktestBanner", BANNER)
-        self.source = _wrapped_label("lblBacktestSource")
+        #: The setup column is the Live Plan's own class (`BOT-218`); the sandbox's source line
+        #: is its banner and the kind's verdicts are its checks.
+        self.column = PlanColumn("scrollBacktestPlan", "bannerBacktestSource")
+        self.source = self.column.banner
+        self.checks = self.column.checks
         self.changed = _wrapped_label("lblBacktestChanged")
-        self.verdicts = _wrapped_label("lblBacktestVerdicts")
+        #: What a simulation cannot check, so a check that did not run is never read as a pass.
+        self.unchecked = _wrapped_label("lblBacktestUnchecked")
         self.question = _wrapped_label("lblBacktestQuestion")
         self.replace_button = _button("Replace my edits", "btnBacktestReplaceEdits")
         self.keep_button = _button("Keep my edits", "btnBacktestKeepEdits")
-        self._editor_host = QWidget()
-        self._editor_layout = QVBoxLayout(self._editor_host)
-        self._editor_layout.setContentsMargins(0, 0, 0, 0)
         self._editor: BotKindPanel | None = None
         self.card = ChartCard("Backtest")
         # The replay is at the interval that was run: a second chooser here would change nothing
@@ -197,9 +192,11 @@ class BacktestWorkbenchView(QWidget):
         self.no_funding_button.setVisible(controls.no_funding_visible)
         self.reset_button.setEnabled(controls.reset_enabled)
         self.status.setText(state.status)
-        self.source.setText(state.source_text)
+        self.source.show_status(_source_status(state))
         self.changed.setText(_changed_text(state))
-        self.verdicts.setText("\n".join(state.verdict_lines))
+        self.checks.show_checks(state.checks)
+        self.unchecked.setText("\n".join(state.unchecked_lines))
+        self.unchecked.setVisible(bool(state.unchecked_lines))
         self.question.setText(state.question)
         for widget in (self.question, self.replace_button, self.keep_button):
             widget.setVisible(controls.answer_visible)
@@ -218,12 +215,9 @@ class BacktestWorkbenchView(QWidget):
             return
         if self._editor is not None:
             self._editor.config_changed.disconnect(self.config_edited)
-            self._editor_layout.removeWidget(self._editor)
-            self._editor.hide()
-            self._editor.deleteLater()
         self._editor = editor
+        self.column.set_editor(editor)
         if editor is not None:
-            self._editor_layout.addWidget(editor)
             editor.config_changed.connect(self.config_edited)
 
     def show_outcome(self, shown: OutcomeShown) -> None:
@@ -280,21 +274,18 @@ class BacktestWorkbenchView(QWidget):
         answers.addWidget(self.replace_button)
         answers.addWidget(self.keep_button)
         answers.addStretch(1)
-        setup = QWidget()
-        column = QVBoxLayout(setup)
-        column.setContentsMargins(0, 0, 0, 0)
-        for widget in (self.source, self.question):
-            column.addWidget(widget)
-        column.addLayout(answers)
-        column.addWidget(self._scrolling(self._editor_host), 1)
-        column.addWidget(self.changed)
-        column.addWidget(self.verdicts)
+        intro = self.column.intro
+        intro.addWidget(self.question)
+        intro.addLayout(answers)
+        intro.addWidget(self.changed)
+        self.column.foot.addWidget(self.unchecked)
         body = QSplitter()
         body.setChildrenCollapsible(False)
-        body.addWidget(setup)
+        body.addWidget(self.column)
         body.addWidget(self._result_tabs())
-        body.setStretchFactor(0, 0)
+        body.setStretchFactor(0, 1)
         body.setStretchFactor(1, 1)
+        body.setSizes([1, 1])
         layout = QVBoxLayout(self)
         layout.addLayout(period)
         layout.addLayout(commands)
@@ -326,43 +317,6 @@ class BacktestWorkbenchView(QWidget):
         return pane
 
 
-def _interval_toolbar() -> ChartToolbar:
-    """The interval, chosen the way every chart's timeframe is: the pinned intervals as actions and
-    "More timeframes…", offering only what a backtest replays (`INTERVALS`)."""
-    codes = [interval.value for interval in INTERVALS]
-    toolbar = ChartToolbar(
-        timeframes=codes,
-        active=DEFAULT_INTERVAL.value,
-        offered_codes=codes,
-        keep_current_pinned=CurrentStaysPinned(_CURRENT_INTERVAL_TEXT),
-    )
-    toolbar.setObjectName("tbBacktestInterval")
-    toolbar.setWindowTitle("Interval")
-    toolbar.setMovable(False)
-    toolbar.setFloatable(False)
-    _reach_by_tab(toolbar)
-    return toolbar
-
-
-def _reach_by_tab(toolbar: ChartToolbar) -> None:
-    """A toolbar's buttons take no focus, and the drop-down this replaced did: the interval is a run
-    parameter, so a person on the keyboard must still reach it (`ui-presentation-rule.md` §2). The
-    buttons are rebuilt when the pins change, so the policy is set again after each rebuild."""
-
-    def apply() -> None:
-        actions = [
-            *toolbar.timeframes.timeframe_actions(),
-            toolbar.timeframes.more_action,
-        ]
-        for action in actions:
-            button = toolbar.widgetForAction(action)
-            if button is not None:
-                button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
-
-    toolbar.timeframes.rebuilt.connect(apply)
-    apply()
-
-
 def _button(text: str, name: str) -> QPushButton:
     button = QPushButton(text)
     button.setObjectName(name)
@@ -374,6 +328,13 @@ def _wrapped_label(name: str, text: str = "") -> QLabel:
     label.setObjectName(name)
     label.setWordWrap(True)
     return label
+
+
+def _source_status(state: WorkbenchState) -> PlanStatus:
+    """The sandbox's source line, as the status banner says where a bot stands."""
+    if not state.source_text:
+        return PlanStatus()
+    return PlanStatus(NoticeKind.INFORMATION, state.source_text)
 
 
 def _changed_text(state: WorkbenchState) -> str:
