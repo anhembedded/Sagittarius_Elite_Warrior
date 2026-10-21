@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_permission_ga
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
     NO_KEY,
+    StateKind,
     state_of,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
@@ -120,10 +121,10 @@ def test_the_trading_page_says_a_refused_key_was_refused_not_missing(
 ) -> None:
     status = _readers(_refused())[index].check_connection()  # type: ignore[attr-defined]
 
-    text, is_error = state_of(status)
+    text, kind = state_of(status)
 
     assert status.failure is ConnectionFailureKind.KEY_REJECTED
-    assert is_error and text != NO_KEY
+    assert kind is StateKind.ERROR and text != NO_KEY
     assert "refused the key" in text and "allowlist" in text
 
 
@@ -131,7 +132,7 @@ def test_the_trading_page_says_a_refused_key_was_refused_not_missing(
 def test_the_trading_page_still_says_no_key_when_there_is_none(index: int) -> None:
     status = _readers(_missing())[index].check_connection()  # type: ignore[attr-defined]
 
-    assert state_of(status) == (NO_KEY, True)
+    assert state_of(status) == (NO_KEY, StateKind.ERROR)
 
 
 def test_the_history_says_why_the_refused_key_cannot_read_it() -> None:

@@ -5,7 +5,8 @@ by the meaning table's colour for its `Tone`, asked of the palette at the time a
 palette changes, so a switch of the colour scheme repaints it. The text carries the meaning in
 words, a sign or an arrow; the colour only adds to it, and in High Contrast there is none
 (`meaning_colours.py`). No style sheet and no colour is written: the label's `WindowText` role is
-set, from the table, on the label's own palette.
+set, from the table, on the label's own palette: on every role a label draws its text with,
+because a label inside a toolbar draws with `ButtonText`, not `WindowText`.
 
 Capability: Colour a label's text by meaning (profit, loss, warning), following the colour scheme
     Also: tone, colour a label, red green text, read-out colour, label palette
@@ -25,6 +26,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
 )
 
 _FOLLOWER_NAME = "toneFollower"
+#: The roles a label's text is drawn with: its own by default, a toolbar's or a button row's
+#: when the label stands in one (`QWidget.foregroundRole` follows the parent).
+_TEXT_ROLES = (
+    QPalette.ColorRole.WindowText,
+    QPalette.ColorRole.ButtonText,
+    QPalette.ColorRole.Text,
+)
 
 
 class _ToneFollower(QObject):
@@ -56,7 +64,8 @@ class _ToneFollower(QObject):
             self._label.setPalette(QPalette())
             return
         palette = QPalette(self._label.palette())
-        palette.setColor(QPalette.ColorRole.WindowText, colour)
+        for role in _TEXT_ROLES:
+            palette.setColor(role, colour)
         self._label.setPalette(palette)
 
 

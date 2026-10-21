@@ -1,9 +1,11 @@
-"""Tools → Options → Appearance (`EPIC-043B`).
+"""Tools → Options → Appearance (`EPIC-043B`, `EPIC-043D`).
 
-One choice, the colour scheme: System (the default), Light or Dark. The page changes the
-`ColourSchemePreference` only on OK or Apply, never on the click itself (the dialog's own
-contract, `IOptionsSection`); the preference tells `ColourSchemeApplier`, which asks Qt, so the
-whole window follows without a restart. Nothing here takes long enough to need a coordinator.
+Two choices. The colour scheme: System (the default), Light or Dark. And whether a price on the
+Market watchlist briefly takes the up or down tone when it ticks (off by default). The page
+changes the two preferences only on OK or Apply, never on the click itself (the dialog's own
+contract, `IOptionsSection`); the colour scheme tells `ColourSchemeApplier`, which asks Qt, so
+the whole window follows without a restart, and the flash tells the table. Nothing here takes
+long enough to need a coordinator.
 
 An `IOptionsSection` (satisfied structurally).
 """
@@ -14,6 +16,7 @@ from collections.abc import Callable
 
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QCheckBox,
     QGroupBox,
     QRadioButton,
     QVBoxLayout,
@@ -23,9 +26,14 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_prefere
     ColourSchemeChoice,
     ColourSchemePreference,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
 
 _TITLE = "Appearance"
 _GROUP_TEXT = "Colour scheme"
+_PRICES_GROUP_TEXT = "Live prices"
+_FLASH_TEXT = "&Flash a price when it moves"
 _CHOICE_TEXT = {
     ColourSchemeChoice.SYSTEM: "&System",
     ColourSchemeChoice.LIGHT: "&Light",
@@ -34,10 +42,13 @@ _CHOICE_TEXT = {
 
 
 class AppearanceOptionsPage:
-    """The colour scheme choice, applied with the dialog's OK or Apply."""
+    """The colour scheme and the tick flash, applied with the dialog's OK or Apply."""
 
-    def __init__(self, preference: ColourSchemePreference) -> None:
+    def __init__(
+        self, preference: ColourSchemePreference, tick_flash: TickFlashPreference
+    ) -> None:
         self._preference = preference
+        self._tick_flash = tick_flash
         self._listener: Callable[[], None] | None = None
         self._widget = QWidget()
         self._widget.setObjectName("options::appearance")
@@ -52,8 +63,14 @@ class AppearanceOptionsPage:
             self._group.addButton(button)
             box_layout.addWidget(button)
             self._buttons[choice] = button
+        self._flash = QCheckBox(_FLASH_TEXT)
+        self._flash.setObjectName("options::appearance::tick_flash")
+        self._flash.toggled.connect(self._on_flash_edited)
+        prices = QGroupBox(_PRICES_GROUP_TEXT)
+        QVBoxLayout(prices).addWidget(self._flash)
         layout = QVBoxLayout(self._widget)
         layout.addWidget(box)
+        layout.addWidget(prices)
         layout.addStretch(1)
         self.revert()
 
@@ -68,6 +85,7 @@ class AppearanceOptionsPage:
 
     def apply(self) -> None:
         self._preference.set_choice(self._chosen())
+        self._tick_flash.set_enabled(self._flash.isChecked())
 
     def revert(self) -> None:
         saved = self._preference.choice
@@ -75,9 +93,15 @@ class AppearanceOptionsPage:
             button.blockSignals(True)
             button.setChecked(choice == saved)
             button.blockSignals(False)
+        self._flash.blockSignals(True)
+        self._flash.setChecked(self._tick_flash.enabled)
+        self._flash.blockSignals(False)
 
     def is_dirty(self) -> bool:
-        return self._chosen() != self._preference.choice
+        return (
+            self._chosen() != self._preference.choice
+            or self._flash.isChecked() != self._tick_flash.enabled
+        )
 
     def validation_message(self) -> str | None:
         return None
@@ -95,4 +119,8 @@ class AppearanceOptionsPage:
 
     def _on_edited(self, checked: bool) -> None:
         if checked and self._listener is not None:
+            self._listener()
+
+    def _on_flash_edited(self, _checked: bool) -> None:
+        if self._listener is not None:
             self._listener()
