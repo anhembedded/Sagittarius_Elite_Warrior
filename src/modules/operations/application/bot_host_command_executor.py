@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     AddBotForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
+    MoveBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
     StartBotForHostCommand,
@@ -58,6 +59,7 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     HostControlAction.EDIT: "the bot's parameters were changed and it is DRAFT (see `bot show`)",
     HostControlAction.ADD: "the bot was created and is DRAFT (see `bot list`)",
     HostControlAction.DELETE: "the bot was deleted (see `bot list`)",
+    HostControlAction.MOVE: "the bot was moved to the venue and is still DRAFT (see `bot show`)",
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: (
         "the loss cap is acknowledged: bots may start again, and the day's loss keeps counting "
         "from 00:00 UTC (it trips again at the figure unless you raised it)"
@@ -80,6 +82,7 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.EDIT: lambda c: EditBotForHostCommand(c.bot_id, c.settings),
     HostControlAction.ADD: lambda c: AddBotForHostCommand(_entry_of(c)),
     HostControlAction.DELETE: lambda c: DeleteBotForHostCommand(c.bot_id),
+    HostControlAction.MOVE: lambda c: MoveBotForHostCommand(c.bot_id, _venue_of(c)),
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: lambda _c: (
         AcknowledgeLossCapForHostCommand()
     ),
@@ -88,8 +91,20 @@ _REQUESTS: dict[HostControlAction, _Request] = {
 #: The actions whose accepted answer names what the host did (a change, the new id), so the host's
 #: own sentence is the reply.
 _SAYS_ITS_OWN_WORDS = frozenset(
-    {HostControlAction.EDIT, HostControlAction.ADD, HostControlAction.DELETE}
+    {
+        HostControlAction.EDIT,
+        HostControlAction.ADD,
+        HostControlAction.DELETE,
+        HostControlAction.MOVE,
+    }
 )
+
+
+def _venue_of(command: HostCommand) -> str:
+    """The codec refuses a move with no `to_venue`; this keeps the type honest, not a second check."""
+    if command.to_venue is None:
+        raise ValueError("a move carries to_venue")
+    return command.to_venue
 
 
 def _entry_of(command: HostCommand) -> NewBotEntry:

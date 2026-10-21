@@ -52,11 +52,7 @@ PARITY: dict[str, HostVerb | Excluded] = {
         "a flag of `run`: it acts when a host starts, so a bot that halts on a running host is "
         "confirmed only by restarting the host, which is the cost the owner's rule is about."
     ),
-    "ChangeBotVenueCommand": Excluded(
-        "OPEN GAP. The tab moves a DRAFT that never ran to another venue. A plan names a bot by "
-        "name and venue, so on the host the nearest thing is `bot delete <id>` then `bot add` with "
-        "the entry on the new venue, which makes a new bot id and is not the same act."
-    ),
+    "ChangeBotVenueCommand": HostVerb("move", HostControlAction.MOVE),
 }
 
 #: Menu commands that dispatch no bot command of `PARITY`, by command id.

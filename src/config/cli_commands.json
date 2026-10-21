@@ -785,6 +785,39 @@
                 "help": "Output format: text (default), json, or any other registered format"
               }
             ]
+          },
+          "move": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to move ONE DRAFT bot that never ran to another Spot venue, as the Bots tab's Venue field does, while the other bots keep trading: bot move <id> --venue spot_mainnet. The bot keeps its id and stays DRAFT; it places no order and needs no --confirm-venue (the real-money question is at bot start). A bot that has run, a Futures bot, a bot of the same name already on that venue, and a venue this build does not have are refused in words and nothing moves. Your plan file is not changed: change the entry's venue too, or the next bot apply creates a second bot. Exit 2 when the bot is refused, 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--venue",
+                "type": "str",
+                "help": "The Spot venue to move the bot to (spot_testnet, spot_mainnet)"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
           }
         }
       }
