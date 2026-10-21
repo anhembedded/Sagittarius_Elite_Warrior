@@ -26,7 +26,6 @@ import logging
 from collections.abc import Iterable
 from datetime import datetime
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
     grid_registration,
@@ -52,7 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import 
     IGridBudgets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
     exposure_limits_of,
+    venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -73,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_una
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -195,10 +199,17 @@ class GridStartPreconditions:
         if not tags:
             return None
         message = other_owner_refusal(
-            symbol, tags, on_spot=bot.definition.venue.market_type is MarketType.SPOT
+            symbol, tags, nets_positions=_nets_positions(bot.definition.venue)
         )
         logger.warning("Bot %s: start refused, %s [other-owner]", bot_id, message)
         return _refused(BotRefusal.VENUE_NOT_READY, message, bot_id)
+
+
+def _nets_positions(venue: TradingVenue) -> bool:
+    """Whether `venue` holds one netted position per symbol: the venue profile decides, not the
+    market (`test_only_the_venue_profile_decides_the_market`)."""
+    profile = venue_profile_of(venue)
+    return profile is not None and profile.exposure_kind is ExposureKind.POSITION
 
 
 def _refused(refusal: BotRefusal, message: str, bot_id: str) -> BotCommandResult:
