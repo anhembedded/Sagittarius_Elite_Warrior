@@ -13,6 +13,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
+    BotsDialogs,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
@@ -29,15 +32,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
-from .arm_strategy_dialog import AskArmStrategy
-from .disarm_choice import ChooseVenue
 from .venue_strategies import StrategyPorts, VenueStrategies
 
 
 def strategies_for(
     container: IContainer,
-    ask: AskArmStrategy,
-    choose: ChooseVenue,
+    dialogs: BotsDialogs,
     tell: Callable[[str], None],
     set_status: Callable[[str, bool], None],
 ) -> VenueStrategies:
@@ -51,8 +51,8 @@ def strategies_for(
             venues=tuple(controls.get(venue) for venue in venues),
             catalog=container.resolve(IStrategyCatalogReader),
             symbol_options=default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS),
-            ask=ask,
-            choose=choose,
+            ask=dialogs.ask_arm_strategy,
+            choose=dialogs.choose_venue,
             set_status=set_status,
             tell=tell,
             notifier=container.resolve(INotifier),

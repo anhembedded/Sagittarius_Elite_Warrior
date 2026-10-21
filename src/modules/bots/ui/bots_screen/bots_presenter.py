@@ -167,11 +167,7 @@ class BotsPresenter(CommandPresenter):
             self, deps.instance, self._queries.bots, self._refresh_detail
         )
         self.strategies = strategies_for(
-            container,
-            self._dialogs.ask_arm_strategy,
-            self._dialogs.choose_venue,
-            view.output_log.append,
-            self._model.set_status,
+            container, self._dialogs, view.output_log.append, self._model.set_status
         )
         for event_type, handler in self.strategies.subscriptions:
             self.subscribe(event_type, handler)

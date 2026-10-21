@@ -119,14 +119,10 @@ class _Venue:
         self.form.params.botParamsSaveRequested.connect(self.coordinator.apply_params)
         self._on_change: Callable[[], None] = lambda: None
 
-    @property
-    def venue(self) -> TradingVenue:
-        return self.controls.venue
-
     def armed(self) -> ArmedStrategyConfig | None:
         return self.controls.armed.armed().config
 
-    def summary(self) -> str:
+    def armed_words(self) -> str:
         """What is armed here, in words; `""` while nothing is."""
         return self.coordinator.armed_summary(self.armed())
 
@@ -184,7 +180,8 @@ class VenueStrategies(QObject):
     def armed_lines(self) -> tuple[str, ...]:
         """What is armed now, a line a venue, for the Arm dialog."""
         return tuple(
-            f"{venue.venue.display_name}: {venue.summary()}" for venue in self._armed()
+            f"{venue.controls.venue.display_name}: {venue.armed_words()}"
+            for venue in self._armed()
         )
 
     # -- the commands -------------------------------------------------- #
@@ -216,7 +213,8 @@ class VenueStrategies(QObject):
             venue.fill_form(self._ports.symbol_options)
         chosen = self._ports.ask(
             ArmQuestion(
-                {venue.venue: venue.form for venue in candidates}, self.armed_lines()
+                {venue.controls.venue: venue.form for venue in candidates},
+                self.armed_lines(),
             )
         )
         if chosen is None or chosen not in self._venues:
@@ -230,16 +228,17 @@ class VenueStrategies(QObject):
         if not self.can_disarm():
             return
         armed = self._armed()
-        venue = armed[0].venue if len(armed) == 1 else self._choose(armed)
+        venue = armed[0].controls.venue if len(armed) == 1 else self._ask_which(armed)
         if venue is None:
             logger.info("[strategies] disarming: cancelled")
             return
         self._venues[venue].coordinator.on_disarm_clicked()
         self.commands_changed.emit()
 
-    def _choose(self, armed: Sequence[_Venue]) -> TradingVenue | None:
+    def _ask_which(self, armed: Sequence[_Venue]) -> TradingVenue | None:
         options = tuple(
-            (v.venue, f"{v.venue.display_name}: {v.summary()}") for v in armed
+            (v.controls.venue, f"{v.controls.venue.display_name}: {v.armed_words()}")
+            for v in armed
         )
         return self._ports.choose(
             VenueQuestion(DISARM_TITLE, DISARM_PROMPT, DISARM_TEXT, options)
@@ -257,9 +256,9 @@ class VenueStrategies(QObject):
         venue = self._venues.get(event.venue)
         if venue is None:
             return
-        name = venue.venue.display_name
+        name = venue.controls.venue.display_name
         if event.armed:
-            self._ports.tell(f"Strategy armed on {name}: {venue.summary()}")
+            self._ports.tell(f"Strategy armed on {name}: {venue.armed_words()}")
         else:
             self._ports.tell(f"Strategy disarmed on {name}.")
         self.commands_changed.emit()
