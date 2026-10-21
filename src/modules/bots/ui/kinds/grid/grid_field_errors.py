@@ -74,6 +74,7 @@ FIELDS_OF_CODE: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "STOP_LOSS_NEEDED": (STOP_LOSS, TAKE_PROFIT),
         "STOP_LOSS_AFTER_LIQUIDATION": (STOP_LOSS, TAKE_PROFIT),
         "STOP_LOSS_NEAR_LIQUIDATION": (STOP_LOSS, TAKE_PROFIT),
+        "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION": (STOP_LOSS, TAKE_PROFIT),
     }
 )
 
@@ -85,7 +86,12 @@ EXIT_OF_SIDE: Mapping[str, str] = MappingProxyType(
     {"long": STOP_LOSS, "short": TAKE_PROFIT}
 )
 EXIT_CODES = frozenset(
-    {"STOP_LOSS_NEEDED", "STOP_LOSS_AFTER_LIQUIDATION", "STOP_LOSS_NEAR_LIQUIDATION"}
+    {
+        "STOP_LOSS_NEEDED",
+        "STOP_LOSS_AFTER_LIQUIDATION",
+        "STOP_LOSS_NEAR_LIQUIDATION",
+        "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION",
+    }
 )
 
 #: Codes with no single field, and why.

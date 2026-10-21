@@ -290,7 +290,7 @@ def test_the_thresholds_refuse_inverted_liquidation_distances() -> None:
 
 
 @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
-def test_a_plan_liquidated_between_two_levels_is_refused_though_the_far_edge_looks_fine(
+def test_a_plan_liquidated_between_two_levels_is_refused(
     direction: str,
 ) -> None:
     """Review of PR #486: at 16x a long holding the levels down to 61,000 is liquidated at
@@ -322,8 +322,8 @@ def test_the_exit_is_judged_against_the_full_positions_liquidation_not_an_earlie
 ):
     """Review of PR #486, round two: the price reaches the exit only after every level has
     filled, so the exit is compared with the last step's liquidation (51,004 at 5x), not with
-    the smaller opening position's (52,209), which a sound exit at 51,304 sits below."""
-    inputs = _inputs("LONG", 5, stop_loss="price:51304", atr=None)
+    the smaller opening position's (52,209), which a sound exit at 51,600 (1.2% above the full liquidation) sits below."""
+    inputs = _inputs("LONG", 5, stop_loss="price:51600", atr=None)
 
     verdicts = judge_futures_plan(inputs)
 

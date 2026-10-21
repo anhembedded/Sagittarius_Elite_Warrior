@@ -222,8 +222,9 @@ dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not
 1. **Start** is refused, before any order, for what stands in its way, each in the exchange's words
    and its own: the account in Hedge Mode or in Multi-Assets Mode (isolated margin is refused there; `BUG-260`), a position the bot did not open, too little margin, a
    leverage the symbol's bracket does not allow, a venue whose leverage or margin type cannot be made
-   the bot's (the symbol keeps an order of the user's), a plan liquidated inside its range or with no
-   exit on its losing side.
+   the bot's (the symbol keeps an order of the user's), a plan liquidated inside its range, with no
+   exit on its losing side, or whose exit is closer to the estimated liquidation than 1% of its
+   price (`BUG-255`).
 2. **The opening** is one market order, in base quantity, cut under the per-order cap: for a LONG a
    BUY of the SELL levels' quantity, for a SHORT a SELL of the BUY levels' quantity, for a NEUTRAL
    none (the bot starts flat and its entries wait on both sides). Trading counts it
