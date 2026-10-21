@@ -268,12 +268,12 @@ class BotOrderGateway:
         @raise AccountHistoryUnavailableError The venue did not answer."""
         return self._history.order_records(client_order_ids, since)
 
-    def order_trades(
-        self, exchange_order_id: int, since: datetime
-    ) -> tuple[TradeRecord, ...]:
-        """Every fill of one of the bot's orders since `since`, with its fee.
+    def orders_trades(
+        self, exchange_order_ids: frozenset[int], since: datetime
+    ) -> dict[int, tuple[TradeRecord, ...]]:
+        """Every fill of each named order of the bot since `since`, in one pass.
         @raise AccountHistoryUnavailableError The venue did not answer."""
-        return self._history.order_trades(exchange_order_id, since)
+        return self._history.orders_trades(exchange_order_ids, since)
 
     def holding(self, asset: str) -> Decimal | None:
         """The account's whole holding of `asset`, or `None` (`BotAccountReads`)."""
