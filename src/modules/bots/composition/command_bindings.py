@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot i
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot_for_host import (
     EditBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.move_bot_for_host import (
+    MoveBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
     PauseBotCommand,
     PauseBotCommandHandler,
@@ -79,6 +82,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     AddBotForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
+    MoveBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
     ResumeHaltedForHostCommand,
@@ -118,6 +122,8 @@ def bind_commands(container: IContainer) -> None:
     # and `DeleteBotCommand` are bound above.
     container.bind(AddBotForHostCommand, AddBotForHostCommandHandler)
     container.bind(DeleteBotForHostCommand, DeleteBotForHostCommandHandler)
+    # `EPIC-045G` - `bot move` on the running host; the screen's `ChangeBotVenueCommand` is bound above.
+    container.bind(MoveBotForHostCommand, MoveBotForHostCommandHandler)
     # `EPIC-026L` - the owner's `bot loss-cap-ack` on the running host.
     container.bind(
         AcknowledgeLossCapForHostCommand, AcknowledgeLossCapForHostCommandHandler

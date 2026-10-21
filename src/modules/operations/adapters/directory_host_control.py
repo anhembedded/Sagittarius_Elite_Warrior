@@ -110,6 +110,7 @@ class DirectoryHostControl(IHostControl):
             request.close_position,
             request.settings,
             request.entry,
+            request.to_venue,
         )
         written = self._write(command)
         if written is not None:
