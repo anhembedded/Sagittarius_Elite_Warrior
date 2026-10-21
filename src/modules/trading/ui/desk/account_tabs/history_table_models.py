@@ -17,7 +17,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
     OrderHistoryRow,
     TradeHistoryRow,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -75,7 +80,7 @@ class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
         ColumnSpec("total", "Total", ColumnKind.MONEY),
         ColumnSpec("fee", "Fee", ColumnKind.QUANTITY),
         ColumnSpec("fee_asset", "Fee asset", ColumnKind.TEXT),
-        ColumnSpec("pnl", "Realized PnL", ColumnKind.MONEY),
+        ColumnSpec(signed_key("pnl"), "Realized PnL", ColumnKind.MONEY),
     )
     #: The fee is a quantity of its own asset, not of the symbol.
     SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"price", "quantity"})
@@ -96,3 +101,8 @@ class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
 
     def _symbol(self, row: TradeHistoryRow) -> str | None:
         return row.symbol
+
+    def _tone(self, row: TradeHistoryRow, column: int) -> Tone:
+        if column == self.column(signed_key("pnl")):
+            return sign_tone(row.realized_pnl)
+        return Tone.NEUTRAL

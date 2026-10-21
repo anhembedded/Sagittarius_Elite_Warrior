@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words i
     FieldLabelOf,
     item_sentence,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 
 READY = "Ready to start"
@@ -48,6 +49,8 @@ class PlanStatus:
 
     kind: NoticeKind | None = None
     text: str = ""
+    #: `None`: the tone of the kind's severity. "Ready to start" is good news and says so.
+    tone: Tone | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +75,9 @@ def plan_status(inputs: StatusInputs) -> PlanStatus:
             _blocked_kind(inputs.readiness_state),
             _with_extras(_first_left(inputs), inputs),
         )
-    return PlanStatus(NoticeKind.INFORMATION, _with_extras(READY, inputs))
+    return PlanStatus(
+        NoticeKind.INFORMATION, _with_extras(READY, inputs), Tone.POSITIVE
+    )
 
 
 def _blocked_kind(state: ReadinessState) -> NoticeKind:

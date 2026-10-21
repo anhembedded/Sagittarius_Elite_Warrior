@@ -13,9 +13,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_look import StateLook
 
 NOT_CHECKED = "Exchange: not checked"
 CHECKING = "Exchange: checking…"
+NOT_CONNECTED = "Exchange: not connected"
+
+#: The icon and tone beside the word (`EPIC-043C`); a connection not checked yet has none.
+CHECKING_LOOK = StateLook("clock", Tone.NEUTRAL)
+NOT_CONNECTED_LOOK = StateLook("circle-x", Tone.NEGATIVE)
+#: A word and its look, for `MarketView.set_connection_text(*state)`.
+CHECKING_STATE: tuple[str, StateLook] = (CHECKING, CHECKING_LOOK)
+NOT_CONNECTED_STATE: tuple[str, StateLook] = (NOT_CONNECTED, NOT_CONNECTED_LOOK)
 #: A check that raised instead of answering; the exception is the notice's detail.
 CHECK_FAILED = "The connection check failed. Check the network and try again."
 
@@ -69,7 +79,17 @@ def connection_word(status: ExchangeConnectionStatus) -> str:
         return f"Exchange: connected ({status.venue.name})"
     if status.reachable:
         return f"Exchange: connected ({status.venue.name}), cannot trade"
-    return "Exchange: not connected"
+    return NOT_CONNECTED
+
+
+def connection_look(status: ExchangeConnectionStatus) -> StateLook:
+    """The icon and tone beside `connection_word(status)`: connected, reachable but not allowed to
+    trade (a warning), or not connected."""
+    if status.failure is None:
+        return StateLook("circle-check-big", Tone.POSITIVE)
+    if status.reachable:
+        return StateLook("triangle-alert", Tone.CAUTION)
+    return NOT_CONNECTED_LOOK
 
 
 def failure_text(status: ExchangeConnectionStatus) -> str | None:

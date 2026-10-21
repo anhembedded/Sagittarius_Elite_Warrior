@@ -22,12 +22,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     BotLadderTableModel,
     BotsTableModel,
-    sign_tone,
     state_tone,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit import meaning_colours
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
+    sign_tone,
     tone_colour,
 )
 
@@ -82,13 +82,17 @@ def test_profit_loss_and_state_take_the_meaning_tables_colour(
     screen.settle()
     palette = _on(base, monkeypatch)
     table = _show(screen, S.RUNNING, "12.5")
-    assert _foreground(table, "grid_profit") == tone_colour(Tone.POSITIVE, palette)
+    assert _foreground(table, "grid_profit.signed") == tone_colour(
+        Tone.POSITIVE, palette
+    )
     assert _foreground(table, "state") == tone_colour(Tone.POSITIVE, palette)
     table = _show(screen, S.HALTED, "-3.25")
-    assert _foreground(table, "grid_profit") == tone_colour(Tone.NEGATIVE, palette)
+    assert _foreground(table, "grid_profit.signed") == tone_colour(
+        Tone.NEGATIVE, palette
+    )
     assert _foreground(table, "state") == tone_colour(Tone.NEGATIVE, palette)
     table = _show(screen, S.PAUSED, "0")
-    assert _foreground(table, "grid_profit") is None
+    assert _foreground(table, "grid_profit.signed") is None
     assert _foreground(table, "state") == tone_colour(Tone.CAUTION, palette)
 
 
@@ -100,7 +104,9 @@ def test_in_high_contrast_the_platform_keeps_every_colour(
     _on("white", monkeypatch)
     monkeypatch.setattr(meaning_colours, "is_high_contrast", lambda: True)
     table = _show(screen, S.HALTED, "-3.25")
-    assert [_foreground(table, key) for key in ("grid_profit", "state")] == [None] * 2
+    assert [_foreground(table, key) for key in ("grid_profit.signed", "state")] == [
+        None
+    ] * 2
 
 
 def test_the_cells_text_is_the_word_and_the_signed_figure(open_bots_screen):
@@ -109,9 +115,9 @@ def test_the_cells_text_is_the_word_and_the_signed_figure(open_bots_screen):
     table = _show(screen, S.HALTED, "-3.25")
     display = Qt.ItemDataRole.DisplayRole
     assert table.data(table.index(0, table.column("state")), display) == "Halted"
-    assert table.data(table.index(0, table.column("grid_profit")), display) == Decimal(
-        "-3.25"
-    )
+    assert table.data(
+        table.index(0, table.column("grid_profit.signed")), display
+    ) == Decimal("-3.25")
 
 
 def test_a_figure_not_known_or_zero_has_no_verdict():
@@ -126,13 +132,17 @@ def test_every_lifecycle_state_has_a_tone_and_only_the_quiet_ones_none():
     assert {s for s in S if state_tone(s) is Tone.NEUTRAL} == quiet
 
 
-def _ladder_row(net_quote: Decimal | None) -> LadderRow:
+def _ladder_row(
+    net_quote: Decimal | None,
+    net_fraction: Decimal | None = None,
+    gross_quote: Decimal | None = None,
+) -> LadderRow:
     return LadderRow(
         buy=Decimal(100),
         sell=Decimal(101),
         step_fraction=Decimal("0.01"),
-        net_fraction=None,
-        gross_quote=None,
+        net_fraction=net_fraction,
+        gross_quote=gross_quote,
         net_quote=net_quote,
         state=next(iter(LadderState)),
     )
@@ -144,7 +154,7 @@ def test_a_ladder_cycle_that_loses_after_fees_is_coloured_as_a_loss(monkeypatch)
     ladder.set_rows(
         [_ladder_row(Decimal(-1)), _ladder_row(Decimal(2)), _ladder_row(None)]
     )
-    net = ladder.column("net_quote")
+    net = ladder.column("net_quote.signed")
 
     colours = [ladder.data(ladder.index(r, net), _FOREGROUND) for r in range(3)]
 
@@ -153,4 +163,39 @@ def test_a_ladder_cycle_that_loses_after_fees_is_coloured_as_a_loss(monkeypatch)
         tone_colour(Tone.POSITIVE, palette),
         None,
     ]
-    assert ladder.data(ladder.index(1, ladder.column("net")), _FOREGROUND) is None
+    assert (
+        ladder.data(ladder.index(1, ladder.column("net.signed")), _FOREGROUND) is None
+    )
+
+
+def test_the_state_cell_has_an_icon_beside_its_word_and_only_that_cell(
+    open_bots_screen,
+):
+    """`EPIC-043C`: a halted bot shows a stop sign beside "Halted"; a draft, which has not run,
+    shows the word alone; no other column carries an icon."""
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    table = _show(screen, S.HALTED, "-3.25")
+    decoration = Qt.ItemDataRole.DecorationRole
+
+    icon = table.data(table.index(0, table.column("state")), decoration)
+    other = table.data(table.index(0, table.column("name")), decoration)
+
+    assert icon is not None and not icon.isNull()
+    assert other is None
+    draft = _show(screen, S.DRAFT, "0")
+    assert draft.data(draft.index(0, draft.column("state")), decoration) is None
+
+
+def test_each_state_that_has_a_look_has_its_own_icon(open_bots_screen):
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    decoration = Qt.ItemDataRole.DecorationRole
+
+    def pixels(state: S) -> bytes:
+        table = _show(screen, state, "1")
+        icon = table.data(table.index(0, table.column("state")), decoration)
+        return bytes(icon.pixmap(16, 16).toImage().constBits())
+
+    shown = {state: pixels(state) for state in (S.RUNNING, S.PAUSED, S.HALTED)}
+    assert len(set(shown.values())) == 3

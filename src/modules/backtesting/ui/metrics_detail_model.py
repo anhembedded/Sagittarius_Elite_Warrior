@@ -24,8 +24,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import tone_colour
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -83,13 +82,16 @@ class MetricsDetailModel(RowTableModel[DetailRow]):
     def _role_data(self, row: DetailRow, column: int, role: int) -> object:
         if role == SORT_ROLE:
             return row.metric.title if column == _METRIC_COLUMN else row.order
-        if role != Qt.ItemDataRole.ForegroundRole:
-            return None
-        if column == _VALUE_COLUMN:
-            return tone_colour(row.metric.tone)
-        if column == _VERDICT_COLUMN and row.metric.badge_text:
-            return tone_colour(row.metric.badge_tone)
         return None
+
+    def _tone(self, row: DetailRow, column: int) -> Tone:
+        """The value by its tone and the verdict by its badge's, on the application's palette
+        (`BOT-196`, through `RowTableModel`)."""
+        if column == _VALUE_COLUMN:
+            return row.metric.tone
+        if column == _VERDICT_COLUMN and row.metric.badge_text:
+            return row.metric.badge_tone
+        return Tone.NEUTRAL
 
 
 def metrics_detail_table(empty_text: str) -> SpecTable[DetailRow]:

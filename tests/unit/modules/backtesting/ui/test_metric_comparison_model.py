@@ -6,7 +6,7 @@ they right-align, and only the difference is coloured, by its tone."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_rules import (
     MetricComparisonRow,
 )
@@ -15,11 +15,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.metric_comparison_mode
     ReportComparisonModel,
     comparison_table,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import ratio_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
@@ -95,8 +94,8 @@ def test_only_the_difference_is_coloured_by_its_tone(qapp):
     def colour(row: int, column: int) -> object:
         return model.data(model.index(row, column), Qt.ItemDataRole.ForegroundRole)
 
-    assert colour(0, 3) == QColor(BULL_COLOR)
-    assert colour(1, 3) == QColor(BEAR_COLOR)
+    assert colour(0, 3) == tone_colour(Tone.POSITIVE, QGuiApplication.palette())
+    assert colour(1, 3) == tone_colour(Tone.NEGATIVE, QGuiApplication.palette())
     assert colour(2, 3) is None
     assert colour(0, 1) is None
 
@@ -131,3 +130,33 @@ def test_the_metric_column_sorts_by_name(qapp):
         "Trades",
         "Win rate",
     ]
+
+
+def _on(base: str, monkeypatch) -> QPalette:
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Base, QColor(base))
+    monkeypatch.setattr(QGuiApplication, "palette", staticmethod(lambda: palette))
+    return palette
+
+
+def test_the_difference_reads_on_a_light_and_on_a_dark_base_and_not_in_high_contrast(
+    qapp, monkeypatch
+):
+    """`BOT-196`: the tones were the chart's bull and bear colours whatever the palette (3.0:1 on
+    white); they are the meaning table's on the palette in use, and none in High Contrast."""
+    from Sagittarius_Elite_Warrior.src.support.ui_kit import meaning_colours
+
+    model = _model()
+
+    def gain() -> object:
+        return model.data(model.index(0, 3), Qt.ItemDataRole.ForegroundRole)
+
+    light = _on("white", monkeypatch)
+    on_light = gain()
+    dark = _on("black", monkeypatch)
+    on_dark = gain()
+    assert on_light == tone_colour(Tone.POSITIVE, light)
+    assert on_dark == tone_colour(Tone.POSITIVE, dark)
+    assert on_light != on_dark
+    monkeypatch.setattr(meaning_colours, "is_high_contrast", lambda: True)
+    assert gain() is None

@@ -19,6 +19,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_label import paint_label_tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -35,6 +37,8 @@ class Readout:
 
     specs: tuple[ColumnSpec, ...]
     values: Mapping[str, DisplayValue] = field(default_factory=dict)
+    #: What a row means, by key (`EPIC-043C`): a profit, a loss. A row left out has no verdict.
+    tones: Mapping[str, Tone] = field(default_factory=dict)
 
 
 class ReadoutSlot(QWidget):  # base-exempt: a container, not a surface
@@ -53,6 +57,7 @@ class ReadoutSlot(QWidget):  # base-exempt: a container, not a surface
             self._replace_form(readout.specs)
         if self._form is not None:
             self._form.set_values(readout.values)
+            self._paint_tones(readout.tones)
 
     def clear(self) -> None:
         """No rows: the read-out has nothing to say yet."""
@@ -75,6 +80,12 @@ class ReadoutSlot(QWidget):  # base-exempt: a container, not a surface
         if self._form is None or key not in self.keys:
             return None
         return self._form.findChild(QLabel, f"readout::{key}")
+
+    def _paint_tones(self, tones: Mapping[str, Tone]) -> None:
+        for key in self.keys:
+            label = self.value_label(key)
+            if label is not None:
+                paint_label_tone(label, tones.get(key, Tone.NEUTRAL))
 
     def _replace_form(self, specs: tuple[ColumnSpec, ...]) -> None:
         if self._form is not None:

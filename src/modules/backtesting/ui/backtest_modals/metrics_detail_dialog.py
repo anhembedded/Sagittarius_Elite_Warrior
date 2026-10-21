@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QGuiApplication, QPalette
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -51,11 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
     build_gross_bar,
     build_groups,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
-    Tone,
-    tone_colour,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_label import paint_label_tone
 
 from ..metrics_detail_model import detail_rows, metrics_detail_table
 from .backtest_metrics_detail_source import BacktestMetricsDetailSource
@@ -198,12 +196,7 @@ class MetricsDetailDialogWidget(QDialog):
 
     @staticmethod
     def _paint(label: QLabel, tone: Tone) -> None:
-        colour = tone_colour(tone)
-        if colour is None:
-            return
-        palette = QPalette(label.palette())
-        palette.setColor(QPalette.ColorRole.WindowText, colour)
-        label.setPalette(palette)
+        paint_label_tone(label, tone)
 
     def _on_copy(self) -> None:
         if self._bar_data is None:  # pragma: no cover — refresh() runs in __init__

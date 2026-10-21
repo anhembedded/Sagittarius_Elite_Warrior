@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status impor
     StatusInputs,
     plan_status,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 
 _HELD = (
@@ -95,7 +96,7 @@ def test_a_failed_last_run_is_a_line_under_the_blocker_not_a_second_message() ->
 
 def test_nothing_left_is_a_quiet_ready_line_and_the_exchanges_notes_follow_it() -> None:
     assert _status(_readiness(), ReadinessState.READY) == PlanStatus(
-        NoticeKind.INFORMATION, "Ready to start"
+        NoticeKind.INFORMATION, "Ready to start", Tone.POSITIVE
     )
     noted = _status(
         _readiness(notes=("A previous run kept 0.1 ETH",)), ReadinessState.READY
