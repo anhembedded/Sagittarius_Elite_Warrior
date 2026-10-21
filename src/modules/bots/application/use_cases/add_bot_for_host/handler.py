@@ -39,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_parser
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_identity import (
+    bot_with_name_on,
+    venue_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
@@ -79,7 +83,7 @@ class AddBotForHostCommandHandler(
     def execute(self, command: AddBotForHostCommand) -> BotCommandResult:
         entry = command.entry
         with self._lock.held():
-            venue = _venue_of(entry)
+            venue = venue_of(entry.venue)
             if not isinstance(venue, TradingVenue):
                 return _refused(venue)
             problem = self._kind_problem(entry) or _secret_problem(entry)
@@ -121,23 +125,14 @@ class AddBotForHostCommandHandler(
         return kind.parameter_problem(config, list(config)) or ""
 
     def _duplicate_problem(self, entry: NewBotEntry, venue: TradingVenue) -> str:
-        for stored in self._store.load_all().bots:
-            held = stored.bot.definition
-            if held.name == entry.name and held.venue is venue:
-                return (
-                    f"bot {stored.bot.bot_id.value} already has the name {entry.name!r} on "
-                    f"{venue.value}; change its parameters with `bot edit {stored.bot.bot_id.value}` "
-                    "or choose another name"
-                )
-        return ""
-
-
-def _venue_of(entry: NewBotEntry) -> TradingVenue | str:
-    for venue in TradingVenue:
-        if venue is not TradingVenue.DISABLED and venue.value == entry.venue:
-            return venue
-    allowed = ", ".join(v.value for v in TradingVenue if v is not TradingVenue.DISABLED)
-    return f"{entry.venue!r} is not a venue of this build; one of: {allowed}"
+        stored = bot_with_name_on(self._store, entry.name, venue)
+        if stored is None:
+            return ""
+        return (
+            f"bot {stored.bot.bot_id.value} already has the name {entry.name!r} on "
+            f"{venue.value}; change its parameters with `bot edit {stored.bot.bot_id.value}` "
+            "or choose another name"
+        )
 
 
 def _secret_problem(entry: NewBotEntry) -> str:

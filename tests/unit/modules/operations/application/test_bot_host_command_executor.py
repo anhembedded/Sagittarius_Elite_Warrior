@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     AddBotForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
+    MoveBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
     StartBotForHostCommand,
@@ -61,6 +62,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
                 confirmed_venue="spot_mainnet",
                 settings=(ParameterSetting("lower", "81000"),),
                 entry=_ENTRY,
+                to_venue="spot_mainnet",
             )
         )
 
@@ -72,6 +74,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
         AddBotForHostCommand(_ENTRY),
         DeleteBotForHostCommand(BOT),
+        MoveBotForHostCommand(BOT, "spot_mainnet"),
         AcknowledgeLossCapForHostCommand(),
     ]
 
@@ -224,3 +227,16 @@ def test_a_refused_delete_carries_the_bots_own_words() -> None:
 
     assert not outcome.accepted
     assert outcome.message == "Bot 44wa1x is kept: its record holds 0.5"
+
+
+def test_an_accepted_move_speaks_the_hosts_sentence() -> None:
+    said = BotCommandResult(
+        accepted=True, bot_id=BOT, message="bot moved to spot_mainnet"
+    )
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(
+        command(action=HostControlAction.MOVE, to_venue="spot_mainnet")
+    )
+
+    assert outcome.accepted and outcome.message == "bot moved to spot_mainnet"

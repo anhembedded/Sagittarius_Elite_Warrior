@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "start" | "edit" | "add" | "delete" | "loss-cap-ack"
+  action          "stop" | "pause" | "resume" | "start" | "edit" | "add" | "delete" | "move" | "loss-cap-ack"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
@@ -20,6 +20,10 @@ the audit can say which command was refused.
                   `MAX_SETTINGS_PER_EDIT` text values, keys and values of the shape
                   `ParameterSetting` states. Required for "edit", refused for any other action.
                   An edit asks no venue: `confirmed_venue` must be null.
+  to_venue        a move's target (`EPIC-045G`): a venue word of 1 to 32 characters of [a-z0-9_].
+                  Required for "move", refused for any other action. A move asks no venue
+                  (`confirmed_venue` must be null: it places no order, the real-money question is
+                  at `bot start`) and names an existing bot.
   entry           an add's bot (`EPIC-045A`): an object of exactly name, kind, venue, symbol and
                   params (an object of 0 to `MAX_SETTINGS_PER_EDIT` text values), each of the shape
                   `NewBotEntry` states. Required for "add", refused for any other action. An add
@@ -44,6 +48,10 @@ the audit can say which command was refused.
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
   never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
   document an older host wrote, because `set` is absent from them.
+
+@par Older hosts (`EPIC-045G`)
+  `move` is a new `action` word and `to_venue` a new key: an older host reads it as *malformed*
+  ("it has an unknown key (to_venue)"), audits it and moves nothing.
 
 @par Older hosts (`EPIC-045`)
   `add` and `delete` are new `action` words, and `entry` is a new key: an older host reads an add
@@ -88,6 +96,7 @@ _KEYS = frozenset(
         "close_position",
         "set",
         "entry",
+        "to_venue",
     }
 )
 _ENTRY_KEYS = frozenset({"name", "kind", "venue", "symbol", "params"})
@@ -114,6 +123,8 @@ def encode_command(command: HostCommand) -> str:
         document["close_position"] = True
     if command.settings:
         document["set"] = {setting.key: setting.value for setting in command.settings}
+    if command.to_venue is not None:
+        document["to_venue"] = command.to_venue
     if command.entry is not None:
         document["entry"] = {
             "name": command.entry.name,
@@ -145,6 +156,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         close_position=document.get("close_position", False),
         settings=_settings_of(document.get("set")),
         entry=_entry_of(document.get("entry")),
+        to_venue=document.get("to_venue"),
     )
 
 
@@ -183,6 +195,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
         _edit_problem(document, action, venue)
         or _add_problem(document, action, venue, bot_id)
         or _delete_problem(action, venue)
+        or _move_problem(document, action, venue)
         or _acknowledgement_problem(document, action, venue, bot_id)
     )
     if problem is not None:
@@ -256,6 +269,20 @@ def _delete_problem(action: str, venue: object) -> str | None:
     """A delete forgets a bot at rest, sends nothing to the exchange and so asks no venue."""
     if action == HostControlAction.DELETE.value and venue is not None:
         return "a delete asks no venue: confirmed_venue must be null"
+    return None
+
+
+def _move_problem(
+    document: dict[str, object], action: str, venue: object
+) -> str | None:
+    """`to_venue` is a move's and only a move's; a move places no order, so it asks no venue."""
+    if action != HostControlAction.MOVE.value:
+        return "to_venue belongs to a move" if "to_venue" in document else None
+    if venue is not None:
+        return "a move asks no venue: confirmed_venue must be null"
+    target = document.get("to_venue")
+    if not isinstance(target, str) or not _VENUE_SHAPE.fullmatch(target):
+        return "a move needs to_venue, a venue word"
     return None
 
 
