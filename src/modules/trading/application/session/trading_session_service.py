@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
     SessionOpener,
 )
@@ -109,10 +112,16 @@ class TradingSessionService(ITradingSession):
             spot_baseline_holdings=self._session_state.spot_baseline_holdings(),
         )
 
-    def ensure_ready(self, opened_for: SessionOpener = None) -> SessionReadyResult:
+    def ensure_ready(
+        self,
+        opened_for: SessionOpener = None,
+        claims: tuple[OwnerPositionClaim, ...] = (),
+    ) -> SessionReadyResult:
         response = self._dispatcher.dispatch(
             EnsureSessionReadyCommand,
-            EnsureSessionReadyCommand(venue=self._trading_venue, opened_for=opened_for),
+            EnsureSessionReadyCommand(
+                venue=self._trading_venue, opened_for=opened_for, claims=claims
+            ),
         )
         return _answered(response, SessionReadyResult)  # type: ignore[return-value]
 

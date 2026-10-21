@@ -66,6 +66,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -174,7 +175,9 @@ def build_handler(
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(limits or LIMITS),
         SessionReadiness(
-            single_venue_scopes(context, state), publisher or RecordingPublisher()
+            single_venue_scopes(context, state),
+            publisher or RecordingPublisher(),
+            position_explainer(),
         ),
     )
 

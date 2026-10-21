@@ -63,6 +63,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
 )
 
@@ -97,7 +98,11 @@ def test_a_filled_long_is_protected_past_a_one_order_session() -> None:
             single_venue_scopes(context, state),
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(_ONE_ORDER),
-            SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
+            SessionReadiness(
+                single_venue_scopes(context, state),
+                RecordingPublisher(),
+                position_explainer(),
+            ),
         )
         entry = handler.execute(
             ExecuteOrderCommand(
