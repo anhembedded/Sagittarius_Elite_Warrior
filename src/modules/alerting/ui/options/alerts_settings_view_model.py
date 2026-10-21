@@ -12,6 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.telegram_settings_view_model import (
+    TelegramSettingsViewModel,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -44,6 +47,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        #: The Telegram part, a view model of its own (`EPIC-036D4`).
+        self.telegram = TelegramSettingsViewModel(self)
         self._channel_line = ""
         self._saved_line = ""
         self._can_remove = False

@@ -151,7 +151,7 @@ def test_send_test_with_no_webhook_says_there_is_nothing_to_test(
 
     page.presenter._settings_view_model.send_test_requested.emit()
 
-    assert "no discord webhook is saved" in page.label(STATUS).lower()
+    assert "no alert channel is saved" in page.label(STATUS).lower()
     assert page.transport.posts == []
 
 

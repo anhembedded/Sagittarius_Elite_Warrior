@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import
     DISCORD_PACING,
     TELEGRAM_PACING,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_sourced_secret_store import (
+    ISourcedSecretStore,
+)
 
 logger = logging.getLogger("App.Alerting")
 
@@ -85,6 +88,14 @@ class ChannelSecrets:
     systemd credential, then a permission-checked file, then the keyring)."""
 
     store: ISecretStore
+
+
+def own_reader(store: ISecretStore) -> Callable[[str], str | None]:
+    """How to read what the app's own writable store holds. A store that orders several
+    backends says which one is writable; a plain store is its own."""
+    if isinstance(store, ISourcedSecretStore):
+        return store.read_from_writer
+    return store.read
 
 
 def discord_channel(resolver: PortResolver) -> IAlertChannel | None:

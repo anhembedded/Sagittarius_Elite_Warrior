@@ -82,6 +82,8 @@ the newest 25 fills and one "35 fill messages skipped" line.
 
 ## Built: the Options page, Save and Send test
 
+*(Since `EPIC-036D4` the page has a Telegram group beside Discord's: the same actions on the pool, the same fence, for the bot token and chat id; the sections below say "webhook" for what both channels do.)*
+
 The picture: [`diagrams/06-options-save-and-test.puml`](diagrams/06-options-save-and-test.puml).
 *Which thread does what, and where does the URL go?* Tools → Options → Alerts has one Discord
 webhook field, masked, and the buttons Save, Remove and Send test. Each acts at once and runs off

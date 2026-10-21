@@ -38,8 +38,11 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.system_alert_clock 
     SystemAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHANNEL_ID,
     TELEGRAM_CHAT_SECRET,
     TELEGRAM_TOKEN_SECRET,
+    is_bot_token,
+    is_chat_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_host import (
     ThreadedDeliveryHost,
@@ -100,10 +103,15 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_config_
     TelegramConfigMigration,
     TelegramSecretNames,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
+    TelegramChannelSpec,
+    TelegramCredentialsSetup,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
     build_channel_catalog,
+    own_reader,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
     IAlertChannelCatalog,
@@ -228,6 +236,21 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(ChannelSecrets).store,
             WebhookChannelSpec(
                 DISCORD_CHANNEL_ID, DISCORD_WEBHOOK_SECRET, is_discord_webhook_url
+            ),
+            resolver.resolve(IAlertChannelCatalog),
+        ),
+    )
+    container.singleton(
+        TelegramCredentialsSetup,
+        lambda resolver: TelegramCredentialsSetup(
+            resolver.resolve(ChannelSecrets).store,
+            TelegramChannelSpec(
+                TELEGRAM_CHANNEL_ID,
+                TELEGRAM_TOKEN_SECRET,
+                TELEGRAM_CHAT_SECRET,
+                is_bot_token,
+                is_chat_id,
+                own_reader(resolver.resolve(ChannelSecrets).store),
             ),
             resolver.resolve(IAlertChannelCatalog),
         ),

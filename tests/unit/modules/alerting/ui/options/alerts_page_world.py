@@ -37,12 +37,24 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_catalog import (
     RegisteredChannelCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.telegram_channel import (
+    TELEGRAM_CHANNEL_ID,
+    TELEGRAM_CHAT_SECRET,
+    TELEGRAM_TOKEN_SECRET,
+    TelegramChannel,
+    is_bot_token,
+    is_chat_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordWebhookSetup,
     WebhookChannelSpec,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
+    TelegramChannelSpec,
+    TelegramCredentialsSetup,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
@@ -195,6 +207,7 @@ def build_page(
     *,
     store: ISecretStore | None = None,
     running: bool = False,
+    telegram_running: bool = False,
     transport: FakeWebhookTransport | None = None,
     bots: Bots | None = None,
     modes: JsonAlertSettings | None = None,
@@ -203,7 +216,30 @@ def build_page(
     transport = transport if transport is not None else FakeWebhookTransport()
     resolver = _Resolver(store, transport)
     catalog = RegisteredChannelCatalog(
-        {DISCORD_CHANNEL_ID: DiscordWebhookChannel(store, transport)} if running else {}
+        {
+            **(
+                {DISCORD_CHANNEL_ID: DiscordWebhookChannel(store, transport)}
+                if running
+                else {}
+            ),
+            **(
+                {TELEGRAM_CHANNEL_ID: TelegramChannel(store, transport)}
+                if telegram_running
+                else {}
+            ),
+        }
+    )
+    telegram_setup = TelegramCredentialsSetup(
+        store,
+        TelegramChannelSpec(
+            TELEGRAM_CHANNEL_ID,
+            TELEGRAM_TOKEN_SECRET,
+            TELEGRAM_CHAT_SECRET,
+            is_bot_token,
+            is_chat_id,
+            store.read,
+        ),
+        catalog,
     )
     setup = DiscordWebhookSetup(
         store,
@@ -227,6 +263,7 @@ def build_page(
         ILogger: ForwardingLogger(),
         IThreadManager: threads,
         DiscordWebhookSetup: setup,
+        TelegramCredentialsSetup: telegram_setup,
         SendTestToConfiguredChannels: sender,
     }
     container = Mock()

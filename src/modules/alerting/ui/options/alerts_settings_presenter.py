@@ -1,29 +1,27 @@
-"""`alerting`'s page of Tools → Options: the Discord webhook (`EPIC-036D1`).
+"""`alerting`'s page of Tools → Options: the Discord webhook (`EPIC-036D1`) and the Telegram
+bot (`EPIC-036D4`).
 
-The owner pastes a webhook URL, saves it, removes it, or sends a test message. Every
-decision lives in the application layer — `DiscordWebhookSetup` validates and stores,
-`SendTestToConfiguredChannels` asks Discord — so this presenter stores and probes
-nothing, and holds the typed URL only between the click and the worker that hands it
-to the use case.
+The owner saves, removes, replaces or tests a channel. Every decision lives in the
+application layer (`DiscordWebhookSetup`, `TelegramCredentialsSetup` validate and store,
+`SendTestToConfiguredChannels` asks the channels), so this presenter stores and probes
+nothing, and holds a typed secret only between the click and the worker that hands it on.
 
-**The URL is a secret (N3), so no exception text from these actions reaches a
-screen or a log.** An unexpected failure is told by its type name alone
-(`type(exc).__name__`), because an exception raised under a webhook can quote the
-webhook (`ValueError("... https://discord.com/api/webhooks/…")`), and
-`failure_detail(exc)` would pass that text to Details… and a log's traceback would
-print it. `test_alerts_page_never_shows_the_url.py` locks it on every path.
+**A webhook URL and a bot token are secrets (N3), so no exception text from these actions
+reaches a screen or a log.** An unexpected failure is told by its type name alone, because an
+exception raised under a webhook can quote it and `failure_detail(exc)` would pass that text to
+Details… and a log's traceback would print it. `test_alerts_page_never_shows_the_url.py` and
+`test_alerts_page_telegram.py` lock it.
 
-The page has nothing pending (like Trading's): a webhook is saved by its button, so
-the page is never dirty and OK and Apply have nothing to do. Each action runs off the
-UI thread under `async-ui-action-rule.md`: an `ActionOwnershipTracker` id checked
-still-current before the view model changes, a `UiThreadRelay` hand-off, and the
-buttons disabled while one runs. `shutdown()` fences any answer still in flight.
+The page has nothing pending: each channel is saved by its own button, so it is never dirty
+and OK and Apply have nothing to do. Each action runs off the UI thread under
+`async-ui-action-rule.md` (an `ActionOwnershipTracker` id checked before the view model
+changes, a `UiThreadRelay` hand-off, buttons disabled while one runs; `shutdown()` fences
+any answer still in flight).
 
-**Restart or hot rebuild: restart** (`Docs/MODULES/alerting/06-runtime.md`). A saved
-webhook is read at each send, so a replaced one applies at once; but the channel
-catalog and the lanes are fixed at boot, so a first save or a removal changes what the
-run has only after a restart, and the page says so
-(`alerts_words.channel_line`).
+**Restart or hot rebuild: restart** (`Docs/MODULES/alerting/06-runtime.md`). A saved secret is
+read at each send, so a replaced one applies at once; the catalog and the lanes are fixed at
+boot, so a first save or a removal changes what the run has only after a restart, and the page
+says so (`alerts_words.channel_line`, `alerts_words.telegram_channel_line`).
 """
 
 from __future__ import annotations
@@ -43,13 +41,20 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     INotifier,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
-    DiscordChannelState,
     DiscordWebhookSetup,
     WebhookRemoval,
     WebhookSave,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
+    ChannelTestOutcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
+    TelegramCredentialsSetup,
+    TelegramRemoval,
+    TelegramSave,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
@@ -64,6 +69,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_action_rel
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view_model import (
     AlertsSettingsViewModel,
     BotModeRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channel_states import (
+    ChannelStates,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusReport,
@@ -87,6 +95,7 @@ if TYPE_CHECKING:
 
 _TITLE = "Alerts"
 
+
 #: `BOT-169` — the causes of the page's commands, one message each.
 _CAUSE = "alerting.settings.{kind}"
 
@@ -99,15 +108,8 @@ class _Kind(str, Enum):
     TEST = "test"
     MODE = "mode"
     BOTS = "bots"
-
-
-_DOING = {
-    _Kind.SAVE: "Saving the webhook",
-    _Kind.REMOVE: "Removing the webhook",
-    _Kind.TEST: "Sending the test message",
-    _Kind.MODE: "Saving the bot's alert setting",
-    _Kind.BOTS: "Reading the bots",
-}
+    TELEGRAM_SAVE = "telegram_save"
+    TELEGRAM_REMOVE = "telegram_remove"
 
 
 class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
@@ -117,6 +119,9 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         super().__init__(view, container, title=_TITLE)
         self._notifier: INotifier = container.resolve(INotifier)
         self._setup: DiscordWebhookSetup = container.resolve(DiscordWebhookSetup)
+        self._telegram_setup: TelegramCredentialsSetup = container.resolve(
+            TelegramCredentialsSetup
+        )
         self._sender: SendTestToConfiguredChannels = container.resolve(
             SendTestToConfiguredChannels
         )
@@ -135,6 +140,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         view_model = self._settings_view_model
         view_model.save_requested.connect(self._on_save_requested)
         view_model.remove_requested.connect(self._on_remove_requested)
+        view_model.telegram.save_requested.connect(self._on_telegram_save_requested)
+        view_model.telegram.remove_requested.connect(self._on_telegram_remove_requested)
         view_model.send_test_requested.connect(self._on_send_test_requested)
         view_model.bot_mode_requested.connect(self._on_bot_mode_requested)
         view.set_view_model(view_model)
@@ -165,16 +172,25 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     # -- the state on the page ----------------------------------------------
 
-    def _publish_state(self, state: DiscordChannelState | None = None) -> None:
-        """Shows `state`; the page's first state is read here, on the UI thread, once.
+    def _read_states(self) -> ChannelStates:
+        return ChannelStates(self._setup.state(), self._telegram_setup.state())
+
+    def _publish_state(self, states: ChannelStates | None = None) -> None:
+        """Shows `states`; the page's first state is read here, on the UI thread, once.
         Every later one is read by the worker beside its action, because reading
         the stores can block on a locked keyring."""
-        state = state if state is not None else self._setup.state()
+        states = states if states is not None else self._read_states()
+        discord, telegram = states.discord, states.telegram
         self._settings_view_model.set_channel(
-            alerts_words.channel_line(state),
-            alerts_words.saved_line(state),
-            can_remove=state.stored,
-            can_test=state.usable,
+            alerts_words.channel_line(discord),
+            alerts_words.saved_line(discord),
+            can_remove=discord.stored,
+            can_test=discord.usable or telegram.usable,
+        )
+        self._settings_view_model.telegram.set_channel(
+            alerts_words.telegram_channel_line(telegram),
+            alerts_words.telegram_saved_line(telegram),
+            can_remove=telegram.stored,
         )
 
     def _list_bots(self) -> tuple[BotModeRow, ...]:
@@ -235,6 +251,23 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             return
         self._begin(_Kind.SAVE, lambda: self._setup.save(value))
 
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_telegram_save_requested(self, token: str, chat: str) -> None:
+        if self._settings_view_model.is_working:
+            return
+        self._begin(_Kind.TELEGRAM_SAVE, lambda: self._telegram_setup.save(token, chat))
+
+    @Slot()
+    @safe_ui_action
+    def _on_telegram_remove_requested(self) -> None:
+        if (
+            self._settings_view_model.is_working
+            or not self.view.confirm_telegram_removal()
+        ):
+            return
+        self._begin(_Kind.TELEGRAM_REMOVE, self._telegram_setup.remove)
+
     @Slot()
     @safe_ui_action
     def _on_remove_requested(self) -> None:
@@ -265,7 +298,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         reported by its type name only (see the module docstring)."""
         try:
             result = work()
-            self._relay.hand_over((action_id, kind, result, self._setup.state(), None))
+            self._relay.hand_over((action_id, kind, result, self._read_states(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is told in words, not lost to a pool thread
             self._relay.hand_over((action_id, kind, None, None, type(exc).__name__))
 
@@ -290,21 +323,50 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             self._publish_state(state)
         if kind is _Kind.MODE:
             self._show_modes_again()
-        if failed and kind is _Kind.BOTS:
-            self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
-        elif failed:
-            self._tell_failed(kind, error_type)
-        elif kind is _Kind.BOTS:
-            self._publish_bot_rows(result)
-        elif kind is _Kind.SAVE:
-            self._on_webhook_saved(result)
-        elif kind is _Kind.REMOVE:
-            self._on_webhook_removed(result)
-        elif kind is _Kind.MODE:
-            self._settings_view_model.set_status(alerts_words.MODE_SAVED[result], False)
+        if failed:
+            self._on_action_failed(kind, error_type)
         else:
-            sentence, is_error = alerts_words.send_test_words(result)
-            self._settings_view_model.set_status(sentence, is_error)
+            self._show_result(kind, result)
+
+    def _on_action_failed(self, kind: _Kind, error_type: str) -> None:
+        if kind is _Kind.BOTS:
+            self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
+        else:
+            self._tell_failed(kind, error_type)
+
+    def _show_result(self, kind: _Kind, result: object) -> None:
+        """What each action's answer is told as; `result` is what that kind's work returned."""
+        if kind is _Kind.BOTS:
+            self._publish_bot_rows(cast(tuple[BotModeRow, ...], result))
+        elif kind is _Kind.SAVE:
+            self._on_webhook_saved(cast(WebhookSave, result))
+        elif kind is _Kind.REMOVE:
+            self._on_webhook_removed(cast(WebhookRemoval, result))
+        elif kind is _Kind.TELEGRAM_SAVE:
+            self._on_telegram_saved(cast(TelegramSave, result))
+        elif kind is _Kind.TELEGRAM_REMOVE:
+            self._on_telegram_removed(cast(TelegramRemoval, result))
+        elif kind is _Kind.MODE:
+            self._on_mode_saved(cast(BotAlertMode, result))
+        else:
+            self._on_test_done(cast(tuple[ChannelTestOutcome, ...], result))
+
+    def _on_mode_saved(self, mode: BotAlertMode) -> None:
+        self._settings_view_model.set_status(alerts_words.MODE_SAVED[mode], False)
+
+    def _on_test_done(self, outcomes: tuple[ChannelTestOutcome, ...]) -> None:
+        sentence, is_error = alerts_words.send_test_words(outcomes)
+        self._settings_view_model.set_status(sentence, is_error)
+
+    def _on_telegram_saved(self, outcome: TelegramSave) -> None:
+        sentence, is_error = alerts_words.TELEGRAM_SAVE_WORDS[outcome]
+        if outcome in (TelegramSave.SAVED, TelegramSave.OVERRIDDEN):
+            self._settings_view_model.telegram.keep_credentials()
+        self._settings_view_model.set_status(sentence, is_error)
+
+    def _on_telegram_removed(self, outcome: TelegramRemoval) -> None:
+        sentence, is_error = alerts_words.TELEGRAM_REMOVAL_WORDS[outcome]
+        self._settings_view_model.set_status(sentence, is_error)
 
     def _on_webhook_saved(self, outcome: WebhookSave) -> None:
         sentence, is_error = alerts_words.SAVE_WORDS[outcome]
@@ -328,7 +390,9 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             FailureNotice(
                 kind=FailureKind.COMMAND,
                 cause=_CAUSE.format(kind=kind.value),
-                headline=alerts_words.UNEXPECTED_HEADLINE.format(doing=_DOING[kind]),
+                headline=alerts_words.UNEXPECTED_HEADLINE.format(
+                    doing=alerts_words.DOING_WORDS[kind.value]
+                ),
                 detail=error_type,
             )
         )

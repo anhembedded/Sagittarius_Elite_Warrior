@@ -13,6 +13,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.telegram_settings_group import (
+    TelegramSettingsGroup,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
     VerbQuestion,
@@ -24,11 +27,22 @@ if TYPE_CHECKING:
     from .alerts_settings_view_model import AlertsSettingsViewModel
 
 _INTRO = (
-    "When a bot halts, the app tells you on Discord, even when you are away. "
-    "Paste the channel's webhook URL and save it. A webhook is a secret: whoever "
-    "has it can post in your channel, so it is kept in the operating system's "
-    "keyring, never in a file or a log, and is not shown again once saved. Save, "
-    "Remove and Send test act at once: OK and Apply have nothing to save here."
+    "When a bot halts, the app tells you on Discord or Telegram, even when you are "
+    "away. A Discord webhook URL and a Telegram bot token are secrets: whoever has one "
+    "can post as you, so they are kept in the operating system's keyring, never in a "
+    "file or a log, and are not shown again once saved. Saving again replaces them. "
+    "Save, Remove and Send test act at once: OK and Apply have nothing to save here."
+)
+
+_REMOVE_TELEGRAM_QUESTION = VerbQuestion(
+    title="Remove Telegram Bot",
+    question="Remove the saved Telegram bot token and chat id?",
+    details=(
+        "Alerts stop reaching Telegram once the app restarts. You can save the bot "
+        "again later."
+    ),
+    act="Remove bot",
+    keep="Keep bot",
 )
 
 _REMOVE_QUESTION = VerbQuestion(
@@ -57,6 +71,7 @@ class AlertsSettingsView(BaseView):
         )
         self._webhook_field.returnPressed.connect(self._save_button.click)
         self._remove_button.clicked.connect(view_model.request_remove)
+        self._telegram.connect_view_model(view_model.telegram)
         self._test_button.clicked.connect(view_model.request_send_test)
         view_model.channel_changed.connect(lambda: self._apply_channel(view_model))
         view_model.working_changed.connect(lambda: self._apply_working(view_model))
@@ -72,6 +87,9 @@ class AlertsSettingsView(BaseView):
         """`True` when the owner chose to remove; keeping is the default."""
         return ask_with_verbs(self, _REMOVE_QUESTION)
 
+    def confirm_telegram_removal(self) -> bool:
+        return ask_with_verbs(self, _REMOVE_TELEGRAM_QUESTION)
+
     def _apply_channel(self, view_model: AlertsSettingsViewModel) -> None:
         self._channel_label.setText(view_model.channel_text)
         self._saved_label.setText(view_model.saved_text)
@@ -84,6 +102,7 @@ class AlertsSettingsView(BaseView):
         self._save_button.setEnabled(idle)
         self._remove_button.setEnabled(idle and view_model.can_remove_webhook)
         self._test_button.setEnabled(idle and view_model.can_send_test)
+        self._telegram.set_idle(idle)
         for box in self._mode_boxes:
             box.setEnabled(idle and view_model.bots_editable)
 
@@ -163,11 +182,23 @@ class AlertsSettingsView(BaseView):
         self._remove_button.setObjectName("btnRemoveDiscordWebhook")
         self._test_button = QPushButton("Send test")
         self._test_button.setObjectName("btnSendDiscordTest")
-        for button in (self._save_button, self._remove_button, self._test_button):
+        for button in (self._save_button, self._remove_button):
             buttons.addWidget(button)
         buttons.addStretch(1)
         box_layout.addLayout(buttons)
         layout.addWidget(box)
+
+        self._telegram = TelegramSettingsGroup()
+        self._telegram.setObjectName("grpTelegram")
+        layout.addWidget(self._telegram)
+
+        test_row = QHBoxLayout()
+        test_row.addWidget(self._test_button)
+        test_row.addWidget(
+            plain_label("Sends one test message to every channel set up above.")
+        )
+        test_row.addStretch(1)
+        layout.addLayout(test_row)
 
         bots_box = QGroupBox("Bots")
         bots_layout = QVBoxLayout(bots_box)
