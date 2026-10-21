@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     OrderOutcome,
     OrderOutcomeKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_outcome import (
+    opening_outcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futures_start_checks import (
     FuturesStartChecks,
 )
@@ -107,7 +110,11 @@ class PositionOpening(IOpeningStrategy):
                 outcome.client_order_id or outcome.detail,
             )
             if not outcome.done:
-                fail_with(context.state, outcome, f"opening slice {index}")
+                fail_with(
+                    context.state,
+                    opening_outcome(index, outcome),
+                    f"opening slice {index}",
+                )
                 return False
         return True
 

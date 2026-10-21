@@ -110,8 +110,16 @@ the measurements are in the task file's §5a.)
   (3) Exits (`market_sell`, `market_reduce_only`) take no turn: they are sent as a close, which trading
   judges by the inventory or the exposure and not by the spacing or the rate that pace placements
   (`BUG-241`; a Spot exit answers to the inventory check only), and it still counts in the window.
-  (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
-  refusal as a `start_refused`; the margin exists to prevent it, and the integration test fails without it.
+  (4) The pacer is a forecast, not the judge (`BUG-254`): it spaces the bot's turns, and trading stamps an
+  order when it judges it, a moment after the turn that differs from order to order (a sleep that
+  overshoots, the handler's lock, a terms read), so two stamps can be closer than the two turns however
+  exactly the turns are spaced. Trading's verdict is the one that counts, and the owner budget's own
+  pacing is "not yet" to a bot, not a refusal (bar one case below): `classify_submit` reads `owner_budget_spacing` as `PACED`
+  (`pacing_outcome`), and `send_paced` takes another turn, a spacing later, and sends again, up to
+  `PACING_RETRIES` (3) times; a spacing that kept missing and an `owner_budget_rate` refusal (the window
+  moved on short of the pacer's `STAMP_JITTER` margin) are answered `RATE_LIMITED`, the pause a bot waits
+  out in AWAITING_RECOVERY and resumes from like the exchange's (`EPIC-042F`), and neither is a
+  `start_refused` that closes the position. **Price paid:** a rate pause lasts the budget's window (the facts name no oldest send). A pause after the opening's first slice filled stays a refusal (`opening_outcome`): a resume re-derives the ladder from the position held and does not finish the opening, so it would run a smaller grid than the plan (the journey ends RUNNING with 0.006 of 0.012 and one upper level short); the start closes as before. A pause anywhere else resumes by itself to the full position, ladder and stop (locked by a journey).
 - **The account's positions, read once a beat for the venue** (`BOT-184`). `positionRisk` without a symbol
   is one request for the whole account (weight 5), and an idle Futures bot read it twice a beat (its
   risk watch and its protective-stop check): 120 weight a minute for one bot, 2,405 for twenty.

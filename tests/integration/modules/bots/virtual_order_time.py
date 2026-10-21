@@ -8,7 +8,7 @@ same time in place of the machine's.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
     handler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -29,19 +32,43 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 #: Virtual seconds before which trading stamps late: the burst of the first 60 orders takes about
 #: 15 s, and the next order waits for the window, so no two consecutive orders straddle it.
 LAGGED_UNTIL = 30.0
+#: `CS-009` - the owner's caps as configuration (ADR O1), read off the code that defines them: a
+#: journey about pacing runs with these, because the journeys' default has no spacing at all.
+PRODUCTION_PACING: dict[str, object] = {
+    "trading.bot_limits.min_order_spacing_ms": int(
+        DEFAULT_OWNER_BUDGET_CAPS.min_order_spacing / timedelta(milliseconds=1)
+    ),
+    "trading.bot_limits.max_orders_per_minute": (
+        DEFAULT_OWNER_BUDGET_CAPS.max_orders_per_minute
+    ),
+}
 EPOCH = datetime(2026, 10, 20, 6, 26, 17, tzinfo=UTC)
 
 
 class VirtualTime:
     """One clock for the pacer and for trading's rate window; a sleep moves it."""
 
-    def __init__(self, early_stamp_lag: float = 0.0) -> None:
+    def __init__(
+        self,
+        early_stamp_lag: float = 0.0,
+        stamp_jitter: Sequence[float] = (),
+    ) -> None:
         self.seconds = 0.0
+        #: `BUG-254` - how much later than the pacer's turn trading stamps each order it judges,
+        #: in turn and repeating: a sleep that overshoots, a handler lock held by a neighbour, a
+        #: cold terms read. Unlike `early_stamp_lag` it differs from one order to the next, so two
+        #: consecutive stamps can be closer than the two turns the pacer spaced.
+        self._stamp_jitter = list(stamp_jitter)
+        self._stamped = 0
         #: How much later than the pacer's turn trading stamps each of the first orders it
         #: judges (a cold terms read, the handler's lock): the later ones are stamped on the turn.
         #: The lag drops only where the pacer waits for the window, so the spacing between two
         #: consecutive orders is never shortened by it.
         self._early_stamp_lag = early_stamp_lag
+
+    def steady(self) -> None:
+        """From now on trading stamps each order on its turn: the uneven stamps are over."""
+        self._stamp_jitter = []
 
     def monotonic(self) -> float:
         return self.seconds
@@ -51,6 +78,9 @@ class VirtualTime:
 
     def now(self) -> datetime:
         lag = self._early_stamp_lag if self.seconds < LAGGED_UNTIL else 0.0
+        if self._stamp_jitter:
+            lag += self._stamp_jitter[self._stamped % len(self._stamp_jitter)]
+            self._stamped += 1
         return EPOCH + timedelta(seconds=self.seconds + lag)
 
 
@@ -65,16 +95,33 @@ def trading_reads(monkeypatch: pytest.MonkeyPatch, time: VirtualTime) -> None:
     monkeypatch.setattr(handler, "datetime", _VirtualDatetime)
 
 
+class _DeliveringPacer(IOrderPacer):
+    """The production pacer, then what the exchange reported so far reaches the stream: the
+    user-data stream delivers between two orders a spacing apart, as it does in the app."""
+
+    def __init__(self, pacer: IOrderPacer, deliver: Callable[[], None]) -> None:
+        self._pacer = pacer
+        self._deliver = deliver
+
+    def wait_turn(self) -> None:
+        self._pacer.wait_turn()
+        self._deliver()
+
+
 def pacers_on(
-    time: VirtualTime,
+    time: VirtualTime, deliver: Callable[[], None] | None = None
 ) -> Callable[[TradingVenue, OrderPacing], IOrderPacer]:
-    """The production pacer, one per venue and pacing, on the virtual clock."""
+    """The production pacer, one per venue and pacing, on the virtual clock; with `deliver`, the
+    stream is handed the exchange's reports after each turn."""
     built: dict[tuple[TradingVenue, OrderPacing], IOrderPacer] = {}
 
     def of(venue: TradingVenue, pacing: OrderPacing) -> IOrderPacer:
         if (venue, pacing) not in built:
-            built[(venue, pacing)] = MonotonicOrderPacer(
+            pacer: IOrderPacer = MonotonicOrderPacer(
                 pacing, clock=time.monotonic, sleep=time.sleep
+            )
+            built[(venue, pacing)] = (
+                pacer if deliver is None else _DeliveringPacer(pacer, deliver)
             )
         return built[(venue, pacing)]
 

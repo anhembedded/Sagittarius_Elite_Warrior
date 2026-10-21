@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectedByExchangeError,
     OrderRejectionReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    TradingLimitViolation,
+)
 
 #: The refusals that mean "trading is off", not "this order is wrong" (D9).
 SWITCH_OFF_GATES: frozenset[ExecuteOrderSafetyGate] = frozenset(
@@ -42,6 +45,11 @@ class OrderOutcomeKind(str, Enum):
     SWITCH_OFF = "switch_off"
     REFUSED = "refused"
     RATE_LIMITED = "rate_limited"
+    #: `BUG-254` - trading judged the order sooner than the owner budget's spacing after the
+    #: previous one: "not yet", never "no". The gateway waits another turn and sends it again
+    #: (`BotOrderGateway._submit_paced`), and answers `RATE_LIMITED` when the retries are spent,
+    #: so no caller of a paced order sees this kind. Exits and protective stops are never paced because trading exempts them (`trading_limit_policy.py` `_budget_checks`); were one ever to meet it, it would halt as any refusal does.
+    PACED = "paced"
     SYMBOL_NOT_TRADING = "symbol_not_trading"
     SYMBOL_NOT_LISTED = "symbol_not_listed"
     #: The order's own numbers were refused (`EPIC-035T`): a quantity, a price
@@ -68,6 +76,9 @@ class OrderOutcome:
     #: For `DONE`: the quantity the exchange accepted (`BUG-205`), which a ladder
     #: saves and shows instead of the quantity it asked for.
     quantity: Decimal | None = None
+    #: `BUG-254` - the refusal or pause is the app's own order budget's, not the venue's: the venue
+    #: still answers, so a bot that must protect itself first can (`PositionOpening`).
+    own_budget: bool = False
 
     @property
     def done(self) -> bool:
@@ -124,7 +135,7 @@ def fault_text(exc: Exception) -> str:
 
 def classify_submit(result: ExecuteOrderResult) -> OrderOutcome:
     if result.blocked_by is not None:
-        return _refusal(result.blocked_by, "")
+        return pacing_outcome(result) or _refusal(result.blocked_by, "")
     if result.submitted_order is None:
         return OrderOutcome(OrderOutcomeKind.FAULT, detail="trading returned no order")
     accepted = result.submitted_order
@@ -153,3 +164,53 @@ def _refusal(blocked_by: Enum, client_order_id: str) -> OrderOutcome:
     else:
         kind = OrderOutcomeKind.REFUSED
     return OrderOutcome(kind, client_order_id, str(blocked_by.value))
+
+
+def pacing_outcome(result: ExecuteOrderResult) -> OrderOutcome | None:
+    """`BUG-254` - the outcome of a refusal by the app's own pacing, or `None` for any other.
+
+    The owner budget's spacing and rate are the app's own speed limits (ADR D6 checks 4 and 5),
+    not a verdict on the order or the venue: the order is sound and was only sent too soon. Too
+    soon after the previous order is `PACED` (retry_after: what the policy found missing, from the
+    facts it judged); too many in the window is `RATE_LIMITED`, for the budget's window, the longest
+    the oldest send of it can still count. Treating either as `REFUSED` halted a start and sold
+    its position at market."""
+    violation = result.blocked_by
+    facts = None if result.limit_context is None else result.limit_context.owner_budget
+    if violation is TradingLimitViolation.OWNER_BUDGET_SPACING:
+        missing = None
+        if facts is not None and facts.time_since_last_order is not None:
+            missing = max(
+                facts.budget.min_order_spacing - facts.time_since_last_order,
+                timedelta(0),
+            )
+        return OrderOutcome(
+            OrderOutcomeKind.PACED,
+            detail=violation.value,
+            retry_after=missing,
+            own_budget=True,
+        )
+    if violation is TradingLimitViolation.OWNER_BUDGET_RATE:
+        return OrderOutcome(
+            OrderOutcomeKind.RATE_LIMITED,
+            detail=f"the app's own order budget: {violation.value}",
+            retry_after=None if facts is None else facts.budget.window,
+            own_budget=True,
+        )
+    return None
+
+
+def opening_outcome(slice_number: int, outcome: OrderOutcome) -> OrderOutcome:
+    """`BUG-254` - what an opening's slice that was not done means to the start.
+
+    A pause by the app's own budget is right everywhere else in a start: the ladder, with the
+    stop standing, resumes by itself to the full position and ladder. After an opening slice
+    filled it is not: a resume re-derives the ladder from the position held and does not finish
+    the opening, so it would run a smaller grid than the plan the owner saw (one upper level
+    short in the journey). That one case stays a refusal, as before: the start closes, and a
+    leveraged position is never left bare. The first slice has nothing filled to keep."""
+    if slice_number > 1 and outcome.own_budget:
+        return OrderOutcome(
+            OrderOutcomeKind.REFUSED, outcome.client_order_id, outcome.detail
+        )
+    return outcome

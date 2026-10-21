@@ -134,6 +134,20 @@ def test_a_refused_opening_slice_halts_before_any_ladder_order() -> None:
     assert "opening buy slice 2" in runtime.reason_detail
 
 
+def test_a_rate_refusal_of_a_ladder_order_is_a_pause_not_a_refused_start() -> None:
+    """`BUG-254`: the order budget's own rate is "not yet" once the opening is whole; it used to
+    halt the start and close the position. (After an opening slice filled it stays a refusal,
+    the test above: `opening_outcome`.)"""
+    world = grid_world()
+    world.book.refuse_next = [None, None, TradingLimitViolation.OWNER_BUDGET_RATE]
+
+    world.executor.start()
+
+    assert world.state() is S.AWAITING_RECOVERY
+    runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
+    assert runtime.reason is GridReason.RATE_LIMITED
+
+
 def test_trading_switched_off_mid_start_halts_never_errors() -> None:
     """The Emergency Stop race (ADR D7, D9): a submit refused between the
     disable and its event is `switch_off`, so HALTED, not ERROR."""

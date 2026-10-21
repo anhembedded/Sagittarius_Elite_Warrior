@@ -15,7 +15,9 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
     connection check or on the order itself. Not a switch-off: nothing a wait
     can mend, and the orders already on the exchange cannot be cancelled.
   · `REFUSED` — any other gate or limit, or the exchange's minimum notional;
-    the bot halts naming it.
+    the bot halts naming it. The owner budget's own pacing is not one (`BUG-254`):
+    a spacing or rate refusal is "not yet", answered `RATE_LIMITED` after the order has
+    retried its turn (`paced_send.py`).
   · `SYMBOL_NOT_TRADING` / `SYMBOL_NOT_LISTED` — the exchange refused the order
     because of the symbol's status, or no longer knows the symbol (`EPIC-035E`).
     Not faults: the bot pauses or halts naming it.
@@ -63,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.orde
     gone_outcome,
     is_order_gone,
     named_rejection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.paced_send import (
+    send_paced,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
     ProtectiveStopOrder,
@@ -305,8 +310,14 @@ class BotOrderGateway:
         Exits (`market_sell`, `market_reduce_only`, `place_protective_stop`) go through `_submit`
         and never wait: the pacer is shared by the venue's bots, so a turn can queue behind a
         neighbour's whole ladder, and a stop that waited would leave a position bare."""
-        self._pacer.wait_turn()
-        return self._submit(request)
+        outcome = send_paced(
+            self._pacer, lambda: self._submit(request), self._identity.tag
+        )
+        if outcome.kind is OrderOutcomeKind.RATE_LIMITED and outcome.retry_after:
+            # `BUG-254` - the pause may be the app's own budget's, which no exchange error
+            # noted: a halt for a rate limit schedules its resume by what was noted.
+            self.note_rate_limit(outcome.retry_after)
+        return outcome
 
     def _submit(self, request: OrderRequest) -> OrderOutcome:
         """Sends one order, dropping the shared reading of the positions before and after."""

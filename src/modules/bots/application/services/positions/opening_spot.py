@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     OrderOutcome,
     OrderOutcomeKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_outcome import (
+    opening_outcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy import (
     IOpeningStrategy,
     OpeningResult,
@@ -94,7 +97,11 @@ class SpotOpening(IOpeningStrategy):
                 outcome.client_order_id or outcome.detail,
             )
             if not outcome.done:
-                fail_with(self._context.state, outcome, f"opening buy slice {index}")
+                fail_with(
+                    self._context.state,
+                    opening_outcome(index, outcome),
+                    f"opening buy slice {index}",
+                )
                 return False
         return True
 
