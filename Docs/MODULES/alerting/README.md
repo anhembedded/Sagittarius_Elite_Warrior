@@ -42,8 +42,9 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
 | The Alerts mode: the history of alerts with each channel's delivery, a severity filter, the channel line and a notice for a failing channel | **Built** | `EPIC-036D2` |
 | The status-bar indicator: `Alerts: ok`, `no channel` or `<channel> failing` in every mode, a click shows the Alerts mode | **Built** | `EPIC-036D3` |
+| Retry failed (the owner puts failed deliveries back in the queue) and the Alerts table's severity tone | **Built** | `EPIC-036D5` |
 | Quiet hours on the Options page, kept in the settings file | **Built** | `EPIC-036D6` |
-| The rest of 036D: routing matrix, Retry failed, the heartbeat's interval | Planned | `EPIC-036D` |
+| The rest of 036D: routing matrix, the heartbeat's interval | Planned | `EPIC-036D` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
 | The heartbeat message (every 6 h) and the daily summary (once a day), from the bots' status report | **Built** | `EPIC-036E` (the per-bot health in the heartbeat waits for `EPIC-035W`) |
 | Remote control from Discord | Planned | `EPIC-036F` |

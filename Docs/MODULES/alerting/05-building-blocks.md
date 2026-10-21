@@ -265,6 +265,15 @@ The Alerts screen (`EPIC-036D2`) added:
   The surface `alerts` is declared by the shell (`shell/surfaces.py` → `ALERTS_SURFACE_ID`) and
   by the view (`alerts_view.py` → `ALERTS_SURFACE`), a test holding the two equal; the mode is
   contributed by `AlertingModule.contribute` (`alerts_screen.py` → `alerts_screen`).
+- **Retry failed** (`EPIC-036D5`): `RetryFailedDeliveries`
+  (`alerting/application/retry_failed_deliveries.py` → `RetryFailedDeliveries.run`) asks
+  `IDeliveryRequeue` (`alerting/contracts/i_delivery_requeue.py` → `IDeliveryRequeue`, a port of its
+  own so the already wide `IOutbox` stays the hub's and the lanes') to put every `FAILED` delivery of
+  an alert inside `DeliveryPolicy.expiry` back to `PENDING`, attempts counted afresh;
+  `SqliteDeliveryRequeue` (`alerting/adapters/sqlite_delivery_requeue.py` → `SqliteDeliveryRequeue`) does
+  it on a connection opened for the one call. The screen's button runs it on the pool
+  (`alerts_presenter.py` → `AlertsPresenter.retry_failed`). The severity cell's tone is
+  `history_table_model.py` → `AlertHistoryTableModel._tone`.
 - **The status-bar indicator** (`EPIC-036D3`): `AlertsView.status_widgets` offers one
   `QToolButton` (`IStatusSource`), which the window places in its status bar once, for every
   mode. `history_words.indicator_text` says `Alerts: ok`, `Alerts: no channel` or

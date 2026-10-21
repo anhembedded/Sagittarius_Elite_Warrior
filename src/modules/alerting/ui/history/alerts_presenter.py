@@ -22,8 +22,14 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QTimer, Slot
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.retry_failed_deliveries import (
+    RetryFailedDeliveries,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
@@ -62,6 +68,7 @@ FIRST_READ_MS = 5_000
 #: How often the screen asks again, in milliseconds.
 REFRESH_INTERVAL_MS = 15_000
 _READ = "read"
+_RETRY = "retry"
 
 
 class AlertsPresenter(BasePresenter):
@@ -77,11 +84,25 @@ class AlertsPresenter(BasePresenter):
             ActionOwnershipTracker()
         )
         self._relay = AlertsActionRelay(self._on_read_done)
+        self._retry: RetryFailedDeliveries = container.resolve(RetryFailedDeliveries)
+        self._retry_tracker: ActionOwnershipTracker[str, None, None] = (
+            ActionOwnershipTracker()
+        )
+        self._retry_relay = AlertsActionRelay(self._on_retry_done)
+        self._retrying = False
+        #: What Retry failed said, kept on screen over the reads that follow it until the
+        #: owner asks for a read of their own.
+        self._retry_note = ""
         self._reading = False
         self._reading_full = False
         self._full_read_wanted = False
         self._failing = False
         view.refresh_button.clicked.connect(self.refresh)
+        view.retry_button.clicked.connect(self.retry_failed)
+        view.retry_button.setToolTip(history_words.retry_tip(self._retry.window))
+        if container.resolve(IInstanceAccess).read_only:
+            view.retry_button.setEnabled(False)
+            view.retry_button.setToolTip(history_words.RETRY_READ_ONLY)
         self._timer = QTimer(self)
         self._timer.setInterval(REFRESH_INTERVAL_MS)
         self._timer.timeout.connect(self._poll)
@@ -122,6 +143,7 @@ class AlertsPresenter(BasePresenter):
     def refresh(self) -> None:
         """A read the owner asked for (Refresh, or the mode shown): says it is reading and
         greys the button. The timer's reads are silent, so the list does not jump every 15 s."""
+        self._retry_note = ""
         self._view.refresh_button.setEnabled(False)
         self._view.show_history_note(history_words.READING)
         if self._reading and not self._reading_full:
@@ -130,6 +152,64 @@ class AlertsPresenter(BasePresenter):
             )
             return
         self._start_read(HISTORY_LIMIT)
+
+    @Slot()
+    @safe_ui_action
+    def retry_failed(self) -> None:
+        """Retry failed: queues every failed delivery again, off the UI thread (it writes the
+        outbox), then reads the list so the owner sees them go out."""
+        if self._retrying:
+            return
+        self._retrying = True
+        self._view.retry_button.setEnabled(False)
+        self._view.show_history_note(history_words.RETRYING)
+        action = self._retry_tracker.begin_action(_RETRY, None, None)
+        try:
+            self._thread_manager.submit(self._retry_on_pool, action.action_id)
+        except Exception:
+            self._end_retry()
+            raise
+
+    def _retry_on_pool(self, action_id: int) -> None:
+        """Runs on the thread pool: touches no widget; reports through the relay."""
+        try:
+            count = self._retry.run()
+        except Exception as exc:  # noqa: BLE001 - worker boundary: told in words, not lost to a pool thread
+            self._retry_relay.hand_over((action_id, None, type(exc).__name__))
+        else:
+            self._retry_relay.hand_over((action_id, count, None))
+
+    def _on_retry_done(self, payload: tuple) -> None:
+        """Runs on the UI thread."""
+        action_id, count, error_type = payload
+        if not self._retry_tracker.is_current_pending(action_id, _RETRY):
+            self._retry_tracker.log_stale_callback(_RETRY, action_id, _RETRY)
+            return
+        self._end_retry()
+        if error_type is not None:
+            self._retry_tracker.finish_action(action_id, ActionOutcome.FAILED)
+            logger.warning("Alerts screen: Retry failed raised %s", error_type)
+            self._view.show_history_note(
+                history_words.RETRY_FAILED.format(error_type=error_type)
+            )
+            return
+        self._retry_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
+        self._retry_note = (
+            history_words.retry_done(count)
+            if count
+            else history_words.retry_none(self._retry.window)
+        )
+        self._view.show_history_note(self._retry_note)
+        if self._reading:
+            # The read out started before the write, so its list would contradict the note:
+            # a full read follows it (as for Refresh), whether it was partial or full.
+            self._full_read_wanted = True
+        else:
+            self._start_read(HISTORY_LIMIT)
+
+    def _end_retry(self) -> None:
+        self._retrying = False
+        self._view.retry_button.setEnabled(True)
 
     def _start_read(self, limit: int) -> None:
         """Asks for a fresh read unless one is already out."""
@@ -152,7 +232,9 @@ class AlertsPresenter(BasePresenter):
         self._timer.stop()
         self._first_read.stop()
         self._tracker.invalidate_active()
+        self._retry_tracker.invalidate_active()
         self._relay.stop_delivering()
+        self._retry_relay.stop_delivering()
         super().shutdown()
 
     def _read_history_on_pool(self, action_id: int, limit: int) -> None:
@@ -179,7 +261,7 @@ class AlertsPresenter(BasePresenter):
             self._tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
             self._failing = False
             if full:
-                self._view.show_history_note("")
+                self._view.show_history_note(self._retry_note)
                 self._view.show_alert_history(report.rows, report.channels)
             else:
                 self._view.show_channel_health(report.channels)

@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 825, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 827, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -67,6 +67,7 @@
 ["ss", "Account tabs on ", " failed: ", ""],
 ["ss", "Account tabs on ", ": ", ""],
 ["sdds", "Account tabs read ", " page ", " of ", " (", ")"],
+["s", "Alerts screen: Retry failed raised ", ""],
 ["dddd", "Alerts screen: reads up to ", " alert(s) when shown and ", " while hidden (for the status-bar indicator), first after ", " ms, then every ", " ms."],
 ["s", "Alerts screen: the history read raised ", ""],
 ["hh", "AlertsSettingsPresenter: ", " raised ", " [alert-setup]"],
@@ -574,6 +575,7 @@
 ["", "[alert-migration] telegram: stored in the secret store, but the config file could not be cleared (no writable config file); remove the old keys by hand"],
 ["ss", "[alert-outbox] opened ", " (schema ", ")"],
 ["s", "[alert-outbox] purged ", " finished alerts"],
+["d", "[alert-retry] ", " failed delivery(ies) queued again"],
 ["ss", "[alert-routed] ", " -> ", ""],
 ["ss", "[alert-setup] ", " credentials removal: ", ""],
 ["ss", "[alert-setup] ", " credentials save: ", ""],
