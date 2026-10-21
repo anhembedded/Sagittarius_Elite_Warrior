@@ -48,8 +48,16 @@ class GridFillAnnouncer:
                     cycle_profit=order.cycle_profit,
                 )
             )
-            logger.debug(
-                "Bot %s: order %s filled whole, announced [order-filled]",
+            logger.info(
+                "Bot %s: L%d %s %s @ %s filled whole; %d cycle(s), grid profit %s%s [order-filled]",
                 self._context.state.bot_id,
-                order.client_order_id,
+                order.level_index,
+                order.side.value,
+                order.quantity,
+                order.price,
+                order.completed_cycles,
+                order.grid_profit,
+                f" (this fill closed a cycle: +{order.cycle_profit})"
+                if order.cycle_profit is not None
+                else " (this fill closed no cycle)",
             )
