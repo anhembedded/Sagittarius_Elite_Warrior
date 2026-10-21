@@ -198,9 +198,9 @@ def test_every_trade_of_a_slice_is_booked_not_only_the_first() -> None:
     assert world.runtime().inventory == opened.quantity
 
 
-def test_a_history_that_does_not_hold_the_slice_yet_is_said_and_left_to_the_stream(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_a_history_that_does_not_hold_the_slice_yet_is_said_and_left_to_the_stream() -> (
+    None
+):
     """Binance's history can lag a market fill: nothing is booked, and the log says why."""
     capture = _Capture()
     logging.getLogger("App").addHandler(capture)
@@ -250,6 +250,8 @@ def test_a_spot_opening_is_booked_net_of_its_base_fee_as_the_stream_would() -> N
     assert (
         world.runtime().inventory == world.book.bought_base - Decimal("0.002") * slices
     )
+    # The base fee is valued at the fill's price, as `GridFacts._apply_fill` books it.
+    assert world.runtime().commissions == Decimal("0.002") * LAST_PRICE * slices
 
 
 class _Capture(logging.Handler):

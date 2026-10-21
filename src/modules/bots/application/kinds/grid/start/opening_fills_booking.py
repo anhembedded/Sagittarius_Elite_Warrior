@@ -57,9 +57,13 @@ class OpeningFillsBooking:
             return
         try:
             records = context.gateway.order_records(frozenset(slices), since)
-            trades = context.gateway.orders_trades(
-                frozenset(record.exchange_order_id for record in records.values()),
-                since,
+            trades = (
+                context.gateway.orders_trades(
+                    frozenset(record.exchange_order_id for record in records.values()),
+                    since,
+                )
+                if records
+                else {}
             )
         except AccountHistoryUnavailableError as error:
             logger.warning(
