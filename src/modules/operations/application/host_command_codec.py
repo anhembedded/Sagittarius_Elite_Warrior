@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "start" | "edit" | "add" | "delete" | "move" | "loss-cap-ack"
+  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "loss-cap-ack"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
@@ -48,6 +48,11 @@ the audit can say which command was refused.
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
   never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
   document an older host wrote, because `set` is absent from them.
+
+@par Older hosts (`EPIC-045G`, confirm-resume)
+  `confirm-resume` is a new `action` word and adds no key: an older host reads it as *malformed*
+  ("action is not one of ..."), audits it, removes the file and executes nothing, so the operator
+  gets REJECTED and no ladder is laid. A new host reads every document an older host wrote.
 
 @par Older hosts (`EPIC-045G`)
   `move` is a new `action` word and `to_venue` a new key: an older host reads it as *malformed*

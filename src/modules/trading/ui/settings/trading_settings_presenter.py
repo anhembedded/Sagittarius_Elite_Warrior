@@ -371,7 +371,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if failed:
             said = (
                 f"{venues_in_words(failed)} could not be connected. "
-                "See the State column."
+                "See its state under the key."
             )
         else:
             said = "Connected." if statuses else ""

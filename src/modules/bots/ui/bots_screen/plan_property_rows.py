@@ -28,6 +28,11 @@ COST_KEYS = ("commissions", "funding")
 LIQUIDATION_KEY = "liquidation"
 #: The group a bot at rest shows and a bot with a run does not (`EPIC-034H`).
 READINESS_GROUP = "readiness"
+#: The group of the plan's figures, and its heading while they come from a design not saved
+#: yet (`BUG-261`).
+PLAN_GROUP = "plan"
+PLAN_TITLE = "Plan"
+PLAN_UNSAVED_TITLE = "Plan (not saved)"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,15 +74,16 @@ PROPERTY_GROUPS: tuple[PropertyGroup, ...] = (
         _rows(*((step_key(step), step.value, _TEXT) for step in ReadinessStep)),
     ),
     PropertyGroup(
-        "plan",
-        "Plan",
+        PLAN_GROUP,
+        PLAN_TITLE,
         _rows(
             ("venue", "Venue", _TEXT),
             ("symbol", "Symbol", _TEXT),
             ("capital", "Capital", _MONEY),
-            # `BOT-193`: the ladder the saved parameters make (designed) and what a cycle there
-            # earns (estimate).
-            ("grid_step", "Saved grid step, top to bottom", ColumnKind.PERCENT),
+            # `BOT-193`: the ladder the parameters make (designed) and what a cycle there
+            # earns (estimate). The parameters are the design on screen while it is not saved
+            # (`BUG-261`), so the title no longer says "Saved".
+            ("grid_step", "Grid step, top to bottom", ColumnKind.PERCENT),
             ("cycle_profit", "Profit per cycle (estimate)", _MONEY),
             ("lower_edge", "Lower edge", _PRICE),
             ("upper_edge", "Upper edge", _PRICE),

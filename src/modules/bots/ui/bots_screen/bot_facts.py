@@ -133,6 +133,10 @@ class BotFacts:
     note: str = ""
     #: `EPIC-043C` - what each earnings figure means, by its row key: a profit, a loss.
     tones: Mapping[str, Tone] = field(default_factory=dict)
+    #: `BUG-261` - the plan figures come from a design on screen that is not saved yet.
+    unsaved: bool = False
+    #: `BUG-261` - for a design not saved yet, the guard's liquidation estimate (the record holds none).
+    liquidation_estimate: str = ""
 
 
 def _tones(bot: BotSnapshot) -> dict[str, Tone]:

@@ -100,7 +100,7 @@ class PositionOpening(IOpeningStrategy):
             if stop_asked(context):
                 return False
             outcome = context.gateway.market_base(side, piece, plan.last_price)
-            context.off_ladder.add(outcome.client_order_id)
+            context.off_ladder.add_opening(outcome.client_order_id)
             logger.info(
                 "Bot %s: opening slice %d of %s -> %s %s",
                 context.state.bot_id,
