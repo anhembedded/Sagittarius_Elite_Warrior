@@ -7,9 +7,12 @@ Every resumable state is answered here:
     executor reconciles with the exchange (`BUG-204`). This is the remedy for decision O2: a
     person resumes a RECOVERING bot, now without stopping the host;
   · HALTED and AWAITING_RECOVERY (`EPIC-045G`, owner decision O1) - the screen's Resume, which
-    proposes a ladder and places nothing (decision D13). The reply says so and names the second
-    step, `bot confirm-resume`, which a person takes after reading the proposal in the host's
-    log, as the tab's Confirm resume is taken after reading the bot's log.
+    proposes a ladder and places nothing (decision D13). The reply carries the proposal itself (how
+    many orders, from which price, with how much held) and its fingerprint, and names the second
+    step, `bot confirm-resume --proposal <fingerprint>`, which lays that ladder and no other (owner
+    decision O3: a later resume re-proposes and makes the fingerprint stale). The host waits for the
+    bot's worker to propose, once, up to `PROPOSAL_REPLY_WAIT_S`, and withdraws the request when none
+    appears so none is left held for a later confirmation.
 
 Real money (decision O8): where a resume reopens the venue's order session (RECOVERING, HALTED,
 AWAITING_RECOVERY) on a mainnet venue the operator types the venue, and only then does the command
@@ -37,19 +40,44 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     ResumeBotForHostCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_waiter import (
+    IBotWaiter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
+    IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    ResumeProposalSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RESUME_PROPOSES_STATES,
     BotLifecycleState,
 )
 
+#: How long the reply waits for the bot's worker to propose the ladder, and how often it asks. Under the
+#: operator's default `--wait` (15 s), so the answer arrives before the command is given up on.
+PROPOSAL_REPLY_WAIT_S = 10.0
+PROPOSAL_REPLY_POLL_S = 0.25
+
 
 class ResumeBotForHostCommandHandler(
     ICommandHandler[ResumeBotForHostCommand, BotCommandResult]
 ):
-    def __init__(self, store: IBotStore, dispatcher: ICommandDispatcher) -> None:
+    def __init__(
+        self,
+        store: IBotStore,
+        dispatcher: ICommandDispatcher,
+        runner: IBotRunner,
+        clock: IMonotonicClock,
+        waiter: IBotWaiter,
+    ) -> None:
         self._lookup = BotLookup(store)
         self._dispatcher = dispatcher
+        self._runner = runner
+        self._clock = clock
+        self._waiter = waiter
 
     def execute(self, command: ResumeBotForHostCommand) -> BotCommandResult:
         found = self._lookup.find(command.bot_id)
@@ -75,18 +103,42 @@ class ResumeBotForHostCommandHandler(
             ),
         )
         if result.accepted and proposes:
-            return BotCommandResult(
-                accepted=True,
-                bot_id=command.bot_id,
-                message=_proposed_words(command.bot_id, venue.is_mainnet, venue.value),
-            )
+            return self._proposal_reply(command.bot_id, venue.value, venue.is_mainnet)
         return result
 
+    def _proposal_reply(
+        self, bot_id: str, venue: str, mainnet: bool
+    ) -> BotCommandResult:
+        """The proposal the worker made, in words; or the refusal when none appeared in time."""
+        deadline = self._clock.seconds() + PROPOSAL_REPLY_WAIT_S
+        while True:
+            held = self._runner.resume_proposal(bot_id)
+            if held is not None:
+                return BotCommandResult(
+                    accepted=True,
+                    bot_id=bot_id,
+                    message=_proposed_words(bot_id, held, venue if mainnet else None),
+                )
+            if self._clock.seconds() >= deadline:
+                break
+            self._waiter.pause(PROPOSAL_REPLY_POLL_S)
+        self._runner.withdraw_resume_proposal(bot_id)
+        return BotCommandResult.refused(
+            BotRefusal.NO_RESUME_PROPOSAL,
+            f"Bot {bot_id} proposed no ladder within {PROPOSAL_REPLY_WAIT_S:g} s (the price could not "
+            "be read, the worker is busy, or a bot that holds nothing waits for its range: `bot show` "
+            "says), so nothing is held and nothing was laid. Run the resume again",
+            bot_id,
+        )
 
-def _proposed_words(bot_id: str, mainnet: bool, venue: str) -> str:
-    flag = f" --confirm-venue {venue}" if mainnet else ""
+
+def _proposed_words(
+    bot_id: str, held: ResumeProposalSummary, mainnet_venue: str | None
+) -> str:
+    flag = f" --confirm-venue {mainnet_venue}" if mainnet_venue else ""
     return (
-        f"bot {bot_id} was asked to propose a ladder and nothing is placed yet. The proposal "
-        'appears in the host\'s log within a few seconds ("resume proposes N orders"); read it, '
-        f"then `bot confirm-resume {bot_id}{flag}` lays it, or leave it and nothing happens"
+        f"bot {bot_id} proposes {held.orders} orders from {held.price} with {held.held} held; "
+        f"nothing is placed yet. Fingerprint {held.fingerprint}. Read it, then "
+        f"`bot confirm-resume {bot_id} --proposal {held.fingerprint}{flag}` lays this ladder and no "
+        "other; a later resume re-proposes and makes the fingerprint stale"
     )

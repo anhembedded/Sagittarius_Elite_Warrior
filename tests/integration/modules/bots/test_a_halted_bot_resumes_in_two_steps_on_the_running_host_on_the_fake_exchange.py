@@ -8,6 +8,8 @@ second lays the ladder and the bot is RUNNING. Only the user data stream's webso
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
@@ -53,6 +55,12 @@ def _halted(app: BootedApp) -> str:
     return bot_id
 
 
+def _fingerprint_of(message: str) -> str:
+    found = re.search(r"Fingerprint ([0-9a-f]{8})", message)
+    assert found is not None, message
+    return found.group(1)
+
+
 def test_a_resume_proposes_and_places_nothing_and_the_confirmation_lays_the_ladder(
     exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -65,19 +73,63 @@ def test_a_resume_proposes_and_places_nothing_and_the_confirmation_lays_the_ladd
         proposed = operator.ask(HostControlRequest(HostControlAction.RESUME, bot_id))
 
         assert proposed.status is HostControlStatus.DONE, proposed.message
-        assert "nothing is placed" in proposed.message
-        assert f"`bot confirm-resume {bot_id}`" in proposed.message
+        fingerprint = _fingerprint_of(proposed.message)
+        assert (
+            "nothing is placed" in proposed.message
+            and "orders from" in proposed.message
+        )
+        assert f"--proposal {fingerprint}" in proposed.message
         assert state_of(app.store, bot_id) is S.HALTED
         assert resting(app.urls) == {}, "a proposal places no order"
 
         confirmed = operator.ask(
-            HostControlRequest(HostControlAction.CONFIRM_RESUME, bot_id)
+            HostControlRequest(
+                HostControlAction.CONFIRM_RESUME, bot_id, proposal=fingerprint
+            )
         )
         app.deliver()
 
         assert confirmed.status is HostControlStatus.DONE, confirmed.message
         assert state_of(app.store, bot_id) is S.RUNNING
         assert resting(app.urls) == ladder(app.runtime(bot_id))
+
+
+def test_a_confirmation_that_names_another_proposal_or_none_lays_nothing_and_the_right_one_still_does(
+    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(DATA_ROOT_ENV, str(exchange.tmp_path))
+    with booted(exchange) as app:
+        app.stream.start = lambda: None  # type: ignore[method-assign]
+        bot_id = _halted(app)
+        operator = operator_of(app.engine, exchange.tmp_path, app.deliver)
+        fingerprint = _fingerprint_of(
+            operator.ask(HostControlRequest(HostControlAction.RESUME, bot_id)).message
+        )
+        other = "0" * 8 if fingerprint != "0" * 8 else "f" * 8
+
+        stale = operator.ask(
+            HostControlRequest(HostControlAction.CONFIRM_RESUME, bot_id, proposal=other)
+        )
+        unnamed = operator.ask(
+            HostControlRequest(HostControlAction.CONFIRM_RESUME, bot_id)
+        )
+
+        assert stale.status is HostControlStatus.REFUSED
+        assert "proposal changed" in stale.message
+        assert unnamed.status is HostControlStatus.REFUSED
+        assert "--proposal <fingerprint>" in unnamed.message
+        assert state_of(app.store, bot_id) is S.HALTED
+        assert resting(app.urls) == {}, "neither refusal laid anything"
+
+        good = operator.ask(
+            HostControlRequest(
+                HostControlAction.CONFIRM_RESUME, bot_id, proposal=fingerprint
+            )
+        )
+        app.deliver()
+
+        assert good.status is HostControlStatus.DONE, good.message
+        assert state_of(app.store, bot_id) is S.RUNNING
 
 
 def test_a_confirmation_with_no_proposal_is_refused_and_lays_nothing(
@@ -90,7 +142,9 @@ def test_a_confirmation_with_no_proposal_is_refused_and_lays_nothing(
         operator = operator_of(app.engine, exchange.tmp_path, app.deliver)
 
         refused = operator.ask(
-            HostControlRequest(HostControlAction.CONFIRM_RESUME, bot_id)
+            HostControlRequest(
+                HostControlAction.CONFIRM_RESUME, bot_id, proposal="1a2b3c4d"
+            )
         )
 
         assert refused.status is HostControlStatus.REFUSED

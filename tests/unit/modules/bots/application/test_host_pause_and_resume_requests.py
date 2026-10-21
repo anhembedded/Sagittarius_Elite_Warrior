@@ -39,6 +39,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_waiter import (
+    FakeBotWaiter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
+    FakeMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -50,6 +56,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.proposal_runner_world import (
+    PROPOSAL,
+    ProposalRunner,
 )
 
 S = BotLifecycleState
@@ -77,6 +87,17 @@ def _store_with(state: BotLifecycleState, venue: TradingVenue) -> FakeBotStore:
     return store
 
 
+def _resume_handler(
+    store: FakeBotStore,
+    dispatcher: ICommandDispatcher,
+    runner: ProposalRunner | None = None,
+) -> ResumeBotForHostCommandHandler:
+    clock = FakeMonotonicClock()
+    return ResumeBotForHostCommandHandler(
+        store, dispatcher, runner or ProposalRunner(), clock, FakeBotWaiter(clock)
+    )
+
+
 def test_pausing_for_the_host_is_the_pause_the_screen_dispatches() -> None:
     dispatcher = _RecordingDispatcher()
 
@@ -93,9 +114,7 @@ def test_resuming_a_paused_or_recovering_testnet_bot_is_the_screens_resume(
     state: BotLifecycleState,
 ) -> None:
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(
-        _store_with(state, TradingVenue.SPOT_TESTNET), dispatcher
-    )
+    handler = _resume_handler(_store_with(state, TradingVenue.SPOT_TESTNET), dispatcher)
 
     result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
 
@@ -104,21 +123,50 @@ def test_resuming_a_paused_or_recovering_testnet_bot_is_the_screens_resume(
 
 
 @pytest.mark.parametrize("state", [S.HALTED, S.AWAITING_RECOVERY])
-def test_resuming_a_halted_bot_proposes_and_the_words_name_the_second_step(
+def test_resuming_a_halted_bot_proposes_and_the_reply_carries_the_proposal_and_its_fingerprint(
     state: BotLifecycleState,
 ) -> None:
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(
-        _store_with(state, TradingVenue.SPOT_TESTNET), dispatcher
-    )
+    handler = _resume_handler(_store_with(state, TradingVenue.SPOT_TESTNET), dispatcher)
 
     result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
 
     assert result.accepted
     assert dispatcher.dispatched == [ResumeBotCommand("aaaaaa")]
     assert "nothing is placed" in result.message
-    assert "`bot confirm-resume aaaaaa`" in result.message
+    assert f"{PROPOSAL.orders} orders from {PROPOSAL.price}" in result.message
+    assert (
+        f"`bot confirm-resume aaaaaa --proposal {PROPOSAL.fingerprint}`"
+        in result.message
+    )
     assert "--confirm-venue" not in result.message
+
+
+def test_a_proposal_that_appears_after_a_few_asks_is_waited_for_without_sleeping() -> (
+    None
+):
+    runner = ProposalRunner(polls_before_proposal=3)
+    handler = _resume_handler(
+        _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
+    )
+
+    result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert result.accepted and PROPOSAL.fingerprint in result.message
+    assert runner.asked == 4 and runner.withdrawn == []
+
+
+def test_no_proposal_in_time_is_a_refusal_and_the_request_is_withdrawn() -> None:
+    runner = ProposalRunner(proposal=None)
+    handler = _resume_handler(
+        _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _RecordingDispatcher(), runner
+    )
+
+    result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert result.refusal is BotRefusal.NO_RESUME_PROPOSAL
+    assert "proposed no ladder within 10 s" in result.message
+    assert runner.withdrawn == ["aaaaaa"], "none is left held for a later confirmation"
 
 
 @pytest.mark.parametrize("state", [S.HALTED, S.AWAITING_RECOVERY, S.RECOVERING])
@@ -127,7 +175,7 @@ def test_a_mainnet_resume_that_reopens_the_session_is_not_dispatched_until_the_v
 ) -> None:
     venue = TradingVenue.SPOT_MAINNET
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(_store_with(state, venue), dispatcher)
+    handler = _resume_handler(_store_with(state, venue), dispatcher)
 
     refused = handler.execute(ResumeBotForHostCommand("aaaaaa"))
 
@@ -137,16 +185,15 @@ def test_a_mainnet_resume_that_reopens_the_session_is_not_dispatched_until_the_v
 
 def test_a_mainnet_proposal_names_the_flag_the_confirmation_needs() -> None:
     venue = TradingVenue.SPOT_MAINNET
-    handler = ResumeBotForHostCommandHandler(
-        _store_with(S.HALTED, venue), _RecordingDispatcher()
-    )
+    handler = _resume_handler(_store_with(S.HALTED, venue), _RecordingDispatcher())
 
     result = handler.execute(ResumeBotForHostCommand("aaaaaa", venue.value))
 
     assert result.accepted
     assert (
-        f"`bot confirm-resume aaaaaa --confirm-venue {venue.value}`" in result.message
-    )
+        f"`bot confirm-resume aaaaaa --proposal {PROPOSAL.fingerprint} "
+        f"--confirm-venue {venue.value}`"
+    ) in result.message
 
 
 def test_a_refused_proposal_is_the_screens_refusal_not_a_proposal_reply() -> None:
@@ -158,7 +205,7 @@ def test_a_refused_proposal_is_the_screens_refusal_not_a_proposal_reply() -> Non
                 BotRefusal.INVALID_DEFINITION, "Resume is blocked: x", "aaaaaa"
             )
 
-    result = ResumeBotForHostCommandHandler(
+    result = _resume_handler(
         _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _Refusing()
     ).execute(ResumeBotForHostCommand("aaaaaa"))
 
@@ -168,9 +215,7 @@ def test_a_refused_proposal_is_the_screens_refusal_not_a_proposal_reply() -> Non
 def test_a_recovering_mainnet_bot_is_not_resumed_until_the_venue_is_typed() -> None:
     venue = TradingVenue.SPOT_MAINNET
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(
-        _store_with(S.RECOVERING, venue), dispatcher
-    )
+    handler = _resume_handler(_store_with(S.RECOVERING, venue), dispatcher)
 
     refused = handler.execute(ResumeBotForHostCommand("aaaaaa"))
     wrong = handler.execute(
@@ -187,9 +232,7 @@ def test_a_recovering_mainnet_bot_with_its_venue_typed_carries_the_real_money_an
 ):
     venue = TradingVenue.SPOT_MAINNET
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(
-        _store_with(S.RECOVERING, venue), dispatcher
-    )
+    handler = _resume_handler(_store_with(S.RECOVERING, venue), dispatcher)
 
     result = handler.execute(ResumeBotForHostCommand("aaaaaa", venue.value))
 
@@ -203,7 +246,7 @@ def test_a_paused_mainnet_bot_resumes_without_the_venue_because_no_session_is_re
     None
 ):
     dispatcher = _RecordingDispatcher()
-    handler = ResumeBotForHostCommandHandler(
+    handler = _resume_handler(
         _store_with(S.PAUSED, TradingVenue.SPOT_MAINNET), dispatcher
     )
 
@@ -216,7 +259,7 @@ def test_a_paused_mainnet_bot_resumes_without_the_venue_because_no_session_is_re
 def test_resuming_a_bot_that_does_not_exist_is_refused_not_dispatched() -> None:
     dispatcher = _RecordingDispatcher()
 
-    result = ResumeBotForHostCommandHandler(FakeBotStore(), dispatcher).execute(
+    result = _resume_handler(FakeBotStore(), dispatcher).execute(
         ResumeBotForHostCommand("zzzzzz")
     )
 

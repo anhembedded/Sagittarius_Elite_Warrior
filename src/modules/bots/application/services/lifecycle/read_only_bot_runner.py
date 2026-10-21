@@ -45,7 +45,7 @@ class ReadOnlyBotRunner(IBotRunner):
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
-    def confirm_resume(self, bot_id: str) -> None:
+    def confirm_resume(self, bot_id: str, expected: str | None = None) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
     def withdraw_resume_proposal(self, bot_id: str) -> None:

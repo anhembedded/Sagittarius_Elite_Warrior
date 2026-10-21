@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    ResumeProposalSummary,
+)
 
 
 class IBotRunner(ABC):
@@ -51,8 +54,9 @@ class IBotRunner(ABC):
         """Queue `stop` on the bot's executor."""
 
     @abstractmethod
-    def confirm_resume(self, bot_id: str) -> None:
-        """Queue the confirmation of a HALTED bot's resume proposal (O2)."""
+    def confirm_resume(self, bot_id: str, expected: str | None = None) -> None:
+        """Queue the confirmation of a HALTED bot's resume proposal (O2). With `expected` it lays
+        nothing unless the held proposal has that fingerprint (`EPIC-045G`)."""
 
     @abstractmethod
     def withdraw_resume_proposal(self, bot_id: str) -> None:
@@ -64,6 +68,10 @@ class IBotRunner(ABC):
     def has_resume_proposal(self, bot_id: str) -> bool:
         """The bot's executor holds a resume proposal to confirm. A proposal
         lives in memory only: after a restart there is none."""
+
+    def resume_proposal(self, bot_id: str) -> ResumeProposalSummary | None:
+        """What the bot's held resume proposal says (`EPIC-045G`); `None` when none is held."""
+        return None
 
     @abstractmethod
     def stop_coverage(self, bot_id: str) -> StopCoverageReading:
