@@ -52,7 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 
 from .crowd_bots_world import FUTURES_SYMBOLS, create_bot, run_bots, start_bot
 from .grid_fake_exchange import FakeExchange
-from .quiet_exchange_readers import quiet_the_trading_refreshes
+from .quiet_exchange_readers import NO_PERIODIC_REFRESH, quiet_the_fill_summaries
 from .two_venues_bots_world import FUTURES, BootedTwoVenues, booted_two_venues
 
 S = BotLifecycleState
@@ -247,11 +247,11 @@ def test_n_idle_bots_read_the_accounts_positions_once_a_beat_between_them(
     of it, so a beat reads it once for the whole sweep, not once per bot and watch (it was two a
     beat per bot: 120 weight a minute for one bot, 2,405 for twenty)."""
     meter = both_venues.urls.weights
-    with booted_two_venues(both_venues) as app:
-        # The trading module's own position poll asks `positionRisk` every 5 s of real time, so
-        # how many of its reads land in the minute depends on how long the machine takes: it is
-        # not a bot's read (`BUG-249`).
-        quiet_the_trading_refreshes(app.engine.container)
+    # The trading module's own position poll asks `positionRisk` every 5 s of real time, so how
+    # many of its reads land in the minute would depend on how long the machine takes: it is not
+    # a bot's read, so it never starts (`BUG-249`).
+    with booted_two_venues(both_venues, limits=NO_PERIODIC_REFRESH) as app:
+        quiet_the_fill_summaries(app.engine.container)
         symbols = FUTURES_SYMBOLS[:count]
         run_bots(app, FUTURES, symbols)
         mark = meter.mark()

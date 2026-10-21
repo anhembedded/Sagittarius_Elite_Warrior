@@ -18,7 +18,7 @@ E   AssertionError: (None, '')   # state RUNNING, not AWAITING_RECOVERY
 test_n_idle_bots_read_the_accounts_positions_once_a_beat_between_them[20]
 E   AssertionError: 20 idle bots spent 70 weight a minute reading the account's positions   (assert 70 <= 65)
 ```
-and the Log Scan step, which fails on the two WARNING records the pause test left (`rate-limit pause`, `account summary stale`).
+and the Log Scan step (`FAILED_STEPS: Tests,Log Scan`). The two WARNING records it fails on (`rate-limit pause`, `account summary stale`) were seen in a local reproduction under load, not in the CI job logs, which show only the assertions: which reader took the 429 is inferred from the code, and the fix covers both mechanisms below.
 
 ## Root cause
 Not one defect but one mistake in four journeys: each asks the exchange something and takes the answer from "the next matching request", while several readers ask on their own clocks.
@@ -27,7 +27,7 @@ Not one defect but one mistake in four journeys: each asks the exchange somethin
 3. The sisters `test_a_rate_limit_met_by_one_bot_halts_its_neighbours…` and `test_a_rate_limit_resumes_by_itself…` queue the same kind of answer after bots placed ladders, and had not failed yet only by timing.
 
 ## Fix
-`OrderConnectionMemory.forget()` (the next order asks the exchange) and `tests/integration/modules/bots/quiet_exchange_readers.py`: `quiet_the_trading_refreshes` cancels the trading module's refresh jobs and unsubscribes the account summary's fill handler, `forget_the_kept_connection` drops the kept check. The three pause journeys call both before queuing their fault; the weight test quiets the refreshes and now allows exactly one read a beat (60), not 65.
+`OrderConnectionMemory.forget()` (the next order asks the exchange) and `tests/integration/modules/bots/quiet_exchange_readers.py`: the worlds of the four journeys boot with `NO_PERIODIC_REFRESH` (`trading.position_refresh_interval_seconds` = 3600), so the trading module's refresh jobs never come due and none has to be cancelled after boot (cancelling raced the Scheduler's own unlocked `jobs` swap and could not stop a run already spawned: review of #676, F1). `quiet_the_fill_summaries` unsubscribes the account summary's fill handler and fails when it finds none, so a rename cannot make it a silent no-op; `forget_the_kept_connection` drops the kept check. The three pause journeys call both before queuing their fault; the weight test now allows exactly one read a beat (60), not 65.
 
 ## Regression test
 No test can be red deterministically for a race; the evidence is the failing CI runs (above), the extra reads reproduced under load (13 and 14 against 12), and the same journeys green three times in a row under six busy loops after the change. `test_a_forgotten_check_is_made_again_inside_the_beat` pins `forget()`; the weight test's bound is now exact, so any extra reader in the minute fails it by name.
@@ -36,4 +36,4 @@ No test can be red deterministically for a race; the evidence is the failing CI 
 Local: the four files green, 23 passed; under six busy-loop processes the three pause journeys and the 20-bot weight test passed three runs in a row. CI: the pull request's `-Full` run.
 
 ## Suggested next steps
-`SharedAccountStatus.read_now` after a fill and the order gate's own memo each read the account: a fill's summary and the order it triggers could share one flight (a production question, not filed).
+`SharedAccountStatus.read_now` after a fill and the order gate's own memo each read the account: a fill's summary and the order it triggers could share one flight is a latent saving, not a defect: the real exchange refuses every request during a pause, not only the next one, so the order sent in the window is itself met by the pause; the one-shot answer is a property of the fake.

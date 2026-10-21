@@ -33,8 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
 
 from .grid_fake_exchange import SPOT, BootedApp, FakeExchange, booted, resting
 from .quiet_exchange_readers import (
+    NO_PERIODIC_REFRESH,
     forget_the_kept_connection,
-    quiet_the_trading_refreshes,
+    quiet_the_fill_summaries,
 )
 from .test_a_bot_owns_its_price_stream_on_the_fake_exchange import (
     _INSIDE_THE_RANGE,
@@ -81,7 +82,7 @@ def _held_by_the_pause(app: BootedApp) -> str:
         )
     )
     app.deliver()
-    quiet_the_trading_refreshes(app.engine.context.container)
+    quiet_the_fill_summaries(app.engine.context.container)
     forget_the_kept_connection(app.engine.context.container, SPOT)
     app.urls.faults.queued.append(
         FaultAnswer(
@@ -108,7 +109,7 @@ def test_the_bot_waits_for_the_pause_then_lays_a_fresh_ladder_with_no_person(
     logger = logging.getLogger("App.Bots.GridExecutor")
     logger.addHandler(lines)
     try:
-        with booted(exchange) as app:
+        with booted(exchange, limits=NO_PERIODIC_REFRESH) as app:
             bot_id = _held_by_the_pause(app)
             old_ladder = set(resting(app.urls))
             assert old_ladder, "the pause sent no cancel: the ladder rests through it"

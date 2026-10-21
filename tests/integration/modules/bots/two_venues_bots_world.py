@@ -11,7 +11,7 @@ order, a fill or a profit is.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
@@ -165,14 +165,16 @@ def booted_two_venues(
     open_sessions: bool = True,
     retries: IBotRetryScheduler | None = None,
     loss_cap: str | None = None,
+    limits: Mapping[str, object] | None = None,
 ) -> Iterator[BootedTwoVenues]:
     """The app with Spot Testnet and Futures Testnet on; its bots on the serial queue.
 
     @param open_sessions Seed both venues' order sessions as open, what most journeys start
     from. False is a restart: the sessions stay closed until a deliberate action opens them.
     @param loss_cap `bots.account_loss_cap` as the owner writes it (`"30 USDT"`); None leaves the
-    cap off, as an unset config does."""
-    config = app_config(exchange.tmp_path)
+    cap off, as an unset config does.
+    @param limits Configuration keys that replace the journeys' defaults."""
+    config = app_config(exchange.tmp_path, overrides=limits)
     config.load_dict({"exchange.trading_venues": [SPOT.value, FUTURES.value]})
     if loss_cap is not None:
         # `EPIC-026L`: the owner's figure, as the config key states it; absent means the cap is off.

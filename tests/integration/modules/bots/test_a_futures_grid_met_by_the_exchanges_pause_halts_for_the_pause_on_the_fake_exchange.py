@@ -31,8 +31,9 @@ from .futures_direction_scenarios import LONG
 from .futures_fake_exchange import FUTURES, SYMBOL
 from .grid_fake_exchange import FakeExchange
 from .quiet_exchange_readers import (
+    NO_PERIODIC_REFRESH,
     forget_the_kept_connection,
-    quiet_the_trading_refreshes,
+    quiet_the_fill_summaries,
 )
 from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import _started
 
@@ -58,10 +59,10 @@ def _answer_the_next_connection_check_with_a_pause(futures: FakeExchange) -> Non
 def test_an_order_met_by_the_pause_holds_the_bot_for_the_pause_and_not_as_a_switch_off(
     futures: FakeExchange,
 ) -> None:
-    with booted_futures_bots(futures) as app:
+    with booted_futures_bots(futures, limits=NO_PERIODIC_REFRESH) as app:
         bot_id = _started(app, LONG.config)
         mark = len(futures.urls.requests)
-        quiet_the_trading_refreshes(app.engine.context.container)
+        quiet_the_fill_summaries(app.engine.context.container)
         forget_the_kept_connection(app.engine.context.container, FUTURES)
         _answer_the_next_connection_check_with_a_pause(futures)
 
