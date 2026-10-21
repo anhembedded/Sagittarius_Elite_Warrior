@@ -67,15 +67,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _TAB = _REPO_ROOT / "src" / "modules" / "bots" / "ui"
 _USE_CASES = _REPO_ROOT / "src" / "modules" / "bots" / "application" / "use_cases"
 _MIN_REASON = 40
+#: A use case folder with one of these endings is the host's request, not a way the tab changes a bot.
+_HOST_REQUEST_SUFFIXES = ("_for_host", "_for_operator")
 
 
 def defined_commands() -> set[str]:
     """The bot commands defined under `use_cases/`, host requests (`*_for_*`) left out."""
     found: set[str] = set()
-    files = sorted(_USE_CASES.glob("*/command.py"))
-    assert files, "the scan found no command.py under bots/application/use_cases"
+    files = sorted(_USE_CASES.glob("*/*.py"))
+    assert files, "the scan found no file under bots/application/use_cases"
     for path in files:
-        if "_for_" in path.parent.name:
+        if path.parent.name.endswith(_HOST_REQUEST_SUFFIXES):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         found.update(

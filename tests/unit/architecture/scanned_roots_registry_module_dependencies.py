@@ -47,7 +47,7 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_the_bots_tab_and_the_host_stay_in_step.py",
         (
             ("src/modules/bots/ui", "*.py"),
-            ("src/modules/bots/application/use_cases", "command.py"),
+            ("src/modules/bots/application/use_cases", "*.py"),
         ),
     ),
 )
