@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
     ChannelTestOutcome,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
+    TelegramChannelState,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
     DeliveryResult,
 )
@@ -33,8 +36,8 @@ PREVIEW_KEY = "alerts_options"
 
 
 def build_preview() -> QWidget:
-    """The page with a webhook saved this session and the lane not started yet: the
-    state that needs the restart sentence."""
+    """The page with a webhook saved this session and the lane not started yet (the
+    state that needs the restart sentence) and a Telegram bot saved and running."""
     state = DiscordChannelState(stored=True, usable=True, hint="w9Kp", running=False)
     view_model = AlertsSettingsViewModel()
     view_model.set_channel(
@@ -42,6 +45,14 @@ def build_preview() -> QWidget:
         alerts_words.saved_line(state),
         can_remove=state.stored,
         can_test=state.usable,
+    )
+    telegram = TelegramChannelState(
+        stored=True, usable=True, hint="qrst", chat="5550123", running=True
+    )
+    view_model.telegram.set_channel(
+        alerts_words.telegram_channel_line(telegram),
+        alerts_words.telegram_saved_line(telegram),
+        can_remove=telegram.stored,
     )
     refused = ChannelTestOutcome(
         "discord",

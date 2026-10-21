@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 818, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 820, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -573,6 +573,8 @@
 ["ss", "[alert-outbox] opened ", " (schema ", ")"],
 ["s", "[alert-outbox] purged ", " finished alerts"],
 ["ss", "[alert-routed] ", " -> ", ""],
+["ss", "[alert-setup] ", " credentials removal: ", ""],
+["ss", "[alert-setup] ", " credentials save: ", ""],
 ["ss", "[alert-setup] ", " webhook removal: ", ""],
 ["ss", "[alert-setup] ", " webhook save: ", ""],
 ["s", "[alert-skipped] read-only copy, ignoring clear of ", ""],

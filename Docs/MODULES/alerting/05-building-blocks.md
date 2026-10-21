@@ -171,6 +171,15 @@ The Options page (`EPIC-036D1`) added:
   the page's sentences (`alerts_words.py`). The module contributes it as the `Deferred`
   `_OPTIONS_PAGE` (`alerting/module.py` → `_OPTIONS_PAGE`, `AlertingModule.contribute`), order 30
   after Trading and Market Data.
+- **The Telegram part of the page** (`EPIC-036D4`): `TelegramCredentialsSetup`
+  (`alerting/application/telegram_credentials_setup.py` → `TelegramCredentialsSetup.save`,
+  `TelegramCredentialsSetup.remove`, `TelegramCredentialsSetup.state`), the sibling of
+  `DiscordWebhookSetup` for two values: both are checked against the shapes Telegram issues
+  (injected through `TelegramChannelSpec`), written, and read back (`OVERRIDDEN`); the state
+  carries four characters of the token and the chat id, never the token. Saving over a stored pair
+  is the rotation. The page's `TelegramSettingsGroup` (`telegram_settings_group.py`) has its own
+  `TelegramSettingsViewModel`; `ChannelStates` (`channel_states.py`) carries both channels' state
+  from the pool. Send test stays one button for every channel set up.
 
 - **The dead man's switch** (`EPIC-036E1`): `DeadMansSwitch` (`alerting/application/dead_mans_switch.py`
   → `DeadMansSwitch`, `DeadMansSwitch.tick`) is not an `IAlertChannel`, because it carries liveness and
@@ -259,6 +268,6 @@ The Alerts screen (`EPIC-036D2`) added:
 
 | Class | Where | Task |
 | :--- | :--- | :--- |
-| The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
+| The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page (built, `EPIC-036D4`) | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
 | The channels table, routing matrix and schedule of the Options page, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |
