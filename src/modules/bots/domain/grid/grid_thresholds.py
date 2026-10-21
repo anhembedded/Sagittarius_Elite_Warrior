@@ -27,7 +27,7 @@ class FuturesGridThresholds:
     #: A stop loss nearer the estimated liquidation than this share of its own price is REFUSED
     #: (`BUG-255`), with or without a daily ATR: a gap through a stop that close would leave only
     #: the liquidation. The ATR buffer above stays an advisory.
-    min_liq_gap_ratio: Decimal = Decimal("0.005")
+    min_liq_gap_ratio: Decimal = Decimal("0.01")
     #: Leverage above this is a WARNING (decision O4).
     leverage_warn: int = 10
     #: Leverage above this is REFUSED, whatever the bracket allows (decision O4).

@@ -89,12 +89,12 @@ def test_a_negative_floor_is_not_a_threshold() -> None:
 def test_the_floor_is_pinned_at_its_boundary_for_both_sides() -> None:
     """A gap exactly at the floor passes, a cent under it is refused (BVA on a real-money line):
     the floor is a share of the exit's own price, not of the liquidation's."""
-    inputs = _inputs("LONG", 5, atr=None)  # the floor is the thresholds' default: 0.5%
-    exit_price = D(100)  # 0.5% of 100 is 0.5
-    long_at = _stop(inputs, PositionSide.LONG, D("99.5"), exit_price)
-    long_under = _stop(inputs, PositionSide.LONG, D("99.51"), exit_price)
-    short_at = _stop(inputs, PositionSide.SHORT, D("100.5"), exit_price)
-    short_under = _stop(inputs, PositionSide.SHORT, D("100.49"), exit_price)
+    inputs = _inputs("LONG", 5, atr=None)  # the floor is the thresholds' default: 1%
+    exit_price = D(100)  # 1% of 100 is 1
+    long_at = _stop(inputs, PositionSide.LONG, D("99"), exit_price)
+    long_under = _stop(inputs, PositionSide.LONG, D("99.01"), exit_price)
+    short_at = _stop(inputs, PositionSide.SHORT, D("101"), exit_price)
+    short_under = _stop(inputs, PositionSide.SHORT, D("100.99"), exit_price)
 
     assert long_at == short_at == []
     for under in (long_under, short_under):
