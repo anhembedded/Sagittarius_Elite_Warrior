@@ -127,7 +127,8 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
     GridConstraint(
         "price_suits_the_range",
         check_price_against_range,
-        {"PRICE_BELOW_RANGE": True, "PRICE_ABOVE_RANGE": False},
+        # Information, not a violation: the bot waits for the price (`EPIC-044`, ADR 044 D6).
+        {},
         title="Price inside the range",
     ),
     GridConstraint(

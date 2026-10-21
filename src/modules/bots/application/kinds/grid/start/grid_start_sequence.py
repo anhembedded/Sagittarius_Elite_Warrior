@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_order_failure import (
     fail_with,
@@ -64,7 +65,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing im
     find_cap_breach,
     smallest_order,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
+    GridPlan,
+    plan,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     PlaceOrder,
     accepted,
@@ -94,6 +98,11 @@ class GridStartSequence:
         self._opening = opening
         self._flags = flags
         self._protection = protection
+
+    def run_at(self, price: Decimal) -> None:
+        """Run the start for the plan at `price`; the bot is STARTING."""
+        context = self._context
+        self.run(plan(context.params, context.terms, price, context.level_sizing))
 
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""

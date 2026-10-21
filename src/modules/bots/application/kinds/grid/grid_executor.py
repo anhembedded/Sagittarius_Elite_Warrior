@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fact
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
     GridFillAnnouncer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
+    GridHousekeeping,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_ladder_placer import (
     GridLadderPlacer,
 )
@@ -83,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_price_reaction import (
     GridPriceReaction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_range_entry import (
+    GridRangeEntry,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_rate_limit_pause import (
     GridRateLimitPause,
 )
@@ -117,7 +123,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
     BotLifecycleState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import plan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -194,8 +199,14 @@ class GridExecutor(IBotExecutor):
             self._pause,
             self._storage,
         )
+        self._entry = GridRangeEntry(
+            context, self._status, GridHousekeeping(context), self._start.run
+        )
         self._prices = GridPriceReaction(
-            context, self._stop, exits_on_mark=exposure.exit_marks is not None
+            context,
+            self._stop,
+            self._entry,
+            exits_on_mark=exposure.exit_marks is not None,
         )
         self._proposal: ResumeProposal | None = None
         self._halt_recovery = GridHaltRecovery(
@@ -314,14 +325,8 @@ class GridExecutor(IBotExecutor):
         if not self._status.admits():
             return
         price = self._price()
-        self._start.run(
-            plan(
-                self._context.params,
-                self._context.terms,
-                price,
-                self._context.level_sizing,
-            )
-        )
+        if not self._entry.waits_for_the_range(price):
+            self._start.run_at(price)
 
     def _run_stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.clear()

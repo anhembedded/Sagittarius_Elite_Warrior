@@ -1,6 +1,6 @@
 """`EPIC-029E` — bringing a restored Grid back in line with the exchange (ADR §3.3, D12).
 
-A bot that was RUNNING or PAUSED when the app closed loads as RECOVERING and
+A bot that was RUNNING, PAUSED or AWAITING_RANGE when the app closed loads as RECOVERING and
 places nothing. When the venue's order session opens (the owner's Resume, `BUG-204`,
 or any other deliberate action that trades), this runs, in the ADR's order:
 
@@ -225,7 +225,16 @@ class GridReconciler:
     def _settings_drift(self) -> ReconcileMismatch | ReconcileWait | None:
         """The venue's leverage or margin type against what the bot asked for
         (`EPIC-039E`): a difference halts the bot with both values; it is never set again
-        silently. A read that failed waits, since a missing setting is not a match."""
+        silently. A read that failed waits, since a missing setting is not a match.
+
+        A bot recovering into AWAITING_RANGE is not judged: it has placed nothing, and the venue's
+        leverage and margin type are made the bot's by the start sequence at entry, not before
+        the wait (`EPIC-044`, ADR 044 D9)."""
+        if (
+            self._context.state.bot.lifecycle.recovering_from
+            is BotLifecycleState.AWAITING_RANGE
+        ):
+            return None
         result = self._context.settings_check()
         if result.ensured:
             return None

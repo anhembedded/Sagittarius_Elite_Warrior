@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futur
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
+    IEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     IMarkSource,
     MarkReadError,
@@ -68,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_in
     PlanRiskInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridRuntime,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     FuturesGridThresholds,
 )
@@ -83,6 +89,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_sett
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
@@ -175,6 +182,11 @@ def a_position_world(
     marks: Marks | None = None,
     state: BotLifecycleState = BotLifecycleState.STARTING,
     config: Mapping[str, str] | None = None,
+    last_price: Decimal = LAST_PRICE,
+    opens_positions: bool = False,
+    recovering_from: BotLifecycleState | None = None,
+    runtime: GridRuntime | None = None,
+    entry_readiness: IEntryReadiness | None = None,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -190,10 +202,22 @@ def a_position_world(
         )
 
     exposures = GridExposures(VenueProfilesByMarket(), {ExposureKind.INVENTORY: build})
-    world = grid_world(state=state, exposures=exposures, config=config)
+    world = grid_world(
+        state=state,
+        exposures=exposures,
+        config=config,
+        last_price=last_price,
+        recovering_from=recovering_from,
+        runtime=runtime,
+        settings_gate=gate,
+        entry_readiness=entry_readiness,
+    )
     # A position venue's registration always answers a derived position; a bot that has done
     # nothing yet derives none.
-    world.session.register_owner_budget_answers(a_registration("0"))
+    if opens_positions:
+        derives_what_market_orders_opened(world)
+    else:
+        world.session.register_owner_budget_answers(a_registration("0"))
     return world, gate
 
 
@@ -214,6 +238,24 @@ def a_long_position(quantity: str) -> LivePosition:
 def a_registration(held: str, divergence: PositionDivergence | None = None):
     position = OwnerPosition(D(held), LAST_PRICE if D(held) else None, D(0), D(0))
     return OwnerBudgetRegistrationResult(None, position=position, divergence=divergence)
+
+
+def derives_what_market_orders_opened(world: GridWorld) -> None:
+    """Trading derives, at each registration, the position the bot's market orders opened: a
+    market BUY adds, a market SELL subtracts (the exchange's record of a position venue)."""
+
+    def registration() -> OwnerBudgetRegistrationResult:
+        net = sum(
+            (
+                r.quantity if r.side is OrderSide.BUY else -r.quantity
+                for r in world.book.requests
+                if r.order_type is OrderType.MARKET
+            ),
+            D(0),
+        )
+        return a_registration(str(net))
+
+    world.session.register_owner_budget_answers_from(registration)
 
 
 def closer_of(world: GridWorld) -> PositionExposureCloser:

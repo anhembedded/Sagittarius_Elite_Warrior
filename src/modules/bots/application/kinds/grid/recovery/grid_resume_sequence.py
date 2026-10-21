@@ -69,6 +69,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resume_plan imp
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
+    RangePosition,
+    range_position,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
     RESUME_PRICE_TOLERANCE,
     moved_beyond,
@@ -114,13 +118,28 @@ class GridResumeSequence:
         #: The detail before the resume's unplaced-base sentence, and with it.
         self._noted: tuple[str, str] | None = None
 
-    def propose(self, price: Decimal) -> ResumeProposal | None:
-        """Steps 1–3; `None` when a step could not finish (the reason says why)."""
+    def propose(
+        self,
+        price: Decimal,
+        event: BotLifecycleEvent = BotLifecycleEvent.RESUME,
+    ) -> ResumeProposal | None:
+        """Steps 1–3; `None` when a step could not finish (the reason says why), or when the
+        bot holds nothing and the price is outside its range: it then waits for the range
+        instead (`EPIC-044`, ADR 044 D5), through `event`, the one that leaves HALTED or
+        AWAITING_RECOVERY."""
         state = self._context.state
         if not self._storage.admits_relaunch():
             return None
         registration = self._housekeeping.register()
         held = self._exposure.held(registration)
+        if (
+            registration.registered
+            and held is not None
+            and held.quantity == 0
+            and self._outside_range(price)
+        ):
+            self._wait_for_the_range(price, event)
+            return None
         sizes = self._context.params.direction is TradeDirection.LONG
         if not registration.registered or held is None or not sizes:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
@@ -151,6 +170,34 @@ class GridResumeSequence:
             proposal.inventory.quantity,
         )
         return proposal
+
+    def _outside_range(self, price: Decimal) -> bool:
+        params = self._context.params
+        return range_position(price, params.lower, params.upper) is not (
+            RangePosition.INSIDE
+        )
+
+    def _wait_for_the_range(self, price: Decimal, event: BotLifecycleEvent) -> None:
+        """A bot that holds nothing is resumed into a wait, not a ladder off its range: its tagged
+        orders are cancelled as for any resume, then it starts waiting (ADR 044 D5)."""
+        state = self._context.state
+        report = self._housekeeping.cancel_tagged()
+        if report.failed is not None:
+            if report.failed.kind in (
+                OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.RATE_LIMITED,
+                OrderOutcomeKind.KEY_REJECTED,
+            ):
+                fail_with(state, report.failed, f"cancel {report.client_order_id}")
+            return
+        logger.info(
+            "Bot %s: the resume finds nothing held and the price %s outside the range; "
+            "the bot waits for it [range-wait]",
+            state.bot_id,
+            price,
+        )
+        state.transition(event)
+        state.transition(BotLifecycleEvent.PRICE_OUTSIDE_RANGE)
 
     def _proposal_for(
         self, price: Decimal, inventory: OwnerInventory

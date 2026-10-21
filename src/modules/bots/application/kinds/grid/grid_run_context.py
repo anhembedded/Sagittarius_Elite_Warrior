@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.setti
     SettingsCheck,
     no_settings_to_check,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
+    IEntryReadiness,
+    NoEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -150,6 +154,9 @@ class GridRunContext:
     halts: HaltRecoveryDirector = NO_HALT_RECOVERY
     #: Whether the venue's user-data stream is connected: what `user_stream_down` recovers on.
     streams: IUserStreamStatus = field(default_factory=NoUserStreamStatus)
+    #: What a Grid waiting for its range asks at the price that enters it (`EPIC-044`): the
+    #: readiness of the plan, in the words of the Bots screen.
+    entry_readiness: IEntryReadiness = field(default_factory=NoEntryReadiness)
 
     @property
     def terms(self) -> ExchangeTerms:

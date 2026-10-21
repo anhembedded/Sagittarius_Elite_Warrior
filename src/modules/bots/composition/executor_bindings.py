@@ -66,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_runner import (
     ReadOnlyBotRunner,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_entry_readiness import (
+    BotEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_readiness_reader import (
     BotReadinessReader,
 )
@@ -130,6 +133,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
+    EntryReadiness,
+    IEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
 )
@@ -161,6 +168,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     FuturesGridThresholds,
@@ -292,7 +300,22 @@ def grid_executor_deps(
         ),
         positions=positions,
         marks=SharedMarkReads(ports, monotonic),
+        entry_readiness=_LazyEntryReadiness(container),
     )
+
+
+class _LazyEntryReadiness(IEntryReadiness):
+    """The entry judge of a waiting Grid, built on its first use: the readiness reader needs the
+    kind catalogue, which needs the executor factory these deps build (`EPIC-044`)."""
+
+    def __init__(self, container: IContainer) -> None:
+        self._container = container
+        self._judge: IEntryReadiness | None = None
+
+    def judge(self, bot: Bot) -> EntryReadiness:
+        if self._judge is None:
+            self._judge = BotEntryReadiness(self._container.resolve(BotReadinessReader))
+        return self._judge.judge(bot)
 
 
 def _grid_exposures(container: IContainer) -> GridExposures:

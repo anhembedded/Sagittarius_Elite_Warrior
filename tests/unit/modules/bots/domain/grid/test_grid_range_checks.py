@@ -1,17 +1,25 @@
-"""`EPIC-035L`, owner decision D4 (a) — Start with the price outside the range.
+"""`EPIC-044`, ADR 044 D6 (superseding `EPIC-035L` D4 (a)) - Start with the price outside the range.
 
-Below the lower bound every level is a SELL level, so the plan would market-buy
-the whole capital's base before laying one order: REFUSED. Above the upper bound
-every level is a BUY level, nothing is bought and the bot waits for a fall: a
-WARNING, Start allowed. Inside the range, and exactly on either bound, neither.
-D2 holds: the bot grows no stop-loss warning and no stop-loss default.
+A Grid started away from its range starts and waits for the price; the two range verdicts are
+information for every direction alike, never a warning and never a refusal, and the words describe
+no trade (the old ones said "would buy ... at market" and "BUY orders only", false for a SHORT).
+The rest of the plan is judged where the bot will enter, at the nearest bound. D2 holds: the bot
+grows no stop-loss warning and no stop-loss default.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
     evaluate_grid,
 )
@@ -26,72 +34,101 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_exampl
     inputs,
 )
 
-_BELOW, _ABOVE = "PRICE_BELOW_RANGE", "PRICE_ABOVE_RANGE"
-#: The report's range is 60 000–70 000 with a 10 000 USDT capital.
+_BELOW, _ABOVE, _IN = "PRICE_BELOW_RANGE", "PRICE_ABOVE_RANGE", "PRICE_IN_RANGE"
+#: The report's range is 60 000-70 000 with a 10 000 USDT capital.
 _LOWER, _UPPER = Decimal(60000), Decimal(70000)
+_POSITION_VENUE = ExposureLimits(frozenset(TradeDirection), 10, ExposureKind.POSITION)
+_DIRECTIONS = ["LONG", "SHORT", "NEUTRAL"]
 
 
-def _verdicts(price: Decimal, **changes: str) -> tuple[Verdict, ...]:
-    return evaluate_grid(inputs(last_price=price, **changes), GridThresholds()).verdicts
+def _verdicts(
+    price: Decimal, direction: str = "LONG", **changes: str
+) -> tuple[Verdict, ...]:
+    given = replace(
+        inputs(last_price=price, direction=direction, leverage="1", **changes),
+        limits=_POSITION_VENUE,
+    )
+    return evaluate_grid(given, GridThresholds()).verdicts
 
 
 def _find(verdicts: tuple[Verdict, ...], code: str) -> Verdict | None:
     return next((v for v in verdicts if v.code == code), None)
 
 
-def test_a_price_below_the_lower_bound_is_refused() -> None:
-    refusal = _find(_verdicts(Decimal(59000)), _BELOW)
+@pytest.mark.parametrize("direction", _DIRECTIONS)
+@pytest.mark.parametrize(
+    ("price", "code"), [(Decimal(59000), _BELOW), (Decimal(71000), _ABOVE)]
+)
+def test_a_price_outside_the_range_is_information_for_every_direction(
+    direction: str, price: Decimal, code: str
+) -> None:
+    verdicts = _verdicts(price, direction)
 
-    assert refusal is not None
-    assert refusal.severity is VerdictSeverity.REFUSED
-    assert refusal.numbers["last_price"] == Decimal(59000)
-    assert refusal.numbers["lower"] == _LOWER
-    assert Decimal(9990) < refusal.numbers["opening_quote"] <= Decimal(10000)
-
-
-def test_a_price_exactly_at_the_lower_bound_is_not_refused() -> None:
-    assert _find(_verdicts(_LOWER), _BELOW) is None
-
-
-def test_a_price_above_the_upper_bound_warns_and_does_not_refuse() -> None:
-    verdicts = _verdicts(Decimal(71000))
-
-    warning = _find(verdicts, _ABOVE)
-    assert warning is not None
-    assert warning.severity is VerdictSeverity.WARNING
+    told = _find(verdicts, code)
+    assert told is not None
+    assert told.severity is VerdictSeverity.OK
     assert not any(v.severity is VerdictSeverity.REFUSED for v in verdicts)
+    assert told.numbers["last_price"] == price, "the real price, not the plan's"
 
 
-def test_a_price_exactly_at_the_upper_bound_does_not_warn() -> None:
-    assert _find(_verdicts(_UPPER), _ABOVE) is None
+@pytest.mark.parametrize("direction", _DIRECTIONS)
+def test_the_words_say_the_bot_waits_and_describe_no_trade(direction: str) -> None:
+    below = _find(_verdicts(Decimal(59000), direction), _BELOW)
+    above = _find(_verdicts(Decimal(71000), direction), _ABOVE)
+
+    assert below is not None and above is not None
+    for told, price in ((below, "59000"), (above, "71000")):
+        assert "Starts waiting for the price to enter 60000-70000" in told.reason
+        assert f"(now {price})" in told.reason
+        assert "nothing is placed until it does" in told.reason
+        assert "BUY" not in told.reason
+        assert "at market" not in told.reason
 
 
-@pytest.mark.parametrize("price", [Decimal(60001), Decimal(65000), Decimal(69999)])
-def test_a_price_inside_the_range_has_neither_verdict(price: Decimal) -> None:
+@pytest.mark.parametrize("price", [_LOWER, _UPPER, Decimal(65000)])
+def test_a_price_on_a_bound_or_inside_has_neither_verdict(price: Decimal) -> None:
     verdicts = _verdicts(price)
 
     assert _find(verdicts, _BELOW) is None
     assert _find(verdicts, _ABOVE) is None
+    assert _find(verdicts, _IN) is not None
 
 
-def test_the_range_verdicts_name_the_figures_and_the_next_action() -> None:
-    refusal = _find(_verdicts(Decimal(59000)), _BELOW)
-    warning = _find(_verdicts(Decimal(71000)), _ABOVE)
+@pytest.mark.parametrize(
+    ("price", "edge"), [(Decimal(59000), _LOWER), (Decimal(71000), _UPPER)]
+)
+def test_the_verdict_names_the_bound_the_bot_will_enter_at(
+    price: Decimal, edge: Decimal
+) -> None:
+    told = next(v for v in _verdicts(price) if v.code in (_BELOW, _ABOVE))
 
-    assert refusal is not None and warning is not None
-    assert "59000" in refusal.reason and "60000" in refusal.reason
-    assert "100% of the capital" in refusal.reason
-    assert "Lower the range" in refusal.reason
-    assert "71000" in warning.reason and "70000" in warning.reason
-    assert "BUY orders only" in warning.reason
+    assert told.numbers["entry_edge"] == edge
 
 
-def test_below_the_range_blocks_start_and_above_it_nothing_does() -> None:
-    below = {v.code for v in _verdicts(Decimal(59000)) if v.severity.name == "REFUSED"}
-    above = {v.code for v in _verdicts(Decimal(71000)) if v.severity.name == "REFUSED"}
+@pytest.mark.parametrize("direction", _DIRECTIONS)
+def test_the_plan_is_judged_at_the_bound_not_at_a_price_the_bot_will_not_trade_at(
+    direction: str,
+) -> None:
+    """The old SHORT-above case: judged at 71 000 the plan market-shorts 0.15 BTC while the bot
+    will in fact enter at 70 000 or below."""
+    outside = evaluate_grid(
+        replace(
+            inputs(last_price=Decimal(71000), direction=direction, leverage="1"),
+            limits=_POSITION_VENUE,
+        ),
+        GridThresholds(),
+    )
+    at_the_bound = evaluate_grid(
+        replace(
+            inputs(last_price=_UPPER, direction=direction, leverage="1"),
+            limits=_POSITION_VENUE,
+        ),
+        GridThresholds(),
+    )
 
-    assert _BELOW in below
-    assert above == set()
+    assert outside.plan is not None and at_the_bound.plan is not None
+    assert outside.plan.last_price == _UPPER
+    assert outside.plan.opening_quantity == at_the_bound.plan.opening_quantity
 
 
 def test_no_stop_loss_warning_and_no_default_stop_loss() -> None:
@@ -101,31 +138,6 @@ def test_no_stop_loss_warning_and_no_default_stop_loss() -> None:
     off = _find(verdicts, "STOP_LOSS_OFF")
     assert off is not None and off.severity is VerdictSeverity.OK
     assert not [v for v in verdicts if v.code.startswith("STOP_LOSS") and v is not off]
-
-
-def test_the_refusal_prints_the_price_as_the_venue_gave_it_and_names_the_quote_asset() -> (
-    None
-):
-    """`BUG-211`: `2368.15500000` and "34.10 of the base asset" - the figure is a quote
-    amount (quantity x price), and the base asset has a name."""
-    refusal = _find(
-        _verdicts(
-            Decimal("2368.155"),
-            lower="2370.00000000",
-            upper="2825.29",
-            grid_count="6",
-            capital_quote="35",
-            stop_loss="off",
-            take_profit="off",
-        ),
-        _BELOW,
-    )
-
-    assert refusal is not None
-    assert "price 2368.155 " in refusal.reason
-    assert "lower bound 2370. " in refusal.reason
-    assert "base asset" not in refusal.reason
-    assert " USDT of BTC at market" in refusal.reason
 
 
 def test_an_exit_refusal_prints_plain_prices() -> None:

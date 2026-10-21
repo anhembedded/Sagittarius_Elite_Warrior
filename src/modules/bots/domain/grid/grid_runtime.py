@@ -115,6 +115,10 @@ class GridReason(str, Enum):
     #: The exchange's position and the one the bot's fills add up to disagree, still there
     #: when re-read (`EPIC-039F`).
     POSITION_MISMATCH = "position_mismatch"
+    #: A Grid waiting for its range found, when the price entered it, that the plan would be
+    #: refused (`EPIC-044`, ADR 044 D5): a REFUSED verdict, a refused budget, an order under the
+    #: exchange minimum or over trading's cap. Nothing was placed; the detail names the refusal.
+    ENTRY_REFUSED = "entry_refused"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     #: The exchange-side protective stop triggered while the bot was watching or while the app

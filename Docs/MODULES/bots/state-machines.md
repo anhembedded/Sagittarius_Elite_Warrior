@@ -14,7 +14,7 @@ not edit them by hand. Design: ADR 029 §3.1 and §3.2 ([`09-decisions.md`](09-d
 ## Built: the bot lifecycle
 
 `bots/domain/bot_lifecycle_fsm_matrix.py` → `BotLifecycleState`, `BotLifecycleEvent`,
-`BOT_LIFECYCLE_TRANSITIONS`: ten states and eighteen events. Two targets are not states, and the table
+`BOT_LIFECYCLE_TRANSITIONS`: eleven states and twenty-one events. Two targets are not states, and the table
 says so: `REMOVED` (`delete` from `DRAFT` or `STOPPED`; the store deletes the file) and `PRIOR`
 (`reconcile_ok` from `RECOVERING` returns to the state the bot was in before the restart, which `Bot`
 remembers as `recovering_from`; `BotLifecycleTarget`). `app_restart` is the restore rule written as a
@@ -36,6 +36,7 @@ the reconcile decides the next state, not the click.
 | `STARTING` | `switch_off` | `HALTED` |
 | `STARTING` | `fault` | `ERROR` |
 | `STARTING` | `app_restart` | `HALTED` |
+| `STARTING` | `price_outside_range` | `AWAITING_RANGE` |
 | `RUNNING` | `pause` | `PAUSED` |
 | `RUNNING` | `stop` | `STOPPING` |
 | `RUNNING` | `switch_off` | `HALTED` |
@@ -52,7 +53,7 @@ the reconcile decides the next state, not the click.
 | `RECOVERING` | `stop` | `STOPPING` |
 | `RECOVERING` | `resume` | `RECOVERING` (stays) |
 | `RECOVERING` | `switch_off` | `RECOVERING` (stays) |
-| `RECOVERING` | `reconcile_ok` | the state before the restart (`RUNNING` or `PAUSED`) |
+| `RECOVERING` | `reconcile_ok` | the state before the restart (`RUNNING` or `PAUSED` or `AWAITING_RANGE`) |
 | `RECOVERING` | `reconcile_mismatch` | `HALTED` |
 | `RECOVERING` | `halt` | `HALTED` |
 | `RECOVERING` | `fault` | `ERROR` |
@@ -70,6 +71,13 @@ the reconcile decides the next state, not the click.
 | `AWAITING_RECOVERY` | `switch_off` | `HALTED` |
 | `AWAITING_RECOVERY` | `fault` | `ERROR` |
 | `AWAITING_RECOVERY` | `app_restart` | `HALTED` |
+| `AWAITING_RANGE` | `range_entered` | `STARTING` |
+| `AWAITING_RANGE` | `entry_refused` | `HALTED` |
+| `AWAITING_RANGE` | `stop` | `STOPPING` |
+| `AWAITING_RANGE` | `halt` | `HALTED` |
+| `AWAITING_RANGE` | `switch_off` | `HALTED` |
+| `AWAITING_RANGE` | `fault` | `ERROR` |
+| `AWAITING_RANGE` | `app_restart` | `RECOVERING` |
 | `STOPPING` | `stop` | `STOPPING` (stays) |
 | `STOPPING` | `stop_confirmed` | `STOPPED` |
 | `STOPPING` | `switch_off` | `STOPPING` (stays) |
@@ -96,10 +104,26 @@ resume. A restart ends the wait in `HALTED`. The wait has no limit; after a quar
 one event (`BotRecoveryStalledEvent`, built in `EPIC-042C`; its alert is `EPIC-042D`). The step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
 [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md).
 
+`AWAITING_RANGE` (`EPIC-044`) is a Grid started while the price was outside its range: it has placed
+nothing and holds nothing, and waits for the price to enter the range. `price_outside_range` leads into
+it from `STARTING` (the first Start's answer, or a Resume of a bot that holds nothing); `range_entered`
+leads out of it to `STARTING`, so the one start sequence lays every ladder, opening trade included;
+`entry_refused` ends the wait in `HALTED` when the plan is refused at the price that entered; `stop`,
+`halt` and `fault` are declared as in `STARTING`. `switch_off` halts it, as it halts `AWAITING_RECOVERY`:
+a wait must not survive an Emergency Stop and then open the whole capital on the next in-range price.
+It has no `pause`, `resume`, `edit` or `delete` row: there is nothing to pause, and it is not at rest. A
+restart answers it with `RECOVERING` (`recovering_from` is `AWAITING_RANGE`), which reconciles and returns
+to the wait. `may_hold_exposure(state, recovering_from)` is the one fact every watch that protects
+exposure asks, instead of naming states: false for `AWAITING_RANGE` and for `RECOVERING` into it. The
+step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
+[the decision](../../../Tasks/epics/EPIC-044_grid_waits_for_the_range/DECISION_2026-10-21_a_grid_waits_for_the_range.md).
+
 The sets the module asks of the table, rather than keeping lists of its own: `RUN_STARTING_STATES`
 (a `start` here stamps a new run), `PRICE_STREAM_STATES`, `PRICE_STALENESS_HALTS`,
 `RESUME_PROPOSES_STATES` (`HALTED` and `AWAITING_RECOVERY`: the states whose Resume re-plans) and
-`RECOVERABLE_STATES`, in the same file.
+`RECOVERABLE_STATES` (`RUNNING`, `PAUSED` and `AWAITING_RANGE`), in the same file. Every hand-written
+set of states in the module is classified state by state by
+`tests/unit/architecture/test_every_state_set_classifies_every_state.py`.
 
 ## Built: a Grid level
 

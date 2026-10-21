@@ -96,7 +96,9 @@ def evaluate_grid(
         return GridEvaluation((_too_many_levels(params, inputs),), params)
     try:
         sizing = level_sizing or level_sizing_for(inputs.limits.exposure_kind)
-        grid_plan = plan(params, inputs.terms, inputs.market.last_price, sizing)
+        # A price outside the range is planned at the bound the bot will enter at (ADR 044 D6).
+        entry_price = min(max(inputs.market.last_price, params.lower), params.upper)
+        grid_plan = plan(params, inputs.terms, entry_price, sizing)
         derived = derive(params, inputs.terms, grid_plan)
         check_inputs = GridCheckInputs(
             params,
@@ -134,7 +136,7 @@ def _risk_verdicts(
             plan,
             intended_setting(risk.setting, params, risk.brackets),
             risk.brackets,
-            inputs.market.last_price,
+            plan.last_price,
             thresholds.futures,
             inputs.market.daily_atr,
         )

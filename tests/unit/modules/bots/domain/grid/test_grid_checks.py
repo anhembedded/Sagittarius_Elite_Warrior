@@ -166,8 +166,10 @@ def test_more_grids_than_may_be_open_is_refused_before_any_plan() -> None:
     ("last_price", "grid_count", "code"),
     [
         (Decimal(65000), "100", "OPEN_ORDERS"),  # one level EMPTY: 100 orders
-        (Decimal(50000), "100", "TOO_MANY_LEVELS"),  # outside the range: 101
-        (Decimal(50000), "99", "OPEN_ORDERS"),  # outside the range: 100
+        # Outside the range the plan is judged where the bot will enter, at the nearest bound
+        # (ADR 044 D6), where one level is EMPTY as inside the range: 100 and 99 orders.
+        (Decimal(50000), "100", "OPEN_ORDERS"),
+        (Decimal(50000), "99", "OPEN_ORDERS"),
     ],
 )
 def test_the_exact_order_count_meets_the_open_order_limit(

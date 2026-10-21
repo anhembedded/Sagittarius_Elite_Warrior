@@ -69,6 +69,15 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src", "*.py"),),
     ),
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
+    # `EPIC-044` - every hand-written set of bot lifecycle states is classified state by state.
+    (
+        "tests/unit/architecture/test_every_state_set_classifies_every_state.py",
+        (
+            ("src/modules/bots", "*.py"),
+            ("src/modules/alerting", "*.py"),
+            ("src/modules/operations", "*.py"),
+        ),
+    ),
     # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
     # appear in a container registration anywhere in `src/`.
     (

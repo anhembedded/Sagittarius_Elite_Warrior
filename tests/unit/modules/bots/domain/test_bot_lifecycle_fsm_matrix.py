@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleTarget,
     InvalidBotTransitionError,
     is_declared,
+    may_hold_exposure,
     next_target,
 )
 
@@ -40,6 +41,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.STARTING, E.SWITCH_OFF): S.HALTED,
     (S.STARTING, E.FAULT): S.ERROR,
     (S.STARTING, E.APP_RESTART): S.HALTED,
+    (S.STARTING, E.PRICE_OUTSIDE_RANGE): S.AWAITING_RANGE,
     (S.RUNNING, E.PAUSE): S.PAUSED,
     (S.RUNNING, E.STOP): S.STOPPING,
     (S.RUNNING, E.SWITCH_OFF): S.HALTED,
@@ -74,6 +76,13 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.AWAITING_RECOVERY, E.SWITCH_OFF): S.HALTED,
     (S.AWAITING_RECOVERY, E.FAULT): S.ERROR,
     (S.AWAITING_RECOVERY, E.APP_RESTART): S.HALTED,
+    (S.AWAITING_RANGE, E.RANGE_ENTERED): S.STARTING,
+    (S.AWAITING_RANGE, E.ENTRY_REFUSED): S.HALTED,
+    (S.AWAITING_RANGE, E.STOP): S.STOPPING,
+    (S.AWAITING_RANGE, E.HALT): S.HALTED,
+    (S.AWAITING_RANGE, E.SWITCH_OFF): S.HALTED,
+    (S.AWAITING_RANGE, E.FAULT): S.ERROR,
+    (S.AWAITING_RANGE, E.APP_RESTART): S.RECOVERING,
     (S.STOPPING, E.STOP): S.STOPPING,
     (S.STOPPING, E.STOP_CONFIRMED): S.STOPPED,
     (S.STOPPING, E.SWITCH_OFF): S.STOPPING,
@@ -190,3 +199,40 @@ def test_the_waiting_state_owns_a_price_stream_and_is_not_halted_again_by_a_quie
 def test_a_resume_re_plans_from_halted_and_from_the_wait_only() -> None:
     assert {S.HALTED, S.AWAITING_RECOVERY} == RESUME_PROPOSES_STATES
     assert all(is_declared(state, E.RESUME) for state in RESUME_PROPOSES_STATES)
+
+
+def test_a_waiting_bot_is_active_and_has_no_pause_resume_edit_or_delete() -> None:
+    """ADR 044 §2.1: it holds nothing to pause, and it is not at rest."""
+    declared = {e for e in E if is_declared(S.AWAITING_RANGE, e)}
+
+    assert declared.isdisjoint({E.PAUSE, E.RESUME, E.EDIT, E.DELETE, E.START})
+    assert S.AWAITING_RANGE in PRICE_STREAM_STATES
+    assert S.AWAITING_RANGE not in PRICE_STALENESS_HALTS
+
+
+def test_a_waiting_bot_is_left_only_by_the_price_a_person_a_refusal_or_the_switch() -> (
+    None
+):
+    """No way out lays a ladder except `range_entered`, which goes through STARTING."""
+    leaving = {
+        event: next_target(S.AWAITING_RANGE, event)
+        for event in E
+        if is_declared(S.AWAITING_RANGE, event)
+    }
+
+    assert S.RUNNING not in leaving.values()
+    assert leaving[E.RANGE_ENTERED] is S.STARTING
+    assert leaving[E.SWITCH_OFF] is S.HALTED, "an Emergency Stop ends the wait (D8)"
+    assert leaving[E.APP_RESTART] is S.RECOVERING
+
+
+@pytest.mark.parametrize("state", list(S))
+def test_only_a_waiting_bot_and_one_recovering_into_the_wait_may_not_hold_exposure(
+    state: S,
+) -> None:
+    """ADR 044 D2: the one fact every exposure watch asks, instead of naming states."""
+    assert may_hold_exposure(state, None) is (state is not S.AWAITING_RANGE)
+    assert may_hold_exposure(state, S.RUNNING) is (state is not S.AWAITING_RANGE)
+    assert may_hold_exposure(state, S.AWAITING_RANGE) is (
+        state not in {S.AWAITING_RANGE, S.RECOVERING}
+    )

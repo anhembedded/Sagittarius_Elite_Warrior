@@ -83,8 +83,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
-#: The states in which the bot holds or lays orders, or is about to again (a restored bot, before
-#: its reconcile), and so keeps its position protected.
+#: The states in which the bot holds or lays orders or is about to (a restored one, before its
+#: reconcile), and so keeps its position protected, unless it may hold none (`may_hold_exposure`).
 _SUPERVISED = frozenset(
     {
         BotLifecycleState.RUNNING,
@@ -125,7 +125,9 @@ class ProtectiveStopService(IExposureProtection):
 
     def supervise(self) -> ProtectionVerdict:
         state = self._context.state
-        if state.state not in _SUPERVISED or not wanted_stops(self._context.params):
+        if state.state not in _SUPERVISED or not state.may_hold_exposure:
+            return ProtectionVerdict.OK
+        if not wanted_stops(self._context.params):
             return ProtectionVerdict.OK
         position = self._context.gateway.account_reads.watched_position()
         if position is None:
