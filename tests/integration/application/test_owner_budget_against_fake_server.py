@@ -5,9 +5,8 @@ to the fake server, `ExecuteOrderCommandHandler`, the registration handler
 with the real `SpotHistoryReader`, Emergency Stop, and the venue's emission
 path (`SpotUserDataStream` → `VenueEventEmitter`). The fake has no websocket,
 so each test drains its executionReports and hands them to the stream, the
-way the stream's own tests do. The caps allow a zero spacing here so the
-ladder needs no wait (`testing-rule.md` §2, no sleeps); the spacing check
-has its own unit tests.
+way the stream's own tests do. The caps allow a zero spacing so the ladder
+needs no wait (`testing-rule.md` §2); the spacing check has its own unit tests.
 """
 
 from __future__ import annotations
@@ -217,7 +216,8 @@ class _Venue:
                 asyncio.run(self.stream._handle_message(event))
 
     def open_orders(self) -> int:
-        facts = self.state.owner_books.facts(_TAG, _OWNER, _PROBE, datetime.now(UTC))
+        books = self.state.owner_book_reads
+        facts = books.facts(_TAG, _OWNER, _PROBE, datetime.now(UTC))
         assert facts is not None
         return facts.open_order_count
 

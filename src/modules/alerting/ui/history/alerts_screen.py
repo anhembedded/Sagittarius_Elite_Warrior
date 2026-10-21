@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 
 ALERTS_ROUTE = "alerts"
 #: After the Bots mode and before Developer (item 90).
-_NAV = NavMetadata(title="Alerts", icon="bell", section_sequence=10, item_sequence=80)
+_NAV = NavMetadata(
+    title="Alerts", icon="bell", section_sequence=10, item_sequence=80, access_key="a"
+)
 _PACKAGE = "Sagittarius_Elite_Warrior.src.modules.alerting.ui.history"
 _VIEW: Deferred[BaseView] = Deferred(f"{_PACKAGE}.alerts_view:AlertsView")
 _PRESENTER: Deferred[BasePresenter] = Deferred(

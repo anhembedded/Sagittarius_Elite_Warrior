@@ -111,6 +111,6 @@ def test_the_registry_answers_only_for_the_owner_that_holds_the_tag() -> None:
     books.install(REGISTRATION.tag, book)
     book.cross_check(D(0))
 
-    assert books.agrees_with_last_report(REGISTRATION.tag, REGISTRATION.owner_id)
-    assert not books.agrees_with_last_report(REGISTRATION.tag, "another-owner")
-    assert not books.agrees_with_last_report("no-such-tag", REGISTRATION.owner_id)
+    assert books.reads.agrees_with_last_report(REGISTRATION.tag, REGISTRATION.owner_id)
+    assert not books.reads.agrees_with_last_report(REGISTRATION.tag, "another-owner")
+    assert not books.reads.agrees_with_last_report("no-such-tag", REGISTRATION.owner_id)

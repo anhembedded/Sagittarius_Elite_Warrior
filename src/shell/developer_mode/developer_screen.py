@@ -26,6 +26,7 @@ DEVELOPER_ROUTE = "developer"
 #: After every module's mode: HLD §11.2.1 lists Developer last.
 _NAV = NavMetadata(
     title="Developer",
+    access_key="e",
     icon="eye",
     section_sequence=10,
     item_sequence=90,

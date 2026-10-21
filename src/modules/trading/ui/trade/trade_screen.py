@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 TRADE_ROUTE = "trade"
 _NAV = NavMetadata(
     title="Trade",
+    access_key="t",
     # Not Market's candlestick: two modes with one icon on the mode bar
     # tell the person nothing.
     icon="dollar-sign",

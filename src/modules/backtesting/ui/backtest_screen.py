@@ -34,6 +34,7 @@ BACKTEST_ROUTE = "backtest"
 
 _NAV = NavMetadata(
     title="Backtest engine",
+    access_key="c",
     icon="bar-chart-2",
     section_key="QUANT ENGINE",
     section_sequence=20,
