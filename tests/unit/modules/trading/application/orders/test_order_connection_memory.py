@@ -107,6 +107,20 @@ def test_the_check_is_made_again_when_the_beat_is_over() -> None:
     assert reader.checks == 2, "the window is over at its edge"
 
 
+def test_a_forgotten_check_is_made_again_inside_the_beat() -> None:
+    """`BUG-249`: a journey about the exchange's answer to the check must not depend on whether
+    its order falls inside the real-time window."""
+    reader = FakeTradingAccountReader(_status())
+    memory = OrderConnectionMemory(_Clock())
+    scope = _scope(reader, memory)
+    order_connection_block(scope)
+
+    memory.forget()
+    order_connection_block(scope)
+
+    assert reader.checks == 2
+
+
 @pytest.mark.parametrize(
     "failure", [ConnectionFailureKind.KEY_REJECTED, ConnectionFailureKind.NETWORK]
 )

@@ -32,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
 )
 
 from .grid_fake_exchange import SPOT, BootedApp, FakeExchange, booted, resting
+from .quiet_exchange_readers import (
+    forget_the_kept_connection,
+    quiet_the_trading_refreshes,
+)
 from .test_a_bot_owns_its_price_stream_on_the_fake_exchange import (
     _INSIDE_THE_RANGE,
     _publish_tick,
@@ -77,6 +81,8 @@ def _held_by_the_pause(app: BootedApp) -> str:
         )
     )
     app.deliver()
+    quiet_the_trading_refreshes(app.engine.context.container)
+    forget_the_kept_connection(app.engine.context.container, SPOT)
     app.urls.faults.queued.append(
         FaultAnswer(
             "/api/v3/ping",

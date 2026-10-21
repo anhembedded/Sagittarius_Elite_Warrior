@@ -52,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 
 from .crowd_bots_world import FUTURES_SYMBOLS, create_bot, run_bots, start_bot
 from .grid_fake_exchange import FakeExchange
+from .quiet_exchange_readers import quiet_the_trading_refreshes
 from .two_venues_bots_world import FUTURES, BootedTwoVenues, booted_two_venues
 
 S = BotLifecycleState
@@ -247,6 +248,10 @@ def test_n_idle_bots_read_the_accounts_positions_once_a_beat_between_them(
     beat per bot: 120 weight a minute for one bot, 2,405 for twenty)."""
     meter = both_venues.urls.weights
     with booted_two_venues(both_venues) as app:
+        # The trading module's own position poll asks `positionRisk` every 5 s of real time, so
+        # how many of its reads land in the minute depends on how long the machine takes: it is
+        # not a bot's read (`BUG-249`).
+        quiet_the_trading_refreshes(app.engine.container)
         symbols = FUTURES_SYMBOLS[:count]
         run_bots(app, FUTURES, symbols)
         mark = meter.mark()
@@ -254,9 +259,9 @@ def test_n_idle_bots_read_the_accounts_positions_once_a_beat_between_them(
         _an_idle_minute(app, symbols)
         spent = meter.by_path_since(mark)[POSITION_RISK_PATH]
 
-    # One read a beat, and one more when a bot's own order dropped the shared reading in mid-beat
-    # (twenty bots do: the first beat's order drops it once).
-    allowed = POSITION_RISK_WEIGHT * (BEATS_PER_MINUTE + 1)
+    # Exactly one read a beat for the whole sweep: the bots' ladders are laid before the minute,
+    # so no order of theirs drops the shared reading inside it.
+    allowed = POSITION_RISK_WEIGHT * BEATS_PER_MINUTE
     report(
         f"MEASURED positionRisk, idle minute N={count}: {spent} weight "
         f"(one read a beat is {POSITION_RISK_WEIGHT * BEATS_PER_MINUTE}, allowed {allowed})"

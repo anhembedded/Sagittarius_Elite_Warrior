@@ -28,8 +28,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 from .futures_bots_world import booted_futures_bots
 from .futures_direction_scenarios import LONG
-from .futures_fake_exchange import SYMBOL
+from .futures_fake_exchange import FUTURES, SYMBOL
 from .grid_fake_exchange import FakeExchange
+from .quiet_exchange_readers import (
+    forget_the_kept_connection,
+    quiet_the_trading_refreshes,
+)
 from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import _started
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "sanity"))
@@ -57,6 +61,8 @@ def test_an_order_met_by_the_pause_holds_the_bot_for_the_pause_and_not_as_a_swit
     with booted_futures_bots(futures) as app:
         bot_id = _started(app, LONG.config)
         mark = len(futures.urls.requests)
+        quiet_the_trading_refreshes(app.engine.context.container)
+        forget_the_kept_connection(app.engine.context.container, FUTURES)
         _answer_the_next_connection_check_with_a_pause(futures)
 
         app.move_price(LONG.entry_price)  # an entry fills; its counter must be placed

@@ -26,6 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 from .crowd_bots_world import FUTURES_SYMBOLS, run_bots
 from .grid_fake_exchange import FakeExchange, ladder
+from .quiet_exchange_readers import (
+    forget_the_kept_connection,
+    quiet_the_trading_refreshes,
+)
 from .two_venues_bots_world import FUTURES, SPOT, SYMBOL, booted_two_venues
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "sanity"))
@@ -46,6 +50,8 @@ def test_a_neighbour_halts_for_the_pause_at_the_first_order_it_needs_and_not_bef
         spot = run_bots(app, SPOT, (SYMBOL,))[SYMBOL]
         spot_ladder = app.resting(SPOT)
         sent_before = len(both_venues.urls.requests)
+        quiet_the_trading_refreshes(app.engine.context.container)
+        forget_the_kept_connection(app.engine.context.container, FUTURES)
         both_venues.urls.faults.queued.append(
             FaultAnswer(
                 "/fapi/v1/ping",
