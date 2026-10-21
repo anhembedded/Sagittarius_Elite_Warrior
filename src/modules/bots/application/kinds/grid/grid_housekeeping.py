@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     drop_order,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    whole_seconds,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
@@ -127,4 +130,12 @@ def refusal_text(registration: OwnerBudgetRegistrationResult) -> str:
         return "the order session is not open"
     if refusal is OwnerBudgetRefusal.FOREIGN_POSITION and registration.foreign_position:
         return registration.foreign_position.describe()
+    if refusal is OwnerBudgetRefusal.INVENTORY_UNAVAILABLE:
+        # `BUG-257`: the cause first, in words; the code is for the log.
+        if registration.paused_for is not None:
+            return (
+                "the exchange asked for a pause of "
+                f"{whole_seconds(registration.paused_for)} s, so its records could not be read"
+            )
+        return "the exchange's records could not be read"
     return refusal.value if refusal else ""
