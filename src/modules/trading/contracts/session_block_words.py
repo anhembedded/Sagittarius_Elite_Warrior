@@ -76,14 +76,19 @@ def unexplained_position_words(position: UnexplainedPosition) -> str:
     )
 
 
-#: `BUG-262` - the failures a host that has only just started may meet and then leave behind.
-_MAY_CLEAR_SOON = frozenset(
-    {
-        ConnectionFailureKind.NETWORK,
-        ConnectionFailureKind.MAINTENANCE,
-        ConnectionFailureKind.RATE_LIMITED,
-    }
-)
+def _pause_words(result: SessionReadyResult) -> str:
+    """What to do about an exchange pause: wait as long as it said. A ban lasts minutes to days, so
+    it is never called a few seconds."""
+    seconds = result.connection_retry_after
+    if seconds is None:
+        return "Wait for the pause to end, then try again."
+    whole = int(-(-seconds.total_seconds() // 1))
+    what = (
+        "banned this address for"
+        if result.connection_banned
+        else "asked for a pause of"
+    )
+    return f"The exchange {what} {whole} s: try again after that."
 
 
 def _connection_words(result: SessionReadyResult) -> str:
@@ -98,7 +103,9 @@ def _connection_words(result: SessionReadyResult) -> str:
     words = (
         f"Connection to the exchange is not ready: {CONNECTION_FAILURE_SENTENCES[kind]}"
     )
-    if kind in _MAY_CLEAR_SOON:
+    if kind is ConnectionFailureKind.RATE_LIMITED:
+        return f"{words} {_pause_words(result)}"
+    if kind is ConnectionFailureKind.NETWORK:
         return f"{words} If the host has only just started, try again in a few seconds."
     return words
 

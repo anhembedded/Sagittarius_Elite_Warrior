@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -201,6 +202,30 @@ def test_blocked_when_connection_not_reachable() -> None:
     assert result.connection_failure is ConnectionFailureKind.NETWORK
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
+
+
+def test_a_banned_connection_check_carries_the_pause_into_the_refusal() -> None:
+    banned = ExchangeConnectionStatus(
+        venue=TradingVenue.FUTURES_TESTNET,
+        reachable=False,
+        failure=ConnectionFailureKind.RATE_LIMITED,
+        server_time_skew_ms=None,
+        usdt_balance=None,
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+        retry_after=timedelta(minutes=2),
+        banned=True,
+    )
+    handler, _state, _stream, _reader = _handler(status=banned)
+
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
+
+    assert result.connection_failure is ConnectionFailureKind.RATE_LIMITED
+    assert result.connection_retry_after == timedelta(minutes=2)
+    assert result.connection_banned is True
 
 
 def test_blocked_when_hedge_mode() -> None:

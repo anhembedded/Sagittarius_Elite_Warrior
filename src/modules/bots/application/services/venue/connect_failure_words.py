@@ -40,7 +40,7 @@ _STATES: dict[ConnectionFailureKind, str] = {
 
 _MISSING = [kind.name for kind in ConnectionFailureKind if not _STATES.get(kind)]
 if _MISSING:
-    raise ValueError(f"connection failure kinds without a sentence: {_MISSING}")
+    raise ValueError(f"connection failure kinds without a state word: {_MISSING}")
 
 NOT_CONNECTED = "Not connected"
 

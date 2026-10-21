@@ -147,6 +147,8 @@ class SessionReadiness:
             return replace(
                 self._blocked(SessionBlockReason.CONNECTION_NOT_READY),
                 connection_failure=status.failure,
+                connection_retry_after=status.retry_after,
+                connection_banned=status.banned,
             )
 
         trading_client = scope.ports.client_factory.create(
