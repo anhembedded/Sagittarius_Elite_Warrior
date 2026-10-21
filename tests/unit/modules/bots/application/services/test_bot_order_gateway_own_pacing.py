@@ -156,23 +156,23 @@ def test_a_refusal_that_is_not_pacing_still_halts_the_bot(violation: V) -> None:
     ("slice_number", "kind"),
     [(1, OrderOutcomeKind.RATE_LIMITED), (2, OrderOutcomeKind.REFUSED)],
 )
-def test_an_own_budget_pause_after_an_opening_slice_filled_stays_a_refusal(
-    slice_number: int, kind: OrderOutcomeKind
+@pytest.mark.parametrize("who", ["the app's own budget", "the exchange"])
+def test_a_pause_after_an_opening_slice_filled_is_a_refusal(
+    slice_number: int, kind: OrderOutcomeKind, who: str
 ) -> None:
+    """`BUG-254` (the app's own budget) and `BUG-256` (the exchange): a resume would not finish
+    the opening."""
     paused = OrderOutcome(
-        OrderOutcomeKind.RATE_LIMITED,
-        "id",
-        "own budget",
-        timedelta(seconds=1),
-        own_budget=True,
+        OrderOutcomeKind.RATE_LIMITED, "id", who, timedelta(seconds=1)
     )
 
     assert opening_outcome(slice_number, paused).kind is kind
 
 
-def test_an_exchange_pause_is_a_pause_in_every_opening_slice() -> None:
-    exchange = OrderOutcome(
-        OrderOutcomeKind.RATE_LIMITED, "id", "429", timedelta(seconds=30)
-    )
+def test_a_fault_or_a_switch_off_in_an_opening_slice_is_left_to_its_own_handling() -> (
+    None
+):
+    for kind in (OrderOutcomeKind.FAULT, OrderOutcomeKind.SWITCH_OFF):
+        outcome = OrderOutcome(kind, "id", "x")
 
-    assert opening_outcome(2, exchange) is exchange
+        assert opening_outcome(2, outcome) is outcome

@@ -60,5 +60,4 @@ def send_paced(
             "in a row"
         ),
         retry_after=outcome.retry_after or DEFAULT_PACING_PAUSE,
-        own_budget=True,
     )
