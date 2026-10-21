@@ -132,7 +132,7 @@ def bind_bots_commands(
     # The selected kind's own commands follow its toolbar; the presenter
     # hands each new editor over (`KindCommands.follow_panel_of`).
     KindCommands(view_model).bind_commands(binder)
-    # The Strategies panel's selected venue (`EPIC-033K` stage 3).
+    # Arm and Disarm ask which venue (`BOT-219`).
     strategies.bind_commands(binder, ARM_STRATEGY, DISARM_STRATEGY)
     # Live stream follows the selected bot's chart, when the mode has charts.
     if charts is not None:

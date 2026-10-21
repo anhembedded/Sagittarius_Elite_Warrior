@@ -1,9 +1,8 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
 fills, Fit levels, Retry venue account (`EPIC-034D`), Refresh exchange check
-(`BOT-174`), Fix next item (`EPIC-034H`), Export plan… (`BOT-176`), and Arm strategy… / Disarm strategy for the Strategies
-panel's selected venue (`EPIC-033K` stage 3; HLD §11.2: a strategy armed on a
-venue is a row of the Bots mode until `EPIC-029L`).
+(`BOT-174`), Fix next item (`EPIC-034H`), Export plan… (`BOT-176`), and Arm strategy… / Disarm strategy… (`EPIC-033K` stage 3; `BOT-219`:
+each asks which venue, since there is no Strategies panel to select one).
 
 Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
 as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
@@ -134,9 +133,11 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         # `EPIC-034H`: does the first fix the Plan's list of what is left offers.
         command(FIX_NEXT, "Fi&x next item", on_toolbar=False),
         live_stream_command(_CONTRIBUTOR, _PREFIX, route, BOTS_MENU, "Li&ve stream"),
-        # The Strategies panel's selected venue: M and I are free in the menu.
+        # Each asks which venue: M and I are free in the menu.
         command(ARM_STRATEGY, "Ar&m strategy…", on_toolbar=False, needs_input=True),
-        command(DISARM_STRATEGY, "D&isarm strategy", on_toolbar=False),
+        command(
+            DISARM_STRATEGY, "D&isarm strategy…", on_toolbar=False, needs_input=True
+        ),
         # `BOT-176`: the bots as a `sew.bot-plan/1` file, for `bot apply` on a server;
         # every letter of its name was another command's access key; "A" moved from
         # Suggest from ATR (now "G", freed by Bollinger moving to "B") to this one.

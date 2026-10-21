@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
-    StrategiesPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -160,9 +157,7 @@ def test_a_tab_that_is_off_before_the_commands_are_bound_starts_off(qapp) -> Non
         lambda binder: bind_bots_commands(
             binder,
             BotsViewModel(),
-            venue_strategies(
-                StrategiesPanel(), (VenueArming(TradingVenue.SPOT_TESTNET),)
-            ),
+            venue_strategies((VenueArming(TradingVenue.SPOT_TESTNET),)),
             None,
             view,
         ),

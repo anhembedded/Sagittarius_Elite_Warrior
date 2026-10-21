@@ -39,7 +39,7 @@ BOTS_MENU = [
     "Refresh exchange check",
     "Fix next item",
     "Arm strategy…",
-    "Disarm strategy",
+    "Disarm strategy…",
     "Export plan…",
     "Live stream",
 ]

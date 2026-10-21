@@ -28,6 +28,7 @@ from .bots_screen_fixtures import BotsScreen, stored
 
 S = BotLifecycleState
 _OLD_PLAN_DOCK = "Plan"
+_OLD_STRATEGIES_DOCK = "Strategies"  # removed by `BOT-219`
 
 
 @pytest.fixture
@@ -91,20 +92,21 @@ def test_both_tabs_lay_the_plan_out_in_one_column_class(open_bots_screen) -> Non
     assert screen.view.plan.banner is screen.view.plan.column.banner
 
 
-def test_a_layout_saved_while_the_plan_was_a_dock_restores_without_it(
+def test_a_layout_saved_while_the_plan_and_strategies_were_docks_restores_without_them(
     view: BotsView, qapp
 ) -> None:
     older = BotsView()
     older.surface.place_widget(Place.RAIL, QWidget(), title=_OLD_PLAN_DOCK)
+    older.surface.place_widget(Place.NAVIGATOR, QWidget(), title=_OLD_STRATEGIES_DOCK)
     older.show()
     older.surface.dock_of(older.log).hide()
     saved = older.surface.save_perspective()
-    assert _OLD_PLAN_DOCK in _titles(older)
+    assert {_OLD_PLAN_DOCK, _OLD_STRATEGIES_DOCK} <= _titles(older)
     older.deleteLater()
 
     assert view.surface.restore_perspective(saved) is True
 
     # The rest of the saved layout was applied, not the default: the hidden Log stays hidden.
     assert view.surface.dock_of(view.log).isHidden()
-    assert _OLD_PLAN_DOCK not in _titles(view)
-    assert {"Bots", "Strategies", "Orders", "Ladder", "Fills", "Log"} <= _titles(view)
+    assert not {_OLD_PLAN_DOCK, _OLD_STRATEGIES_DOCK} & _titles(view)
+    assert {"Bots", "Orders", "Ladder", "Fills", "Log"} <= _titles(view)

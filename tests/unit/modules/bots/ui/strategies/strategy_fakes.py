@@ -15,11 +15,14 @@ from collections.abc import Callable, Sequence
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.disarm_choice import (
+    VenueQuestion,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
     StrategyFormViewModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
-    StrategiesPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.venue_strategies import (
     StrategyPorts,
@@ -129,17 +132,48 @@ def strategy_catalog() -> IStrategyCatalogReader:
 
 
 class Asked:
-    """What the Arm strategy dialog was asked, and how a test answers it."""
+    """What the Arm strategy dialog was asked, and how a test answers it: the venue to arm on
+    (`None` cancels). By default it picks the first venue offered."""
 
     def __init__(self) -> None:
-        self.answer = True
+        self.cancel = False
+        #: The venue to answer with; `None` picks the first one offered.
+        self.venue: TradingVenue | None = None
         self.edit: Callable[[StrategyFormViewModel], None] = lambda _form: None
-        self.venues: list[TradingVenue] = []
+        #: Every question asked, in order.
+        self.questions: list[ArmQuestion] = []
 
-    def __call__(self, venue: TradingVenue, form: StrategyFormViewModel) -> bool:
-        self.venues.append(venue)
-        self.edit(form)
-        return self.answer
+    @property
+    def offered(self) -> list[TradingVenue]:
+        """The venues the last question offered."""
+        return list(self.questions[-1].forms) if self.questions else []
+
+    def __call__(self, question: ArmQuestion) -> TradingVenue | None:
+        self.questions.append(question)
+        if self.cancel:
+            return None
+        venue = self.venue or next(iter(question.forms))
+        self.edit(question.forms[venue])
+        return venue
+
+
+class Chose:
+    """Which armed venue a Disarm question was answered with (`None` cancels)."""
+
+    def __init__(self) -> None:
+        self.venue: TradingVenue | None = None
+        self.choices: list[VenueQuestion] = []
+
+    def __call__(self, choice: VenueQuestion) -> TradingVenue | None:
+        self.choices.append(choice)
+        return self.venue
+
+
+class Told(list[str]):
+    """The lines told to the Output pane."""
+
+    def __call__(self, line: str) -> None:
+        self.append(line)
 
 
 class Statuses(list[tuple[str, bool]]):
@@ -148,20 +182,22 @@ class Statuses(list[tuple[str, bool]]):
 
 
 def venue_strategies(
-    panel: StrategiesPanel,
     venues: Sequence[VenueArming],
     ask: Asked | None = None,
     statuses: Statuses | None = None,
     notifier: RecordingNotifier | None = None,
+    chose: Chose | None = None,
+    told: Told | None = None,
 ) -> VenueStrategies:
     return VenueStrategies(
-        panel,
         StrategyPorts(
             venues=tuple(venue.controls for venue in venues),
             catalog=strategy_catalog(),
             symbol_options=SYMBOLS,
             ask=ask or Asked(),
+            choose=chose or Chose(),
             set_status=statuses if statuses is not None else Statuses(),
+            tell=told if told is not None else Told(),
             notifier=notifier if notifier is not None else RecordingNotifier(),
         ),
     )
