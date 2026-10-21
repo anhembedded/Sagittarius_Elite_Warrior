@@ -69,6 +69,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     ended_without_filling,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.closing_on_cancel import (
+    create_closing_on_cancel,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -147,10 +150,13 @@ class SpotUserDataStream(ManagedUserDataStream):
         is_closing = False
         client: AsyncClient | None = None
         try:
-            client = await AsyncClient.create(
-                api_key=credentials.api_key,
-                api_secret=credentials.api_secret,
-                testnet=self._events.venue.is_testnet,
+            client = await create_closing_on_cancel(
+                lambda: AsyncClient.create(
+                    api_key=credentials.api_key,
+                    api_secret=credentials.api_secret,
+                    testnet=self._events.venue.is_testnet,
+                ),
+                self._close_client,
             )
             bsm = BinanceSocketManager(client)
             socket = bsm.user_socket()

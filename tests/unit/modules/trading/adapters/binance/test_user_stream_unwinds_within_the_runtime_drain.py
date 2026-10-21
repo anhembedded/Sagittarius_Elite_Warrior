@@ -215,11 +215,12 @@ async def test_futures_stream_over_an_idle_connection_unwinds_within_the_drain(
         EquityCurveRecorder(),
     )
 
+    client = _client_on(silent_exchange)
     with (
         patch(f"{_FUTURES}.AsyncClient") as async_client,
         patch(f"{_FUTURES}.BinanceSocketManager", return_value=bsm),
     ):
-        async_client.create = _creating(_client_on(silent_exchange))
+        async_client.create = _creating(client)
         assert stream.start()
         task = tasks.handles[0].task
         await asyncio.wait_for(entered.wait(), timeout=_UNWIND_SECONDS)
@@ -227,6 +228,9 @@ async def test_futures_stream_over_an_idle_connection_unwinds_within_the_drain(
 
     assert unwound, "the task was still inside the library's socket close"
     assert socket.ws is None, "the socket was closed, not abandoned"
+    assert client.session.closed, (
+        "the HTTP session was closed (`Unclosed client session`)"
+    )
 
 
 def test_stopping_the_runtime_with_the_spot_stream_live_prints_no_warning(

@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 860, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 862, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -51,6 +51,7 @@
 ["ss", "", ": the key's permissions could not be asked (", "); the key accepted earlier stands [key-gate]"],
 ["s", "", ": the quiet hours are not ones this build can read and are ignored [alert-settings]"],
 ["sfff", "", "=", " is below the ", "s floor (Binance request-weight budget) — using ", "s instead."],
+["f", "A client being created when its task was cancelled did not finish within ", "s; its session may be left open [client-create-cancelled]"],
 ["", "A scheduled retry raised"],
 ["ss", "ACCOUNT_UPDATE  ", "  amount ", " settled from the report; the read waits for the pause"],
 ["ss", "ACCOUNT_UPDATE  ", "  funding ", ""],
@@ -289,6 +290,7 @@
 ["s", "Counting the fills of ", " from its placement response failed; the stream or the history will count them [response-fills]"],
 ["sss", "Created bot ", " (", " on ", ")"],
 ["hh", "Created dedicated database for ", "/", ""],
+["", "Creation of a cancelled client failed"],
 ["h", "Database Manager initialized at directory: ", ""],
 ["", "DatabaseManager: all engines disposed"],
 ["s", "Deleted bot ", ""],
