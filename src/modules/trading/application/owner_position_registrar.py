@@ -23,6 +23,9 @@ import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.application.exchange_pause_behind import (
+    exchange_pause_behind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerEventBuffer,
 )
@@ -96,7 +99,10 @@ class OwnerPositionRegistrar:
             return _refused(OwnerBudgetRefusal.INVENTORY_BEYOND_LOOKBACK)
         except (AccountHistoryUnavailableError, SymbolRulesUnavailableError) as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
-            return _refused(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
+            return OwnerBudgetRegistrationResult(
+                OwnerBudgetRefusal.INVENTORY_UNAVAILABLE,
+                paused_for=exchange_pause_behind(exc),
+            )
         derived = derivation.position.quantity
         if abs(derived) <= step < abs(exchange):
             foreign = ForeignPosition(registration.symbol, exchange)

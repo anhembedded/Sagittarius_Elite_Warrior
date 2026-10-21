@@ -10,6 +10,7 @@ claims more than the exchange shows changes nothing.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
@@ -91,6 +92,9 @@ class OwnerBudgetRegistrationResult:
     divergence: PositionDivergence | None = None
     #: For `FOREIGN_POSITION`, what was found.
     foreign_position: ForeignPosition | None = None
+    #: For `INVENTORY_UNAVAILABLE`, the exchange's pause behind the failed read, when that is
+    #: what it was (`BUG-257`): the refusal then says so, and a person waits.
+    paused_for: timedelta | None = None
 
     @property
     def registered(self) -> bool:

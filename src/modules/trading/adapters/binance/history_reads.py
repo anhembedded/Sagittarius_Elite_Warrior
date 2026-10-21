@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
     missing_key_failure,
     named_failure_kind,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    rate_limited_error_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
@@ -90,9 +93,11 @@ def history_read_failures(what: str) -> Iterator[None]:
     try:
         yield
     except READ_FAILURES as exc:
+        # The pause is chained as the contract's own error, so a registration that reads this
+        # history says the exchange asked for it (`BUG-257`), as it does for a position read.
         raise AccountHistoryUnavailableError(
             f"{what}: {describe_failure(exc)}", named_failure_kind(exc)
-        ) from exc
+        ) from (rate_limited_error_of(exc) or exc)
     except MAPPING_FAILURES as exc:
         raise AccountHistoryUnavailableError(f"{what}: malformed row: {exc!r}") from exc
 
