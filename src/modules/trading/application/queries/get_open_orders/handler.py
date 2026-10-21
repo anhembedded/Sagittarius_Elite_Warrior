@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    prioritised,
+)
 
 logger = logging.getLogger("App.QueryHandler")
 
@@ -38,4 +41,5 @@ class GetOpenOrdersQueryHandler(IQueryHandler[GetOpenOrdersQuery, tuple[Order, .
         client = self._contexts.get(query.venue).client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
-        return tuple(client.get_open_orders(query.symbol))
+        with prioritised(query.priority):
+            return tuple(client.get_open_orders(query.symbol))

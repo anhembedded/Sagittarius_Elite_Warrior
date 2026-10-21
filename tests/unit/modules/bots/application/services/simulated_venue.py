@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
@@ -180,7 +183,11 @@ class SimulatedActivity(IAccountActivity):
     def summary(self) -> AccountSummary | None:
         return None
 
-    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+    def open_orders(
+        self,
+        symbol: str | None = None,
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[Order, ...]:
         self.open_order_reads += 1
         if self.open_orders_error is not None:
             raise self.open_orders_error

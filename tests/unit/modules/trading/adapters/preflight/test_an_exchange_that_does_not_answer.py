@@ -82,7 +82,7 @@ class HangingReader(ITradingAccountReader):
         self.release.wait()
         return status(SPOT)
 
-    def open_positions(self):  # type: ignore[no-untyped-def]
+    def open_positions(self, priority=None):  # type: ignore[no-untyped-def]
         raise AssertionError("a pre-flight check reads no positions")
 
 

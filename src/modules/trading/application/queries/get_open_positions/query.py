@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -19,3 +22,6 @@ class GetOpenPositionsQuery:
     #: required: a caller that forgets it fails at construction, never
     #: silently addresses some default venue.
     venue: TradingVenue = field(kw_only=True)
+
+    #: `BOT-226` — whether the read judges a bot's exit and so may use the weight reserve.
+    priority: RequestPriority = field(default=RequestPriority.ROUTINE, kw_only=True)

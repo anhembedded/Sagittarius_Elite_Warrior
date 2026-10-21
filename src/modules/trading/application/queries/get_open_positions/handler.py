@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    prioritised,
+)
 
 logger = logging.getLogger("App.QueryHandler")
 
@@ -44,4 +47,5 @@ class GetOpenPositionsQueryHandler(
         trading_client = self._contexts.get(query.venue).client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
-        return tuple(trading_client.get_positions())
+        with prioritised(query.priority):
+            return tuple(trading_client.get_positions())

@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.mark_price import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable import (
     NotApplicable,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    prioritised,
+)
 
 logger = logging.getLogger("App.QueryHandler")
 
@@ -41,4 +44,5 @@ class GetMarkPriceQueryHandler(
         logger.debug(
             "Handling GetMarkPriceQuery for %s on %s", query.symbol, query.venue.value
         )
-        return source.mark_price(query.symbol)
+        with prioritised(query.priority):
+            return source.mark_price(query.symbol)

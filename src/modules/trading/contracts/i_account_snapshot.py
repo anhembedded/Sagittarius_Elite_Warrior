@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 
 
 class IAccountSnapshot(ABC):
@@ -51,8 +54,13 @@ class IAccountSnapshot(ABC):
         """
 
     @abstractmethod
-    def open_positions(self) -> tuple[LivePosition, ...]:
+    def open_positions(
+        self, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> tuple[LivePosition, ...]:
         """Every position the venue reports open, empty when there are none.
+
+        `priority` is `EXIT_GUARD` when the read judges or confirms a bot's exit: it then uses
+        the venue's weight reserve (`RequestPriority`, `BOT-226`).
 
         Empty rather than `None`: "no open positions" is the ordinary state,
         and a caller rendering a table already handles it. A venue that could

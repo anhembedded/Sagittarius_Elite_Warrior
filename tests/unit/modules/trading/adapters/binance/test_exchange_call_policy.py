@@ -214,10 +214,35 @@ def test_used_weight_near_the_limit_pauses_to_the_end_of_the_minute() -> None:
     )
 
     policy.note_used_weight(839)
-    assert world.gate.remaining() == 0.0, (
+    assert world.gate.routine_remaining() == 0.0, (
         "70 % of 1,200 is 840: just under it, no pause"
     )
     policy.note_used_weight(840)
+
+    assert world.gate.routine_remaining() == pytest.approx(16.0), (
+        "15 s left of the minute, +1: routine requests wait to the minute's end"
+    )
+    assert world.gate.remaining() == 0.0, (
+        "the reserve is not a pause: the reads that guard exits are not held (BOT-226)"
+    )
+
+
+def test_used_weight_at_the_hard_line_pauses_every_request_to_the_end_of_the_minute() -> (
+    None
+):
+    world = _World()
+    policy = ExchangeCallPolicy(
+        world.gate,
+        sleep=world.sleeps.append,
+        weight_limit=1200,
+        wall_seconds=lambda: 600.0 + 45.0,
+    )
+
+    policy.note_used_weight(1079)
+    assert world.gate.remaining() == 0.0, (
+        "90 % of 1,200 is 1,080: just under it, a reserve"
+    )
+    policy.note_used_weight(1080)
 
     assert world.gate.remaining() == pytest.approx(16.0), "15 s left of the minute, +1"
 
@@ -249,7 +274,7 @@ def test_a_pause_is_told_once_when_it_begins_with_its_end_and_once_when_it_is_ov
     policy = _policy_at(world, wall)
     caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
 
-    policy.note_used_weight(900)
+    policy.note_used_weight(1100)
     policy.note_used_weight(950)  # answers still in flight when the gate closed
     for _ in range(3):
         with pytest.raises(RateLimitedApiException):
