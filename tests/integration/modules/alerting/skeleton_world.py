@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
+    RecordedPost,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.contract_bot_store import (
@@ -45,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.tests.discord_posts import posts_without_heartbeat
 from Sagittarius_Elite_Warrior.tests.integration.modules.bots.bots_module_world import (
     GRID_CONFIG,
 )
@@ -74,10 +76,16 @@ class Skeleton:
         store = self.app.container.resolve(IBotStore)  # type: ignore[type-abstract]
         store.save(replace(stored, bot=bot, runtime={}))
 
+    @property
+    def posts(self) -> list[RecordedPost]:
+        """What the channel was sent, without the heartbeat the booted app sends on its own
+        (`BUG-252`): a journey is about the alert it raises."""
+        return posts_without_heartbeat(self.transport)
+
     def wait_for_posts(self, count: int) -> None:
-        while len(self.transport.posts) < count:
+        while len(self.posts) < count:
             self.transport.posted.clear()
-            if len(self.transport.posts) >= count:
+            if len(self.posts) >= count:
                 return
             assert self.transport.posted.wait(WAIT_S), f"no POST #{count}"
 

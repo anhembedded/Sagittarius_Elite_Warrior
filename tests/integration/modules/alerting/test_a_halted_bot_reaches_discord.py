@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transpor
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import (
     DeliveryState,
 )
@@ -61,6 +62,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.discord_posts import (
+    is_heartbeat,
+    wait_until_the_heartbeat_is_told,
 )
 from Sagittarius_Elite_Warrior.tests.integration.modules.alerting.skeleton_world import (
     TOKEN,
@@ -99,7 +104,7 @@ def test_a_halted_bot_reaches_discord_once_after_its_retry_after(
         skeleton.nudge_after(timedelta(seconds=2))
         skeleton.wait_for_posts(2)
 
-    first, second = skeleton.transport.posts
+    first, second = skeleton.posts
     content = str(first.body["content"])
     assert "CRITICAL" in content
     assert "Bot halted: grid one" in content
@@ -109,6 +114,7 @@ def test_a_halted_bot_reaches_discord_once_after_its_retry_after(
     history = [
         (entry.record.alert.kind.name, [d.state for d in entry.deliveries])
         for entry in outbox.history(10)
+        if entry.record.alert.kind is not AlertKind.HEARTBEAT
     ]
     assert history == [("BOT_HALTED", [DeliveryState.SENT])]
     assert TOKEN not in caplog.text
@@ -133,9 +139,7 @@ def test_an_error_and_a_stop_that_gave_up_each_reach_discord_once(
     finally:
         booted.app.stop()
 
-    heads = [
-        str(post.body["content"]).splitlines()[0] for post in booted.transport.posts
-    ]
+    heads = [str(post.body["content"]).splitlines()[0] for post in booted.posts]
     assert "Bot error: grid one" in heads[0]
     assert "Stop failed: grid one" in heads[1]
 
@@ -165,7 +169,7 @@ def test_a_wait_that_stalled_reaches_discord_as_one_alert(
     finally:
         booted.app.stop()
 
-    [post] = booted.transport.posts
+    [post] = booted.posts
     content = str(post.body["content"])
     assert "WARNING" in content
     assert "Bot recovery stalled: grid one" in content
@@ -191,7 +195,7 @@ def test_an_automatic_recovery_reaches_discord_as_one_warning(
     finally:
         booted.app.stop()
 
-    [post] = booted.transport.posts
+    [post] = booted.posts
     content = str(post.body["content"])
     assert "WARNING" in content
     assert "Bot recovered by itself: grid one" in content
@@ -227,7 +231,7 @@ def test_a_liquidation_warning_reaches_discord_as_one_warning(
     finally:
         booted.app.stop()
 
-    [post] = booted.transport.posts
+    [post] = booted.posts
     content = str(post.body["content"])
     assert "WARNING" in content
     assert "Liquidation risk: grid one" in content
@@ -258,10 +262,29 @@ def test_a_user_stream_outage_reaches_discord_as_one_alert_about_the_venue(
     finally:
         booted.app.stop()
 
-    [post] = booted.transport.posts
+    [post] = booted.posts
     content = str(post.body["content"])
     assert "CRITICAL" in content
     assert "Account stream down: Futures Mainnet" in content
+
+
+def test_the_apps_own_heartbeat_is_not_one_of_the_posts_a_journey_counts(
+    skeleton: Skeleton,
+) -> None:
+    """`BUG-252`: every journey here boots the app, whose housekeeping thread sends a heartbeat a
+    second in; a run that lasts that long found two posts where it expects one. The wait makes
+    it certain, and the journey must still see only its own alert."""
+    wait_until_the_heartbeat_is_told(skeleton.transport, skeleton.clock)
+    skeleton.save(BotLifecycleState.DRAFT)
+    skeleton.save(BotLifecycleState.ERROR)
+    skeleton.wait_for_posts(1)
+
+    [post] = skeleton.posts
+
+    assert "Bot error: grid one" in str(post.body["content"])
+    assert any(is_heartbeat(p) for p in skeleton.transport.posts), (
+        "no heartbeat was told"
+    )
 
 
 def test_the_host_hears_that_a_channel_carries_bot_events(skeleton: Skeleton) -> None:
