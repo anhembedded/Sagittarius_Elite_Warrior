@@ -66,6 +66,10 @@ class VirtualTime:
         #: consecutive orders is never shortened by it.
         self._early_stamp_lag = early_stamp_lag
 
+    def steady(self) -> None:
+        """From now on trading stamps each order on its turn: the uneven stamps are over."""
+        self._stamp_jitter = []
+
     def monotonic(self) -> float:
         return self.seconds
 
@@ -91,16 +95,33 @@ def trading_reads(monkeypatch: pytest.MonkeyPatch, time: VirtualTime) -> None:
     monkeypatch.setattr(handler, "datetime", _VirtualDatetime)
 
 
+class _DeliveringPacer(IOrderPacer):
+    """The production pacer, then what the exchange reported so far reaches the stream: the
+    user-data stream delivers between two orders a spacing apart, as it does in the app."""
+
+    def __init__(self, pacer: IOrderPacer, deliver: Callable[[], None]) -> None:
+        self._pacer = pacer
+        self._deliver = deliver
+
+    def wait_turn(self) -> None:
+        self._pacer.wait_turn()
+        self._deliver()
+
+
 def pacers_on(
-    time: VirtualTime,
+    time: VirtualTime, deliver: Callable[[], None] | None = None
 ) -> Callable[[TradingVenue, OrderPacing], IOrderPacer]:
-    """The production pacer, one per venue and pacing, on the virtual clock."""
+    """The production pacer, one per venue and pacing, on the virtual clock; with `deliver`, the
+    stream is handed the exchange's reports after each turn."""
     built: dict[tuple[TradingVenue, OrderPacing], IOrderPacer] = {}
 
     def of(venue: TradingVenue, pacing: OrderPacing) -> IOrderPacer:
         if (venue, pacing) not in built:
-            built[(venue, pacing)] = MonotonicOrderPacer(
+            pacer: IOrderPacer = MonotonicOrderPacer(
                 pacing, clock=time.monotonic, sleep=time.sleep
+            )
+            built[(venue, pacing)] = (
+                pacer if deliver is None else _DeliveringPacer(pacer, deliver)
             )
         return built[(venue, pacing)]
 

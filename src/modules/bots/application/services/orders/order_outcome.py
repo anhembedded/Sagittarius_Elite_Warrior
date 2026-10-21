@@ -48,7 +48,7 @@ class OrderOutcomeKind(str, Enum):
     #: `BUG-254` - trading judged the order sooner than the owner budget's spacing after the
     #: previous one: "not yet", never "no". The gateway waits another turn and sends it again
     #: (`BotOrderGateway._submit_paced`), and answers `RATE_LIMITED` when the retries are spent,
-    #: so no caller sees this kind.
+    #: so no caller of a paced order sees this kind. Exits and protective stops are never paced because trading exempts them (`trading_limit_policy.py` `_budget_checks`); were one ever to meet it, it would halt as any refusal does.
     PACED = "paced"
     SYMBOL_NOT_TRADING = "symbol_not_trading"
     SYMBOL_NOT_LISTED = "symbol_not_listed"
@@ -198,3 +198,19 @@ def pacing_outcome(result: ExecuteOrderResult) -> OrderOutcome | None:
             own_budget=True,
         )
     return None
+
+
+def opening_outcome(slice_number: int, outcome: OrderOutcome) -> OrderOutcome:
+    """`BUG-254` - what an opening's slice that was not done means to the start.
+
+    A pause by the app's own budget is right everywhere else in a start: the ladder, with the
+    stop standing, resumes by itself to the full position and ladder. After an opening slice
+    filled it is not: a resume re-derives the ladder from the position held and does not finish
+    the opening, so it would run a smaller grid than the plan the owner saw (one upper level
+    short in the journey). That one case stays a refusal, as before: the start closes, and a
+    leveraged position is never left bare. The first slice has nothing filled to keep."""
+    if slice_number > 1 and outcome.own_budget:
+        return OrderOutcome(
+            OrderOutcomeKind.REFUSED, outcome.client_order_id, outcome.detail
+        )
+    return outcome

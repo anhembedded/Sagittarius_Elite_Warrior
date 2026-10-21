@@ -123,7 +123,7 @@ def test_a_refused_ladder_order_cancels_what_was_placed_and_halts() -> None:
 
 def test_a_refused_opening_slice_halts_before_any_ladder_order() -> None:
     world = grid_world()
-    world.book.refuse_next = [None, TradingLimitViolation.OWNER_BUDGET_EXPOSURE]
+    world.book.refuse_next = [None, TradingLimitViolation.OWNER_BUDGET_RATE]
 
     world.executor.start()
 
@@ -134,19 +134,18 @@ def test_a_refused_opening_slice_halts_before_any_ladder_order() -> None:
     assert "opening buy slice 2" in runtime.reason_detail
 
 
-def test_a_rate_refusal_of_an_opening_slice_is_a_pause_not_a_refused_start() -> None:
-    """`BUG-254`: the order budget's own rate is "not yet"; it used to be this test's refusal
-    (`owner_budget_rate`), which halted the start and closed the position."""
+def test_a_rate_refusal_of_a_ladder_order_is_a_pause_not_a_refused_start() -> None:
+    """`BUG-254`: the order budget's own rate is "not yet" once the opening is whole; it used to
+    halt the start and close the position. (After an opening slice filled it stays a refusal,
+    the test above: `opening_outcome`.)"""
     world = grid_world()
-    world.book.refuse_next = [None, TradingLimitViolation.OWNER_BUDGET_RATE]
+    world.book.refuse_next = [None, None, TradingLimitViolation.OWNER_BUDGET_RATE]
 
     world.executor.start()
 
     assert world.state() is S.AWAITING_RECOVERY
-    assert all(r.order_type is OrderType.MARKET for r in world.book.requests)
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
     assert runtime.reason is GridReason.RATE_LIMITED
-    assert "opening buy slice 2" in runtime.reason_detail
 
 
 def test_trading_switched_off_mid_start_halts_never_errors() -> None:

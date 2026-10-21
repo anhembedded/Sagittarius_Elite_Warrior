@@ -44,14 +44,15 @@ def send_paced(
         outcome = send()
         if outcome.kind is not OrderOutcomeKind.PACED:
             return outcome
-        logger.debug(
-            "Bot %s: trading found the order sooner than the budget's spacing after the previous "
-            "one, short by %s; it takes another turn (%d of %d) [order-pacing]",
-            bot_tag,
-            outcome.retry_after,
-            attempt + 1,
-            PACING_RETRIES,
-        )
+        if attempt < PACING_RETRIES:
+            logger.debug(
+                "Bot %s: trading found the order sooner than the budget's spacing after the "
+                "previous one, short by %s; it takes another turn (%d of %d) [order-pacing]",
+                bot_tag,
+                outcome.retry_after,
+                attempt + 1,
+                PACING_RETRIES,
+            )
     return OrderOutcome(
         OrderOutcomeKind.RATE_LIMITED,
         detail=(

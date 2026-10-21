@@ -38,11 +38,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
 )
 
-from .futures_bots_world import GRID, booted_futures_bots
+from .futures_bots_world import (
+    GRID,
+    OPENING_QUANTITY,
+    BootedFuturesBots,
+    booted_futures_bots,
+)
 from .futures_fake_exchange import FUTURES, SYMBOL
 from .futures_stop_helpers import stops
 from .grid_fake_exchange import GRID as SPOT_GRID
 from .grid_fake_exchange import SPOT, FakeExchange, booted
+from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import _publish_tick
 from .virtual_order_time import (
     PRODUCTION_PACING,
     VirtualTime,
@@ -110,23 +116,42 @@ def test_a_start_whose_orders_are_stamped_unevenly_lays_its_ladder_and_keeps_its
         )
 
 
-def test_turns_that_keep_missing_pause_the_start_and_sell_nothing(
+#: Four turns in a row found too soon, each stamp 0.3 s earlier than the last. `lead` orders go
+#: through first: 2 are the opening's slices, 3 the stop (judged, though exempt) and the first BUY.
+def _four_turns_missing(lead: int) -> list[float]:
+    return [0.0] * lead + [12 - 0.3 * i for i in range(30)]
+
+
+def _beats(app: BootedFuturesBots, bot_id: str, count: int) -> None:
+    """Five virtual seconds a beat, with the price inside the range, until the bot is back."""
+    for _ in range(count):
+        app.monotonic.advance(5)
+        _publish_tick(app, 63000.0)
+        app.ticker.fire()
+        app.deliver()
+        if app.bot(bot_id).state is S.RUNNING:
+            return
+
+
+def test_turns_that_keep_missing_in_the_ladder_pause_the_bot_and_it_resumes_to_the_full_grid(
     futures: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """When four turns in a row are found too soon, the pacer is wrong by seconds and not by a
-    stamp's milliseconds. The start waits as for the exchange's pause (`EPIC-042F`) and sells
-    nothing. The miss here is the opening's own second slice, before the sequence's protective stop
-    stands: the stop is placed first (trading exempts it from pacing), so the position kept
-    open meanwhile is never bare."""
-    # Each stamp 0.3 s earlier than the last: every retry is closer to the previous stamp.
-    time = VirtualTime(stamp_jitter=[12 - 0.3 * i for i in range(30)])
+    """The recovery the pause relies on, under production pacing and a stream that delivers
+    between orders: the opening is whole and the stop stands when the ladder's turns keep
+    missing; the bot waits in AWAITING_RECOVERY, resumes by itself and ends with the plan's whole
+    position (the filled opening is not bought twice), its whole ladder and its one stop."""
+    time = VirtualTime(stamp_jitter=_four_turns_missing(lead=3))
     trading_reads(monkeypatch, time)
+    holder: list[BootedFuturesBots] = []
     with booted_futures_bots(
-        futures, pacers=pacers_on(time), limits=PRODUCTION_PACING
+        futures,
+        pacers=pacers_on(time, lambda: holder[0].deliver() if holder else None),
+        limits=PRODUCTION_PACING,
     ) as app:
+        holder.append(app)
         created = app.engine.dispatch(
             CreateBotCommand,
-            CreateBotCommand("missed turns", "grid", FUTURES, SYMBOL, GRID),
+            CreateBotCommand("paused ladder", "grid", FUTURES, SYMBOL, GRID),
         )
         assert isinstance(created, BotCommandResult)
         assert created.bot_id is not None, created.message
@@ -136,14 +161,59 @@ def test_turns_that_keep_missing_pause_the_start_and_sell_nothing(
 
         runtime = app.runtime(bot_id)
         assert app.bot(bot_id).state is S.AWAITING_RECOVERY, (
-            app.bot(bot_id).state,
             runtime.reason,
             runtime.reason_detail,
         )
         assert runtime.reason is GridReason.RATE_LIMITED
-        assert app.position() > 0, "the opening position was not sold"
-        assert ("DELETE", "/fapi/v1/order") not in app.exchange.urls.requests
-        assert len(stops(app)) == 1, "the position kept open has its protective stop"
+        assert app.position() == OPENING_QUANTITY, "the opening is whole and kept"
+        assert len(stops(app)) == 1, "the stop stands before and through the pause"
+
+        time.steady()
+        _beats(app, bot_id, 20)
+
+        runtime = app.runtime(bot_id)
+        assert app.bot(bot_id).state is S.RUNNING, (
+            app.bot(bot_id).state,
+            runtime.reason,
+            runtime.reason_detail,
+        )
+        assert app.position() == OPENING_QUANTITY, (
+            "the filled opening was not bought twice"
+        )
+        assert len(stops(app)) == 1
+        assert len(app.resting()) == 4, "the whole ladder rests"
+
+
+def test_turns_that_keep_missing_in_the_opening_after_a_slice_close_the_start(
+    futures: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The price knowingly paid (`architecture-rule.md` 7.1): after the opening's first slice
+    filled, a resume would re-derive the ladder from the half position held and run a smaller
+    grid than the plan (one upper level short), so this one case stays a refused start that
+    closes, as before `BUG-254`. The journey that showed it is the ladder test above with
+    `lead=0`."""
+    time = VirtualTime(stamp_jitter=_four_turns_missing(lead=0))
+    trading_reads(monkeypatch, time)
+    with booted_futures_bots(
+        futures, pacers=pacers_on(time), limits=PRODUCTION_PACING
+    ) as app:
+        created = app.engine.dispatch(
+            CreateBotCommand,
+            CreateBotCommand("missed opening", "grid", FUTURES, SYMBOL, GRID),
+        )
+        assert isinstance(created, BotCommandResult)
+        assert created.bot_id is not None, created.message
+        bot_id = created.bot_id
+
+        app.engine.dispatch(StartBotCommand, StartBotCommand(bot_id))
+
+        runtime = app.runtime(bot_id)
+        assert app.bot(bot_id).state is S.STOPPED, (
+            runtime.reason,
+            runtime.reason_detail,
+        )
+        assert runtime.reason is GridReason.START_REFUSED
+        assert app.position() == 0, "the half opening was closed, not kept"
 
 
 @pytest.mark.parametrize("jitter", JITTERS.values(), ids=JITTERS.keys())

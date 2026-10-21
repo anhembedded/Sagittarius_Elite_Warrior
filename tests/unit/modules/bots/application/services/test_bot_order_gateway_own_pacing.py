@@ -20,6 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     BotOrderGateway,
     OrderOutcomeKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_outcome import (
+    OrderOutcome,
+    opening_outcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.paced_send import (
     PACING_RETRIES,
 )
@@ -146,3 +150,29 @@ def test_a_refusal_that_is_not_pacing_still_halts_the_bot(violation: V) -> None:
     assert outcome.kind is OrderOutcomeKind.REFUSED
     assert outcome.detail == violation.value
     assert pacer.turns == submit.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("slice_number", "kind"),
+    [(1, OrderOutcomeKind.RATE_LIMITED), (2, OrderOutcomeKind.REFUSED)],
+)
+def test_an_own_budget_pause_after_an_opening_slice_filled_stays_a_refusal(
+    slice_number: int, kind: OrderOutcomeKind
+) -> None:
+    paused = OrderOutcome(
+        OrderOutcomeKind.RATE_LIMITED,
+        "id",
+        "own budget",
+        timedelta(seconds=1),
+        own_budget=True,
+    )
+
+    assert opening_outcome(slice_number, paused).kind is kind
+
+
+def test_an_exchange_pause_is_a_pause_in_every_opening_slice() -> None:
+    exchange = OrderOutcome(
+        OrderOutcomeKind.RATE_LIMITED, "id", "429", timedelta(seconds=30)
+    )
+
+    assert opening_outcome(2, exchange) is exchange
