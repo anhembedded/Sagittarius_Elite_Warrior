@@ -34,6 +34,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
     ParamGroup,
     ParamKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
+    ArmStrategyDialog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.disarm_choice import (
+    VenueQuestion,
+    venue_chooser,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
+    StrategyFormViewModel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
     CriticalErrorDialog,
 )
@@ -131,6 +142,37 @@ def _strategy_params() -> QWidget:
     return dialog
 
 
+def _arm_strategy() -> QWidget:
+    """Bots → Arm strategy…, with two venues to arm on and one strategy armed already."""
+    keys = (("ema_crossover", "EMA crossover"), ("rsi_revert", "RSI revert"))
+    forms = {}
+    for venue in (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET):
+        form = StrategyFormViewModel()
+        form.set_strategy_options(keys, ("1m", "5m", "15m", "1h"))
+        form.set_strategy_selection("ema_crossover", "15m", 5.0, 3.0)
+        form.set_symbol("BTCUSDT", ("BTCUSDT", "ETHUSDT", "BNBUSDT"))
+        forms[venue] = form
+    armed = ("Futures Mainnet: EMA crossover ETHUSDT 5m, 5%/order, 3x",)
+    return ArmStrategyDialog(ArmQuestion(forms, armed))
+
+
+def _disarm_strategy() -> QWidget:
+    """Bots → Disarm strategy…, asked while two venues have a strategy armed."""
+    options = (
+        (TradingVenue.FUTURES_TESTNET, "Futures Testnet: EMA crossover BTCUSDT 15m"),
+        (TradingVenue.SPOT_TESTNET, "Spot Testnet: RSI revert ETHUSDT 1h"),
+    )
+    return venue_chooser(
+        None,
+        VenueQuestion(
+            "Disarm Strategy",
+            "Which strategy do you want to disarm?",
+            "Disarm strategy",
+            options,
+        ),
+    )
+
+
 def _time_range() -> QWidget:
     dialog = TimeRangePickerDialog(
         get_from_text=lambda: "2026-07-01 00:00",
@@ -180,6 +222,8 @@ _PICTURED: dict[str, Callable[[], QWidget]] = {
     "critical-error": lambda: _critical_error(details_shown=False),
     "critical-error-details": lambda: _critical_error(details_shown=True),
     "strategy-params": _strategy_params,
+    "arm-strategy": _arm_strategy,
+    "disarm-strategy": _disarm_strategy,
     "time-range": _time_range,
     "symbol-picker": _symbol_picker,
     "timeframe-picker": _timeframe_picker,

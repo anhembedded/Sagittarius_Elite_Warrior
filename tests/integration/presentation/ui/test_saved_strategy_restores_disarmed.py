@@ -26,8 +26,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter im
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
     BOTS_ROUTE,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
-    NOT_ARMED_TEXT,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -76,17 +76,30 @@ def ticks_seen_by_engines(monkeypatch: pytest.MonkeyPatch) -> list[MarketData]:
     return seen
 
 
-@pytest.fixture
-def arm_dialog_answers_arm(monkeypatch: pytest.MonkeyPatch) -> list[object]:
-    """The Arm strategy… dialog answered Arm; records the form it was shown."""
-    shown: list[object] = []
+def _answer_the_arm_dialog(
+    monkeypatch: pytest.MonkeyPatch, venue: TradingVenue | None
+) -> list[ArmQuestion]:
+    """The Arm strategy… dialog answered with `venue` (`None` cancels); records what it was asked."""
+    shown: list[ArmQuestion] = []
 
-    def answer(_parent: object, _venue: TradingVenue, form: object) -> bool:
-        shown.append(form)
-        return True
+    def answer(_parent: object, question: ArmQuestion) -> TradingVenue | None:
+        shown.append(question)
+        return venue
 
     monkeypatch.setattr(bots_dialogs, "ask_arm_with_dialog", answer)
     return shown
+
+
+@pytest.fixture
+def arm_dialog_answers_arm(monkeypatch: pytest.MonkeyPatch) -> list[ArmQuestion]:
+    """The dialog answered Arm on Futures."""
+    return _answer_the_arm_dialog(monkeypatch, _FUTURES)
+
+
+@pytest.fixture
+def arm_dialog_cancelled(monkeypatch: pytest.MonkeyPatch) -> list[ArmQuestion]:
+    """The dialog opened and cancelled."""
+    return _answer_the_arm_dialog(monkeypatch, None)
 
 
 @pytest.fixture
@@ -133,11 +146,6 @@ def _tick(desk: TradeDesk, *, symbol: str = "ETHUSDT") -> None:
     )
 
 
-def _select_futures_row(desk: TradeDesk) -> None:
-    panel = _bots(desk).strategies._panel
-    panel.table.select_first(lambda row: row.venue is _FUTURES)
-
-
 def test_a_saved_arming_is_not_armed_at_start(
     app_with_saved_arming: TradeDesk,
 ) -> None:
@@ -154,17 +162,19 @@ def test_a_saved_arming_is_not_armed_at_start(
     )
 
 
-def test_the_bots_mode_shows_it_not_armed_with_its_saved_settings(
-    app_with_saved_arming: TradeDesk,
+def test_the_arm_dialog_opens_on_the_saved_settings_and_arms_nothing_when_cancelled(
+    app_with_saved_arming: TradeDesk, arm_dialog_cancelled: list[ArmQuestion]
 ) -> None:
-    rows = {row.venue: row for row in _bots(app_with_saved_arming).strategies.rows()}
+    desk = app_with_saved_arming
 
-    futures = rows[_FUTURES]
-    assert not futures.armed
-    assert futures.summary == ""
-    for fragment in ("ETHUSDT 5m", "15", "3"):
-        assert fragment in futures.saved, futures.saved
-    assert NOT_ARMED_TEXT == "Not armed"
+    _bots(desk).strategies.arm()
+
+    (question,) = arm_dialog_cancelled
+    form = question.forms[_FUTURES]
+    assert (form.selected_symbol, form.live_interval) == ("ETHUSDT", "5m")
+    assert (form.sizing_percent, form.leverage) == (15.0, 3.0)
+    assert question.armed_now == ()
+    assert _controls(desk).armed.armed().config is None
 
 
 def test_no_tick_reaches_an_engine_before_the_user_arms(
@@ -178,14 +188,13 @@ def test_no_tick_reaches_an_engine_before_the_user_arms(
 def test_one_arm_action_arms_exactly_what_was_saved(
     app_with_saved_arming: TradeDesk,
     ticks_seen_by_engines: list[MarketData],
-    arm_dialog_answers_arm: list[object],
+    arm_dialog_answers_arm: list[ArmQuestion],
 ) -> None:
     desk = app_with_saved_arming
     _tick(desk)
     assert ticks_seen_by_engines == []
 
-    _select_futures_row(desk)
-    _bots(desk).strategies.arm_selected()
+    _bots(desk).strategies.arm()
 
     assert len(arm_dialog_answers_arm) == 1
     armed = _controls(desk).armed.armed().config
