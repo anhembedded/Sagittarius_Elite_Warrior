@@ -13,10 +13,13 @@ and ratcheted by the suite's own `ratchet_problems`.
 
 **What it measures.** The checks of the item: the menus (access keys, separators, mnemonics), the
 toolbars (actions only, each in a menu, reading as its menu item, no button repeating a command),
-the scroll areas and the size. Not the tables' columns or the combo boxes' text: with a bot
-selected the Bots table, the Ladder and the venue combo run past their edges at some sizes
-(measured at the first run of this case, 2026-10-21), a defect of its own, and a column's width
-depends on the font of the machine, which a ratchet read on two machines must not.
+the scroll areas and the size. **Not yet the tables' columns and the combo boxes' text**
+(`_NOT_YET_MEASURED`): with a bot selected the Bots table, the Ladder and the venue combo run past
+their edges at some sizes (`BUG-245`, found by this case's first run), and a column's width depends
+on the machine's font, which a ratchet read on two machines must not. They are not baselined and not
+marked as expected failures: the left-out checks name their open bug, and a test fails the day that
+report is fixed, so the checks come in with the fix. The overlap in the Backtest page's setup column
+(`BUG-246`) is read by no check yet.
 
 Retire when: the conformance suite's own boot creates a bot.
 """
@@ -35,6 +38,7 @@ from PySide6.QtWidgets import QApplication, QLabel
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV, repo_root
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
@@ -81,6 +85,15 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
 _WAIT_MS = 15_000
 #: The picker dialog's pin column.
 _PIN_COLUMN = 2
+#: The checks of `MODE_CHECKS` this case leaves out until their bug is fixed, each with that bug.
+_NOT_YET_MEASURED = {
+    "columns_shown_whole": "BUG-245",
+    "combo_text_shown_whole": "BUG-245",
+}
+#: Where `BUG-245`'s report is while it is open (`Tasks/bug_report/incomplete/`).
+_BUG_REPORTS = {
+    "BUG-245": "BUG-245_with_a_bot_selected_the_bots_table_the_ladder_and_the_venue_combo_run_past_their_edges.md"
+}
 #: The checks of `MODE_CHECKS` this case measures (`EPIC-040` F2): menus, toolbars and scroll areas.
 _MEASURED = (
     "access_keys_unique",
@@ -108,6 +121,15 @@ def boot(request: pytest.FixtureRequest) -> Boot:
 def _settle() -> None:
     for _ in range(3):
         QApplication.processEvents()
+
+
+def _own_data_root(boot: Boot) -> None:
+    """The bot this case creates is kept in this test's own data root, never the session's: a bot
+    that outlived its test would be in the next test's window, and in every other app-booting
+    test on the same worker (`testing-rule.md`: tests do not share state)."""
+    root = boot.tmp_path / "data_root"
+    root.mkdir()
+    boot.monkeypatch.setenv(DATA_ROOT_ENV, str(root))
 
 
 def _select_a_grid_bot(desk: TradeDesk, boot: Boot) -> BotsPresenter:
@@ -153,6 +175,7 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
     out_dir.mkdir(parents=True, exist_ok=True)
     label = f"{size.width()}x{size.height()}"
     report: dict[str, dict[str, list[str]]] = {}
+    _own_data_root(boot)
     with trade_mode_running(boot) as desk:
         window = desk.window
         presenter = _select_a_grid_bot(desk, boot)
@@ -199,6 +222,7 @@ def test_the_chart_menu_and_the_pickers_refusal_are_pictured(
     More timeframes… live, and the interval picker's dialog after the last pin was unticked."""
     out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
     out_dir.mkdir(parents=True, exist_ok=True)
+    _own_data_root(boot)
     with trade_mode_running(boot) as desk:
         window = desk.window
         presenter = _select_a_grid_bot(desk, boot)
@@ -217,16 +241,33 @@ def test_the_chart_menu_and_the_pickers_refusal_are_pictured(
         toolbar.timeframes.more_action.trigger()
         picker = toolbar._picker
         assert picker is not None and picker.isVisible()
-        # The person unticks every pin, one after the other, as the dialog lets them.
-        for code in [row.code for row in toolbar._selection.pinned_rows]:
+        # The person unticks every pin, one after the other, as the dialog lets them: the one Run
+        # replays stays, and the dialog says why.
+        chosen = page.chosen_interval().value
+        pinned = [row.code for row in toolbar._selection.pinned_rows]
+        for code in sorted(pinned, key=lambda code: code == chosen):
             item = picker.item_for(code)
             assert item is not None
             item.setCheckState(_PIN_COLUMN, Qt.CheckState.Unchecked)
         _settle()
-        assert len(toolbar.timeframes.timeframe_actions()) == 1
-        notice = picker.findChild(QLabel, "lblTimeframePinFloor")
+        assert [a.text() for a in toolbar.timeframes.timeframe_actions()] == [chosen]
+        notice = picker.findChild(QLabel, "lblTimeframePinRefusal")
         assert notice is not None and notice.isVisibleTo(picker)
-        path = out_dir / f"{BOTS_ROUTE}~interval-picker-last-pin@1366x768.png"
+        path = out_dir / f"{BOTS_ROUTE}~interval-picker-chosen-pinned@1366x768.png"
         assert picker.grab().save(str(path)), path
         assert not is_blank(QImage(str(path)))
         picker.close()
+
+
+@pytest.mark.parametrize("check", sorted(_NOT_YET_MEASURED))
+def test_a_check_left_out_waits_for_a_bug_that_is_still_open(check: str) -> None:
+    """The checks of `_NOT_YET_MEASURED` come in with their bug's fix: when the report leaves
+    `incomplete/`, this fails, naming the check to add to `_MEASURED`. Nothing is baselined."""
+    bug = _NOT_YET_MEASURED[check]
+    report = repo_root() / "Tasks" / "bug_report" / "incomplete" / _BUG_REPORTS[bug]
+
+    assert check in MODE_CHECKS, f"{check} is no check of the suite any more"
+    assert report.is_file(), (
+        f"{bug} is not open any more: measure {check} in this case (add it to `_MEASURED`) "
+        "and drop it from `_NOT_YET_MEASURED`"
+    )

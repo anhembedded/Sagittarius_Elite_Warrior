@@ -1,7 +1,7 @@
 # BOT-212 — A conformance case with a backtestable bot selected (EPIC-040 F2)
 
 **Status:** ✅ Done (2026-10-21)
-**Board:** The Bots mode is now measured with a Grid bot selected, on its Live and Backtest tabs at 1024×700, 1366×768 and 1920×1080 (menus, toolbars, scroll areas, size), with frames; it would have caught F1. Found by it, not fixed here: the Bots table, the Ladder and the venue combo run past their edges at some sizes.
+**Board:** The Bots mode is now measured with a Grid bot selected, on its Live and Backtest tabs at 1024×700, 1366×768 and 1920×1080 (menus, toolbars, scroll areas, size), with frames; it would have caught F1. Found by it, not fixed here: the Bots table, the Ladder and the venue combo run past their edges at some sizes ([BUG-245](../bug_report/incomplete/BUG-245_with_a_bot_selected_the_bots_table_the_ladder_and_the_venue_combo_run_past_their_edges.md)) and the Backtest setup column overlaps its text ([BUG-246](../bug_report/incomplete/BUG-246_the_backtest_tabs_setup_column_draws_its_text_over_itself_at_1024x700_and_1366x768.md)).
 **Source:** the delivery coordinator (session_016sGQHsRy729Fp4cY1cTXfu), 2026-10-21: the owner said "OK làm 5 task 1-5 luôn" ("OK, do tasks 1 to 5 now"); item 1 is the follow-up F2 of [EPIC-040](../epics/EPIC-040_backtest_workbench/README.md), found in PR #642's review.
 **Risk:** 🟢 — a test and its pictures; no product code
 **Complexity:** M — a booted app with the fake exchange, a created and selected bot, two tabs, three sizes
@@ -19,7 +19,7 @@
 - [x] Each tab at each size is saved as a frame; View → Chart in front of each tab and the interval picker after its last pin was unticked are saved too.
 
 ## 3. Design
-The case is `test_trade_mode_conformance.py`'s shape over the same boot (`trade_mode_running`), with a bot made through `ICommandDispatcher` and selected through the view model's `select_requested`, waited on by `qtbot.waitUntil`. It measures the checks the item names and leaves out the tables' column and combo-text checks: with a bot selected the Bots table, the Ladder and the venue combo run past their edges at some sizes (found at the case's first run), a defect of its own, and a column's width depends on the machine's font, which a ratchet read on two machines must not. The baseline gains a section of its own.
+The case is `test_trade_mode_conformance.py`'s shape over the same boot (`trade_mode_running`), with a bot made through `ICommandDispatcher` and selected through the view model's `select_requested`, waited on by `qtbot.waitUntil`. It measures the checks the item names and leaves out the tables' column and combo-text checks: with a bot selected the Bots table, the Ladder and the venue combo run past their edges at some sizes (found at the case's first run), a defect of its own, and a column's width depends on the machine's font, which a ratchet read on two machines must not. The baseline gains a section of its own. The left-out checks are not baselined and not expected failures: they name `BUG-245` in `_NOT_YET_MEASURED`, and a test per check fails the day that report leaves `incomplete/`, so the checks come in with the fix. The case keeps its bots in its own data root, per test (`SEW_DATA_ROOT`).
 
 ## 3a. Reuse
 `trade_mode_running`, `MODE_CHECKS`, `ratchet_problems`, `WINDOW_SIZES`, the screenshot directory convention (`SEW_UI_SCREENSHOTS`): used. No widget is built.

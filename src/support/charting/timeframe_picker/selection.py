@@ -57,12 +57,12 @@ class TimeframeChoice:
 
 
 @dataclass(frozen=True)
-class PinFloor:
-    """The fewest pinned timeframes a host lets the row keep, and what it tells a person who
-    tries to go below it (`EPIC-040` F4: the interval row of the backtest workbench always shows
-    an interval)."""
+class CurrentStaysPinned:
+    """A host's rule that the timeframe chosen stays pinned, so the row always shows it
+    (`EPIC-040` F4: the backtest workbench's interval row shows the interval Run replays).
+    Choosing a timeframe pins it, and the one chosen cannot be unpinned; `reason` is what a person
+    who tries is told."""
 
-    count: int
     reason: str
 
 
@@ -92,7 +92,7 @@ class TimeframeSelection(QObject):
     #: A code the **user** picked. `set_current()` deliberately does not emit
     #: it — see that method.
     chosen = Signal(str)
-    #: The person tried to unpin below the `PinFloor`; carries its reason. The views have already
+    #: The person tried to unpin the chosen timeframe under `CurrentStaysPinned`; carries its reason. The views have already
     #: been told to re-read, so a box they cleared is checked again.
     pin_refused = Signal(str)
 
@@ -103,11 +103,11 @@ class TimeframeSelection(QObject):
         get_current: Callable[[], str],
         get_pinned: Callable[[], Sequence[str]],
         set_pinned: Callable[[str, bool], None],
-        pin_floor: PinFloor | None = None,
+        keep_current_pinned: CurrentStaysPinned | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self._pin_floor = pin_floor
+        self._keep_current_pinned = keep_current_pinned
         self._get_codes = get_codes
         self._get_current = get_current
         self._get_pinned = get_pinned
@@ -151,6 +151,7 @@ class TimeframeSelection(QObject):
         self._options = options_for(list(self._get_codes()))
         self._current = self._get_current()
         self._pinned = {str(code) for code in self._get_pinned()}
+        self._pin_the_current()
         self._recompute()
 
     def set_current(self, code: str | None) -> None:
@@ -167,6 +168,7 @@ class TimeframeSelection(QObject):
         being silently dropped. It simply highlights nothing.
         """
         self._current = code or ""
+        self._pin_the_current()
         self._recompute()
 
     def choose(self, code: str) -> None:
@@ -174,6 +176,7 @@ class TimeframeSelection(QObject):
         if not any(option.code == code for option in self._options):
             return
         self._current = code
+        self._pin_the_current()
         self._recompute()
         self.chosen.emit(code)
 
@@ -183,10 +186,10 @@ class TimeframeSelection(QObject):
         if not any(option.code == code for option in self._options):
             return
         pin = code not in self._pinned
-        if not pin and self._at_pin_floor():
+        rule = self._keep_current_pinned
+        if not pin and rule is not None and code == self._current:
             self._recompute()
-            if self._pin_floor is not None:
-                self.pin_refused.emit(self._pin_floor.reason)
+            self.pin_refused.emit(rule.reason)
             return
         if pin:
             self._pinned.add(code)
@@ -197,10 +200,18 @@ class TimeframeSelection(QObject):
 
     # -- internal ----------------------------------------------------------
 
-    def _at_pin_floor(self) -> bool:
-        """Whether unpinning one more would leave fewer pinned timeframes than the host allows."""
-        floor = self._pin_floor
-        return floor is not None and len(self._pinned_rows) <= floor.count
+    def _pin_the_current(self) -> None:
+        """Under `CurrentStaysPinned` the timeframe chosen is pinned: written through to the host
+        when it is offered and not yet pinned."""
+        current = self._current
+        offered = any(option.code == current for option in self._options)
+        if (
+            self._keep_current_pinned is not None
+            and offered
+            and current not in self._pinned
+        ):
+            self._pinned.add(current)
+            self._set_pinned(current, True)
 
     def _recompute(self) -> None:
         self._pinned_rows = tuple(

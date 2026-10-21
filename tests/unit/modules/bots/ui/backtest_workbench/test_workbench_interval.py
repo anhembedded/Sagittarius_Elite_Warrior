@@ -125,10 +125,23 @@ def test_the_result_chart_has_no_timeframe_row_of_its_own(
     assert visible == []
 
 
-def test_the_interval_picker_keeps_one_interval_pinned(world: WorkbenchWorld) -> None:
-    """`EPIC-040` F4: Run replays the chosen interval, and the row always shows one."""
-    toolbar = world.workbench.view.interval
+def test_the_row_always_shows_the_interval_run_replays(world: WorkbenchWorld) -> None:
+    """`EPIC-040` F4: every other pin can go, the chosen one cannot, and choosing pins."""
+    view = world.workbench.view
+    toolbar = view.interval
     for code in _CODES:
         toolbar._selection.toggle_pinned(code)
 
-    assert len(toolbar.timeframes.timeframe_actions()) == 1
+    chosen = view.chosen_interval().value
+    assert [a.text() for a in toolbar.timeframes.timeframe_actions()] == [chosen]
+    assert [
+        a.text() for a in toolbar.timeframes.timeframe_actions() if a.isChecked()
+    ] == [chosen]
+
+    toolbar._selection.choose("1h")  # not pinned any more: choosing pins it
+
+    assert view.chosen_interval() is TimeFrame.ONE_HOUR
+    checked = [
+        a.text() for a in toolbar.timeframes.timeframe_actions() if a.isChecked()
+    ]
+    assert checked == ["1h"]

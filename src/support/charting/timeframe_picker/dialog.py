@@ -172,7 +172,7 @@ class TimeframePickerDialog(QDialog):
         body.addWidget(self._warning)
 
         self._pin_refusal = plain_label()
-        self._pin_refusal.setObjectName("lblTimeframePinFloor")
+        self._pin_refusal.setObjectName("lblTimeframePinRefusal")
         self._pin_refusal.setWordWrap(True)
         self._pin_refusal.hide()
         body.addWidget(self._pin_refusal)

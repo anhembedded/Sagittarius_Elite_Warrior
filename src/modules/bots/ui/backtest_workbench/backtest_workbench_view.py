@@ -64,7 +64,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar imp
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import PinFloor
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    CurrentStaysPinned,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
     Readout,
@@ -83,9 +85,9 @@ INTERVALS = (
     TimeFrame.ONE_HOUR,
 )
 DEFAULT_INTERVAL = TimeFrame.FIFTEEN_MINUTES
-#: Said when the picker's last pin is unticked (`EPIC-040` F4).
-_LAST_INTERVAL_TEXT = (
-    "One interval stays pinned: the row shows the interval Run replays."
+#: Said when the interval Run replays is unticked in the picker (`EPIC-040` F4).
+_CURRENT_INTERVAL_TEXT = (
+    "The interval Run replays stays pinned, so the row always shows it."
 )
 _DEFAULT_DAYS = 7
 _UTC = QTimeZone.utc()
@@ -332,7 +334,7 @@ def _interval_toolbar() -> ChartToolbar:
         timeframes=codes,
         active=DEFAULT_INTERVAL.value,
         offered_codes=codes,
-        pin_floor=PinFloor(1, _LAST_INTERVAL_TEXT),
+        keep_current_pinned=CurrentStaysPinned(_CURRENT_INTERVAL_TEXT),
     )
     toolbar.setObjectName("tbBacktestInterval")
     toolbar.setWindowTitle("Interval")

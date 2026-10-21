@@ -97,7 +97,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    PinFloor,
+    CurrentStaysPinned,
     PinnedTimeframes,
     TimeframeActions,
     TimeframePickerDialog,
@@ -179,7 +179,7 @@ class ChartToolbar(QToolBar):
         symbol: str | None = None,
         timeframe_pin_preferences: TimeframePinPreferences | None = None,
         offered_codes: Collection[str] | None = None,
-        pin_floor: PinFloor | None = None,
+        keep_current_pinned: CurrentStaysPinned | None = None,
     ) -> None:
         """@param symbol / timeframe_pin_preferences Scope the pinned set to
         one chart. Both must be given together — `ChartCard` passes its own
@@ -191,8 +191,9 @@ class ChartToolbar(QToolBar):
         @param offered_codes The only timeframes this toolbar offers, pinned or in the
         picker, for a host whose data covers a subset (the backtest workbench's
         intervals, `EPIC-040`); `None` offers every timeframe the market can load.
-        @param pin_floor The fewest timeframes the picker lets stay pinned, with what it says when
-        a person tries to go below (`EPIC-040` F4); `None` lets every pin go."""
+        @param keep_current_pinned Pins the timeframe chosen and refuses to unpin it, saying why
+        (`EPIC-040` F4); `None` lets every pin go.
+        """
         active_state = _ActiveTimeframe(
             active or (timeframes[0] if timeframes else None)
         )
@@ -224,7 +225,7 @@ class ChartToolbar(QToolBar):
             get_current=lambda: active_state.code or "",
             get_pinned=get_pinned,
             set_pinned=set_pinned,
-            pin_floor=pin_floor,
+            keep_current_pinned=keep_current_pinned,
         )
         selection.refresh()
 
