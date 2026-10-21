@@ -12,6 +12,7 @@ counted twice.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
@@ -33,6 +34,11 @@ class RetryFailedDeliveries:
         self._requeue = requeue
         self._clock = clock
         self._policy = policy
+
+    @property
+    def window(self) -> timedelta:
+        """How far back a failure is still retried: the expiry of the delivery policy."""
+        return self._policy.expiry
 
     def run(self) -> int:
         """How many failed deliveries were queued again."""

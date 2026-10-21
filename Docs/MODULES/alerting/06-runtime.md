@@ -291,7 +291,7 @@ none across the view.
 relay so a read and a retry never supersede each other: the button greys at once, the work
 (`RetryFailedDeliveries.run`, one `UPDATE` in a transaction of its own on the outbox file, which is in
 WAL mode) runs on the pool, and the answer ("n failed deliveries queued again" or "nothing to retry")
-stays on screen over the full read that follows it, until the owner presses Refresh. The lane that owns
+stays on screen over the full read that follows it, until the owner presses Refresh; a read that was already out when the answer arrived predates the write, so one more full read follows it (`_full_read_wanted`, as for Refresh). The lane that owns
 the channel finds the `PENDING` deliveries at its next look (`LANE_POLL_SECONDS`) and sends them at the
 channel's pace. A read-only copy of the app has the button off: it must not write the outbox.
 

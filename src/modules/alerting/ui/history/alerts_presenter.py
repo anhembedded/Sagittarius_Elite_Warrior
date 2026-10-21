@@ -99,6 +99,7 @@ class AlertsPresenter(BasePresenter):
         self._failing = False
         view.refresh_button.clicked.connect(self.refresh)
         view.retry_button.clicked.connect(self.retry_failed)
+        view.retry_button.setToolTip(history_words.retry_tip(self._retry.window))
         if container.resolve(IInstanceAccess).read_only:
             view.retry_button.setEnabled(False)
             view.retry_button.setToolTip(history_words.RETRY_READ_ONLY)
@@ -194,10 +195,17 @@ class AlertsPresenter(BasePresenter):
             return
         self._retry_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
         self._retry_note = (
-            history_words.retry_done(count) if count else history_words.RETRY_NONE
+            history_words.retry_done(count)
+            if count
+            else history_words.retry_none(self._retry.window)
         )
         self._view.show_history_note(self._retry_note)
-        self._start_read(HISTORY_LIMIT)
+        if self._reading:
+            # The read out started before the write, so its list would contradict the note:
+            # a full read follows it (as for Refresh), whether it was partial or full.
+            self._full_read_wanted = True
+        else:
+            self._start_read(HISTORY_LIMIT)
 
     def _end_retry(self) -> None:
         self._retrying = False

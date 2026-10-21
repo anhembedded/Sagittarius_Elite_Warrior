@@ -26,7 +26,7 @@ Status: Current
 6. The list is read again every fifteen seconds and when the owner presses Refresh.
 7. In every mode the status bar says whether alerts are getting through: `Alerts: ok`, `Alerts: no channel`, or `Alerts: <channel> failing` with a warning icon. A click on it shows the Alerts mode. It appears a few seconds after the app starts, once the first background read is done.
 8. The severity word is drawn in the colour of its meaning (Critical as a loss, Warning as a caution, Info plain); the word is always there, so the colour is never the only signal.
-9. "Retry failed" puts every delivery that gave up within the last 24 hours back in the queue. The app says how many were queued again, or that there was nothing to retry, then reads the list; the channel's lane sends them within a few seconds, at its own pace. An older alert is never sent late, and a copy of the app that is read-only has the button off.
+9. "Retry failed" puts every delivery that gave up within the last 24 hours back in the queue. The app says how many were queued again, or that there was nothing to retry, then reads the list; the channel's lane sends each at its next send, at its own pace (a channel under its rate limit, or one removed since, waits). A delivery that failed after the far side had in fact received it is sent again too: a resend the owner asked for. An older alert is never sent late, and a copy of the app that is read-only has the button off.
 
 ## 4. What must be true afterwards
 

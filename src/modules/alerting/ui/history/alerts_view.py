@@ -94,7 +94,6 @@ class AlertsView(BaseView):
         self.refresh_button.setObjectName("btnRefreshAlerts")
         self.retry_button = QPushButton("Retry failed")
         self.retry_button.setObjectName("btnRetryFailed")
-        self.retry_button.setToolTip(history_words.RETRY_TIP)
         toolbar = QHBoxLayout()
         toolbar.addWidget(plain_label("Show:"))
         toolbar.addWidget(self.severity_filter)
