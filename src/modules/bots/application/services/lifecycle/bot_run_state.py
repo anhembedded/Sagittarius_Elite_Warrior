@@ -123,6 +123,11 @@ class BotRunState:
         """Whether this bot may hold an order or a position now (`EPIC-044`, ADR 044 D2)."""
         return may_hold_exposure(self._bot.state, self._bot.lifecycle.recovering_from)
 
+    def holds_in(self, states: frozenset[BotLifecycleState]) -> bool:
+        """Whether the bot is in one of `states` and may hold exposure (`EPIC-044`, ADR 044 D2):
+        the question a watch that protects exposure asks of the states it covers."""
+        return self.state in states and self.may_hold_exposure
+
     @property
     def exposure_watched(self) -> bool:
         """Whether the watches that protect exposure apply now: the state holds or lays orders

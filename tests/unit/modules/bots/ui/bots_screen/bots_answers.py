@@ -27,8 +27,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
-    StrategyFormViewModel,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.disarm_choice import (
+    VenueQuestion,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -58,6 +61,7 @@ class Answers:
             ask_stop=self._ask_stop,
             confirm_delete=self._confirm_delete,
             ask_arm_strategy=self._ask_arm_strategy,
+            choose_venue=self._choose_venue,
             allow_real_money=self._allow_real_money,
             ask_export_plan=self._ask_export_plan,
             ask_plan_save_path=self._ask_plan_save_path,
@@ -79,11 +83,15 @@ class Answers:
         self.asked.append(f"real money {venue.value}: {what}")
         return self.real_money
 
-    def _ask_arm_strategy(
-        self, venue: TradingVenue, _form: StrategyFormViewModel
-    ) -> bool:
+    def _ask_arm_strategy(self, question: ArmQuestion) -> TradingVenue | None:
+        venue = next(iter(question.forms))
         self.asked.append(f"arm {venue.value}")
-        return self.arm_strategy
+        return venue if self.arm_strategy else None
+
+    def _choose_venue(self, choice: VenueQuestion) -> TradingVenue | None:
+        venue = choice.options[0][0]
+        self.asked.append(f"disarm {venue.value}")
+        return venue
 
     def _ask_new_bot(
         self, kinds: Sequence[str], venues: Sequence[VenueChoice]

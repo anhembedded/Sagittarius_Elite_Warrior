@@ -57,9 +57,8 @@ sequenceDiagram
 ```
 
 The wait is `AWAITING_RANGE` (`bots/domain/bot_lifecycle_fsm_matrix.py` → `BotLifecycleState`). The
-first Start decides in `GridExecutor._run_start` (`bots/application/kinds/grid/grid_executor.py` →
-`GridExecutor._run_start`, `bots/application/kinds/grid/watch/grid_range_entry.py` →
-`GridRangeEntry.waits_for_the_range`). While it waits, every price the exits are judged on reaches
+first Start decides in `bots/application/kinds/grid/grid_executor.py` → `GridExecutor._run_start`,
+which asks `bots/application/kinds/grid/watch/grid_range_entry.py` → `GridRangeEntry.waits_for_the_range`. While it waits, every price the exits are judged on reaches
 `GridRangeEntry.on_price` through `GridPriceReaction` (the streamed last price on Spot, the mark on a
 position venue); a price inside the range (`range_position`, bounds included) starts one attempt, at
 most one per `ENTRY_READ_EVERY_SECONDS` (30 s after a deferral). The attempt confirms the trigger with

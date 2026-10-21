@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 842, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 844, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -834,7 +834,9 @@
 ["hh", "[storage-vault] Pruned ", " empty shard(s) (0 klines in any interval): ", ""],
 ["", "[storage-vault] Storage Vault is empty: 0 database shards found on disk."],
 ["ss", "[strategies] ", ": ", ""],
-["s", "[strategies] arming ", ": cancelled"],
+["s", "[strategies] arming: ", " changed while asking"],
+["", "[strategies] arming: cancelled"],
+["", "[strategies] disarming: cancelled"],
 ["ds", "[symbol-list] ", " symbols listed for ", ""],
 ["ss", "[symbol-list] could not read ", " (cause ", ")"],
 ["ss", "[trade] venue ", " -> ", ""],

@@ -66,9 +66,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_runner import (
     ReadOnlyBotRunner,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_entry_readiness import (
-    BotEntryReadiness,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_readiness_reader import (
     BotReadinessReader,
 )
@@ -118,6 +115,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.futures_wiring impor
     grid_exposures,
     risk_watches,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.lazy_entry_readiness import (
+    LazyEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -132,10 +132,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
-    EntryReadiness,
-    IEntryReadiness,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
@@ -168,7 +164,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     FuturesGridThresholds,
@@ -255,8 +250,7 @@ def _build_price_watch(container: IContainer) -> BotPriceWatch:
 
 
 def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
-    """The kinds the Bots tab offers (`EPIC-029F`), each with its backtest (`EPIC-040B`). Grid only
-    for now."""
+    """The kinds the Bots tab offers (`EPIC-029F`), each with its backtest (`EPIC-040B`)."""
     grid_backtester = GridKindBacktester(
         RunGridBacktestQueryHandler(container.resolve(IMarketDataSources))
     )
@@ -274,9 +268,8 @@ def grid_executor_deps(
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
     pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
-    """What every Grid executor is built from, as production wires it. A journey that needs its
-    bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
-    the exposure collaborators and the risk watch are the production ones)."""
+    """What every Grid executor is built from, as production wires it. A journey with its own
+    queue and pacer passes them and keeps every other binding (`EPIC-039H`)."""
     ports = container.resolve(IVenueTradingPorts)
     monotonic = container.resolve(IMonotonicClock)
     positions = SharedPositionReads(ports, monotonic)
@@ -300,22 +293,8 @@ def grid_executor_deps(
         ),
         positions=positions,
         marks=SharedMarkReads(ports, monotonic),
-        entry_readiness=_LazyEntryReadiness(container),
+        entry_readiness=LazyEntryReadiness(container),
     )
-
-
-class _LazyEntryReadiness(IEntryReadiness):
-    """The entry judge of a waiting Grid, built on its first use: the readiness reader needs the
-    kind catalogue, which needs the executor factory these deps build (`EPIC-044`)."""
-
-    def __init__(self, container: IContainer) -> None:
-        self._container = container
-        self._judge: IEntryReadiness | None = None
-
-    def judge(self, bot: Bot) -> EntryReadiness:
-        if self._judge is None:
-            self._judge = BotEntryReadiness(self._container.resolve(BotReadinessReader))
-        return self._judge.judge(bot)
 
 
 def _grid_exposures(container: IContainer) -> GridExposures:
@@ -345,8 +324,7 @@ def _build_grid_budgets(container: IContainer) -> IGridBudgets:
 
 
 def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
-    """What the exchange says about a bot's symbol (`BOT-174`): the screen's load
-    and the Start and Resume gates read it through this one reader."""
+    """The one reader of what the exchange says of a bot's symbol (`BOT-174`)."""
     return ExchangeFactsReader(
         container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
     )

@@ -189,13 +189,15 @@ def test_a_price_below_the_range_starts_and_the_screen_says_the_same() -> None:
     """`EPIC-044`, ADR 044 D1: the market is at 121 and the range starts at 130, so the bot
     starts and waits; it no longer market-buys the ladder's base (`EPIC-035L` D4 (a), superseded).
     The query the screen reads and the handler at the click give one answer."""
-    world = readiness_world(config=_BELOW_THE_PRICE)
+    # The plan is judged at the bound the bot will enter at (130), where an order must clear the
+    # per-order cap: a capital of 800 does.
+    world = readiness_world(config={**_BELOW_THE_PRICE, "capital_quote": "800"})
     runner = _CountingRunner()
 
     reported = _query(world)
     result = _start(world, runner)
 
-    assert reported.can_start
+    assert reported.can_start, reported.message()
     assert result.accepted
     assert runner.started == [BOT]
 

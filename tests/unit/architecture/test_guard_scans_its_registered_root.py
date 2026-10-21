@@ -104,6 +104,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 #: (a guard that no longer exists, or has changed shape) is caught by
 #: `test_every_unresolvable_guard_is_a_real_registered_guard` below.
 _UNRESOLVABLE_GUARDS: dict[str, str] = {
+    "tests/unit/architecture/test_every_state_set_classifies_every_state.py": "the roots are a bare-string tuple (`_ROOTS`) joined at the call site, not a literal chain.",
     "tests/unit/architecture/test_stock_controls_only.py": "`rglob` runs on the `src_root` parameter, not a literal chain.",
     "tests/unit/architecture/test_mypy_scope_only_shrinks.py": "root joined from a bare-string tuple (`_SCANNED`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_ruff_debt_only_shrinks.py": "ruff scans the trees, named in `RATCHETED_RULES`; the guard has no glob/rglob call of its own.",

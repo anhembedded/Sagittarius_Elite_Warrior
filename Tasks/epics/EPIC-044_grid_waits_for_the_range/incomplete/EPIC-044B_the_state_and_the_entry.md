@@ -58,9 +58,9 @@ Built on `849d973` after the ADR (PR #679). Evidence per criterion, all in `test
 | Information checks, plan judged at the bound | `domain/grid/test_grid_range_checks.py`, `test_grid_constraints.py`, `test_grid_checks.py`; `application/test_start_bot_readiness.py` (the screen and the Start handler agree: a price below the range starts) |
 | Restart while waiting, unknown tagged order, watches off, no `SETTINGS_DRIFT` | `application/services/test_a_waiting_grid_survives_a_restart.py` (the control: the same drift halts a bot that was running); `tests/integration/modules/bots/test_a_grid_started_above_its_range_waits_on_the_fake_exchange.py` (the composed app over the fake exchange, real log lines) |
 | Stop, SL/TP, range-exit close, switch off | `test_grid_waits_for_the_range.py` |
-| Refusal and deferral at entry | `test_grid_waits_for_the_range.py` (a refused budget, a ladder under the minimum, trading off, a symbol that does not trade, the readiness refusing and deferring; mutation-checked: removing the budget registration turns two red) |
+| Refusal and deferral at entry | `test_grid_waits_for_the_range.py` (a refused budget, a ladder under the minimum, trading off, a symbol that does not trade; mutation-checked: removing the budget registration turns two red) and `test_a_waiting_grid_asks_the_readiness_and_skips_one_beat.py` (the readiness refusing and deferring) |
 | Flat Resume | `application/services/test_a_flat_resume_waits_for_the_range.py` (HALTED and AWAITING_RECOVERY, below and above, SHORT/NEUTRAL, the automatic recovery, and the controls: inside the range, and a bot that holds inventory) |
-| One skipped beat | `test_grid_waits_for_the_range.py` (mutation-checked: skip removed turns both red) |
+| One skipped beat | `test_a_waiting_grid_asks_the_readiness_and_skips_one_beat.py` (mutation-checked: skip removed turns both red) |
 | The guard | `architecture/test_every_state_set_classifies_every_state.py` and `state_set_classification.py` (21 sets, enum and string; adding a state turns it red) |
 | Mainnet = testnet | `test_grid_waits_for_the_range.py::test_mainnet_and_testnet_wait_and_enter_the_same_way` |
 | Log lines | the integration test asserts `[range-wait]` and `[range-entry]` through the app's logger; `src/support/log_view/template_catalogue.json` regenerated |
