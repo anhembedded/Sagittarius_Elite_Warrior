@@ -48,6 +48,9 @@ class TelegramChannelSpec:
     chat_secret: str
     is_bot_token: Callable[[str], bool]
     is_chat_id: Callable[[str], bool]
+    #: What the app's own writable store holds under a name, ignoring the provisioned stores:
+    #: what a failed save puts back, never a copy of a secret the operator keeps elsewhere.
+    read_own: Callable[[str], str | None]
 
 
 class TelegramSave(Enum):
@@ -114,7 +117,7 @@ class TelegramCredentialsSetup:
         refused = self._refusal(token, chat)
         if refused is not None:
             return self._saved_as(refused)
-        earlier_token = self._secrets.read(self._spec.token_secret)
+        earlier_token = self._spec.read_own(self._spec.token_secret)
         try:
             self._secrets.write(self._spec.token_secret, token)
             self._secrets.write(self._spec.chat_secret, chat)
@@ -134,7 +137,7 @@ class TelegramCredentialsSetup:
     def remove(self) -> TelegramRemoval:
         if not any(self._stored()):
             return self._removed_as(TelegramRemoval.NOTHING_STORED)
-        earlier_token = self._secrets.read(self._spec.token_secret)
+        earlier_token = self._spec.read_own(self._spec.token_secret)
         try:
             self._secrets.delete(self._spec.token_secret)
             self._secrets.delete(self._spec.chat_secret)

@@ -237,6 +237,7 @@ def build_page(
             TELEGRAM_CHAT_SECRET,
             is_bot_token,
             is_chat_id,
+            store.read,
         ),
         catalog,
     )

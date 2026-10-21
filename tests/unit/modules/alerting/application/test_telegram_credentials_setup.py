@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credent
     TelegramRemoval,
     TelegramSave,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
+    own_reader,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_channel import (
     FakeAlertChannel,
 )
@@ -44,18 +47,24 @@ from Sagittarius_Elite_Warrior.tests.secret_stores import (
 BOT_KEY = "123456789:AAH-top_secret_TOKEN_abcdefghijklmnopqrst"
 OTHER_BOT_KEY = "987654321:AAH-another_secret_TOKEN_zyxwvutsrqponm"
 CHAT = "5550123"
-SPEC = TelegramChannelSpec(
-    TELEGRAM_CHANNEL_ID,
-    TELEGRAM_TOKEN_SECRET,
-    TELEGRAM_CHAT_SECRET,
-    is_bot_token,
-    is_chat_id,
-)
+
+
+def spec_over(store) -> TelegramChannelSpec:  # type: ignore[no-untyped-def]
+    return TelegramChannelSpec(
+        TELEGRAM_CHANNEL_ID,
+        TELEGRAM_TOKEN_SECRET,
+        TELEGRAM_CHAT_SECRET,
+        is_bot_token,
+        is_chat_id,
+        own_reader(store),
+    )
 
 
 def setup_over(store, *, running: bool = False) -> TelegramCredentialsSetup:  # type: ignore[no-untyped-def]
     channels = {TELEGRAM_CHANNEL_ID: FakeAlertChannel()} if running else {}
-    return TelegramCredentialsSetup(store, SPEC, RegisteredChannelCatalog(channels))
+    return TelegramCredentialsSetup(
+        store, spec_over(store), RegisteredChannelCatalog(channels)
+    )
 
 
 def test_a_valid_pair_is_saved_under_the_channels_secret_names() -> None:
@@ -288,3 +297,39 @@ def test_a_refused_chat_delete_puts_the_token_back() -> None:
         TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY,
         TELEGRAM_CHAT_SECRET: CHAT,
     }
+
+
+def test_a_refused_chat_write_never_copies_a_provisioned_token_into_the_keyring() -> (
+    None
+):
+    """`own_reader`: the earlier token is what the writable backend held, not what answers
+    first. A token the operator provisions elsewhere is not the app's to copy."""
+    provisioned = InMemorySecretStore(**{TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY})
+    keyring = _SecondWriteRefused()
+    stores = OrderedSecretStores(
+        (
+            SecretBackend(CredentialsSource.SYSTEMD_CREDENTIAL, provisioned),
+            SecretBackend(CredentialsSource.KEYRING, keyring, writable=True),
+        )
+    )
+
+    setup_over(stores).save(BOT_KEY, "99")
+
+    assert keyring.secrets == {}
+
+
+def test_a_refused_chat_delete_never_copies_a_provisioned_token_into_the_keyring() -> (
+    None
+):
+    provisioned = InMemorySecretStore(**{TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY})
+    keyring = _SecondDeleteRefused(**{TELEGRAM_CHAT_SECRET: CHAT})
+    stores = OrderedSecretStores(
+        (
+            SecretBackend(CredentialsSource.SYSTEMD_CREDENTIAL, provisioned),
+            SecretBackend(CredentialsSource.KEYRING, keyring, writable=True),
+        )
+    )
+
+    setup_over(stores).remove()
+
+    assert TELEGRAM_TOKEN_SECRET not in keyring.secrets

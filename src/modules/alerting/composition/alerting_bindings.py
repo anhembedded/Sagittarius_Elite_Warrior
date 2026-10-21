@@ -111,6 +111,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
     build_channel_catalog,
+    own_reader,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
     IAlertChannelCatalog,
@@ -249,6 +250,7 @@ def bind_alerting(container: IContainer) -> None:
                 TELEGRAM_CHAT_SECRET,
                 is_bot_token,
                 is_chat_id,
+                own_reader(resolver.resolve(ChannelSecrets).store),
             ),
             resolver.resolve(IAlertChannelCatalog),
         ),
