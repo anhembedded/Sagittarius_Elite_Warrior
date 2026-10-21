@@ -75,15 +75,30 @@ _FAILURES = EnumLabels(
 )
 
 
-def failure_words(kind: ConnectionFailureKind) -> str:
-    """What Binance's answer means and what to do, for one failure kind."""
+#: `BOT-224` — `-2015` once the user has looked the public address up: the same three
+#: causes, with the address the allowlist must hold named, not described.
+_KEY_REJECTED_WITH_ADDRESS = (
+    "Binance refused the key. It may belong to another environment, its IP "
+    "allowlist may not include this computer's public IP ({address}; a LAN "
+    "address such as 192.168.x.x never matches), or it may lack a permission. "
+    "Fix it on Binance or replace the key."
+)
+
+
+def failure_words(kind: ConnectionFailureKind, public_address: str = "") -> str:
+    """What Binance's answer means and what to do, for one failure kind. `public_address`
+    is the one the user looked up, or "" when they have not."""
+    if kind is ConnectionFailureKind.KEY_REJECTED and public_address:
+        return _KEY_REJECTED_WITH_ADDRESS.format(address=public_address)
     return _FAILURES[kind]
 
 
-def state_of(status: ExchangeConnectionStatus) -> tuple[str, StateKind]:
+def state_of(
+    status: ExchangeConnectionStatus, public_address: str = ""
+) -> tuple[str, StateKind]:
     """The row text for one connection check, and what kind of state it is."""
     if status.failure is not None:
-        return failure_words(status.failure), StateKind.ERROR
+        return failure_words(status.failure, public_address), StateKind.ERROR
     if not status.reachable:
         return _NOT_UNDERSTOOD, StateKind.ERROR
     return CONNECTED, StateKind.CONNECTED

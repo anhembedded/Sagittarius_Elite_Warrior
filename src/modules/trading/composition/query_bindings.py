@@ -75,6 +75,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order
     GetOrderNotionalLimitQuery,
     GetOrderNotionalLimitQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_public_address import (
+    GetPublicAddressQuery,
+    GetPublicAddressQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_symbol_order_rules import (
     GetSymbolOrderRulesQuery,
     GetSymbolOrderRulesQueryHandler,
@@ -115,5 +119,7 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetOrderNotionalLimitQuery, GetOrderNotionalLimitQueryHandler)
     # BUG-176: the Options page lists each venue's key as a fingerprint.
     container.bind(ListVenueKeysQuery, ListVenueKeysQueryHandler)
+    # BOT-224: the Options page shows the address a key's IP whitelist must hold.
+    container.bind(GetPublicAddressQuery, GetPublicAddressQueryHandler)
     # BOT-200: `key check` tells a key's venues at the command line and keeps nothing.
     container.bind(CheckKeyQuery, CheckKeyQueryHandler)

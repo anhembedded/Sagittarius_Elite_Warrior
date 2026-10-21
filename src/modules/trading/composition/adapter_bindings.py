@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.network.urllib_public_address_reader import (
+    UrllibPublicAddressReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
     JsonOwnerInventoryCheckpoints,
 )
@@ -70,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_c
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_checkpoints import (
     IOwnerPositionCheckpoints,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_public_address_reader import (
+    IPublicAddressReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -139,6 +145,9 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))
     # BUG-176: how Add key finds which environment a key belongs to.
     container.singleton(IKeyEnvironmentProbe, lambda _: new_key_environment_probe())
+
+    # BOT-224: asked only when the user presses Show public IP on the Options page.
+    container.singleton(IPublicAddressReader, lambda _: UrllibPublicAddressReader())
 
     # The primary venue — the first one in `TradingVenue` order (`EPIC-034B`:
     # every venue is assembled, none is chosen by configuration).

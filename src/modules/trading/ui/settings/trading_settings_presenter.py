@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.remov
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_public_address import (
+    GetPublicAddressQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
     ListVenueKeysQuery,
 )
@@ -53,13 +56,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_enrolment impor
     KeyEnrolment,
     KeyRemoval,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import VenueKey
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
-    NO_KEY,
-    NOT_CHECKED,
-    StateKind,
-    state_of,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.public_address_lookup import (
+    PublicAddressLookup,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import VenueKey
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.key_enrolment_words import (
     kept_message,
     refusal_detail,
@@ -67,11 +67,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.key_enrolment_wor
     removal_failure_headline,
     venues_in_words,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.key_rows import (
+    build_row,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.public_address_words import (
+    BUSY as PUBLIC_IP_BUSY,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.public_address_words import (
+    read_out_of,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    CredentialsSource,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -86,7 +92,19 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.options_section_presenter impo
 from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-from .trading_settings_view_model import KeyRow, TradingSettingsViewModel
+from .trading_settings_actions import (
+    ADD_HINT,
+    CHECK,
+    ENROL,
+    ENROL_CAUSE,
+    PUBLIC_IP,
+    REMOVE,
+    REMOVE_CAUSE,
+    REPLACE_HINT,
+    UNEXPECTED,
+    UNEXPECTED_HEADLINE,
+)
+from .trading_settings_view_model import TradingSettingsViewModel
 
 if TYPE_CHECKING:
     from PySide6.QtCore import SignalInstance
@@ -95,34 +113,6 @@ if TYPE_CHECKING:
     from .trading_settings_view import TradingSettingsView
 
 _TITLE = "Trading"
-
-#: `ActionOwnershipTracker`'s `TKind`: the three things this page runs off the UI thread.
-_ENROL = "enrol_key"
-_REMOVE = "remove_key"
-_CHECK = "check_connections"
-
-#: `BOT-169` — the causes of the page's commands, one message each.
-_ENROL_CAUSE = "trading.settings.add_key"
-_REMOVE_CAUSE = "trading.settings.remove_key"
-_CHECK_CAUSE = "trading.settings.check_connections"
-
-_SOURCE_WORDS = {
-    CredentialsSource.ENV: "environment variable",
-    CredentialsSource.FILE: "secrets.local.json",
-    CredentialsSource.KEYRING: "OS keyring",
-    CredentialsSource.SYSTEMD_CREDENTIAL: "systemd credential",
-    CredentialsSource.SECRET_FILE: "secret file",
-    CredentialsSource.NONE: "",
-}
-_ADD_HINT = (
-    "Enter the key and its secret. The app asks Binance which environment the "
-    "key belongs to and keeps it for the venues it can trade."
-)
-_REPLACE_HINT = "Enter the new key and secret for {venue}. It must be a key of {venue}."
-_UNEXPECTED_HEADLINE = (
-    "{doing} failed unexpectedly. Nothing was changed that this page can tell; "
-    "check the log, then try again."
-)
 
 
 class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
@@ -140,8 +130,13 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
-        #: What the last check said of each venue; a venue is "not checked" until then.
-        self._states: dict[TradingVenue, tuple[str, StateKind]] = {}
+        #: What the last check found of each venue; a venue is "not checked" until then.
+        #: Kept as the status, not its words, so the words can change when the public IP
+        #: is looked up (`BOT-224`).
+        self._statuses: dict[TradingVenue, ExchangeConnectionStatus] = {}
+        #: The public address the user last looked up, "" until then. Looked up only on
+        #: request, never on its own (`BOT-224`).
+        self._public_address = ""
         self._keys: tuple[VenueKey, ...] = ()
         #: The venue Replace / Add… was pressed on, while its dialog's key is being checked.
         self._target: TradingVenue | None = None
@@ -157,6 +152,8 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         view_model.replaceKeyRequested.connect(self._on_replace_key_requested)
         view_model.removeKeyRequested.connect(self._on_remove_key_requested)
         view_model.checkConnectionsRequested.connect(self._on_check_requested)
+        view_model.showPublicIpRequested.connect(self._on_show_public_ip_requested)
+        view.dialogClosed.connect(self._on_dialog_closed)
         view.set_view_model(view_model)
 
     # -- IOptionsSection ----------------------------------------------------
@@ -187,25 +184,11 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         )
 
     def _publish_rows(self) -> None:
-        self._settings_view_model.set_rows(tuple(self._row_of(k) for k in self._keys))
-
-    def _row_of(self, key: VenueKey) -> KeyRow:
-        has_key = key.fingerprint is not None
-        if has_key:
-            where = _SOURCE_WORDS[key.source]
-            shown = f"{key.fingerprint} ({where})"
-            state, kind = self._states.get(key.venue, (NOT_CHECKED, StateKind.UNKNOWN))
-        else:
-            shown = "—"
-            state, kind = NO_KEY, StateKind.UNKNOWN
-        return KeyRow(
-            venue=key.venue,
-            title=key.venue.display_name,
-            key=shown,
-            state=state,
-            state_kind=kind,
-            has_key=has_key,
-            editable=not key.source.is_provisioned_outside_the_app,
+        self._settings_view_model.set_rows(
+            tuple(
+                build_row(key, self._statuses.get(key.venue), self._public_address)
+                for key in self._keys
+            )
         )
 
     # -- user requests ------------------------------------------------------
@@ -213,12 +196,12 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     @Slot()
     @safe_ui_action
     def _on_add_key_requested(self) -> None:
-        self._ask_then_enrol(None, _ADD_HINT)
+        self._ask_then_enrol(None, ADD_HINT)
 
     @Slot(object)
     @safe_ui_action
     def _on_replace_key_requested(self, venue: TradingVenue) -> None:
-        self._ask_then_enrol(venue, _REPLACE_HINT.format(venue=venue.display_name))
+        self._ask_then_enrol(venue, REPLACE_HINT.format(venue=venue.display_name))
 
     def _ask_then_enrol(self, target: TradingVenue | None, hint: str) -> None:
         if self._settings_view_model.busy:
@@ -229,7 +212,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         command = EnrolKeyCommand(ExchangeCredentials(*entered), only_for=target)
         self._target = target
         self._begin(
-            _ENROL,
+            ENROL,
             "Asking Binance which environment the key belongs to…",
             lambda: self._dispatcher.dispatch(EnrolKeyCommand, command),
         )
@@ -241,7 +224,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             return
         command = RemoveKeyCommand(venue=venue)
         self._begin(
-            _REMOVE,
+            REMOVE,
             f"Removing the {command.venue.display_name} key…",
             lambda: self._dispatcher.dispatch(RemoveKeyCommand, command),
         )
@@ -255,9 +238,35 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             tuple(k.venue for k in self._keys if k.fingerprint is not None)
         )
 
+    @Slot()
+    @safe_ui_action
+    def _on_show_public_ip_requested(self) -> None:
+        if self._settings_view_model.busy:
+            return
+        self._begin(
+            PUBLIC_IP,
+            PUBLIC_IP_BUSY,
+            lambda: self._dispatcher.dispatch(
+                GetPublicAddressQuery, GetPublicAddressQuery()
+            ),
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_dialog_closed(self) -> None:
+        """A lookup still out when Options closes is dropped: its answer, when it comes,
+        is stale and logged as such. A key action is not: it changes stored keys and
+        must be told to the user."""
+        if (
+            self._tracker.current_action_id(PUBLIC_IP) is not None
+            and self._settings_view_model.busy
+        ):
+            self._tracker.invalidate_active()
+            self._settings_view_model.set_busy("")
+
     def _begin_check(self, venues: tuple[TradingVenue, ...]) -> None:
         self._begin(
-            _CHECK,
+            CHECK,
             "Checking the connection to Binance…",
             lambda: {
                 venue: self._dispatcher.dispatch(
@@ -299,10 +308,12 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._settings_view_model.set_busy("")
         if failed:
             self._tell_unexpected(kind, detail)
-        elif kind == _ENROL:
+        elif kind == ENROL:
             self._on_enrolled(result)
-        elif kind == _REMOVE:
+        elif kind == REMOVE:
             self._on_removed(result)
+        elif kind == PUBLIC_IP:
+            self._on_public_address(result)
         else:
             self._on_checked(result)
 
@@ -315,13 +326,13 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
                 f"{enrolment.refusal.value} [key-enrolment]"
             )
             self._tell_command_failed(
-                _ENROL_CAUSE,
+                ENROL_CAUSE,
                 refusal_headline(enrolment, target),
                 refusal_detail(enrolment),
             )
             return
         for venue in enrolment.stored:
-            self._states.pop(venue, None)
+            self._statuses.pop(venue, None)
         self.logger.info(
             "TradingSettingsPresenter: key kept for "
             f"{[v.name for v in enrolment.stored]} [key-enrolment]"
@@ -339,14 +350,21 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             self._settings_view_model.set_status("Key removed.", False)
             return
         self._tell_command_failed(
-            _REMOVE_CAUSE, removal_failure_headline(removal), removal.value
+            REMOVE_CAUSE, removal_failure_headline(removal), removal.value
         )
+
+    def _on_public_address(self, lookup: PublicAddressLookup) -> None:
+        address, problem = read_out_of(lookup)
+        if address:
+            self._public_address = address
+            self._publish_rows()
+        self._settings_view_model.set_public_ip(address, problem)
 
     def _on_checked(
         self, statuses: dict[TradingVenue, ExchangeConnectionStatus]
     ) -> None:
         for venue, status in statuses.items():
-            self._states[venue] = state_of(status)
+            self._statuses[venue] = status
         self._publish_rows()
         kept, self._kept = self._kept, ""
         failed = [venue for venue, status in statuses.items() if status.failure]
@@ -371,17 +389,8 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         )
 
     def _tell_unexpected(self, kind: str, detail: str) -> None:
-        doing = {
-            _ENROL: "Adding the key",
-            _REMOVE: "Removing the key",
-            _CHECK: "Checking the connection",
-        }[kind]
-        cause = {
-            _ENROL: _ENROL_CAUSE,
-            _REMOVE: _REMOVE_CAUSE,
-            _CHECK: _CHECK_CAUSE,
-        }[kind]
+        doing, cause = UNEXPECTED[kind]
         self._load_from_config()
         self._tell_command_failed(
-            cause, _UNEXPECTED_HEADLINE.format(doing=doing), detail
+            cause, UNEXPECTED_HEADLINE.format(doing=doing), detail
         )
