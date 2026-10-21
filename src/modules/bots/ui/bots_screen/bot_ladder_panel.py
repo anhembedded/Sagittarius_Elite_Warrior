@@ -4,8 +4,8 @@ Above the table, the ladder in one line and, when the saved run is not this ladd
 (`bot_ladder_facts.py`); the table is one row per grid with its step, what one cycle there earns and
 what the saved run says it is doing (`BotLadderTableModel`). Where the last price the bot heard
 stands is in the Plan panel's figures, beside the profit. The figures come
-from the bot's saved record (`grid_ladder_of`), so a bot at rest, a halted one and a read-only copy
-show them too. Like the Orders and Fills panels it is the content of one dock, no card of its own.
+from the parameters on screen (`grid_ladder_of`; the saved record when nothing is edited, and the
+summary then says "Not saved"), so a bot at rest, a halted one and a read-only copy show them too. Like the Orders and Fills panels it is the content of one dock, no card of its own.
 """
 
 from __future__ import annotations
@@ -59,8 +59,14 @@ class BotLadderPanel(QWidget):
         ladder = self._model.ladder
         facts = ladder_facts(ladder)
         bot = self._model.selected
+        unsaved = self._model.facts is not None and self._model.facts.unsaved
         for label, text in (
-            (self.summary, facts.summary),
+            (
+                self.summary,
+                f"Not saved: {facts.summary}"
+                if unsaved and facts.summary
+                else facts.summary,
+            ),
             (self.note, facts.note),
         ):
             label.setText(text)

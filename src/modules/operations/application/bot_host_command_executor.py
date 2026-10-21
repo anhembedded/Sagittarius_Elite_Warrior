@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
@@ -55,6 +56,7 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     ),
     HostControlAction.PAUSE: "the bot is PAUSED: it places no orders, its resting orders stay",
     HostControlAction.RESUME: "the bot is resuming (see `bot show`)",
+    HostControlAction.CONFIRM_RESUME: "the confirmation was queued (see `bot show`)",
     HostControlAction.START: "the bot is STARTING (see `bot show`)",
     HostControlAction.EDIT: "the bot's parameters were changed and it is DRAFT (see `bot show`)",
     HostControlAction.ADD: "the bot was created and is DRAFT (see `bot list`)",
@@ -76,6 +78,9 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.RESUME: lambda c: ResumeBotForHostCommand(
         c.bot_id, c.confirmed_venue
     ),
+    HostControlAction.CONFIRM_RESUME: lambda c: ConfirmBotResumeForHostCommand(
+        c.bot_id, c.confirmed_venue
+    ),
     HostControlAction.START: lambda c: StartBotForHostCommand(
         c.bot_id, c.confirmed_venue
     ),
@@ -92,6 +97,8 @@ _REQUESTS: dict[HostControlAction, _Request] = {
 #: own sentence is the reply.
 _SAYS_ITS_OWN_WORDS = frozenset(
     {
+        HostControlAction.RESUME,
+        HostControlAction.CONFIRM_RESUME,
         HostControlAction.EDIT,
         HostControlAction.ADD,
         HostControlAction.DELETE,

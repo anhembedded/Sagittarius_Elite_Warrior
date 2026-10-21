@@ -6,6 +6,7 @@ from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QPushButton,
@@ -24,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.public_address_wo
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.content_width_scroll_area import (
+    ContentWidthScrollArea,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
@@ -46,7 +50,10 @@ _INTRO = (
     "tracked in git). A key that can withdraw funds is refused. A key is saved "
     "when you add, replace or remove it: OK and Apply have nothing to save here."
 )
-_COLUMNS = ("Venue", "Key", "State")
+#: The State is not a column: a failure sentence is two hundred characters, and a column of the
+#: dialog's minimum width gave it 75 px (`BOT-225`). It is a line of its own under each venue, the
+#: page's full width.
+_COLUMNS = ("Venue", "Key")
 #: A key the exchange accepted, and one it did not (`EPIC-043E`); the words stay beside the icon.
 CONNECTED_LOOK = StateLook("circle-check-big", Tone.POSITIVE)
 ERROR_LOOK = StateLook("circle-x", Tone.NEGATIVE)
@@ -129,14 +136,14 @@ class TradingSettingsView(BaseView):
         self, venue: TradingVenue, view_model: TradingSettingsViewModel
     ) -> _RowWidgets:
         widgets = _RowWidgets(venue)
-        grid_row = len(self._rows) + 1
+        grid_row = 1 + 2 * len(self._rows)
         self._grid.addWidget(widgets.title, grid_row, 0)
         self._grid.addWidget(widgets.key, grid_row, 1)
-        self._grid.addWidget(widgets.state, grid_row, 2)
         buttons = QHBoxLayout()
         buttons.addWidget(widgets.replace)
         buttons.addWidget(widgets.remove)
-        self._grid.addLayout(buttons, grid_row, 3)
+        self._grid.addLayout(buttons, grid_row, 2)
+        self._grid.addWidget(widgets.state, grid_row + 1, 0, 1, len(_COLUMNS) + 1)
         widgets.replace.clicked.connect(
             lambda _checked=False, v=venue: view_model.requestReplaceKey(v)
         )
@@ -198,7 +205,19 @@ class TradingSettingsView(BaseView):
         return block
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        # The page scrolls once, at itself: a scroll area asks its content's `heightForWidth`, so
+        # a wrapped sentence has the height its text needs at the page's width instead of the one
+        # line a dialog's minimum size counts (`BOT-225`; as `PlanColumn`, `BUG-246`); it keeps the
+        # width its content needs, so nothing is cut at the side.
+        body = QWidget()
+        scroll = ContentWidthScrollArea()
+        scroll.setObjectName("scrollTradingSettings")
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(body)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
+        layout = QVBoxLayout(body)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
 
@@ -210,7 +229,7 @@ class TradingSettingsView(BaseView):
         self._grid = QGridLayout()
         self._grid.setHorizontalSpacing(14)
         self._grid.setVerticalSpacing(12)
-        self._grid.setColumnStretch(2, 1)
+        self._grid.setColumnStretch(1, 1)
         for column, heading in enumerate(_COLUMNS):
             self._grid.addWidget(plain_label(heading), 0, column)
         layout.addLayout(self._grid)

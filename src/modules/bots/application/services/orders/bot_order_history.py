@@ -65,16 +65,21 @@ class BotOrderHistory:
                 return found
             request = request.at_page(request.page + 1)
 
-    def order_trades(
-        self, exchange_order_id: int, since: datetime
-    ) -> tuple[TradeRecord, ...]:
-        """Every fill of one of the bot's orders since `since`, with its fee.
+    def orders_trades(
+        self, exchange_order_ids: frozenset[int], since: datetime
+    ) -> dict[int, tuple[TradeRecord, ...]]:
+        """Every fill of each of the named orders since `since`, read in one pass over the trade
+        history (`BUG-258`: an opening of several slices is not one scan per slice).
         @raise AccountHistoryUnavailableError The venue did not answer."""
         request = HistoryRequest(self._symbol, since)
-        found: list[TradeRecord] = []
+        found: dict[int, list[TradeRecord]] = {
+            order: [] for order in exchange_order_ids
+        }
         while True:
             page = self._activity.trade_history(request)
-            found.extend(row for row in page.rows if row.order_id == exchange_order_id)
+            for row in page.rows:
+                if row.order_id in found:
+                    found[row.order_id].append(row)
             if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
-                return tuple(found)
+                return {order: tuple(rows) for order, rows in found.items()}
             request = request.at_page(request.page + 1)

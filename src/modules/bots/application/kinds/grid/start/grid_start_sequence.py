@@ -6,7 +6,9 @@
   1. **The opening** is the venue profile's (`IOpeningStrategy`): Spot buys the base the SELL
      levels will sell and sizes them net of the fee (`opening_spot.py`); a position venue
      opens its signed quantity (`opening_futures.py`). Either way the exchange's own record of
-     it is counted before the ladder, and the sequence lays nothing when it is not there.
+     it is counted before the ladder, and the sequence lays nothing when it is not there. Once
+     counted, its fills are booked into the runtime from that record (`OpeningFillsBooking`,
+     `BUG-258`), not left to the stream, so the saved position is right when the bot is RUNNING.
   1a. **The protective stop** (`EPIC-039L`, a position venue's `IExposureProtection`): it stands
      on the exchange, its id saved first, before the ladder is declared ready. One that cannot
      stand halts the bot, which closes its position; the ladder is not laid over a bare one.
@@ -36,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_orde
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.opening_fills_booking import (
+    OpeningFillsBooking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stop_request import (
     stop_asked,
@@ -98,6 +103,7 @@ class GridStartSequence:
         self._opening = opening
         self._flags = flags
         self._protection = protection
+        self._opening_fills = OpeningFillsBooking(context)
 
     def run_at(self, price: Decimal) -> None:
         """Run the start for the plan at `price`; the bot is STARTING."""
@@ -113,7 +119,10 @@ class GridStartSequence:
         # The rate this start read, kept for readers with no exchange (`BOT-194`).
         state.update(replace(fresh, maker_fee=self._context.terms.maker_fee))
         opened = self._opening.open(plan)
-        if opened.ladder is None or not self._protection.protect(opened.ladder):
+        if opened.ladder is None:
+            return
+        self._opening_fills.book()
+        if not self._protection.protect(opened.ladder):
             return
         if self._place_ladder(opened.ladder):
             state.transition(BotLifecycleEvent.LADDER_READY)
