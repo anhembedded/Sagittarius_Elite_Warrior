@@ -4,8 +4,15 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
     refusal_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_reads import (
+    history_read_failures,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    RateLimitedApiException,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.exchange_pause_behind import (
     exchange_pause_behind,
@@ -52,3 +59,15 @@ def test_the_refusal_names_the_pause_first_and_never_the_code() -> None:
     assert refusal_text(paused).startswith("the exchange asked for a pause of 30 s")
     assert "inventory_unavailable" not in refusal_text(paused)
     assert refusal_text(unread) == "the exchange's records could not be read"
+
+
+def test_a_pause_met_by_a_real_history_read_is_found_behind_its_failure() -> None:
+    """`BUG-257`: the adapter's own `RateLimitedApiException` reaches a registration through
+    `history_read_failures`; the pause must still be readable there."""
+    with (
+        pytest.raises(AccountHistoryUnavailableError) as raised,
+        history_read_failures("myTrades"),
+    ):
+        raise RateLimitedApiException(_PAUSE, banned=False, note="429")
+
+    assert exchange_pause_behind(raised.value) == _PAUSE
