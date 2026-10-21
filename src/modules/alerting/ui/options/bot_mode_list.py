@@ -46,7 +46,7 @@ class BotModeList:
     def read_only(self) -> bool:
         return self._modes.read_only
 
-    def read(self) -> tuple[BotModeRow, ...]:
+    def bots_with_modes(self) -> tuple[BotModeRow, ...]:
         """The bots the page can set, each with what it may tell now. Runs on the pool: the
         report reads every bot's file."""
         report = cast(
@@ -70,7 +70,7 @@ class BotModeList:
         self._modes.set_mode(bot_id, mode)
         return mode
 
-    def show(self, rows: tuple[BotModeRow, ...]) -> None:
+    def publish_rows(self, rows: tuple[BotModeRow, ...]) -> None:
         read_only = self._modes.read_only
         note = (
             alerts_words.READ_ONLY_NOTE
@@ -82,7 +82,7 @@ class BotModeList:
     def show_again(self) -> None:
         """Memory only: the same bots, each with the mode really kept now."""
         modes = self._modes.modes()
-        self.show(
+        self.publish_rows(
             tuple(
                 replace(row, mode=modes.get(row.bot_id, BotAlertMode.ON).value)
                 for row in self._view_model.bot_rows
