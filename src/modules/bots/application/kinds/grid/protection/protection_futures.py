@@ -251,13 +251,14 @@ class ProtectiveStopService(IExposureProtection):
         self, stop: ProtectiveStop, position: Decimal
     ) -> ProtectionVerdict | None:
         """The stop is on no open list. With a position standing it is placed again. With the
-        account flat the order itself says how it ended (`_ran`): not the history, which the
-        trading side serves up to 15 s old and which names a fill by an id the stream may not
-        have linked (decision D4)."""
+        account flat the order itself says how it ended (`_ran`), not the history, which the
+        trading side serves up to 15 s old and names a fill by an id the stream may not have
+        linked (decision D4)."""
         standing = stop.state is ProtectiveStopState.STANDING
         if standing and position != 0:  # a shared reading may predate the fill
-            confirmed = self._context.gateway.position()
-            position = position if confirmed is None else confirmed
+            if (confirmed := self._context.gateway.position()) is None:
+                return None  # unread: judged at the next beat
+            position = confirmed
         logger.info(
             "Bot %s: protective stop %s %s is on no open list and the position is %s "
             "[protective-stop]",
