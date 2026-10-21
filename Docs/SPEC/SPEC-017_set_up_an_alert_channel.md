@@ -21,6 +21,7 @@ Status: Current
 4. The app checks each value against the shape the platform issues, stores it in the keyring, reads it back, clears the fields and says what to do next: a first save takes effect after a restart (the channel's lane starts at boot), a replaced one at the next send.
 5. The owner presses Send test: one loud test message goes to every channel that is set up, and the page names the channels it reached or says why one refused.
 6. To replace a secret the owner saves again; to stop a channel the owner presses Remove and answers a question whose safe choice is Keep.
+7. Under Quiet hours the owner checks "Hold Warning and Info alerts during these hours", picks a From and a To time and presses Save quiet hours; the line above says what is held and in which zone. The times are read in the display time zone as it is when the owner saves, and kept with that zone's name. During the period the app holds Warning and Info alerts and sends one summary when it ends; Critical alerts are never held. Clearing the box and pressing Save turns it off.
 
 ## 4. What must be true afterwards
 The secret is in the keyring and nowhere else: not in a file, a log, an exception text or on the screen except its last four characters. The test message reached the phone.
@@ -32,12 +33,14 @@ The secret is in the keyring and nowhere else: not in a file, a log, an exceptio
 | The keyring cannot store a secret | A sentence saying to unlock or enable it; nothing is saved | the store's refusal is an outcome |
 | Another store answers first (a systemd credential) | "Saved, but this machine reads the credentials from … first" | the read-back catches it |
 | A test is refused (404, a blocked bot) | The channel's own plain reason and what to check | the channel never raises |
+| The quiet hours' start and end are the same time | A sentence saying that is no quiet period; nothing is kept | an empty period would read "saved" over something that never starts |
+| The settings file cannot be written | A sentence saying the quiet hours are as they were | the store's refusal is an outcome |
 | An unexpected exception | A message box naming only the exception's type | a secret can ride an exception text |
 
 ## 6. What this use case does NOT promise
 - That a message reached a person: the platform accepted it.
 - That a first save sends at once: the lane needs a restart.
-- Which alerts go to which channel, and quiet hours: the routing matrix and the schedule are not built; the app's defaults apply.
+- Which alerts go to which channel: the routing matrix is not built; the app's defaults apply. The heartbeat's interval is not editable either.
 
 ## 7. Ports and modules it exercises
 `alerting`: `DiscordWebhookSetup`, `TelegramCredentialsSetup`, `SendTestToConfiguredChannels`, `IChannelCatalogBuilder`; `ISecretStore`.

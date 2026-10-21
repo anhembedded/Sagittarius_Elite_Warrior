@@ -1,7 +1,7 @@
 """`EPIC-036D4` — Tools → Options → Alerts as the owner meets it: light and dark at the three
 window sizes the workbench suite uses, drawn by `QWidget.grab()`. With `SEW_UI_SCREENSHOTS` set
 the pictures are kept for the owner (the CI artifact `ui-screenshots`, `alerts_options@WxH.png`).
-The checks are the measurable half: not blank, both channels' groups shown, the token field
+The checks are the measurable half: not blank, both channels' groups and the quiet hours shown, the token field
 masked and no scroll bar needed for the groups themselves."""
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QApplication, QGroupBox, QLineEdit
+from PySide6.QtWidgets import QApplication, QCheckBox, QGroupBox, QLineEdit
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
 )
@@ -57,7 +57,10 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
 
         assert not is_blank(image)
         titles = {box.title() for box in view.findChildren(QGroupBox)}
-        assert {"Discord", "Telegram", "Bots"} <= titles
+        assert {"Discord", "Telegram", "Bots", "Quiet hours"} <= titles
+        quiet = view.findChild(QGroupBox, "grpQuietHours")
+        assert quiet is not None and quiet.isVisible()
+        assert quiet.findChild(QCheckBox, "chkQuietHours").isChecked()
         token = view.findChild(QLineEdit, "txtTelegramToken")
         assert token is not None and token.echoMode() is QLineEdit.EchoMode.Password
     finally:
