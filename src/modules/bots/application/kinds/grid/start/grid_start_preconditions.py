@@ -201,7 +201,7 @@ class GridStartPreconditions:
         message = other_owner_refusal(
             symbol, tags, nets_positions=_nets_positions(bot.definition.venue)
         )
-        logger.warning("Bot %s: start refused, %s [other-owner]", bot_id, message)
+        logger.warning("Bot %s: refused, %s [other-owner]", bot_id, message)
         return _refused(BotRefusal.VENUE_NOT_READY, message, bot_id)
 
 

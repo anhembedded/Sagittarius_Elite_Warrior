@@ -13,6 +13,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.other_owner_orders import (
+    other_owner_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
@@ -165,3 +168,12 @@ def test_the_refusal_on_spot_names_the_shared_balance_not_a_netted_position() ->
     assert refusal is not None
     assert "same balance" in refusal.message
     assert "nets" not in refusal.message
+
+
+def test_the_refusal_on_a_position_venue_says_both_bots_are_netted_into_one_position() -> (
+    None
+):
+    message = other_owner_refusal("ETHUSDT", {_OTHER: 2}, nets_positions=True)
+
+    assert "nets both bots into one position" in message
+    assert "same balance" not in message

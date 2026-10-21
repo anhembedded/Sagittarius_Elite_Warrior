@@ -336,6 +336,8 @@ quantity the exchange accepted, never the one asked for.
 [`diagrams/06-resume-recovering.puml`](diagrams/06-resume-recovering.puml) — *how does the owner's
 Resume bring a `RECOVERING` bot back, or halt it?*
 
+`BUG-259`: a Resume from `HALTED` or `AWAITING_RECOVERY`, which lays a ladder as a Start does, first reads the symbol's open orders and refuses when they carry a bot tag no bot of this data root holds (`.../grid_start_preconditions.py` → `GridStartPreconditions.open_session_for_resume`, `GridStartPreconditions._other_owners_refusal`); a `RECOVERING` bot only reconciles its own orders and is not asked.
+
 `BUG-204`, the desktop's way out: the use case (`.../resume_bot/handler.py` →
 `ResumeBotCommandHandler`) asks for the real-money
 answer on a mainnet venue, `BotRunner.resume` (`.../bot_runner.py` → `BotRunner.resume`) opens the
