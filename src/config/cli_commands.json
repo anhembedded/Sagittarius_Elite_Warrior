@@ -688,7 +688,7 @@
           },
           "start": {
             "modules": ["bots", "operations"],
-            "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use run --resume-halted or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use bot resume then bot confirm-resume, run --resume-halted, or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {

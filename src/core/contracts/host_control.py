@@ -84,7 +84,7 @@ class HostControlStatus(StrEnum):
 @dataclass(frozen=True, slots=True)
 class HostControlRequest:
     """One action on one bot. `confirmed_venue` is the operator's typed answer to the
-    real-money question (decision O8), where the bot's own command asks it (stop, resume, start). `close_position` is
+    real-money question (decision O8), where the bot's own command asks it (stop, resume, confirm-resume, start). `close_position` is
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
     `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action.
     `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action. `to_venue` is the venue

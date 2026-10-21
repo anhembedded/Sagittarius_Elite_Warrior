@@ -67,7 +67,7 @@ class ConfirmResumeForHostCommandHandler(
                 BotRefusal.NO_RESUME_PROPOSAL,
                 f"Bot {command.bot_id} holds no resume proposal: run `bot resume "
                 f"{command.bot_id}`, wait a few seconds for its proposal to appear in the host's "
-                "log, read it, then confirm. A host restart drops a proposal.",
+                "log, read it, then confirm; if none appears, `bot show` says why. A host restart drops a proposal.",
                 command.bot_id,
             )
         if result.accepted:

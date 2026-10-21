@@ -3,7 +3,7 @@
 **Epic:** [EPIC-045](README.md)
 **Date:** 2026-10-21
 **Status:** Accepted for G1 and G2; G3 Proposed (real money, the owner decides)
-**Decided by:** the owner's rule of 2026-10-21 ("whatever the UI can do at runtime, the VPS must be able to do", recorded in `Tasks/COORDINATION.md`) for the four verbs; the author session for G1's shape under ONBOARDING §7 (no real money, reversible); the owner for G2 and G3 (pending)
+**Decided by:** the owner's rule of 2026-10-21 ("whatever the UI can do at runtime, the VPS must be able to do", recorded in `Tasks/COORDINATION.md`) for the four verbs; the author session for G1's shape under ONBOARDING §7 (no real money, reversible); the owner for G2 (O1 answered in chat on 2026-10-21: "Two steps: propose, then confirm", the recommended option of the question put to them) and for G3 (O2 answered the same way: verbs, mainnet needs `--confirm-venue`)
 **Supersedes / superseded by (optional):** closes the four `OPEN GAP` rows of [EPIC-045D](completed/EPIC-045D_the_tab_and_the_host_cannot_drift.md)'s guard
 
 | Label | Meaning |
@@ -35,6 +35,7 @@
 | :-- | :--- | :--- | :--- |
 | O1 | **Confirm-resume on a running host (G2).** The tab shows a person the proposed ladder, then confirms. Options: (a) `bot resume <id>` also accepts a HALTED bot, proposes, and a second command `bot confirm-resume <id>` confirms (the operator reads the proposal in between); (b) one verb `bot resume <id> --confirm` that takes the proposal as shown without reading it (the `--resume-halted` flag already does this at start); (c) leave `run --resume-halted` as the only way and accept a restart. Recommendation: (a), because decision D13 says a person reads the ladder. **Answered 2026-10-21 by the owner: (a), two steps (propose, then confirm).** | G2 | 2026-10-21 |
 | O2 | **Arm and disarm at runtime (G3).** Arm takes the strategy's parameters and a venue; real money on mainnet. Options: (a) `strategy arm <venue> ...` and `strategy disarm <venue>` verbs of the command directory, mainnet needing `--confirm-venue`; (b) none: arming stays a desktop act and the exclusion stays, recorded as a reasoned decision. Recommendation: (a), parameters from a saved arming (`armed_strategy_config`), not typed on a command line. | G3 | 2026-10-21 |
+| O3 | **Is a confirmation bound to the proposal the person read? (G2, raised by the PR #708 review.)** `ConfirmBotResumeCommand` carries only the bot id, so a second `bot resume` (a retry after `--wait` expired, a second operator, the tab) between the two steps makes `bot confirm-resume` lay a proposal nobody read, priced at its own proposal time. The tab has the same model (one person sees and confirms). Options: (a) leave as the tab has it; (b) the proposal log line and the `bot resume` reply carry a short fingerprint (the plan's last price and order count) and `confirm-resume` takes it optionally and refuses on a mismatch. Recommendation: (b), small and real-money-safe; not built, because it changes the confirm contract beyond "the host does what the tab does" and is the owner's call. | none (G2 is built without it) | 2026-10-21 |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
