@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_expo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_spot import (
+    NoProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_flags_futures import (
     PositionOrderFlags,
 )
@@ -194,7 +197,7 @@ def a_position_world(
     def build(context: GridRunContext) -> GridExposure:
         checks = FuturesStartChecks(context, gate, guard, Reads(context, unreadable))
         return GridExposure(
-            PositionOpening(context, checks),
+            PositionOpening(context, checks, NoProtection()),
             PositionExposureCloser(context),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),

@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futures_start_checks import (
     FuturesStartChecks,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy import (
     IOpeningStrategy,
     OpeningResult,
@@ -63,9 +66,15 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 class PositionOpening(IOpeningStrategy):
     """Opens the plan's position at market, has it counted, and lays the ladder over it."""
 
-    def __init__(self, context: GridRunContext, checks: FuturesStartChecks) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        checks: FuturesStartChecks,
+        protection: IExposureProtection,
+    ) -> None:
         self._context = context
         self._checks = checks
+        self._protection = protection
         self._housekeeping = GridHousekeeping(context)
 
     def open(self, plan: GridPlan) -> OpeningResult:
@@ -107,9 +116,24 @@ class PositionOpening(IOpeningStrategy):
                 outcome.client_order_id or outcome.detail,
             )
             if not outcome.done:
+                if index > 1 and outcome.own_budget and not self._protect(plan):
+                    return False
                 fail_with(context.state, outcome, f"opening slice {index}")
                 return False
         return True
+
+    def _protect(self, plan: GridPlan) -> bool:
+        """`BUG-254` - the app's own budget paused the opening after a slice filled, before the
+        sequence's protective stop stands. The venue still answers, so the stop is placed first
+        (trading exempts a position owner's close-position stop from the pacing it paused for):
+        the pause never leaves the position bare. `False`: it could not stand, and the bot has
+        already moved."""
+        logger.warning(
+            "Bot %s: the order budget paused the opening after a slice filled; the protective "
+            "stop is placed before the pause [protective-stop]",
+            self._context.state.bot_id,
+        )
+        return self._protection.protect(plan)
 
     def _count_opening(self, plan: GridPlan) -> bool:
         """Have trading count the opening from the exchange's record, and say whether the

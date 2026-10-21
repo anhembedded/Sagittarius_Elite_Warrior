@@ -119,9 +119,7 @@ the measurements are in the task file's §5a.)
   `PACING_RETRIES` (3) times; a spacing that kept missing and an `owner_budget_rate` refusal (the window
   moved on short of the pacer's `STAMP_JITTER` margin) are answered `RATE_LIMITED`, the pause a bot waits
   out in AWAITING_RECOVERY and resumes from like the exchange's (`EPIC-042F`), and neither is a
-  `start_refused` that closes the position. **Price paid:** a rate pause lasts the budget's window (the
-  facts name no oldest send), and when it comes before the protective stop stands (the opening's own
-  second slice) the position is open and unprotected for the pause; the integration test locks this.
+  `start_refused` that closes the position. **Price paid:** a rate pause lasts the budget's window (the facts name no oldest send). When the pause interrupts the opening after a slice filled, before the sequence's protective stop stands, `PositionOpening._protect` places the stop first (trading exempts a position owner's close-position stop from pacing and does not count it), so the position is never bare; a stop that cannot stand halts the bot, which closes as before.
 - **The account's positions, read once a beat for the venue** (`BOT-184`). `positionRisk` without a symbol
   is one request for the whole account (weight 5), and an idle Futures bot read it twice a beat (its
   risk watch and its protective-stop check): 120 weight a minute for one bot, 2,405 for twenty.

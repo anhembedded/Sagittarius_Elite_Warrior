@@ -76,6 +76,9 @@ class OrderOutcome:
     #: For `DONE`: the quantity the exchange accepted (`BUG-205`), which a ladder
     #: saves and shows instead of the quantity it asked for.
     quantity: Decimal | None = None
+    #: `BUG-254` - the refusal or pause is the app's own order budget's, not the venue's: the venue
+    #: still answers, so a bot that must protect itself first can (`PositionOpening`).
+    own_budget: bool = False
 
     @property
     def done(self) -> bool:
@@ -182,12 +185,16 @@ def pacing_outcome(result: ExecuteOrderResult) -> OrderOutcome | None:
                 timedelta(0),
             )
         return OrderOutcome(
-            OrderOutcomeKind.PACED, detail=violation.value, retry_after=missing
+            OrderOutcomeKind.PACED,
+            detail=violation.value,
+            retry_after=missing,
+            own_budget=True,
         )
     if violation is TradingLimitViolation.OWNER_BUDGET_RATE:
         return OrderOutcome(
             OrderOutcomeKind.RATE_LIMITED,
             detail=f"the app's own order budget: {violation.value}",
             retry_after=None if facts is None else facts.budget.window,
+            own_budget=True,
         )
     return None

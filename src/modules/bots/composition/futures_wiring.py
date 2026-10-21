@@ -128,7 +128,7 @@ def futures_exposure(
         # The protective stop is placed on a mark read now, not on the watches' shared one.
         protection = ProtectiveStopService(context, ExchangeMarkSource(context, ports))
         return GridExposure(
-            PositionOpening(context, checks),
+            PositionOpening(context, checks, protection),
             ProtectedCloser(context, PositionExposureCloser(context), protection),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),

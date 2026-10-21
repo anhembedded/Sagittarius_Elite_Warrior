@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
     handler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -29,6 +32,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 #: Virtual seconds before which trading stamps late: the burst of the first 60 orders takes about
 #: 15 s, and the next order waits for the window, so no two consecutive orders straddle it.
 LAGGED_UNTIL = 30.0
+#: `CS-009` - the owner's caps as configuration (ADR O1), read off the code that defines them: a
+#: journey about pacing runs with these, because the journeys' default has no spacing at all.
+PRODUCTION_PACING: dict[str, object] = {
+    "trading.bot_limits.min_order_spacing_ms": int(
+        DEFAULT_OWNER_BUDGET_CAPS.min_order_spacing / timedelta(milliseconds=1)
+    ),
+    "trading.bot_limits.max_orders_per_minute": (
+        DEFAULT_OWNER_BUDGET_CAPS.max_orders_per_minute
+    ),
+}
 EPOCH = datetime(2026, 10, 20, 6, 26, 17, tzinfo=UTC)
 
 

@@ -10,6 +10,11 @@ the directories a guard *scans*.
 from __future__ import annotations
 
 ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    # `CS-009` - each venue's start has a journey at the owner's pacing caps.
+    (
+        "tests/unit/architecture/test_start_journeys_run_at_production_pacing.py",
+        (("tests/integration/modules/bots", "test_*.py"),),
+    ),
     (
         "tests/unit/architecture/test_every_secret_store_is_in_the_contract_suite.py",
         (("src", "*.py"),),

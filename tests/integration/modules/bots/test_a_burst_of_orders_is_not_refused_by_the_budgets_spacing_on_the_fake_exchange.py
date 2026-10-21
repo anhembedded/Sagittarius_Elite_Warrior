@@ -16,6 +16,8 @@ enough: the production limits, the production pacer and the production handler, 
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
@@ -26,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    StartBotForHostCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -35,13 +40,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 from .futures_bots_world import GRID, booted_futures_bots
 from .futures_fake_exchange import FUTURES, SYMBOL
-from .grid_fake_exchange import FakeExchange
-from .virtual_order_time import VirtualTime, pacers_on, trading_reads
+from .futures_stop_helpers import stops
+from .grid_fake_exchange import GRID as SPOT_GRID
+from .grid_fake_exchange import SPOT, FakeExchange, booted
+from .virtual_order_time import (
+    PRODUCTION_PACING,
+    VirtualTime,
+    pacers_on,
+    trading_reads,
+)
 
 S = BotLifecycleState
-
-#: The production spacing (ADR O1); the journeys' default has none.
-PRODUCTION_SPACING = {"trading.bot_limits.min_order_spacing_ms": 250}
 
 #: Seconds trading stamps after the pacer's turn, order by order. Each pair puts the second stamp
 #: less than 250 ms after the first (the owner's gap was a few milliseconds short).
@@ -52,14 +61,29 @@ JITTERS = {
 }
 
 
+#: The two doors to the one start: the Bots tab's Start, and the headless host's `bot start` /
+#: `run --start-planned` (`EPIC-038K`), which dispatches the screen's own command after its checks.
+STARTS = {
+    "screen start": lambda bot_id: (StartBotCommand, StartBotCommand(bot_id)),
+    "host start": lambda bot_id: (
+        StartBotForHostCommand,
+        StartBotForHostCommand(bot_id),
+    ),
+}
+
+
+@pytest.mark.parametrize("start", STARTS.values(), ids=STARTS.keys())
 @pytest.mark.parametrize("jitter", JITTERS.values(), ids=JITTERS.keys())
 def test_a_start_whose_orders_are_stamped_unevenly_lays_its_ladder_and_keeps_its_position(
-    futures: FakeExchange, monkeypatch: pytest.MonkeyPatch, jitter: list[float]
+    futures: FakeExchange,
+    monkeypatch: pytest.MonkeyPatch,
+    jitter: list[float],
+    start: Callable[[str], tuple[type, object]],
 ) -> None:
     time = VirtualTime(stamp_jitter=jitter)
     trading_reads(monkeypatch, time)
     with booted_futures_bots(
-        futures, pacers=pacers_on(time), limits=PRODUCTION_SPACING
+        futures, pacers=pacers_on(time), limits=PRODUCTION_PACING
     ) as app:
         created = app.engine.dispatch(
             CreateBotCommand,
@@ -69,7 +93,8 @@ def test_a_start_whose_orders_are_stamped_unevenly_lays_its_ladder_and_keeps_its
         assert created.bot_id is not None, created.message
         bot_id = created.bot_id
 
-        started = app.engine.dispatch(StartBotCommand, StartBotCommand(bot_id))
+        command_type, command = start(bot_id)
+        started = app.engine.dispatch(command_type, command)
 
         assert isinstance(started, BotCommandResult)
         assert started.accepted, started.message
@@ -88,15 +113,16 @@ def test_a_start_whose_orders_are_stamped_unevenly_lays_its_ladder_and_keeps_its
 def test_turns_that_keep_missing_pause_the_start_and_sell_nothing(
     futures: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The price knowingly paid (`architecture-rule.md` 7.1): when four turns in a row are found
-    too soon, the pacer is wrong by seconds and not by a stamp's milliseconds. The start waits as
-    for the exchange's pause (`EPIC-042F`) and sells nothing, and the opening position stays
-    open meanwhile, with no protective stop when the miss is the opening's own second slice."""
+    """When four turns in a row are found too soon, the pacer is wrong by seconds and not by a
+    stamp's milliseconds. The start waits as for the exchange's pause (`EPIC-042F`) and sells
+    nothing. The miss here is the opening's own second slice, before the sequence's protective stop
+    stands: the stop is placed first (trading exempts it from pacing), so the position kept
+    open meanwhile is never bare."""
     # Each stamp 0.3 s earlier than the last: every retry is closer to the previous stamp.
     time = VirtualTime(stamp_jitter=[12 - 0.3 * i for i in range(30)])
     trading_reads(monkeypatch, time)
     with booted_futures_bots(
-        futures, pacers=pacers_on(time), limits=PRODUCTION_SPACING
+        futures, pacers=pacers_on(time), limits=PRODUCTION_PACING
     ) as app:
         created = app.engine.dispatch(
             CreateBotCommand,
@@ -117,3 +143,33 @@ def test_turns_that_keep_missing_pause_the_start_and_sell_nothing(
         assert runtime.reason is GridReason.RATE_LIMITED
         assert app.position() > 0, "the opening position was not sold"
         assert ("DELETE", "/fapi/v1/order") not in app.exchange.urls.requests
+        assert len(stops(app)) == 1, "the position kept open has its protective stop"
+
+
+@pytest.mark.parametrize("jitter", JITTERS.values(), ids=JITTERS.keys())
+def test_a_spot_start_whose_orders_are_stamped_unevenly_lays_its_ladder(
+    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch, jitter: list[float]
+) -> None:
+    """The same race on Spot, whose opening is a paced market BUY: the family is the seam, not
+    the venue."""
+    time = VirtualTime(stamp_jitter=jitter)
+    trading_reads(monkeypatch, time)
+    with booted(exchange, pacers=pacers_on(time), limits=PRODUCTION_PACING) as app:
+        created = app.engine.dispatch(
+            CreateBotCommand,
+            CreateBotCommand("uneven stamps", "grid", SPOT, "BTCUSDT", SPOT_GRID),
+        )
+        assert isinstance(created, BotCommandResult)
+        assert created.bot_id is not None, created.message
+        bot_id = created.bot_id
+
+        started = app.engine.dispatch(StartBotCommand, StartBotCommand(bot_id))
+
+        assert isinstance(started, BotCommandResult)
+        assert started.accepted, started.message
+        runtime = app.runtime(bot_id)
+        assert app.bot(bot_id).state is S.RUNNING, (
+            app.bot(bot_id).state,
+            runtime.reason,
+            runtime.reason_detail,
+        )
