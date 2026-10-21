@@ -122,7 +122,7 @@ class ProtectiveStopService(IExposureProtection):
         state = self._context.state
         if state.state not in _SUPERVISED or not wanted_stops(self._context.params):
             return ProtectionVerdict.OK
-        position = self._context.gateway.position()
+        position = self._context.gateway.account_reads.watched_position()
         if position is None:
             logger.warning(
                 "Bot %s: the position could not be read, so the protective stop is not "

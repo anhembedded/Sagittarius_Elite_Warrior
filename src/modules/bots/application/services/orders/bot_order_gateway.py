@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.prot
     ProtectiveStopOrder,
     protective_stop_request,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
+    VenuePositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
@@ -111,14 +114,19 @@ class BotOrderGateway:
     """Places, cancels and lists one bot's orders on its venue."""
 
     def __init__(
-        self, ports: VenueTradingPorts, identity: BotIdentity, pacer: IOrderPacer
+        self,
+        ports: VenueTradingPorts,
+        identity: BotIdentity,
+        pacer: IOrderPacer,
+        shared_positions: VenuePositionReads | None = None,
     ) -> None:
         self._ports = ports
+        self._shared_positions = shared_positions
         self._identity = identity
         self._pacer = pacer
         self._requests = BotOrderRequests(identity)
         self._history = BotOrderHistory(ports.account_activity, identity.symbol)
-        self._reads = BotAccountReads(ports, identity)
+        self._reads = BotAccountReads(ports, identity, shared_positions)
         self._submissions = 0
         self._rate_limit: timedelta | None = None
 
@@ -198,6 +206,7 @@ class BotOrderGateway:
         )
 
     def cancel(self, client_order_id: str) -> OrderOutcome:
+        self._the_account_may_change()
         try:
             result = self._ports.order_submission.cancel(
                 self._identity.symbol, client_order_id
@@ -292,8 +301,16 @@ class BotOrderGateway:
         self._pacer.wait_turn()
         return self._submit(request)
 
+    def _the_account_may_change(self) -> None:
+        """An order is about to be sent or cancelled, so the venue's shared reading of the
+        positions no longer says what the account holds (`BOT-184`). Dropped before the call, so
+        a read that races it is not kept either."""
+        if self._shared_positions is not None:
+            self._shared_positions.invalidate()
+
     def _submit(self, request: OrderRequest) -> OrderOutcome:
         self._submissions += 1
+        self._the_account_may_change()
         try:
             result = self._ports.order_submission.submit(request, live=True)
         except ExchangeRateLimitedError as limited:

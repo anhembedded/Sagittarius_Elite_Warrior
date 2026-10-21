@@ -59,6 +59,22 @@ the measurements are in the task file's §5a.)
   (`BUG-241`; a Spot exit answers to the inventory check only), and it still counts in the window.
   (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
   refusal as a `start_refused`; the margin exists to prevent it, and the integration test fails without it.
+- **The account's positions, read once a beat for the venue** (`BOT-184`). `positionRisk` without a symbol
+  is one request for the whole account (weight 5), and an idle Futures bot read it twice a beat (its
+  risk watch and its protective-stop check): 120 weight a minute for one bot, 2,405 for twenty.
+  `SharedPositionReads.of(venue)` hands every bot of a venue the same `VenuePositionReads`
+  (`bots/application/services/risk/`), one lock around one read: the first bot of a beat reads, the rest
+  of that sweep take its reading, which is served for at most half a beat (`SHARED_READING_MAX_AGE_SECONDS`)
+  and dropped the moment this app sends or cancels an order on the venue (`BotOrderGateway`). Only the
+  idle watches ask it (`PositionRiskSnapshots`, and `BotAccountReads.watched_position` for
+  `ProtectiveStopService.supervise`); a confirmation (a close, a divergence recheck, a start, a coverage
+  read) calls `BotAccountReads.position` and reads the account itself. A failed read is raised and not
+  kept. Measured on the fake exchange (`test_many_bots_on_one_venue_cost_on_the_fake_exchange.py`): an
+  idle minute reads the positions 60 weight whether there are 1, 5 or 20 bots (it was 120, 600, 2,405),
+  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). What is
+  still per bot is symbol-scoped: the mark (two `premiumIndex` reads a beat), the open orders and the
+  open algo orders. **Limit:** a fill of a resting order that no order of ours follows (a ladder's last
+  level) is not heard by the reading, which is then at most half a beat old, as old as a watch may judge.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
