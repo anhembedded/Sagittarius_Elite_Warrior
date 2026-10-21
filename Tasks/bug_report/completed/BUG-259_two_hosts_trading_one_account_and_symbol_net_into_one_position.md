@@ -17,10 +17,10 @@ Expected: B refuses. Actual: B starts and lays its ladder beside A's.
 Two bots' orders and one netted position on BNBUSDT; B's close-position stop would close A's position too.
 
 ## Root cause
-The only guards that touch another owner are a closed session's position check (`session_readiness.py` → `SessionReadiness.ensure_ready`, skipped as `already_open`) and the registration's `FOREIGN_POSITION` (`owner_position_registrar.py:97`, only when the bot's own derivation is flat). The registration reads the owner's orders by its own tag (`owner_resting_orders.py:34`). Nothing looked at a tag the data root does not hold, so another owner's *orders* were never seen at a Start. The gate was green because no test put a foreign tag on the account.
+The only guards that touch another owner are a closed session's position check (`session_readiness.py` → `SessionReadiness.ensure_ready`, skipped as `already_open`) and the registration's `FOREIGN_POSITION` (`owner_position_registrar.py:109`, only when the bot's own derivation is flat). The registration reads the owner's orders by its own tag (`owner_resting_orders.py:42`). Nothing looked at a tag the data root does not hold, so another owner's *orders* were never seen at a Start. The gate was green because no test put a foreign tag on the account.
 
 ## Fix
-`start/other_owner_orders.py` (`other_owner_tags`, `other_owner_refusal`) and `GridStartPreconditions._other_owners_refusal`: before the lease, read the symbol's open orders and refuse with `VENUE_NOT_READY` naming the tag when no bot of the store holds it; `BotRunner.start` passes the store's bots. Decision record above (D1–D4; O1 refuse-or-warn; O2 a running bot).
+`start/other_owner_orders.py` (`other_owner_tags`, `other_owner_refusal`) and `GridStartPreconditions._other_owners_refusal`: before the lease, read the symbol's open orders and refuse with `VENUE_NOT_READY` naming the tag when no bot of the store holds it; `BotRunner.start` and `BotRunner.resume` pass the store's bots; a Resume that lays a ladder (HALTED, AWAITING_RECOVERY) is asked too, a RECOVERING one is not (D5); the words are per venue (D6). Decision record above (D1–D4; O1 refuse-or-warn; O2 a running bot).
 
 ## Regression test
 `tests/unit/modules/bots/application/services/test_a_start_refuses_another_owners_orders_on_its_symbol.py` — a foreign tag refuses the start, leaves no lease or session opening, and the runner leaves the bot DRAFT with no order sent; a sibling's tag and an untagged order do not refuse. Red before (`check` ran through and the runner started).

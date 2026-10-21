@@ -34,12 +34,17 @@ def other_owner_tags(
     return dict(found)
 
 
-def other_owner_refusal(symbol: str, tags: dict[str, int]) -> str:
-    """The refusal in the user's words."""
+def other_owner_refusal(symbol: str, tags: dict[str, int], *, on_spot: bool) -> str:
+    """The refusal in the user's words. A position venue nets both bots into one position; Spot
+    has no position, but both bots would trade one balance of the symbol's assets."""
     held = ", ".join(f"{tag} ({count} order(s))" for tag, count in sorted(tags.items()))
+    effect = (
+        "and both bots would trade the same balance of its assets"
+        if on_spot
+        else "and Binance nets both bots into one position"
+    )
     return (
         f"{symbol} has open orders of a bot this app does not hold: {held}. Another copy of the "
-        "app on this account (a VPS host, a second desktop) is trading it, and Binance nets "
-        "both bots into one position. Stop that bot or cancel its orders, or pick another "
-        "symbol or account"
+        f"app on this account (a VPS host, a second desktop) is trading it, {effect}. Stop that "
+        "bot or cancel its orders, or pick another symbol or account"
     )

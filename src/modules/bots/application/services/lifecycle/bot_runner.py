@@ -113,7 +113,7 @@ class BotRunner(IBotRunner):
             return found
         if found.bot.state in _RESUMES_AFTER_A_CLOSED_SESSION:
             refusal = self._preconditions.open_session_for_resume(
-                found.bot, (stored.bot for stored in self._store.load_all().bots)
+                found.bot, tuple(stored.bot for stored in self._store.load_all().bots)
             )
             if refusal is not None:
                 return refusal

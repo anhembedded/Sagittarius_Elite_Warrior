@@ -12,10 +12,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot, BotLifecycle
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -58,7 +60,7 @@ def test_another_owners_tagged_order_on_the_symbol_refuses_the_start() -> None:
     world = start_world()
     _rests(world, f"SEW-{_OTHER}-0123456789")
 
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY
@@ -97,4 +99,69 @@ def test_an_order_without_a_bot_tag_is_not_another_bots() -> None:
     world = start_world()
     _rests(world, "SEW-0123456789ab")
 
-    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+    assert world.preconditions.check(_bot(world), world.clock.now(), ()) is None
+
+
+def test_a_failed_read_of_the_open_orders_refuses_the_start_and_leaves_no_lease() -> (
+    None
+):
+    """D3: a start that cannot read the symbol's orders is not ready, never a pass."""
+    world = start_world()
+    world.activity.open_orders_error = ConnectionError("offline")
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.VENUE_NOT_READY
+    assert "could not be read" in refusal.message
+    assert world.session.claim_symbol(SYMBOL, "manual"), "no lease was left behind"
+
+
+def test_the_runner_hands_the_stores_bots_so_a_stored_sibling_is_not_another_owner() -> (
+    None
+):
+    """D2 through the runner: a mutation that passes no bots refuses every sibling's leftovers."""
+    world = start_world()
+    sibling = Bot.draft(BotId("sib001"), _bot(world).definition, world.clock.now())
+    world.store.save(StoredBot(sibling, {}))
+    _rests(world, "SEW-sib001-0123456789")
+
+    result = world.runner.start(BOT)
+
+    assert result.accepted, result.message
+
+
+@pytest.mark.parametrize(
+    ("state", "asked"),
+    [(S.HALTED, True), (S.AWAITING_RECOVERY, True), (S.RECOVERING, False)],
+    ids=["halted", "awaiting-recovery", "recovering"],
+)
+def test_a_resume_that_lays_a_ladder_is_asked_too_but_a_reconcile_is_not(
+    state: BotLifecycleState, asked: bool
+) -> None:
+    world = start_world()
+    bot = Bot(
+        BotId(BOT),
+        _bot(world).definition,
+        BotLifecycle(state),
+        world.clock.now(),
+    )
+    _rests(world, f"SEW-{_OTHER}-0123456789")
+
+    refusal = world.preconditions.open_session_for_resume(bot, (bot,))
+
+    assert (refusal is not None) is asked
+    if refusal is not None:
+        assert refusal.refusal is BotRefusal.VENUE_NOT_READY
+        assert _OTHER in refusal.message
+
+
+def test_the_refusal_on_spot_names_the_shared_balance_not_a_netted_position() -> None:
+    world = start_world()
+    _rests(world, f"SEW-{_OTHER}-0123456789")
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now(), ())
+
+    assert refusal is not None
+    assert "same balance" in refusal.message
+    assert "nets" not in refusal.message
