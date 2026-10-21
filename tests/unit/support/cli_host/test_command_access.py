@@ -78,6 +78,8 @@ _READ_ONLY = {
     ("bot", "edit"),
     ("bot", "add"),
     ("bot", "delete"),
+    # `EPIC-045G` - move: a command file for the host, which moves the bot, never this process.
+    ("bot", "move"),
     # `EPIC-026L` - the same again: a command file for the host, which clears the cap, never this process.
     ("bot", "loss-cap-ack"),
     ("preflight", None),

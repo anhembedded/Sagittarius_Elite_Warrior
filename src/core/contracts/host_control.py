@@ -45,6 +45,9 @@ class HostControlAction(StrEnum):
     ADD = "add"
     #: `EPIC-045B`: forget a DRAFT or STOPPED bot that holds nothing, as the Bots tab's Delete does.
     DELETE = "delete"
+    #: `EPIC-045G`: move a DRAFT that never ran to another Spot venue, as the Bots tab's Venue field does.
+    #: The target travels in `to_venue`; the bot keeps its id.
+    MOVE = "move"
     #: `EPIC-026L`: the owner accepts the account-level loss and lets bots start again. It names no
     #: bot: `bot_id` is the fixed word `LOSS_CAP_SUBJECT`.
     ACKNOWLEDGE_LOSS_CAP = "loss-cap-ack"
@@ -81,7 +84,8 @@ class HostControlRequest:
     real-money question (decision O8), where the bot's own command asks it (stop, resume, start). `close_position` is
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
     `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action.
-    `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action."""
+    `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action. `to_venue` is the venue
+    a move goes to (`EPIC-045G`); `None` for every other action."""
 
     action: HostControlAction
     bot_id: str
@@ -89,6 +93,7 @@ class HostControlRequest:
     close_position: bool = False
     settings: tuple[ParameterSetting, ...] = ()
     entry: NewBotEntry | None = None
+    to_venue: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -59,6 +59,7 @@ def command(
     close_position: bool = False,
     settings: tuple[ParameterSetting, ...] = (),
     entry: NewBotEntry | None = None,
+    to_venue: str | None = None,
 ) -> HostCommand:
     return HostCommand(
         command_id,
@@ -69,6 +70,7 @@ def command(
         close_position,
         settings,
         entry,
+        to_venue,
     )
 
 
