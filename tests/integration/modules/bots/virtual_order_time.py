@@ -8,7 +8,7 @@ same time in place of the machine's.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -35,8 +35,18 @@ EPOCH = datetime(2026, 10, 20, 6, 26, 17, tzinfo=UTC)
 class VirtualTime:
     """One clock for the pacer and for trading's rate window; a sleep moves it."""
 
-    def __init__(self, early_stamp_lag: float = 0.0) -> None:
+    def __init__(
+        self,
+        early_stamp_lag: float = 0.0,
+        stamp_jitter: Sequence[float] = (),
+    ) -> None:
         self.seconds = 0.0
+        #: `BUG-254` - how much later than the pacer's turn trading stamps each order it judges,
+        #: in turn and repeating: a sleep that overshoots, a handler lock held by a neighbour, a
+        #: cold terms read. Unlike `early_stamp_lag` it differs from one order to the next, so two
+        #: consecutive stamps can be closer than the two turns the pacer spaced.
+        self._stamp_jitter = list(stamp_jitter)
+        self._stamped = 0
         #: How much later than the pacer's turn trading stamps each of the first orders it
         #: judges (a cold terms read, the handler's lock): the later ones are stamped on the turn.
         #: The lag drops only where the pacer waits for the window, so the spacing between two
@@ -51,6 +61,9 @@ class VirtualTime:
 
     def now(self) -> datetime:
         lag = self._early_stamp_lag if self.seconds < LAGGED_UNTIL else 0.0
+        if self._stamp_jitter:
+            lag += self._stamp_jitter[self._stamped % len(self._stamp_jitter)]
+            self._stamped += 1
         return EPOCH + timedelta(seconds=self.seconds + lag)
 
 

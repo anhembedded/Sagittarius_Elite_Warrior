@@ -39,7 +39,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
 )
 
 S = BotLifecycleState
-_REFUSED = TradingLimitViolation.OWNER_BUDGET_RATE
+_REFUSED = TradingLimitViolation.OWNER_BUDGET_EXPOSURE
 
 
 def _halted_with_a_proposal() -> GridWorld:

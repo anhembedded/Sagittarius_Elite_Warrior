@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectedByExchangeError,
     OrderRejectionReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    TradingLimitViolation,
+)
 
 #: The refusals that mean "trading is off", not "this order is wrong" (D9).
 SWITCH_OFF_GATES: frozenset[ExecuteOrderSafetyGate] = frozenset(
@@ -42,6 +45,11 @@ class OrderOutcomeKind(str, Enum):
     SWITCH_OFF = "switch_off"
     REFUSED = "refused"
     RATE_LIMITED = "rate_limited"
+    #: `BUG-254` - trading judged the order sooner than the owner budget's spacing after the
+    #: previous one: "not yet", never "no". The gateway waits another turn and sends it again
+    #: (`BotOrderGateway._submit_paced`), and answers `RATE_LIMITED` when the retries are spent,
+    #: so no caller sees this kind.
+    PACED = "paced"
     SYMBOL_NOT_TRADING = "symbol_not_trading"
     SYMBOL_NOT_LISTED = "symbol_not_listed"
     #: The order's own numbers were refused (`EPIC-035T`): a quantity, a price
@@ -124,7 +132,7 @@ def fault_text(exc: Exception) -> str:
 
 def classify_submit(result: ExecuteOrderResult) -> OrderOutcome:
     if result.blocked_by is not None:
-        return _refusal(result.blocked_by, "")
+        return pacing_outcome(result) or _refusal(result.blocked_by, "")
     if result.submitted_order is None:
         return OrderOutcome(OrderOutcomeKind.FAULT, detail="trading returned no order")
     accepted = result.submitted_order
@@ -153,3 +161,33 @@ def _refusal(blocked_by: Enum, client_order_id: str) -> OrderOutcome:
     else:
         kind = OrderOutcomeKind.REFUSED
     return OrderOutcome(kind, client_order_id, str(blocked_by.value))
+
+
+def pacing_outcome(result: ExecuteOrderResult) -> OrderOutcome | None:
+    """`BUG-254` - the outcome of a refusal by the app's own pacing, or `None` for any other.
+
+    The owner budget's spacing and rate are the app's own speed limits (ADR D6 checks 4 and 5),
+    not a verdict on the order or the venue: the order is sound and was only sent too soon. Too
+    soon after the previous order is `PACED` (retry_after: what the policy found missing, from the
+    facts it judged); too many in the window is `RATE_LIMITED`, for the budget's window, the longest
+    the oldest send of it can still count. Treating either as `REFUSED` halted a start and sold
+    its position at market."""
+    violation = result.blocked_by
+    facts = None if result.limit_context is None else result.limit_context.owner_budget
+    if violation is TradingLimitViolation.OWNER_BUDGET_SPACING:
+        missing = None
+        if facts is not None and facts.time_since_last_order is not None:
+            missing = max(
+                facts.budget.min_order_spacing - facts.time_since_last_order,
+                timedelta(0),
+            )
+        return OrderOutcome(
+            OrderOutcomeKind.PACED, detail=violation.value, retry_after=missing
+        )
+    if violation is TradingLimitViolation.OWNER_BUDGET_RATE:
+        return OrderOutcome(
+            OrderOutcomeKind.RATE_LIMITED,
+            detail=f"the app's own order budget: {violation.value}",
+            retry_after=None if facts is None else facts.budget.window,
+        )
+    return None

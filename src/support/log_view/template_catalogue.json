@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 853, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 854, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -236,6 +236,7 @@
 ["s", "Bot ", ": the terms refresh failed; asking again"],
 ["ss", "Bot ", ": the venue's futures facts are unavailable: ", " [exchange-facts]"],
 ["ss", "Bot ", ": the venue's settings no longer match: ", " [futures-gate]"],
+["ssdd", "Bot ", ": trading found the order sooner than the budget's spacing after the previous one, short by ", "; it takes another turn (", " of ", ") [order-pacing]"],
 ["sd", "Bot ", ": waiting for the exchange's pause of ", " s to end [bot-rate-limit-wait]"],
 ["ss", "Bot ", ": what earlier runs left is not known (", "); the start goes on [earlier-runs]"],
 ["ss", "Bot file ", " was not restored: ", ""],
