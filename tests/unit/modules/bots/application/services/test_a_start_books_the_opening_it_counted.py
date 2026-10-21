@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
+    AccountHistoryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
     HistoryPage,
 )
@@ -43,6 +46,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
     LAST_PRICE,
     SYMBOL,
     GridWorld,
+    grid_world,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.position_world import (
     a_position_world,
@@ -60,9 +64,18 @@ class Opened:
     quantity: Decimal
 
 
-def _the_venue_shows_the_openings_it_filled(world: GridWorld) -> None:
+def _the_venue_shows_the_openings_it_filled(
+    world: GridWorld,
+    *,
+    trades: int = 1,
+    fee: str = "0",
+    fee_asset: str = "USDT",
+    holds_nothing_yet: bool = False,
+    unreadable: bool = False,
+) -> None:
     """The venue's order and trade history, read from what the book was asked to send: every
-    market order is FILLED at the last price, one trade each, the way a market order fills."""
+    market order is FILLED at the last price in `trades` trades, the way a market order fills
+    (`holds_nothing_yet`: the history has not indexed it; `unreadable`: it does not answer)."""
 
     def market_orders() -> list[tuple[int, str, Decimal, OrderSide]]:
         sent = zip(world.book.requests, world.book.submitted, strict=False)
@@ -73,40 +86,53 @@ def _the_venue_shows_the_openings_it_filled(world: GridWorld) -> None:
         ]
 
     def order_history(request: HistoryRequest) -> HistoryPage[OrderRecord]:
-        rows = tuple(
-            OrderRecord(
-                order=Order(
-                    client_id,
-                    SYMBOL,
-                    side,
-                    OrderType.MARKET,
-                    quantity,
-                    status=OrderStatus.FILLED,
-                ),
-                executed_quantity=quantity,
-                average_price=LAST_PRICE,
-                created_at=_AT,
-                exchange_order_id=exchange_id,
+        if unreadable:
+            raise AccountHistoryUnavailableError("allOrders timed out")
+        rows = (
+            ()
+            if holds_nothing_yet
+            else tuple(
+                OrderRecord(
+                    order=Order(
+                        client_id,
+                        SYMBOL,
+                        side,
+                        OrderType.MARKET,
+                        quantity,
+                        status=OrderStatus.FILLED,
+                    ),
+                    executed_quantity=quantity,
+                    average_price=LAST_PRICE,
+                    created_at=_AT,
+                    exchange_order_id=exchange_id,
+                )
+                for exchange_id, client_id, quantity, side in market_orders()
             )
-            for exchange_id, client_id, quantity, side in market_orders()
         )
         return HistoryPage(rows, 0, len(rows), (SYMBOL,))
 
     def trade_history(request: HistoryRequest) -> HistoryPage[TradeRecord]:
-        rows = tuple(
-            TradeRecord(
-                symbol=SYMBOL,
-                trade_id=_TRADE + exchange_id,
-                order_id=exchange_id,
-                side=side,
-                price=LAST_PRICE,
-                quantity=quantity,
-                quote_quantity=LAST_PRICE * quantity,
-                fee=Decimal(0),
-                fee_asset="USDT",
-                time=_AT,
+        if unreadable:
+            raise AccountHistoryUnavailableError("myTrades timed out")
+        rows = (
+            ()
+            if holds_nothing_yet
+            else tuple(
+                TradeRecord(
+                    symbol=SYMBOL,
+                    trade_id=_TRADE + exchange_id + part,
+                    order_id=exchange_id,
+                    side=side,
+                    price=LAST_PRICE,
+                    quantity=quantity / trades,
+                    quote_quantity=LAST_PRICE * quantity / trades,
+                    fee=Decimal(fee) / trades,
+                    fee_asset=fee_asset,
+                    time=_AT,
+                )
+                for exchange_id, _client_id, quantity, side in market_orders()
+                for part in range(trades)
             )
-            for exchange_id, _client_id, quantity, side in market_orders()
         )
         return HistoryPage(rows, 0, len(rows), (SYMBOL,))
 
@@ -114,10 +140,10 @@ def _the_venue_shows_the_openings_it_filled(world: GridWorld) -> None:
     world.activity.trade_history = trade_history  # type: ignore[method-assign]
 
 
-def _started() -> tuple[GridWorld, Opened]:
+def _started(**history: object) -> tuple[GridWorld, Opened]:
     """A long position bot that ran its start; the stream has reported nothing."""
     world, _gate = a_position_world(opens_positions=True)
-    _the_venue_shows_the_openings_it_filled(world)
+    _the_venue_shows_the_openings_it_filled(world, **history)  # type: ignore[arg-type]
     world.executor.start()
     assert world.state() is S.RUNNING
     market = [
@@ -164,3 +190,73 @@ def test_the_stream_reporting_the_opening_late_does_not_count_it_twice() -> None
     )
 
     assert world.runtime().inventory == before
+
+
+def test_every_trade_of_a_slice_is_booked_not_only_the_first() -> None:
+    world, opened = _started(trades=2)
+
+    assert world.runtime().inventory == opened.quantity
+
+
+def test_a_history_that_does_not_hold_the_slice_yet_is_said_and_left_to_the_stream(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Binance's history can lag a market fill: nothing is booked, and the log says why."""
+    capture = _Capture()
+    logging.getLogger("App").addHandler(capture)
+    try:
+        world, opened = _started(holds_nothing_yet=True)
+    finally:
+        logging.getLogger("App").removeHandler(capture)
+
+    assert world.state() is S.RUNNING
+    assert world.runtime().inventory == 0
+    assert any("not in the history yet" in line for line in capture.lines)
+    world.executor.facts.on_fill(
+        BotOrderFill(
+            opened.client_order_id,
+            OrderSide.BUY,
+            LAST_PRICE,
+            opened.quantity,
+            Decimal(0),
+            "USDT",
+            trade_id=1,
+        )
+    )
+    assert world.runtime().inventory == opened.quantity
+
+
+def test_a_history_that_does_not_answer_warns_once_and_the_start_goes_on() -> None:
+    capture = _Capture()
+    logging.getLogger("App").addHandler(capture)
+    try:
+        world, _opened = _started(unreadable=True)
+    finally:
+        logging.getLogger("App").removeHandler(capture)
+
+    assert world.state() is S.RUNNING
+    assert world.runtime().inventory == 0
+    assert [line for line in capture.lines if "did not answer" in line]
+
+
+def test_a_spot_opening_is_booked_net_of_its_base_fee_as_the_stream_would() -> None:
+    """The Spot opening names its slices too: the fee in the base asset leaves the inventory."""
+    world = grid_world()
+    _the_venue_shows_the_openings_it_filled(world, fee="0.002", fee_asset="BTC")
+    world.executor.start()
+
+    slices = sum(1 for r in world.book.requests if r.order_type is OrderType.MARKET)
+    assert world.state() is S.RUNNING
+    assert (
+        world.runtime().inventory == world.book.bought_base - Decimal("0.002") * slices
+    )
+
+
+class _Capture(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(logging.DEBUG)
+        self.lines: list[str] = []
+        logging.getLogger("App").setLevel(logging.DEBUG)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.lines.append(record.getMessage())

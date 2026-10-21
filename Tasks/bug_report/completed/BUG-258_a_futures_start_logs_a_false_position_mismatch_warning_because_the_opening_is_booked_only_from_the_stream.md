@@ -27,8 +27,11 @@ At `68e1227`, `PositionOpening._count_opening` (`opening_futures.py:131`) counts
 
 The gate was green because the simulated venue of `grid_world` never reports a market order's fill, and `gap_world.running()` hides it by deriving the inventory the runtime holds (`derive(str(world.runtime().inventory))`), so no test ever compared a started runtime with the exchange.
 
+Case study (`fix-bug-rule.md` §6.5): not opened. `gap_world.running()` derives the inventory the runtime holds on purpose, to isolate the reconcile's own tests from how the position got there; what was missing was a test of the start itself against the exchange's record, which this fix adds (`test_a_start_books_the_opening_it_counted.py`, on both venue kinds). The fixture is not a net that claimed to cover the start.
+
 ## Fix
 - `start/opening_fills_booking.py` → `OpeningFillsBooking.book`: after the opening is counted and before the stop and the ladder, read each opening slice's record and trades from the order history, book them with `book_market_fill` and remember `(client order id, trade id)` in `AppliedFills`, so the stream's report of the same trade, early or late, is ignored as a duplicate. A history that does not answer is a WARNING `[opening-fills]` and leaves the slice to the stream, as before.
+- One history read for every slice (`BotOrderHistory.orders_trades`, with `order_records`), and a slice the history does not hold, or holds in part, is said as `[opening-fills]` and left to the stream (review round 1).
 - `OffLadderOrders.add_opening` / `openings`: both opening strategies name their slices, so the booking reads no private state.
 - Design: `Docs/MODULES/bots/06-runtime.md` start paragraph.
 

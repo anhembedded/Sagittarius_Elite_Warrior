@@ -55,6 +55,9 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.BOT_RANGE_ENTERED: KindProfile(
             AlertGroup.BOT_EVENTS, _INFO, "Bot entered its range"
         ),
+        AlertKind.PLANNED_BOT_NOT_STARTED: KindProfile(
+            AlertGroup.BOT_EVENTS, _WARNING, "Planned bot not started"
+        ),
         AlertKind.LIQUIDATION_RISK: KindProfile(
             AlertGroup.BOT_EVENTS, _WARNING, "Liquidation risk"
         ),

@@ -1,6 +1,6 @@
 # EPIC-045F — `run --start-planned` skips a mainnet bot that lacks its confirmation and runs the rest
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, from the VPS: with `--start-planned` in the unit, an applied plan that wants one mainnet bot running and has no `--confirm-venue` made `run` exit 2 before boot; systemd does not restart it, so every other bot (testnet) was left unattended until the owner intervened. "`--start-planned` gặp bot mainnet chưa xác nhận thì bỏ qua bot đó, cảnh báo, và vẫn chạy các bot còn lại" (when `--start-planned` meets a mainnet bot that is not confirmed, skip that bot, warn, and still run the remaining bots).
 **Risk:** 🟡 — it changes what a host does at boot when a plan wants a mainnet bot; it must start no mainnet bot unconfirmed.
 **Complexity:** M
@@ -22,13 +22,24 @@
 See [the decision record](../DECISION_2026-10-21_add_and_delete_on_the_running_host.md) D7. Reads `run --start-planned`'s start path first; reuses the host's existing alert channel.
 
 ## 3a. Reuse
-To decide when the start path is read.
+Used `StartPlannedBots` (the step stays; only its refusal changes), `IEventPublisher` and the alerting module's bot-event source (`BotAlertSource`) for the alert, `TradingVenue.is_mainnet` for the question O8 already asks. Not used: a new alert channel.
 
 ## 4. Changes, per file
-To decide when the start path is read.
+| File | Change |
+| :--- | :--- |
+| `modules/operations/application/host_steps.py` | `StartPlannedBots` skips an unconfirmed mainnet bot (WARNING + event); `mainnet_start_refusal` is gone |
+| `modules/operations/cli/run_command.py` | no pre-boot refusal for `--start-planned`; the step gets the event publisher |
+| `modules/bots/contracts/events/planned_bot_not_started_event.py` | the typed fact |
+| `modules/alerting/**` | `PLANNED_BOT_NOT_STARTED` kind (WARNING, bot events), `on_planned_bot_not_started`, bus wiring |
 
 ## 5. Testing
 A unit test of the plan-start path with one unconfirmed mainnet bot and one testnet bot; an integration journey on the fake exchange.
 
 ## 6. Docs touched
 `Docs/OPERATIONS/headless_runbook.md` §8; the headless host's module doc.
+
+## Implementation notes (written when done)
+The refusal was a decision of its own (O8 + "a half-started plan is the worse surprise", in the old docstring of `mainnet_start_refusal`); the owner reversed it for `--start-planned` on 2026-10-21 because systemd does not restart exit 2. `--resume-recovering` keeps its pre-boot exit 2 (not asked). The skip is judged inside the step, after boot, with the bot's own venue against the typed one; no start is dispatched for a skipped bot, so no order session is opened for it. The unconfirmed bot stays at rest and is reported by one WARNING and one alert per run. Merged in #694 (85e77bb); the `-Full` run 39618180144 on its head bba7832 was green and the reviewer's round 2 passed.
+
+## Resume
+None: merged.

@@ -5,7 +5,7 @@ booting it; this is everything after, in the order that keeps money safe:
 
   1. refuse what can be refused without touching the exchange - a bad flag (`2`), an
      unavailable host signal (`2`), `--resume-recovering` or `--resume-halted` with no alert channel and no
-     acknowledgement (`5`), a mainnet `--start-planned` the operator did not confirm (`2`);
+     acknowledgement (`5`), an unconfirmed mainnet `--resume-recovering` (`2`; an unconfirmed mainnet `--start-planned` bot is skipped with a WARNING and an alert, `EPIC-045F`);
   2. the pre-flight (`PreflightGate`), **before the bots are restored**: restoring a
      bot reads the exchange and may cancel orders, which a machine whose clock or key
      is wrong must not do. A failure is its own exit code (`4`, `5`, `6`; decision D9);
@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     IHealthProbeTable,
@@ -74,7 +77,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps imp
     StartPlannedBots,
     WarnWhenNoAlertChannel,
     mainnet_resume_refusal,
-    mainnet_start_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.preflight_gate import (
     PreflightGate,
@@ -211,18 +213,13 @@ class RunCommand:
         return None
 
     def _unconfirmed_mainnet_refusal(self) -> str | None:
-        """Decision O8: real money is started or resumed only for the venue the operator typed."""
+        """Decision O8: real money is resumed only for the venue the operator typed. A planned start is
+        not refused as a whole: `StartPlannedBots` skips the unconfirmed bot (`EPIC-045F`)."""
         options = self._options
-        if not (options.start_planned or options.resume_recovering):
+        if not options.resume_recovering:
             return None
         bots = read_bot_status(self._dispatcher).bots
-        if options.start_planned:
-            message = mainnet_start_refusal(bots, self._plan, options.confirm_venue)
-            if message is not None:
-                return message
-        if options.resume_recovering:
-            return mainnet_resume_refusal(bots, options.confirm_venue)
-        return None
+        return mainnet_resume_refusal(bots, options.confirm_venue)
 
     def _host_signal(self) -> IHostSignal | CliOutcome:
         if self._options.host_signal is HostSignalName.NONE:
@@ -294,7 +291,12 @@ class RunCommand:
             steps.append(ResumeRecoveringBots(self._dispatcher, options.confirm_venue))
         if options.start_planned:
             steps.append(
-                StartPlannedBots(self._plan, self._dispatcher, options.confirm_venue)
+                StartPlannedBots(
+                    self._plan,
+                    self._dispatcher,
+                    options.confirm_venue,
+                    self._container.resolve(IEventPublisher),
+                )
             )
         return tuple(steps)
 
