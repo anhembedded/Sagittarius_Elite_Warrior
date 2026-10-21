@@ -8,8 +8,12 @@ closed and the caller holds no handle to it, so the process prints `Unclosed cli
 the object is collected, at host stop. A host stop that cancels a stream the same moment a session
 opened it (a Stop opens the order session to cancel a bot's orders) is such a task.
 
-The creation runs as its own task, shielded from the cancel; if the caller is cancelled while it
-runs, the caller waits for it (at most `wait_seconds`), closes what it built, and re-raises.
+`AsyncRuntime`'s drain cancels every task of the loop, so a helper task that does the creation is
+cancelled too and cannot be waited for. What survives is the handle this module gives the caller
+before the library starts: the `aiohttp` connector, passed in as the session's own. A session is
+closed exactly when its connector is (`ClientSession.closed`), and a session that is closed warns of
+nothing, so closing the connector on any exit before the client is returned ends the leak. After
+the client is returned the session owns the connector and closes it with itself.
 
 Extension cases (`architecture-rule.md` §7.2.1): a fourth stream creates its client through the same
 function; nothing here changes.
@@ -17,43 +21,22 @@ function; nothing here changes.
 
 from __future__ import annotations
 
-import asyncio
-import logging
 from collections.abc import Awaitable, Callable
 
-logger = logging.getLogger("App.Binance")
-
-#: The same step `websocket_teardown` gives a client to close inside the runtime's drain.
-CLOSE_WAIT_SECONDS = 1.5
+from aiohttp import TCPConnector
 
 
 async def create_closing_on_cancel[ClientT](
-    create: Callable[[], Awaitable[ClientT]],
-    close: Callable[[ClientT], Awaitable[None]],
-    wait_seconds: float = CLOSE_WAIT_SECONDS,
+    create: Callable[..., Awaitable[ClientT]], **kwargs: object
 ) -> ClientT:
-    """@return the client `create` built.
+    """@return the client `create(**kwargs)` built, whose session uses a connector made here.
 
-    @param wait_seconds How long a cancelled caller waits for the creation to end, so it can close
-    the client; the drain a cancel comes from is bounded, and a creation that outlasts it is
-    logged and left (the one case that can still leak).
-    @raise asyncio.CancelledError the caller was cancelled; the client, if it was built, is closed.
+    @param create `AsyncClient.create`, called with `kwargs` and the connector as `session_params`.
+    @raise BaseException whatever `create` raised, a cancel included, after the connector is closed.
     """
-    creating = asyncio.ensure_future(create())
+    connector = TCPConnector()
     try:
-        return await asyncio.shield(creating)
-    except asyncio.CancelledError:
-        try:
-            async with asyncio.timeout(wait_seconds):
-                built = await asyncio.shield(creating)
-        except TimeoutError:
-            logger.warning(
-                "A client being created when its task was cancelled did not finish within "
-                "%.1fs; its session may be left open [client-create-cancelled]",
-                wait_seconds,
-            )
-        except Exception:
-            logger.debug("Creation of a cancelled client failed", exc_info=True)
-        else:
-            await close(built)
+        return await create(**kwargs, session_params={"connector": connector})
+    except BaseException:
+        await connector.close()
         raise

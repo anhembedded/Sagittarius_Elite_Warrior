@@ -249,12 +249,10 @@ class FuturesUserDataStream(ManagedUserDataStream):
         client: AsyncClient | None = None
         try:
             client = await create_closing_on_cancel(
-                lambda: AsyncClient.create(
-                    api_key=credentials.api_key,
-                    api_secret=credentials.api_secret,
-                    testnet=self._events.venue.is_testnet,
-                ),
-                self._close_client,
+                AsyncClient.create,
+                api_key=credentials.api_key,
+                api_secret=credentials.api_secret,
+                testnet=self._events.venue.is_testnet,
             )
             bsm = BinanceSocketManager(client)
             socket = bsm.futures_user_socket()

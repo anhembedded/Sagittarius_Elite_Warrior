@@ -46,10 +46,6 @@ class KlineStreamError(OSError):
 _RECONNECT_DELAY_SECONDS = 5
 
 
-async def _close_connection(client: AsyncClient) -> None:
-    await client.close_connection()
-
-
 #: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG`, on only under `--debug`.
 _TRACE = 5
 
@@ -226,10 +222,8 @@ class BinanceWebsocketService(ILiveStreamService):
         client = None
         try:
             client = await create_closing_on_cancel(
-                lambda: AsyncClient.create(
-                    testnet=resolve_testnet_flag(self._market_data_venue)
-                ),
-                _close_connection,
+                AsyncClient.create,
+                testnet=resolve_testnet_flag(self._market_data_venue),
             )
             bsm = BinanceSocketManager(client)
 

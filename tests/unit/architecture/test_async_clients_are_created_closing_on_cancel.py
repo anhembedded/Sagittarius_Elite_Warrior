@@ -1,9 +1,9 @@
-"""`BUG-263` - every `AsyncClient.create(...)` in `src/` sits inside `create_closing_on_cancel(...)`.
+"""`BUG-263` - every use of `AsyncClient.create` in `src/` is an argument of `create_closing_on_cancel(...)`.
 
 @details The library's `AsyncClient.create` leaks its HTTP session when the creating task is cancelled
 (`closing_on_cancel.py`), and the leak shows as `Unclosed client session` at host stop. The sanity
 tier replaces the client with a mock, so nothing else would catch a fourth stream that calls it
-bare. A call is allowed when an enclosing call is `create_closing_on_cancel`.
+bare. A reference is allowed when an enclosing call is `create_closing_on_cancel`.
 
 Retire when: python-binance closes its session for `BaseException` in `AsyncClient.create`, or the
 app stops using its async client.
@@ -22,13 +22,13 @@ _REPO = Path(__file__).resolve().parents[3]
 _WRAPPER = "create_closing_on_cancel"
 
 
-def _is_create_call(node: ast.AST) -> bool:
+def _is_create_reference(node: ast.AST) -> bool:
+    """`AsyncClient.create`, called or handed on."""
     return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "create"
-        and isinstance(node.func.value, ast.Name)
-        and node.func.value.id == "AsyncClient"
+        isinstance(node, ast.Attribute)
+        and node.attr == "create"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "AsyncClient"
     )
 
 
@@ -49,7 +49,7 @@ def _bare_creations(path: Path) -> list[int]:
     }
     bare = []
     for node in ast.walk(tree):
-        if not _is_create_call(node):
+        if not _is_create_reference(node):
             continue
         ancestor = parents.get(node)
         while ancestor is not None and not _is_wrapper_call(ancestor):
