@@ -12,10 +12,14 @@ goes through the first, so none sees a stop; a guard test fails the day one does
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_identity import (
     BotIdentity,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
+    VenuePositionReads,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -25,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
@@ -40,9 +47,15 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 class BotAccountReads:
     """One bot's reads of its venue's account."""
 
-    def __init__(self, ports: VenueTradingPorts, identity: BotIdentity) -> None:
+    def __init__(
+        self,
+        ports: VenueTradingPorts,
+        identity: BotIdentity,
+        shared: VenuePositionReads | None = None,
+    ) -> None:
         self._ports = ports
         self._identity = identity
+        self._shared = shared
 
     def holding(self, asset: str) -> Decimal | None:
         """The account's whole holding of `asset` (free and locked), or
@@ -59,8 +72,27 @@ class BotAccountReads:
         """The account's signed position on the bot's symbol (positive long, negative short,
         zero flat), as the exchange reports it now; `None` when the read failed, which is not
         a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else)."""
+        return self._position_in(self._ports.account_snapshot.open_positions)
+
+    def watched_position(self) -> Decimal | None:
+        """The same, for a watch of the idle beat: the venue's reading the bots of the venue
+        share when there is one (`BOT-184`, `VenuePositionReads`), at most half a beat old and
+        never older than the bot's own last order; a confirmation never asks this."""
+        if self._shared is None:
+            return self.position()
+        return self._position_in(self._shared.positions)
+
+    def account_changed(self) -> None:
+        """Something this bot did or heard changes what the account holds: the venue's shared
+        reading of the positions, if there is one, is dropped (`BOT-184`)."""
+        if self._shared is not None:
+            self._shared.invalidate()
+
+    def _position_in(
+        self, read: Callable[[], tuple[LivePosition, ...]]
+    ) -> Decimal | None:
         try:
-            held = self._ports.account_snapshot.open_positions()
+            held = read()
         except ExchangeRateLimitedError:
             # The pause was told once, by the venue's gate (`ExchangeCallPolicy`, `BUG-247`).
             logger.debug(

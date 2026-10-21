@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_hous
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
+    SharedPositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     IMarkSource,
     MarkReadError,
@@ -36,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_reads import (
     RiskReadError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import RiskSnapshot
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
 )
@@ -54,18 +54,21 @@ class PositionRiskSnapshots(IRiskSnapshotSource):
     the one place (and a bot that cannot read it is blind to both)."""
 
     def __init__(
-        self, context: GridRunContext, ports: IVenueTradingPorts, marks: IMarkSource
+        self,
+        context: GridRunContext,
+        positions: SharedPositionReads,
+        marks: IMarkSource,
     ) -> None:
         self._context = context
-        self._ports = ports
+        self._positions = positions
         self._marks = marks
 
     def read(self) -> RiskSnapshot:
         definition = self._context.state.bot.definition
         symbol = definition.symbol
-        venue = self._ports.get(definition.venue)
         try:
-            positions = venue.account_snapshot.open_positions()
+            # The venue's reading, shared with the bots beside this one (`BOT-184`).
+            positions = self._positions.of(definition.venue).positions()
         except Exception as exc:
             raise RiskReadError(f"{symbol}: {exc}") from exc
         try:

@@ -34,3 +34,7 @@ class NavMetadata:
     item_sequence: int = 100
     location: NavLocation = NavLocation.TOP_SECTION
     is_navigable: bool = True
+    #: The letter of `title` that is its access key in View (`BOT-210`), declared so that adding a
+    #: mode moves no other mode's key onto a View command's. Empty: the window gives the next free
+    #: letter (a test's fake screen); every real mode declares one, which a test holds.
+    access_key: str = ""

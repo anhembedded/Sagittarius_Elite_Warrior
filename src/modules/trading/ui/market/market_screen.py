@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 MARKET_ROUTE = "market"
 _NAV = NavMetadata(
     title="Market",
+    access_key="m",
     icon="chart-candlestick",
     section_sequence=10,
     item_sequence=5,

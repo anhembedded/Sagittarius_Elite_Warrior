@@ -59,6 +59,21 @@ the measurements are in the task file's §5a.)
   (`BUG-241`; a Spot exit answers to the inventory check only), and it still counts in the window.
   (4) A start whose stamps still land inside one window (a skew beyond `STAMP_JITTER`) meets the
   refusal as a `start_refused`; the margin exists to prevent it, and the integration test fails without it.
+- **The account's positions, read once a beat for the venue** (`BOT-184`). `positionRisk` without a symbol
+  is one request for the whole account (weight 5), and an idle Futures bot read it twice a beat (its
+  risk watch and its protective-stop check): 120 weight a minute for one bot, 2,405 for twenty.
+  `SharedPositionReads.of(venue)` hands every bot of a venue the same `VenuePositionReads`
+  (`bots/application/services/risk/`), one lock around one read: the first bot of a beat reads, the rest
+  of that sweep take its reading, which is served for at most half a beat (`SHARED_READING_MAX_AGE_SECONDS`)
+  and dropped by every order or cancel this app sends on the venue (`BotOrderGateway`, before the call and after it; a read in flight is not kept, by a generation each read carries) and by every fill a bot hears (`GridFacts.on_fill`); `invalidate()` never waits for a read (two locks). Only the
+  idle watches ask it (`PositionRiskSnapshots`, and `BotAccountReads.watched_position` for
+  `ProtectiveStopService.supervise`); a confirmation (a close, a divergence recheck, a start, a coverage
+  read) calls `BotAccountReads.position` and reads the account itself. A failed read is raised and not
+  kept. Measured on the fake exchange (`test_many_bots_on_one_venue_cost_on_the_fake_exchange.py`): an
+  idle minute reads the positions 60 weight whether there are 1, 5 or 20 bots (it was 120, 600, 2,405),
+  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). What is
+  still per bot is symbol-scoped: the mark (two `premiumIndex` reads a beat), the open orders and the
+  open algo orders. A stop that left the open list is judged on the account's own read (`ProtectiveStopService._explain_absence`), never on the beat's, so a stop that ran just after a beat's read is told as triggered.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
