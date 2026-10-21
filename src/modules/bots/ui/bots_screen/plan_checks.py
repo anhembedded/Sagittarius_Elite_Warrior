@@ -26,7 +26,7 @@ _ATTENTION_ORDER = (VerdictSeverity.REFUSED, VerdictSeverity.WARNING)
 
 @dataclass(frozen=True, slots=True)
 class PlanCheck:
-    """One verdict, in the three sizes the Plan dock needs."""
+    """One verdict, in the three sizes the Plan needs."""
 
     code: str
     title: str

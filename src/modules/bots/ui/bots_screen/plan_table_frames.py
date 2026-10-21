@@ -1,8 +1,8 @@
-"""`BOT-206` — the Plan dock's property table, one frame per state worth looking at.
+"""`BOT-206` — the Plan's property table, one frame per state worth looking at.
 
 Offline, like `preview.py`: the screen is filled directly from a bot snapshot, so every word on a
 frame is the one the screen writes (`bot_facts`, `ladder_facts`, `readiness_words`). The window is
-tall enough for the Plan dock to show its whole table without scrolling, which is the point of a
+tall enough for the Plan to show its whole table without scrolling, which is the point of a
 frame the owner looks at (`ui-presentation-rule.md` §5):
 
   draft_blocked · futures_running · spot_running
@@ -85,7 +85,7 @@ _RANGE = {
     "stop_loss": "percent:5",
     "take_profit": "off",
 }
-#: The frames' window: tall enough that the Plan dock shows the whole table.
+#: The frames' window: tall enough that the Plan shows the whole table.
 _WINDOW = (1360, 1500)
 
 

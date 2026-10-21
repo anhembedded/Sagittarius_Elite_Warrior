@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_requests import (
     BotOrderRequests,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_shared_reads import (
+    BotSharedReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_outcome import (
     SWITCH_OFF_GATES,
     OrderOutcome,
@@ -64,9 +67,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.orde
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
     ProtectiveStopOrder,
     protective_stop_request,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
-    VenuePositionReads,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
@@ -118,15 +118,14 @@ class BotOrderGateway:
         ports: VenueTradingPorts,
         identity: BotIdentity,
         pacer: IOrderPacer,
-        shared_positions: VenuePositionReads | None = None,
+        shared: BotSharedReads | None = None,
     ) -> None:
         self._ports = ports
-        self._shared_positions = shared_positions
         self._identity = identity
         self._pacer = pacer
         self._requests = BotOrderRequests(identity)
         self._history = BotOrderHistory(ports.account_activity, identity.symbol)
-        self._reads = BotAccountReads(ports, identity, shared_positions)
+        self._reads = BotAccountReads(ports, identity, shared)
         self._submissions = 0
         self._rate_limit: timedelta | None = None
 

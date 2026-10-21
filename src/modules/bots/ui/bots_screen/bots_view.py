@@ -1,12 +1,12 @@
 """`EPIC-033K` — the Bots mode, laid out as HLD §11.2.1 lists it.
 
-The centre has two tabs (`EPIC-040E`): Live, the selected bot's chart, and
-Backtest, the sandbox of its parameters (`ui/backtest_workbench/`). Bots (the
-list) is docked on the left, Strategies (a row per venue's armed strategy,
-`EPIC-033K` stage 3) under it, Plan (the bot's figures, the kind's editor and its
-verdicts) on the right, and Orders, Ladder, Fills and Log are tabbed at the
-bottom. Every command is an action of the Bots menu (`bots_commands.py`);
-nothing here is a push button.
+The centre has two tabs (`EPIC-040E`): Live, the selected bot's Plan (its figures, the kind's
+editor and its checks) beside its chart, and Backtest, the sandbox of its parameters
+(`ui/backtest_workbench/`), laid out the same way: the one `PlanColumn` on the left and what the
+plan does on the right (`BOT-218`). Bots (the list) is docked on the left, Strategies (a row per
+venue's armed strategy, `EPIC-033K` stage 3) under it, and Orders, Ladder, Fills and Log are
+tabbed at the bottom. Every command is an action of the Bots menu (`bots_commands.py`); nothing
+here is a push button.
 
 `apply_ui_mode` is the screen's FSM made visible (`bots_ui_fsm_matrix`): the
 list locks while an action is in flight, and a bot's parameters are editable
@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
+    QSplitter,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -101,7 +102,6 @@ BOTS_SURFACE = Surface(
 )
 #: The panels HLD §11.2.1 lists for this mode, by their dock titles.
 BOTS_DOCK = "Bots"
-PLAN_DOCK = "Plan"
 ORDERS_DOCK = "Orders"
 #: `BOT-193`: the Grid bot's ladder, beside its orders.
 LADDER_DOCK = "Ladder"
@@ -180,10 +180,19 @@ class BotsView(BaseView):
         self._backtest_slot = QVBoxLayout(self.backtest)
         self._backtest_slot.setContentsMargins(0, 0, 0, 0)
         self.backtest_enabled = True
+        #: The Plan beside the chart, as the sandbox's setup column sits beside its results
+        #: (`BOT-218`): the Plan belongs to the Live tab, so the Backtest tab shows none of it.
+        self.live = QSplitter()
+        self.live.setObjectName("splitBotsLive")
+        self.live.setChildrenCollapsible(False)
+        self.live.addWidget(self.plan)
+        self.live.addWidget(self.chart_area)
+        self.live.setStretchFactor(0, 0)
+        self.live.setStretchFactor(1, 1)
         #: Live and Backtest: one stock tab widget, each tab the full width (`EPIC-040E`).
         self.centre = QTabWidget()
         self.centre.setObjectName("tabBotsCentre")
-        self.centre.addTab(self.chart_area, LIVE_TAB)
+        self.centre.addTab(self.live, LIVE_TAB)
         self.centre.addTab(self.backtest, BACKTEST_TAB)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
@@ -287,7 +296,6 @@ class BotsView(BaseView):
         surface = self.surface
         surface.place_widget(Place.WORKSPACE, self.centre)
         self._place_left(bots)
-        surface.place_widget(Place.RAIL, self.plan, title=PLAN_DOCK)
         for widget, title in (
             (self.orders, ORDERS_DOCK),
             (self._ladder_slot, LADDER_DOCK),

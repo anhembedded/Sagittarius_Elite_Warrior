@@ -44,9 +44,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirem
     FundingRequirement,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
-    VerdictSeverity,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest.sandbox_judge import (
     UNCHECKED_CODES,
     sandbox_line,
@@ -96,6 +93,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_state import (
     WorkbenchState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
+    plan_checks_of,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -318,6 +318,7 @@ class BacktestWorkbenchPresenter(QObject):
         pending = self._sandbox.pending_copy
         refusal, outcome = self._refusal, self._outcome
         missing = missing_candles(outcome)
+        verdicts = self._sandbox.verdicts
         return WorkbenchState(
             activity=self._activity,
             reason=self._why_not(),
@@ -328,10 +329,11 @@ class BacktestWorkbenchPresenter(QObject):
             changed_fields=plan.changed_fields() if plan is not None else (),
             source_text=source_text(plan, self._world.market) if has_sandbox else "",
             question=words.DISCARD_QUESTION if pending is not None else "",
-            verdict_lines=tuple(
-                sandbox_line(v)
-                for v in self._sandbox.verdicts
-                if v.severity is not VerdictSeverity.OK or v.code in UNCHECKED_CODES
+            checks=plan_checks_of(
+                tuple(v for v in verdicts if v.code not in UNCHECKED_CODES)
+            ),
+            unchecked_lines=tuple(
+                sandbox_line(v) for v in verdicts if v.code in UNCHECKED_CODES
             ),
         )
 

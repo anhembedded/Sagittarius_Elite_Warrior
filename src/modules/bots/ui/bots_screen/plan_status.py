@@ -1,4 +1,4 @@
-"""`BOT-209` — the one thing the Plan dock says about where the bot stands, as a sentence.
+"""`BOT-209` — the one thing the Plan says about where the bot stands, as a sentence.
 
 Pure, so each state is tested without a widget. What was three texts in three places (the state
 line with the run's note, "Start: 1 thing left" with the steps, and the blocking reason at the foot
