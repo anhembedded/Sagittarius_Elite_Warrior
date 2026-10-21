@@ -1,4 +1,4 @@
-# BOT-211 — A running position bot's current liquidation-risk level is readable, and the Plan dock shows it
+# BOT-215 — A running position bot's current liquidation-risk level is readable, and the Plan dock shows it
 
 **Status:** 🔵 Backlog
 **Priority:** P2

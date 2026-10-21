@@ -1,4 +1,4 @@
-# BOT-212 — Toolbar commands show an icon beside their text, which needs the Engine's toolbar style decided
+# BOT-216 — Toolbar commands show an icon beside their text, which needs the Engine's toolbar style decided
 
 **Status:** 🔵 Backlog
 **Priority:** P3
