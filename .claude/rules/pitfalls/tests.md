@@ -14,4 +14,6 @@ paths:
 6. Proving a class works and calling that the program working (`BUG-126`, `CS-002`; `BUG-127`, `CS-003`) — ask what constructs it, assert against the real graph.
 7. A parametrized test whose id is a whole log line (`... - ERROR - ...`): the id is printed in the run log, and the log scan fails the gate on `- (WARNING|ERROR|CRITICAL) -` — give the cases short `ids=` (`BOT-199`).
 
+8. A journey over a booted app that counts or unpacks everything on a fake Discord transport: the app's own heartbeat (the housekeeping thread's first pass, one second in) lands beside the alert on a slow runner and the count is wrong. Read posts through `tests/discord_posts.py` (`BUG-252`).
+
 A new trap is one line here with its id; the long form is a case study (`Docs/CASE_STUDIES/README.md`).

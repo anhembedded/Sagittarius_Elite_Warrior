@@ -37,7 +37,7 @@ _MOST_POSTS_BEFORE_THE_FEED_ALERT = 3
 def _feed_alerts(booted: Skeleton) -> list[str]:
     return [
         str(post.body["content"])
-        for post in booted.transport.posts
+        for post in booted.posts
         if "Price feed stale: grid one" in str(post.body["content"])
     ]
 
