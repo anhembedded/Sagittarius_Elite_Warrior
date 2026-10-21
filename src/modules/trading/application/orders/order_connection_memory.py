@@ -58,6 +58,14 @@ class OrderConnectionMemory:
         self._begun = 0
         self._settled = 0
 
+    def forget(self) -> None:
+        """Drops what is kept, so the next order asks the exchange. For a caller that knows the
+        connection is not what it was a moment ago, and for a journey about the exchange's answer
+        to the check itself: a real-time window it happens to fall inside is not a fact to depend
+        on (`BUG-249`)."""
+        with self._lock:
+            self._kept = None
+
     def status(self, reader: ITradingAccountReader) -> ExchangeConnectionStatus:
         """The kept status if it passed less than the window ago, else a read from the exchange."""
         with self._lock:
