@@ -11,7 +11,7 @@
 ---
 
 ## 1. Context and problem
-At `849d973` the Grid's answer to "started with the price outside the range" depends on the side and ignores the direction: a SHORT above the range plans a 0.1542 BTC market short before any order while `PRICE_ABOVE_RANGE` tells the owner it "places BUY orders only" (`grid_range_checks.py` → `check_price_against_range`, reading `plan.opening_buy_quantity`). The owner decided one rule instead (the ADR's D1).
+At `849d973` the Grid's answer to "started with the price outside the range" depends on the side and ignores the direction: a SHORT above the range plans a 0.1542 BTC (equal-capital sizing; 0.1429 BTC with Futures sizing) market short before any order while `PRICE_ABOVE_RANGE` tells the owner it "places BUY orders only" (`grid_range_checks.py` → `check_price_against_range`, reading `plan.opening_buy_quantity`). The owner decided one rule instead (the ADR's D1).
 
 ## 2. Acceptance criteria
 - [x] The ADR states the rule, the facts it rests on (with the probe), the state and its rows, the entry rule, the checks, the surfaces, the replay, the alternatives and the open questions.
@@ -28,7 +28,7 @@ None: no UI or application need; documents only.
 | File | Change |
 | :--- | :--- |
 | `Tasks/epics/EPIC-044_grid_waits_for_the_range/` | the epic, its tracking, four tasks and the ADR |
-| `Tasks/epics/README.md`, `Tasks/ROADMAP.md` | the epic's row and link |
+| `Tasks/epics/README.md` | the epic's row (`Tasks/ROADMAP.md` holds no line for recent epics) |
 | `Docs/LEARNING/` | page 004, the teaching page for the decision |
 
 ## 5. Testing

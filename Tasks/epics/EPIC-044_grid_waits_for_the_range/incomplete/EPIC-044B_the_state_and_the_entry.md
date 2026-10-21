@@ -6,7 +6,7 @@
 **Complexity:** L — the lifecycle table, the start path, the entry watch, the checks, the restore row and the red-before tests of every direction × side.
 **Epic (optional):** [EPIC-044](../README.md)
 **SPEC (optional):** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-044A](EPIC-044A_the_decision_record.md) accepted
+**Depends on:** [EPIC-044A](EPIC-044A_the_decision_record.md) accepted; for the Futures restart test, the separate VPS bug fix
 
 ---
 
@@ -21,7 +21,14 @@ The ADR's D1–D9 and D12. Established on `849d973`: five behaviours depending o
 - [ ] A restart while waiting leaves the bot `RECOVERING`, the reconcile returns it to `AWAITING_RANGE`, and nothing is laid; an unknown tagged order halts it.
 - [ ] Stop while waiting cancels nothing and ends in `STOPPED`; the lease and budget are released.
 - [ ] Stop loss and take profit (and the range-exit close) do nothing while waiting, whatever the price.
-- [ ] A refusal at entry halts with `ENTRY_REFUSED` and its detail (a REFUSED verdict, a budget refusal, an order below the minimum); a transient cause keeps waiting and says so once.
+- [ ] A refusal judged before entry (a REFUSED verdict, a refused budget, an order below the minimum or above the cap) halts with `entry_refused`/`ENTRY_REFUSED` and its detail; a transient cause (trading off, symbol not TRADING, rate-limit pause, unreadable price) keeps waiting, with no transition and one INFO line per episode; a refusal the start sequence meets after `range_entered` halts with its own existing reason.
+- [ ] The entry is confirmed by a fresh book read: a trigger the book contradicts changes no state and writes no journal row; a mark sitting on a bound for many beats produces no per-beat INFO line.
+- [ ] `switch_off` while waiting halts the bot; re-enabling trading lays nothing.
+- [ ] A Resume of a halted bot that holds nothing waits when the price is outside the range and never lays a ladder off it.
+- [ ] While `RECOVERING` into `AWAITING_RANGE`, a bot with `on_range_exit = CLOSE`, a stop loss it sits beyond, and a quiet feed is not closed, stopped or halted; on Futures its leverage and margin type are not judged by that reconcile (no `SETTINGS_DRIFT`).
+- [ ] A range-exit close does not fire in the first beat after entry.
+- [ ] The new guard: every hand-written state set (enum and string sets of ADR §2.4) classifies every state.
+- [ ] Prerequisite for the Futures restart test: the separate fix for a Futures `bot resume` refused "unexpected open positions" after a host restart (not done here).
 - [ ] Mainnet and testnet behave the same (the same test over both venues).
 - [ ] Every hand-written state set classifies `AWAITING_RANGE` (ADR §2.4), held by the existing every-set-classifies-every-state guard.
 - [ ] Log lines of ADR D12 seen through the real logging configuration; `render_log_templates.py --write` run.

@@ -18,14 +18,14 @@ ADR D10. Without it the waiting bot would render as an unknown state in the tabl
 - [ ] The Plan banner says "Waiting for the price to enter X–Y (now Z)" in `PlanColumn`.
 - [ ] The Bots table shows the state; `bot list` and `bot show` show the state, the range and the last price.
 - [ ] The heartbeat and the daily summary count waiting bots apart from running ones.
-- [ ] One alert when the bot enters the range: price and number of orders laid.
+- [ ] One alert when the bot enters the range: price and number of orders laid, from one `BotRangeEnteredEvent` the entry path publishes once the ladder is laid (the entry is two transitions, so no state change carries it).
 - [ ] Frames of the Bots screen with a waiting bot, light and dark, in the CI `ui-screenshots` artifact (ids and file names given to the coordinator).
 
 ## 3. Design
 ADR D10; `StateBadge`/`StateLook`, `NoticeBar`, the existing `BotAlertSource` entry rule extended with the transition `AWAITING_RANGE → RUNNING`.
 
 ## 3a. Reuse
-`StateBadge`, `NoticeBar`, `PlanColumn`, `value_formatter`, `price_text`; not used: a new bus event.
+`StateBadge`, `NoticeBar`, `PlanColumn`, `value_formatter`, `price_text`; a new contract event, `BotRangeEnteredEvent`, because the entry crosses two states (ADR D10).
 
 ## 4. Changes, per file
 Decided at implementation time against the merged heads of #677, #678, #674.

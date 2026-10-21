@@ -14,9 +14,10 @@
 ADR D11. `GridReplay` and `FuturesReplay` plan at `first.open` whatever it is.
 
 ## 2. Acceptance criteria
-- [ ] A replay whose first price is outside the range holds no order and no position, equity is the capital, until the first step inside the range; then it plans at that step's price.
+- [ ] While waiting, `may_trade_in` is true when the candle's `[low, high]` reaches the range, so its 1-second steps are walked; the bot enters at the first step whose close is inside, plans at that close, and the ladder rests from the next step; no exit is judged before entry; equity is the capital in cash until then; a candle with no 1-second klines is one coarse step and the result says so.
+- [ ] The result states that the Futures replay approximates the mark with the trade close.
 - [ ] The buy-and-hold benchmark starts at the same step (ADR O3).
-- [ ] A test replays one price path through the replay and through the live entry decision and asserts the same entry bar, for LONG, SHORT and NEUTRAL.
+- [ ] A test replays one price path through the replay and through the live entry decision and asserts the same entry step, for LONG, SHORT and NEUTRAL.
 - [ ] A window that never enters the range returns a result with no fill, and the result says so.
 - [ ] The recorded oracles for windows that start in the range are byte-identical.
 
