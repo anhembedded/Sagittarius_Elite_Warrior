@@ -1,6 +1,6 @@
 # EPIC-045B — `bot delete` forgets a DRAFT or STOPPED bot on the running host
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, quoted in the [epic README](../README.md)
 **Risk:** 🟡 — it removes a bot's file; the exposure refusal is stricter than the tab
 **Complexity:** M
@@ -40,4 +40,4 @@ Evidence: handler tests (`tests/unit/modules/bots/application/test_bot_delete_fo
 Not run: the `-Full` run on the PR head; the VPS.
 
 ## Resume
-Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.
+None: merged in #692 (b4127df); the `-Full` run on its head 0ec9b44 was green and the reviewer's round 3 passed.

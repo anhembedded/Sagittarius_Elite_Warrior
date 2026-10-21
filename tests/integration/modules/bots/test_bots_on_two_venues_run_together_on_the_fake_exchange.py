@@ -70,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.integration.golden.fakes.recording_event_publisher import (
+    RecordingEventPublisher,
+)
 
 from .grid_fake_exchange import FakeExchange, ladder
 from .two_venues_bots_world import (
@@ -268,7 +271,10 @@ def test_start_planned_starts_one_bot_per_venue_and_names_the_one_it_refuses(
             )
 
             StartPlannedBots(
-                container.resolve(IBotPlan), container.resolve(ICommandDispatcher), None
+                container.resolve(IBotPlan),
+                container.resolve(ICommandDispatcher),
+                None,
+                RecordingEventPublisher(),
             ).run()
 
             listing = container.resolve(ICommandDispatcher).dispatch(

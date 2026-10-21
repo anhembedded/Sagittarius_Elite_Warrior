@@ -21,10 +21,12 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps imp
     StartPlannedBots,
     WarnWhenNoAlertChannel,
     mainnet_resume_refusal,
-    mainnet_start_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
     IAlertChannels,
+)
+from Sagittarius_Elite_Warrior.tests.integration.golden.fakes.recording_event_publisher import (
+    RecordingEventPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.application.host_steps_world import (
     FixedPlan,
@@ -32,6 +34,18 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.operations.application.host_st
     entry,
     opened,
 )
+
+
+def _planned(
+    plan: FixedPlan,
+    world: StepsWorld,
+    confirmed_venue: str | None = None,
+    events: RecordingEventPublisher | None = None,
+) -> StartPlannedBots:
+    return StartPlannedBots(
+        plan, world, confirmed_venue, events or RecordingEventPublisher()
+    )
+
 
 _LOGGER = "App.Operations.Host"
 
@@ -189,7 +203,7 @@ def test_start_planned_starts_the_planned_bots_that_are_at_rest_only(
     plan = FixedPlan(frozenset({"aaaaaa", "bbbbbb", "cccccc", "dddddd"}))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
-        StartPlannedBots(plan, world, confirmed_venue=None).run()
+        _planned(plan, world, confirmed_venue=None).run()
 
     assert [c.bot_id for c in world.starts] == ["aaaaaa", "bbbbbb"]
     assert _warnings(caplog) == []
@@ -201,7 +215,7 @@ def test_start_planned_says_so_when_there_is_no_plan_and_starts_nothing(
     world = StepsWorld(entry("aaaaaa", "STOPPED"))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
-        StartPlannedBots(FixedPlan(None), world, confirmed_venue=None).run()
+        _planned(FixedPlan(None), world, confirmed_venue=None).run()
 
     assert world.starts == []
     (warning,) = _warnings(caplog)
@@ -220,7 +234,7 @@ def test_a_refused_start_is_a_warning_and_the_others_still_start(
     plan = FixedPlan(frozenset({"aaaaaa", "bbbbbb"}))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
-        StartPlannedBots(plan, world, confirmed_venue=None).run()
+        _planned(plan, world, confirmed_venue=None).run()
 
     assert [c.bot_id for c in world.starts] == ["aaaaaa", "bbbbbb"]
     (warning,) = _warnings(caplog)
@@ -233,7 +247,7 @@ def test_a_planned_bot_nobody_has_is_a_warning(
     world = StepsWorld(entry("aaaaaa", "STOPPED"))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
-        StartPlannedBots(
+        _planned(
             FixedPlan(frozenset({"aaaaaa", "zzzzzz"})), world, confirmed_venue=None
         ).run()
 
@@ -244,7 +258,7 @@ def test_a_planned_bot_nobody_has_is_a_warning(
 def test_the_venue_the_operator_typed_travels_with_every_start() -> None:
     world = StepsWorld(entry("aaaaaa", "STOPPED", "spot_mainnet"))
 
-    StartPlannedBots(
+    _planned(
         FixedPlan(frozenset({"aaaaaa"})), world, confirmed_venue="spot_mainnet"
     ).run()
 
@@ -252,46 +266,6 @@ def test_the_venue_the_operator_typed_travels_with_every_start() -> None:
 
 
 # --- decision O8: refuse before anything starts --------------------------------
-
-
-@pytest.mark.parametrize(
-    ("typed", "refused"),
-    [
-        (None, True),
-        ("spot_testnet", True),
-        ("futures_mainnet", True),
-        ("spot_mainnet", False),
-    ],
-)
-def test_a_planned_mainnet_bot_refuses_the_whole_start_unless_its_venue_was_typed(
-    typed: str | None, refused: bool
-) -> None:
-    bots = (
-        entry("aaaaaa", "STOPPED", "spot_testnet"),
-        entry("bbbbbb", "STOPPED", "spot_mainnet"),
-    )
-    message = mainnet_start_refusal(
-        bots, FixedPlan(frozenset({"aaaaaa", "bbbbbb"})), typed
-    )
-
-    assert (message is not None) is refused
-    if refused:
-        assert message is not None
-        assert "bbbbbb" in message
-        assert "--confirm-venue spot_mainnet" in message
-
-
-def test_a_mainnet_bot_the_plan_does_not_want_running_needs_no_confirmation() -> None:
-    bots = (entry("bbbbbb", "STOPPED", "spot_mainnet"),)
-
-    assert mainnet_start_refusal(bots, FixedPlan(frozenset()), None) is None
-    assert mainnet_start_refusal(bots, FixedPlan(None), None) is None
-
-
-def test_a_mainnet_bot_already_running_needs_no_confirmation_to_be_left_alone() -> None:
-    bots = (entry("bbbbbb", "RUNNING", "spot_mainnet"),)
-
-    assert mainnet_start_refusal(bots, FixedPlan(frozenset({"bbbbbb"})), None) is None
 
 
 @pytest.mark.parametrize(
@@ -369,7 +343,7 @@ def test_a_plan_that_wants_nothing_running_says_so_instead_of_starting_nothing_s
     world = StepsWorld(entry("aaaaaa", "STOPPED"))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER):
-        StartPlannedBots(FixedPlan(frozenset()), world, None).run()
+        _planned(FixedPlan(frozenset()), world, None).run()
 
     assert world.starts == []
     assert any("wants no bot running" in r.getMessage() for r in caplog.records)

@@ -278,7 +278,7 @@
             "spot_mainnet",
             "futures_mainnet"
           ],
-          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering, --resume-halted). Without it --start-planned and --resume-recovering are refused (exit 2) when they would touch a mainnet venue, and --resume-halted skips the mainnet bots and says so"
+          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering, --resume-halted). Without it --resume-recovering is refused (exit 2) when it would touch a mainnet venue, and --start-planned and --resume-halted skip the unconfirmed mainnet bots and say so (--start-planned also sends an alert) while the rest run"
         },
         {
           "name": "--skip-preflight",

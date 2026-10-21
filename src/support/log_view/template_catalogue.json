@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 859, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 860, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -820,6 +820,7 @@
 ["hhh", "[spot-gate] ", " ignored at ", ": ", " cannot execute it"],
 ["hh", "[spot-gate] ", " short-side signal(s) ignored in this simulation: ", " is long-only"],
 ["ss", "[start-planned] bot ", " is ", "; not started"],
+["ssss", "[start-planned] bot ", " on ", " was not started: its venue was not confirmed; `bot start ", " --confirm-venue ", "` starts it"],
 ["sss", "[start-planned] bot ", " was not started: ", " (", ")"],
 ["s", "[start-planned] bot ", ": start requested"],
 ["", "[start-planned] no bot plan exists, so nothing was started (`bot apply` writes one: EPIC-038I)"],

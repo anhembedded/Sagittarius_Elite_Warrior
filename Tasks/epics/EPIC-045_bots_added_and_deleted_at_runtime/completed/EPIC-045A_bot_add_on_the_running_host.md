@@ -1,6 +1,6 @@
 # EPIC-045A — `bot add` creates a DRAFT bot on the running host
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, quoted in the [epic README](../README.md)
 **Risk:** 🟡 — a new document key crosses the command directory's trust boundary
 **Complexity:** M — one verb on the `bot edit` path
@@ -41,4 +41,4 @@ Evidence: handler tests (`tests/unit/modules/bots/application/test_bot_add_for_t
 Not run: the VPS, a real second process (`test_control_of_a_running_host_process.py` has no add case); the `-Full` run on the PR head.
 
 ## Resume
-Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.
+None: merged in #692 (b4127df); the `-Full` run on its head 0ec9b44 was green and the reviewer's round 3 passed.

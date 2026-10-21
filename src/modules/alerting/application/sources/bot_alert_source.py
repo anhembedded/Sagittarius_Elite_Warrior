@@ -112,6 +112,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_st
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.planned_bot_not_started_event import (
+    PlannedBotNotStartedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     plain_price,
 )
@@ -287,6 +290,16 @@ class BotAlertSource:
             f"The bot laid {event.orders} order(s) and is running."
         )
         self._publish(AlertKind.BOT_RANGE_ENTERED, subject, detail)
+
+    def on_planned_bot_not_started(self, event: PlannedBotNotStartedEvent) -> None:
+        """`EPIC-045F` (ADR 045 D7): the host skipped a planned mainnet bot it was not told to
+        confirm, and runs the rest. Without this the bot would just sit DRAFT or STOPPED, silently."""
+        subject = subject_or_bare(self._entry(event.bot_id), event.bot_id)
+        detail = (
+            f"{event.reason}\nThe other bots of the plan were started. Start this one with "
+            f"`bot start {event.bot_id} --confirm-venue {event.venue}`."
+        )
+        self._publish(AlertKind.PLANNED_BOT_NOT_STARTED, subject, detail)
 
     def on_protective_stop(self, event: BotProtectiveStopEvent) -> None:
         """`BOT-189`: the stop standing on the exchange ran, so the position is closed."""
