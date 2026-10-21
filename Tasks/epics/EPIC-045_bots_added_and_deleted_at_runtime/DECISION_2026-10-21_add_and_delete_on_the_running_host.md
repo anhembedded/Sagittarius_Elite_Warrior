@@ -26,6 +26,7 @@
 | D2 | `bot delete` returns to scope, on the running host, for a DRAFT or STOPPED bot. | Accepted | 🟢 owner | Reverses the 2026-10-17 choice; the runbook line "Delete is not a running-host command" goes. |
 | D3 | `bot add <plan.json> [--name X]` is a new `HostControlAction` word `add`. The plan entry (name, kind, venue, symbol, params) travels in a new optional document key `entry`; the host dispatches the tab's own `CreateBotCommand` under `BotCommandLock`. The bot always lands **DRAFT**, `desired_state` is ignored, nothing is started, `confirmed_venue` must be null. | Accepted | 🤖 agent | One more verb on the proven edit path (`EPIC-038L`); money stays at `bot start --confirm-venue`. The brief said "or STOPPED for a mainnet venue": the Bots tab and `bot apply` create DRAFT on every venue, DRAFT starts exactly like STOPPED, so no second landing state is built. |
 | D4 | `bot delete <id>` is `DeleteBotCommand` under `BotCommandLock`, plus one refusal the tab does not make: a bot whose record still shows exposure (a held base, a live order, an order owed) is refused. The kind answers (`IBotKind.exposure_left`, closed by default, like `parameter_problem`). | Accepted | 🤖 agent | Delete stays an unattended act with no confirmation dialog, so the host may not forget a bot that still holds coin. Stricter than the tab: a Spot bot stopped with its coin kept is deleted in the Bots tab, or after `bot start` and `bot stop` selling it. The owner may veto. |
+| D4a | The exposure the record shows is valued at the highest price the record holds, and a base worth less than `DUST_QUOTE_VALUE` (10 quote units) is let go; a base with no price to value it by, a live order, an owed order and an open protective stop are never let go. | Accepted | 🤖 agent | The fake-exchange journey showed a bot that sold everything it could still holds a sliver the venue will not take (0.000006 BTC), the same dust `exit_dust.py` leaves; refusing on any nonzero base would make no Grid deletable from the VPS. At most 10 quote units are orphaned per delete. The owner may veto or change the figure. |
 | D5 | `bot apply` beside a running host is a separate slice (`EPIC-045C`) built after A and B, and sits **beside** `bot add`, not in place of it. | Accepted | 🤖 agent | `add` is one entry, small, and unblocks the owner today; `apply` is many entries, edits and prunes, and writes `state/bot_plan.json`, which needs a design of its own (document size, atomicity of a partial apply). |
 | D6 | The `entry` crosses a trust boundary and is shaped strictly: name 1–64 characters of letters, digits, space and `_ . : + -`; kind `[a-z0-9_]{1,32}`; venue a venue word; symbol `[A-Z0-9]{1,32}`; params at most `MAX_SETTINGS_PER_EDIT`, each a `ParameterSetting`. The document stays inside `MAX_COMMAND_BYTES`. | Accepted | 🤖 agent | A plan name with a parenthesis is refused by `bot add` in words; rename it in the plan. |
 
@@ -37,12 +38,13 @@
 ## 4. Open questions
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | Is refusing delete on recorded exposure (D4) what the owner wants for a Spot bot stopped with its coin kept? | none | 2026-10-21 |
+| O1 | Is refusing delete on recorded exposure (D4), with the 10-quote-unit dust figure (D4a), what the owner wants for a Spot bot stopped with its coin kept? | none | 2026-10-21 |
+| O2 | `bot add` lands DRAFT on every venue (D3), not STOPPED on mainnet as the brief said: no code path creates a STOPPED bot and a DRAFT starts exactly like one. Confirm, or name the state wanted. | none | 2026-10-21 |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [045D](incomplete/EPIC-045D_the_tab_and_the_host_cannot_drift.md) | Not started | Not yet verified |
-| D2, D4 | [045B](incomplete/EPIC-045B_bot_delete_on_the_running_host.md) | In progress | Not yet verified |
-| D3, D6 | [045A](incomplete/EPIC-045A_bot_add_on_the_running_host.md) | In progress | Not yet verified |
+| D2, D4, D4a | [045B](incomplete/EPIC-045B_bot_delete_on_the_running_host.md) | Built; PR open | `tests/unit/modules/bots/application/test_bot_delete_for_the_host.py`, `tests/integration/modules/bots/test_bot_add_and_delete_on_the_running_host_on_the_fake_exchange.py`; the `-Full` run on the PR head is Not yet read |
+| D3, D6 | [045A](incomplete/EPIC-045A_bot_add_on_the_running_host.md) | Built; PR open | `test_bot_add_for_the_host.py`, `test_host_command_codec_add_delete.py`, the same integration file; the `-Full` run is Not yet read |
 | D5 | [045C](incomplete/EPIC-045C_bot_apply_beside_a_running_host.md) | Not started | Not yet verified |

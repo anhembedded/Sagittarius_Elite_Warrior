@@ -30,3 +30,9 @@ Document guards and `python3 scripts/check_skill_prompt_references.py`.
 
 ## 6. Docs touched
 the runbook
+
+## Implementation notes (written when done)
+Runbook §6 gained `bot add` and `bot delete` (command lines, the add procedure, the delete refusals) and lost "Delete is not a running-host command"; §8 gained the one-bot procedure (export, `scp`, `bot add`, `bot start`) and says a `bot add` or `bot delete` is not in the plan file. `SPEC-015`, `Docs/VOCABULARY/README.md` and `Docs/MODULES/bots/05-building-blocks.md`, `06-runtime.md` say the same. Checked with `python3 scripts/check_skill_prompt_references.py`; the document guards run in the unit tier.
+
+## Resume
+Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.

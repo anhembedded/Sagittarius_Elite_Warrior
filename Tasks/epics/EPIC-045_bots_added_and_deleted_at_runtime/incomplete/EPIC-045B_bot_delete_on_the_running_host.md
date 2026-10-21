@@ -33,3 +33,11 @@ Unit: handler (states, exposure, lock), codec, verb. Integration: delete beside 
 
 ## 6. Docs touched
 `headless_runbook.md` §6 (045E), `Docs/MODULES/bots/05-building-blocks.md`.
+
+## Implementation notes (written when done)
+Built in the first PR of the epic. D2 (the owner's reversal), D4 and D4a (the exposure refusal and the dust figure). The Bots tab's Delete refuses only by lifecycle state; the host adds `IBotKind.exposure_left` because a command line has no dialog. The fake-exchange journey showed the consequence: a Spot grid stopped with `bot stop` keeps the coin it bought and is refused; stopped with `--close-position` it holds dust and is deleted; a coin an earlier run kept (`earlier_runs_base`) keeps the bot even after a later sell-stop, because a run sells only its own orders. That is asked as O1.
+Evidence: handler tests (`tests/unit/modules/bots/application/test_bot_delete_for_the_host.py`) over the record the real runtime codec writes, the kind-default tests (`tests/unit/modules/bots/domain/test_bot_kind_exposure_left.py`), the integration journey. Mutation-checked: the exposure refusal, the state gate, the dust comparison (`<` to `<=`, a doubled figure) and the lock each turn a test red when changed.
+Not run: the `-Full` run on the PR head; the VPS.
+
+## Resume
+Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.

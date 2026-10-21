@@ -33,3 +33,12 @@ Unit: codec, handler, verb. Integration: host-control world beside a running hos
 
 ## 6. Docs touched
 `Docs/OPERATIONS/headless_runbook.md` §6 (045E), `Docs/MODULES/bots/05-building-blocks.md`, `Docs/MODULES/operations` if it lists the actions.
+
+## Implementation notes (written when done)
+Built in the first PR of the epic. Decisions taken on the way, all in the [decision record](../DECISION_2026-10-21_add_and_delete_on_the_running_host.md): D3 (the `add` word, the `entry` key, the fixed subject `new-bot`), D6 (the closed shape of the entry). The brief said the bot lands "DRAFT, or STOPPED for a mainnet venue": no code path creates a STOPPED bot (`CreateBotCommandHandler` saves `Bot.draft`), so it lands DRAFT everywhere; asked as O2.
+A real bug met and fixed on the way: `TradingVenue` is a `str` enum, so `isinstance(venue, str)` in the handler read a valid venue as a refusal sentence; the unit tests caught it.
+Evidence: handler tests (`tests/unit/modules/bots/application/test_bot_add_for_the_host.py`), codec tests (`tests/unit/modules/operations/application/test_host_command_codec_add_delete.py`), the verb tests (`tests/unit/modules/bots/cli/test_bot_add_and_delete_verbs.py`), the composed-app journey (`tests/integration/modules/bots/test_bot_add_and_delete_on_the_running_host_on_the_fake_exchange.py`, which also proves the handlers are bound). Mutation-checked: the duplicate-venue clause, the lock, the credential-name refusal and the venue refusal each turn a test red when removed.
+Not run: the VPS, a real second process (`test_control_of_a_running_host_process.py` has no add case); the `-Full` run on the PR head.
+
+## Resume
+Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.
