@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
     QGridLayout,
@@ -15,6 +17,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.add_key_dialog im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
     StateKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.public_address_words import (
+    ADVICE,
+    CAPTION,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -64,6 +70,10 @@ class TradingSettingsView(BaseView):
     """@brief The Trading page of Tools → Options (`EPIC-033E`): one row per
     venue and the actions on a key (`BUG-176`)."""
 
+    #: The Options dialog closed and let go of this page (not a switch to another page):
+    #: whatever the page was waiting for is no longer wanted (`BOT-224`).
+    dialogClosed = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._rows: dict[TradingVenue, _RowWidgets] = {}
@@ -72,12 +82,27 @@ class TradingSettingsView(BaseView):
     def set_view_model(self, view_model: TradingSettingsViewModel) -> None:
         self._add_key_button.clicked.connect(view_model.requestAddKey)
         self._check_button.clicked.connect(view_model.requestCheckConnections)
+        self._public_ip_button.clicked.connect(view_model.requestShowPublicIp)
+        self._copy_ip_button.clicked.connect(
+            lambda: _copy_to_clipboard(view_model.publicIp)
+        )
+        view_model.publicIpChanged.connect(lambda: self._apply_public_ip(view_model))
         view_model.rowsChanged.connect(lambda: self._apply_rows(view_model))
         view_model.busyChanged.connect(lambda: self._apply_busy(view_model))
         view_model.statusChanged.connect(lambda: self._apply_status(view_model))
         self._apply_rows(view_model)
         self._apply_busy(view_model)
         self._apply_status(view_model)
+        self._apply_public_ip(view_model)
+
+    def event(self, event: QEvent) -> bool:
+        """The Engine's `OptionsDialog.done()` takes every page out of the dialog
+        (`setParent(None)`) before it hides it, so a hide event cannot tell a close
+        from a switch to another page; being let go of can."""
+        handled = super().event(event)
+        if event.type() == QEvent.Type.ParentChange and self.parent() is None:
+            self.dialogClosed.emit()
+        return handled
 
     def ask_for_key(self, hint: str) -> tuple[str, str] | None:
         """Asks for a key and a secret in a modal dialog; `None` when cancelled."""
@@ -126,12 +151,51 @@ class TradingSettingsView(BaseView):
         self._busy_label.setText(view_model.busyText)
         self._add_key_button.setEnabled(idle)
         self._check_button.setEnabled(idle)
+        self._public_ip_button.setEnabled(idle)
         self._apply_rows(view_model)
 
     def _apply_status(self, view_model: TradingSettingsViewModel) -> None:
         self._status_label.setText(
             _worded(view_model.statusMessage, view_model.statusIsError)
         )
+
+    def _apply_public_ip(self, view_model: TradingSettingsViewModel) -> None:
+        found = bool(view_model.publicIp)
+        self._ip_caption.setVisible(found)
+        self._ip_value.setVisible(found)
+        self._copy_ip_button.setVisible(found)
+        self._ip_advice.setVisible(found)
+        self._ip_value.setText(view_model.publicIp)
+        self._ip_problem.setText(_worded(view_model.publicIpProblem, True))
+        self._ip_problem.setVisible(bool(view_model.publicIpProblem))
+
+    def _build_public_ip_block(self) -> QVBoxLayout:
+        """The address read-out: selectable text, a Copy button, and one line on
+        where it goes. Hidden until a lookup finds one (`BOT-224`)."""
+        block = QVBoxLayout()
+        row = QHBoxLayout()
+        self._ip_caption = plain_label(CAPTION)
+        self._ip_value = plain_label()
+        self._ip_value.setObjectName("lblPublicIp")
+        self._ip_value.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self._copy_ip_button = QPushButton("Copy")
+        self._copy_ip_button.setObjectName("btnCopyPublicIp")
+        row.addWidget(self._ip_caption)
+        row.addWidget(self._ip_value)
+        row.addWidget(self._copy_ip_button)
+        row.addStretch(1)
+        block.addLayout(row)
+        self._ip_advice = plain_label(ADVICE)
+        self._ip_advice.setObjectName("lblPublicIpAdvice")
+        self._ip_advice.setWordWrap(True)
+        block.addWidget(self._ip_advice)
+        self._ip_problem = plain_label()
+        self._ip_problem.setObjectName("lblPublicIpProblem")
+        self._ip_problem.setWordWrap(True)
+        block.addWidget(self._ip_problem)
+        return block
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -158,8 +222,12 @@ class TradingSettingsView(BaseView):
         self._check_button.setObjectName("btnCheckConnections")
         buttons.addWidget(self._add_key_button)
         buttons.addWidget(self._check_button)
+        self._public_ip_button = QPushButton("Show public IP")
+        self._public_ip_button.setObjectName("btnShowPublicIp")
+        buttons.addWidget(self._public_ip_button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
+        layout.addLayout(self._build_public_ip_block())
 
         self._busy_label: QLabel = plain_label()
         self._busy_label.setObjectName("lblTradingSettingsBusy")
@@ -169,6 +237,10 @@ class TradingSettingsView(BaseView):
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
+
+
+def _copy_to_clipboard(text: str) -> None:
+    QGuiApplication.clipboard().setText(text)
 
 
 def _look(row: KeyRow) -> StateLook | None:
