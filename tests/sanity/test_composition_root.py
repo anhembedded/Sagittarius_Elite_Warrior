@@ -38,6 +38,9 @@ import time
 from pathlib import Path
 
 import pytest
+from Sagittarius_Elite_Warrior.tests.sanity.leaked_threads import (
+    non_daemon_threads_left_since,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SRC = _REPO_ROOT / "src"
@@ -452,11 +455,7 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
         f"{_SHUTDOWN_BUDGET_SECONDS}s budget — the BUG-023/BUG-041 signature."
     )
 
-    leaked = [
-        t.name
-        for t in threading.enumerate()
-        if t.ident not in before and not t.daemon and t.is_alive()
-    ]
+    leaked = non_daemon_threads_left_since(before)
     assert leaked == [], (
         f"Non-daemon thread(s) still alive after shutdown, which is what keeps "
         f"the real process from exiting: {leaked}"
