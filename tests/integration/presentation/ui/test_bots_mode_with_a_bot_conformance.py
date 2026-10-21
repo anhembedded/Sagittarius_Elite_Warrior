@@ -70,6 +70,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
+    wrapped_text_in_every_tab,
     wrapped_text_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
@@ -215,6 +216,10 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
                 presenter.view.show_ladder()
                 _settle()
                 checks["columns_shown_whole"] += MODE_CHECKS["columns_shown_whole"](
+                    window, host
+                )
+                # Each tabbed panel read with its tab in front (`BUG-248`).
+                checks["wrapped_text_shown_whole"] += wrapped_text_in_every_tab(
                     window, host
                 )
                 presenter.view.surface.dock_of(presenter.view.orders).raise_()

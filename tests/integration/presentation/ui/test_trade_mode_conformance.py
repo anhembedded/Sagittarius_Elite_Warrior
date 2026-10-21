@@ -24,6 +24,7 @@ import pytest
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QWidget
+from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
     TRADE_ROUTE,
 )
@@ -43,6 +44,8 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
+    wrapped_text_in_every_tab,
+    wrapped_text_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
     SCREENSHOT_DIR_ENV,
@@ -92,10 +95,32 @@ def test_the_trade_mode_conforms_with_each_venue_shown(
             assert not is_blank(host.centralWidget().grab().toImage()), venue
             checks = {name: check(window, host) for name, check in MODE_CHECKS.items()}
             checks["fits_the_window"] = fit_problems(window, host, size)
+            checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, host)
             report[f"{TRADE_ROUTE}~{venue.value}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)
     assert not problems, "\n".join(problems)
+
+
+#: The Order history and Trade history panels are tabbed behind another and start at their minimum
+#: height (`MinimumHintSlot`), which cuts the end of a three-line notice on Futures at 1024x700:
+#: they are read with their tab in front only once `BUG-251` is fixed.
+_TABS_BUG = "BUG-251"
+_TABS_REPORT = (
+    "BUG-251_the_order_history_notices_are_cut_short_at_the_panels_minimum_height.md"
+)
+
+
+def test_the_tabbed_panels_wait_for_a_bug_that_is_still_open() -> None:
+    """The tabbed panels' wrapped text is measured with their tab in front when the report leaves
+    `incomplete/`; this fails then, naming the check to add to the conformance test."""
+    report = repo_root() / "Tasks" / "bug_report" / "incomplete" / _TABS_REPORT
+
+    assert wrapped_text_in_every_tab is not None
+    assert report.is_file(), (
+        f"{_TABS_BUG} is not open any more: measure the tabbed panels in the conformance "
+        "test (`wrapped_text_in_every_tab` in place of `wrapped_text_problems`)"
+    )
 
 
 def _in_view(widget: QWidget) -> bool:
