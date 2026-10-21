@@ -139,7 +139,7 @@ def _executor_reaches(action: HostControlAction) -> bool:
     spy = _Spy()
     entry = NewBotEntry("a", "grid", "spot_testnet", "SOLUSDT")
     BotHostCommandExecutor(spy).execute(  # type: ignore[arg-type]
-        command(action=action, entry=entry)
+        command(action=action, entry=entry, to_venue="spot_mainnet")
     )
     return len(spy.asked) == 1
 

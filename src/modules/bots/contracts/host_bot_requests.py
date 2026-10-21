@@ -8,7 +8,7 @@ the host adds no way to start or stop a bot, only a way to ask for one by name.
 
 Both answer a `BotCommandResult`, so a refusal reaches the host with the words
 the screen would show. `EPIC-038J` adds two more of the same kind, pause and resume, for the
-commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too; `EPIC-038L` adds `EditBotForHostCommand`; `EPIC-045` adds `AddBotForHostCommand` and `DeleteBotForHostCommand`.
+commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too; `EPIC-038L` adds `EditBotForHostCommand`; `EPIC-045` adds `AddBotForHostCommand` and `DeleteBotForHostCommand`; `EPIC-045G` adds `MoveBotForHostCommand`.
 
 @par `StartBotForHostCommand.confirmed_venue` (decision O8)
 The screen asks the question that names real money. A command line cannot ask,
@@ -124,6 +124,18 @@ class DeleteBotForHostCommand:
     """
 
     bot_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class MoveBotForHostCommand:
+    """Move this bot, a DRAFT that never ran, to another Spot venue (`EPIC-045G`).
+
+    The Bots tab's Venue field. `venue` is the `TradingVenue` word. The move places no order and asks no
+    venue (decision O8 is the question at `bot start`); the bot keeps its id and stays DRAFT.
+    """
+
+    bot_id: str
+    venue: str
 
 
 @dataclass(frozen=True, slots=True)
