@@ -7,6 +7,9 @@ rules never see a Futures snapshot and these never see a Spot one: `venue_rules.
 the set by the venue's profile, no rule branches on a market.
 
   · **Position mode not One-way** (item): the account is in Hedge Mode.
+  · **Multi-Assets mode** (item, `BUG-260`): the exchange refuses isolated margin under it
+    (`-4168`), and this app trades isolated only. Its balance is every asset in USD, so the
+    margin rule stays silent beside it rather than quote a figure that is not the contract's.
   · **A position already stands** (item, a start): a bot starts on a flat symbol, and the
     exchange's position is then not the bot's. A resume's own/foreign split needs the
     exposure book (`EPIC-039D`) and says nothing here.
@@ -48,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_needs import
     FuturesNeeds,
     bracket_below_leverage,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     PositionMode,
 )
@@ -56,6 +62,7 @@ MARGIN_SHORT = "RUN_MARGIN_SHORT"
 FOREIGN_POSITION = "RUN_FOREIGN_POSITION"
 LEVERAGE_ABOVE_BRACKET = "RUN_LEVERAGE_ABOVE_BRACKET"
 POSITION_MODE_NOT_ONE_WAY = "RUN_POSITION_MODE_NOT_ONE_WAY"
+MULTI_ASSETS_MODE = "RUN_MULTI_ASSETS_MODE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +99,23 @@ def position_mode_not_one_way(context: FuturesRuleContext) -> RuleOutcome:
                 POSITION_MODE_NOT_ONE_WAY,
                 f"{facts.venue_title} is in Hedge Mode and this app trades One-way only; "
                 "switch the account to One-way Mode in the exchange (the app never changes it)",
+                BotRefusal.VENUE_NOT_READY,
+            ),
+        )
+    )
+
+
+def multi_assets_mode(context: FuturesRuleContext) -> RuleOutcome:
+    facts = context.facts
+    if facts.asset_mode is not AssetMode.MULTI_ASSETS:
+        return RuleOutcome()
+    return RuleOutcome(
+        (
+            item(
+                MULTI_ASSETS_MODE,
+                f"{facts.venue_title} is in Multi-Assets Mode, which does not allow isolated "
+                "margin, and this app trades isolated only. Turn off Multi-Assets Mode in "
+                "Binance Futures preferences (the app never changes it)",
                 BotRefusal.VENUE_NOT_READY,
             ),
         )
@@ -142,6 +166,8 @@ def margin_short_for_ladder(context: FuturesRuleContext) -> RuleOutcome:
     needs, facts = context.needs, context.facts
     if context.purpose is not RunPurpose.START or needs is None:
         return RuleOutcome()
+    if facts.asset_mode is AssetMode.MULTI_ASSETS:
+        return RuleOutcome()
     if needs.initial_margin <= facts.available_margin:
         return RuleOutcome()
     return RuleOutcome(
@@ -161,6 +187,7 @@ def margin_short_for_ladder(context: FuturesRuleContext) -> RuleOutcome:
 #: The rules, in the order their findings are listed. A new check is one more entry.
 FUTURES_RULES: tuple[FuturesRule, ...] = (
     position_mode_not_one_way,
+    multi_assets_mode,
     foreign_position,
     leverage_above_bracket,
     margin_short_for_ladder,

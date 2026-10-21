@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     MarginType,
@@ -74,6 +77,22 @@ def test_margin_mode_settings_brackets_and_a_flat_symbol_are_read() -> None:
     assert facts.position == 0
     assert facts.can_trade is True
     assert facts.read_at == world.clock.now()
+
+
+def test_the_accounts_asset_mode_is_read_from_its_summary() -> None:
+    """`BUG-260`: Multi-Assets mode reached no readiness rule."""
+    single, multi = FuturesWorld(), FuturesWorld()
+    multi.account.answer_with(
+        replace(
+            a_futures_status(),
+            summary=replace(
+                a_futures_status().summary, asset_mode=AssetMode.MULTI_ASSETS
+            ),
+        )
+    )
+
+    assert _facts(single).asset_mode is AssetMode.SINGLE_ASSET
+    assert _facts(multi).asset_mode is AssetMode.MULTI_ASSETS
 
 
 def test_the_signed_position_on_the_symbol_is_read() -> None:

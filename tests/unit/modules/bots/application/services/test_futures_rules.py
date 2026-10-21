@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futur
     FUTURES_RULES,
     LEVERAGE_ABOVE_BRACKET,
     MARGIN_SHORT,
+    MULTI_ASSETS_MODE,
     POSITION_MODE_NOT_ONE_WAY,
     judge_futures,
 )
@@ -43,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_needs import (
     FuturesNeeds,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
@@ -157,7 +161,7 @@ def test_a_snapshot_with_no_facts_is_one_item_not_an_empty_account() -> None:
 
 
 def test_the_rules_are_one_function_each_in_the_table() -> None:
-    assert len(FUTURES_RULES) == len({rule.__name__ for rule in FUTURES_RULES}) == 4
+    assert len(FUTURES_RULES) == len({rule.__name__ for rule in FUTURES_RULES})
 
 
 def test_the_profile_picks_the_rules_and_the_other_rules_never_run() -> None:
@@ -177,3 +181,38 @@ def test_the_profile_picks_the_rules_and_the_other_rules_never_run() -> None:
         judge_venue(spot, FuturesLoaded(short), None, START)
     with pytest.raises(WrongVenueFactsError):
         judge_venue(futures, spot_snapshot, None, START)
+
+
+def test_multi_assets_mode_refuses_an_isolated_plan_in_words() -> None:
+    """`BUG-260`: the venue refused `-4168` after the plan read "Ready to start"."""
+    for purpose in (START, RunPurpose.RESUME):
+        (item,) = judge_futures(
+            FuturesLoaded(_facts(asset_mode=AssetMode.MULTI_ASSETS)), NEEDS, purpose
+        ).items
+
+        assert item.code == MULTI_ASSETS_MODE
+        assert (
+            "Turn off Multi-Assets Mode in Binance Futures preferences" in item.reason
+        )
+
+
+def test_multi_assets_mode_does_not_also_report_a_margin_figure_it_cannot_stand_behind() -> (
+    None
+):
+    """In Multi-Assets mode "available" is every asset in USD, not the contract's margin asset."""
+    facts = _facts(asset_mode=AssetMode.MULTI_ASSETS, available_margin=Decimal(1_000))
+
+    assert _codes(facts) == [MULTI_ASSETS_MODE]
+
+
+def test_single_asset_mode_and_an_unread_mode_leave_the_plan_alone() -> None:
+    assert _codes(_facts(asset_mode=AssetMode.SINGLE_ASSET)) == []
+    assert _codes(_facts(asset_mode=None)) == []
+
+
+def test_single_asset_margin_names_the_asset_it_counts() -> None:
+    (item,) = judge_futures(
+        FuturesLoaded(_facts(available_margin=Decimal(1_000))), NEEDS, START
+    ).items
+
+    assert "USDT" in item.reason
