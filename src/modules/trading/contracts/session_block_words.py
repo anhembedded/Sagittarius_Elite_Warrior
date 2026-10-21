@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_words import (
+    CONNECTION_FAILURE_SENTENCES,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -70,6 +76,33 @@ def unexplained_position_words(position: UnexplainedPosition) -> str:
     )
 
 
+#: `BUG-262` - the failures a host that has only just started may meet and then leave behind.
+_MAY_CLEAR_SOON = frozenset(
+    {
+        ConnectionFailureKind.NETWORK,
+        ConnectionFailureKind.MAINTENANCE,
+        ConnectionFailureKind.RATE_LIMITED,
+    }
+)
+
+
+def _connection_words(result: SessionReadyResult) -> str:
+    """What the connection check found, when it named a failure: the cause, not a guess at the key.
+    Empty when the refusal is not a connection one or the check named nothing."""
+    kind = result.connection_failure
+    if (
+        result.block_reason is not SessionBlockReason.CONNECTION_NOT_READY
+        or kind is None
+    ):
+        return ""
+    words = (
+        f"Connection to the exchange is not ready: {CONNECTION_FAILURE_SENTENCES[kind]}"
+    )
+    if kind in _MAY_CLEAR_SOON:
+        return f"{words} If the host has only just started, try again in a few seconds."
+    return words
+
+
 def refusal_words(result: SessionReadyResult) -> str:
     """The sentence for a refused `ensure_ready()`; for positions the opening would not excuse,
     followed by each one's symbol and figures (`BUG-250`).
@@ -79,7 +112,7 @@ def refusal_words(result: SessionReadyResult) -> str:
     """
     if result.block_reason is None:
         raise ValueError("the session opened; there is no refusal to word")
-    words = SESSION_BLOCK_WORDS[result.block_reason]
+    words = _connection_words(result) or SESSION_BLOCK_WORDS[result.block_reason]
     if not result.unexplained_positions:
         return words
     detail = "; ".join(

@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
@@ -143,7 +144,10 @@ class SessionReadiness:
 
         status = scope.ports.account_reader.check_connection()
         if not status.reachable or status.failure is not None:
-            return self._blocked(SessionBlockReason.CONNECTION_NOT_READY)
+            return replace(
+                self._blocked(SessionBlockReason.CONNECTION_NOT_READY),
+                connection_failure=status.failure,
+            )
 
         trading_client = scope.ports.client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
