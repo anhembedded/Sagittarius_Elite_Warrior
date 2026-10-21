@@ -12,8 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
+    BotAlertMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channels_view_model import (
     ChannelsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.heartbeat_view_model import (
+    HeartbeatViewModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.quiet_hours_view_model import (
     QuietHoursViewModel,
@@ -50,7 +56,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
     bots_changed = Signal()
 
     save_requested = Signal(str)
-    bot_mode_requested = Signal(str, str)
+    #: A bot's mode was chosen: the bot id and a `BotAlertMode`.
+    bot_mode_requested = Signal(str, object)
     remove_requested = Signal()
     send_test_requested = Signal()
 
@@ -64,6 +71,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
         self.routing = RoutingMatrixViewModel(self)
         #: The channels switches part (`EPIC-036D8`).
         self.channels = ChannelsViewModel(self)
+        #: The heartbeat interval part (`EPIC-036D9`).
+        self.heartbeat = HeartbeatViewModel(self)
         self._channel_line = ""
         self._saved_line = ""
         self._can_remove = False
@@ -153,4 +162,8 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
 
     @Slot(str, str)
     def request_bot_mode(self, bot_id: str, mode: str) -> None:
-        self.bot_mode_requested.emit(bot_id, mode)
+        try:
+            chosen = BotAlertMode(mode)
+        except ValueError:
+            return
+        self.bot_mode_requested.emit(bot_id, chosen)

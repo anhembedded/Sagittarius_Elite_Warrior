@@ -1,9 +1,9 @@
 """The alert settings file as a value: what it holds, how it is read and how it is written
-(`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`).
+(`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`, `EPIC-036D9`).
 
 Split from `JsonAlertSettings`, which keeps the lock, the commit and the ports. The file is
 `{"schema": "sew.alert-settings/1", "bot_modes": {...}, "quiet_hours": {...}, "routes": [...],
-"disabled_channels": [...]}`;
+"disabled_channels": [...], "heartbeat_hours": 6}`;
 every key but `schema` and `bot_modes` is optional, so an older file stays readable, and every
 entry this build cannot read is skipped, told once, with the rest kept (the safe side for an
 alert system is more messages, never fewer).
@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_sett
     QuietHoursChoice,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import (
+    HEARTBEAT_HOURS_CHOICES,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_route import AlertRoute
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
     BotAlertMode,
@@ -43,6 +46,7 @@ class SettingsDocument:
     quiet: QuietHoursChoice | None = None
     routes: tuple[AlertRoute, ...] = ()
     disabled: frozenset[str] = frozenset()
+    heartbeat_hours: int | None = None
     unreadable: bool = False
 
 
@@ -74,6 +78,8 @@ def document_dict(document: SettingsDocument) -> dict[str, Any]:
         ]
     if document.disabled:
         out["disabled_channels"] = sorted(document.disabled)
+    if document.heartbeat_hours is not None:
+        out["heartbeat_hours"] = document.heartbeat_hours
     return out
 
 
@@ -100,6 +106,7 @@ def read_document(path: Path) -> SettingsDocument:
         _quiet_choice_in(path, raw.get("quiet_hours")),
         _routes_in(path, raw.get("routes")),
         _disabled_in(path, raw.get("disabled_channels")),
+        _heartbeat_hours_in(path, raw.get("heartbeat_hours")),
     )
 
 
@@ -159,6 +166,21 @@ def _disabled_in(path: Path, raw: object) -> frozenset[str]:
             skipped,
         )
     return kept
+
+
+def _heartbeat_hours_in(path: Path, raw: object) -> int | None:
+    """The chosen interval, or `None` (the default, told once) for a value that is not one of the
+    choices: a heartbeat at the default is the safe side, never a silent one."""
+    if raw is None:
+        return None
+    if type(raw) is int and raw in HEARTBEAT_HOURS_CHOICES:
+        return raw
+    logger.warning(
+        "%s: the heartbeat interval is not one this build offers and is ignored "
+        "[alert-settings]",
+        path.name,
+    )
+    return None
 
 
 def _route_in(entry: object) -> AlertRoute | None:

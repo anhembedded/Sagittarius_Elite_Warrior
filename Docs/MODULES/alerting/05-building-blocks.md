@@ -66,6 +66,14 @@ Five pictures, drawn by hand at a high level, one question each:
   (`alerting/ui/options/channels_group.py` → `ChannelsGroup`) over `ChannelsViewModel`; the kinds of
   action the page runs are `alerts_action_kind.py` → `AlertsActionKind`, split from the presenter at
   the file-size ceiling.
+- **The heartbeat interval** (`EPIC-036D9`): `HeartbeatSetup` (`alerting/application/heartbeat_setup.py` →
+  `HeartbeatSetup`, `HeartbeatState`, `HeartbeatSave`) chooses among `HEARTBEAT_HOURS_CHOICES`
+  (`alerting/domain/alert_policies.py` → `HEARTBEAT_HOURS_CHOICES`) through `IHeartbeatSetting`
+  (`alerting/contracts/i_heartbeat_setting.py` → `IHeartbeatSetting`), served by `JsonAlertSettings`;
+  choosing the default keeps no value. `HeartbeatService` reads `AlertSettings.heartbeat_every` on every
+  pass, else `HeartbeatPolicy.heartbeat_every` (N4). The page group is `HeartbeatGroup`
+  (`alerting/ui/options/heartbeat_group.py` → `HeartbeatGroup`) over `HeartbeatViewModel`; showing the
+  kept state of a group after an action is `setting_panels.py` → `SettingPanels`.
 - **Quiet hours** (`EPIC-036D6`): `QuietHoursSetup` (`alerting/application/quiet_hours_setup.py` →
   `QuietHoursSetup`) keeps a period through `IQuietHoursSetting`
   (`alerting/contracts/i_quiet_hours_setting.py` → `IQuietHoursSetting`, `QuietHoursChoice`), served by
@@ -311,5 +319,5 @@ The Alerts screen (`EPIC-036D2`) added:
 | Class | Where | Task |
 | :--- | :--- | :--- |
 | The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page (built, `EPIC-036D4`) | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
-| The heartbeat's interval, and a channels table with Add, Edit and Rotate once a third channel type exists (the disabled channels, `EPIC-036D8`, the per-bot modes, `BOT-191`, the quiet hours, `EPIC-036D6`, and the routes, `EPIC-036D7`, are persisted). The per-bot menu item in the bots list is decided against: the Options page covers it (the coordinator for the owner, 2026-10-21) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| A channels table with Add, Edit and Rotate once a third channel type exists (the disabled channels, `EPIC-036D8`, the per-bot modes, `BOT-191`, the quiet hours, `EPIC-036D6`, and the routes, `EPIC-036D7`, are persisted). The per-bot menu item in the bots list is decided against: the Options page covers it (the coordinator for the owner, 2026-10-21) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

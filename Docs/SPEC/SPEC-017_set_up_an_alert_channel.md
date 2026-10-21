@@ -2,7 +2,7 @@ Status: Current
 
 # SPEC-017 — Set up an alert channel, so a halted bot reaches me
 
-- **Status:** 🟡 partly built — the Discord webhook and the Telegram bot can be saved, replaced, removed and tested from Tools → Options → Alerts (`EPIC-036D1`, `EPIC-036D4`). Not built: the routing matrix (which alerts go to which channel and how loudly), the quiet-hours schedule, a channels table view.
+- **Status:** 🟡 built, the owner has not seen it in the real window — the Discord webhook and the Telegram bot can be saved, replaced, removed and tested from Tools → Options → Alerts (`EPIC-036D1`, `EPIC-036D4`), the quiet hours, the routing matrix, the channel switches and the heartbeat interval are set there too (`EPIC-036D6`–`EPIC-036D9`). Not built: a channels table with Add, Edit and Rotate (the groups above do it), a last-send column, the dead man's switch URL field.
 - **Actor:** trader, operator (the owner, at the desktop)
 - **Origin:** `EPIC-036` decisions N1–N8; the owner's 2026-10-16 request for the Options page.
 - **Surfaces:** Tools → Options → Alerts; on a server with no window, `alert test` and the systemd credentials of `Docs/OPERATIONS/headless_runbook.md`.
@@ -24,6 +24,7 @@ Status: Current
 7. Under Quiet hours the owner checks "Hold Warning and Info alerts during these hours", picks a From and a To time and presses Save quiet hours; the line above says what is held and in which zone. The times are read in the display time zone as it is when the owner saves, and kept with that zone's name. During the period the app holds Warning and Info alerts and sends one summary when it ends; Critical alerts are never held. Clearing the box and pressing Save turns it off.
 8. Under Who hears what the owner sees one row per kind of alert (bot events, app and exchange problems, notices, routine messages) and one column per channel that is running, with a choice in each cell: Default, Loud, Silent or Off. A choice acts at once and the page says so. Default is Loud for a Critical alert and Silent for the rest; choosing Default again puts the cell back, so a later change of the defaults still reaches it. A Critical alert still reaches two channels when two are set up, and at least one of them rings, whatever the matrix says.
 9. Under Channels the owner sees a check box for each channel that is running. Clearing one switches that channel off at once: its webhook or bot stays saved and nothing is sent there until the box is ticked again. If every channel is off the page says no alert is sent anywhere, a Critical one included.
+10. Under Heartbeat the owner chooses how often the app sends its "bots are running" message: 1, 2, 3, 6, 12 or 24 hours, the default being 6. A choice acts at once and the next heartbeat follows the new interval without a restart.
 
 ## 4. What must be true afterwards
 The secret is in the keyring and nowhere else: not in a file, a log, an exception text or on the screen except its last four characters. The test message reached the phone.

@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
     channels_words,
+    heartbeat_words,
     quiet_hours_words,
     routing_words,
 )
@@ -102,6 +103,7 @@ DOING_WORDS = {
     "quiet": quiet_hours_words.DOING,
     "route": routing_words.DOING,
     "channel": channels_words.DOING,
+    "heartbeat": heartbeat_words.DOING,
 }
 WORKING_WORDS = {
     "save": "Saving the webhook…",
@@ -114,6 +116,7 @@ WORKING_WORDS = {
     "quiet": quiet_hours_words.WORKING,
     "route": routing_words.WORKING,
     "channel": channels_words.WORKING,
+    "heartbeat": heartbeat_words.WORKING,
 }
 
 #: `BOT-191` — what each `BotAlertMode` is called on the page, and what it means.
@@ -148,13 +151,18 @@ READ_ONLY_NOTE = (
 )
 
 
+#: How a channel line that says the channel is working begins; `channel_states.line_when_switched_off`
+#: replaces such a line when the owner switched the channel off.
+ON_PREFIX = "On:"
+
+
 def channel_line(state: DiscordChannelState) -> str:
     """Whether the Discord channel is on, and when a saved webhook starts to matter.
 
     The lane starts at boot (`ThreadedDeliveryHost`), so a first save or a removal is
     a restart away; a replaced webhook is read at the next send."""
     if state.running and state.usable:
-        return "On: alerts go to the saved Discord webhook."
+        return f"{ON_PREFIX} alerts go to the saved Discord webhook."
     if state.running and state.stored:
         return (
             "The stored value is not a Discord webhook URL, so Discord alerts are "
@@ -245,7 +253,7 @@ def telegram_channel_line(state: TelegramChannelState) -> str:
     """Whether the Telegram channel is on, and when saved credentials start to matter: the
     lane starts at boot, a replaced pair is read at the next send."""
     if state.running and state.usable:
-        return "On: alerts go to the saved Telegram bot."
+        return f"{ON_PREFIX} alerts go to the saved Telegram bot."
     if state.running and state.stored:
         return (
             "The stored Telegram values are incomplete or not of the shape Telegram "

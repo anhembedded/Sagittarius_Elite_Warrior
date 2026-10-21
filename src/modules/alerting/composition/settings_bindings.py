@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_enabling import (
     IChannelEnabling,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_heartbeat_setting import (
+    IHeartbeatSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
 )
@@ -52,4 +55,7 @@ def bind_settings(container: IContainer, settings_path: Callable[[], Path]) -> N
     )
     container.singleton(
         IChannelEnabling, lambda resolver: resolver.resolve(JsonAlertSettings)
+    )
+    container.singleton(
+        IHeartbeatSetting, lambda resolver: resolver.resolve(JsonAlertSettings)
     )

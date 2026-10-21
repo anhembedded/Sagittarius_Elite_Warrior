@@ -15,7 +15,16 @@ from PySide6.QtWidgets import QCheckBox
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
     JsonAlertSettings,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import channels_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
+    TelegramChannelState,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
+    alerts_words,
+    channels_words,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channel_states import (
+    line_when_off,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_page_world import (
     STATUS,
     AlertsPage,
@@ -159,3 +168,23 @@ def test_a_switched_off_channel_says_so_on_its_own_line_and_the_other_does_not(
     assert not page.label("lblTelegramChannelState").startswith(
         channels_words.SWITCHED_OFF
     )
+
+
+def test_a_line_that_says_on_is_replaced_not_followed_by_the_switch() -> None:
+    """The frame of PR #672 round 2 read "Switched off ... On: alerts go to the saved Telegram
+    bot." which says two things. A switched-off channel does not say it is on; a line that is
+    still true (a removal waiting for a restart) follows the sentence."""
+    working = TelegramChannelState(
+        stored=True, usable=True, hint="qrst", chat="5550123", running=True
+    )
+    removed = TelegramChannelState(
+        stored=False, usable=False, hint="", chat="", running=True
+    )
+
+    assert (
+        line_when_off(alerts_words.telegram_channel_line(working))
+        == channels_words.SWITCHED_OFF
+    )
+    after = line_when_off(alerts_words.telegram_channel_line(removed))
+    assert after.startswith(channels_words.SWITCHED_OFF)
+    assert "restart the app" in after

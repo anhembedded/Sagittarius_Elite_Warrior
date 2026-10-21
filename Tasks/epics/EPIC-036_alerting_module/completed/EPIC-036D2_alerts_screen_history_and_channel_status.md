@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-20: *"then 036D with preview frames (owner reviews frames; use EPIC-043's meaning table/tones, no new colours)"*; the owner's design of 2026-10-08 (N1–N8: "the owner can see what was sent, to which channel, and what failed").
 **Risk:** 🟢 — a new read-only mode over the outbox; it changes no delivery
 **Complexity:** M — a read model, one screen, one surface, one icon, frames
-**Epic:** [EPIC-036](../README.md); the first slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); the first slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-016](../../../../Docs/SPEC/SPEC-016_see_what_the_app_told_me.md)
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md) (`IOutbox.history`), [EPIC-036C1](EPIC-036C1_telegram_alert_channel_and_token_migration.md) (a second channel to see)
 

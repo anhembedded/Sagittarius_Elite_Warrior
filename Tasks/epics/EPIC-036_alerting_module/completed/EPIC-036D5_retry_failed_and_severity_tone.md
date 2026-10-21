@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-21: *"Retry failed + severity tone next, as you propose"*; design N1–N8 ("Retry failed", `EPIC-036D`); the tone after `EPIC-043C` (#652).
 **Risk:** 🟡 — it writes the outbox from the UI (the owner's action) and a failed delivery goes out again
 **Complexity:** S
-**Epic:** [EPIC-036](../README.md); the fourth slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); the fourth slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-016](../../../../Docs/SPEC/SPEC-016_see_what_the_app_told_me.md) steps 8 and 9
 **Depends on:** [EPIC-036D2](EPIC-036D2_alerts_screen_history_and_channel_status.md), `EPIC-043C`
 

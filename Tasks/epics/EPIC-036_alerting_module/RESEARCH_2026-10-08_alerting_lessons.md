@@ -19,7 +19,7 @@
 
 ## 3. Critical alerts get stuck behind noise
 - Common advice: a separate webhook for critical alerts, and batching noisy events.
-- **Design consequence:** a priority queue with CRITICAL first; INFO is dropped before CRITICAL ever is; the Options page suggests a dedicated critical channel. → 036A, [036D](incomplete/EPIC-036D_alerts_ui.md)
+- **Design consequence:** a priority queue with CRITICAL first; INFO is dropped before CRITICAL ever is; the Options page suggests a dedicated critical channel. → 036A, [036D](completed/EPIC-036D_alerts_ui.md)
 
 ## 4. "Sent" is not "seen"
 - Telegram Android push notifications can arrive 30 minutes late or never (weak network, battery saving). A 3Commas user reported notifications inconsistent between the app and Telegram.

@@ -46,6 +46,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
     WebhookRemoval,
     WebhookSave,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_setup import (
+    HeartbeatSave,
+    HeartbeatSetup,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
     QuietHoursSave,
     QuietHoursSetup,
@@ -76,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes 
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_enabling import (
     IChannelEnabling,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_heartbeat_setting import (
+    IHeartbeatSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
@@ -109,6 +116,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channel_states im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.display_zone_key import (
     display_zone_key_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.setting_panels import (
+    SettingPanels,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -154,6 +164,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._channels = ChannelsSetup(
             container.resolve(IChannelEnabling), container.resolve(IAlertChannelCatalog)
         )
+        self._heartbeat = HeartbeatSetup(container.resolve(IHeartbeatSetting))
         self._quiet = QuietHoursSetup(
             container.resolve(IQuietHoursSetting), display_zone_key_of(container)
         )
@@ -164,6 +175,13 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             container.resolve(IBotAlertModes),
             container.resolve(ICommandDispatcher),
             self._settings_view_model,
+        )
+        self._panels = SettingPanels(
+            self._settings_view_model,
+            self._routing,
+            self._channels,
+            self._heartbeat,
+            self._quiet,
         )
         self._tell = self._tellers()
         self._reload()
@@ -176,6 +194,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         view_model.telegram.remove_requested.connect(self._on_telegram_remove_requested)
         view_model.send_test_requested.connect(self._on_send_test_requested)
         view_model.routing.cell_requested.connect(self._on_route_requested)
+        view_model.heartbeat.hours_requested.connect(self._on_heartbeat_requested)
         view_model.channels.switch_requested.connect(self._on_channel_requested)
         view_model.quiet.period_requested.connect(self._on_quiet_period_requested)
         view_model.quiet.turn_off_requested.connect(self._on_quiet_turn_off_requested)
@@ -192,9 +211,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     def _load_from_config(self) -> None:
         self._publish_state()
-        self._settings_view_model.routing.take_state(self._routing.state())
-        self._settings_view_model.channels.take_state(self._channels.state())
-        self._settings_view_model.quiet.take_state(self._quiet.state())
+        self._panels.show_all()
 
     def _current_fields(self) -> tuple[()]:
         return ()
@@ -225,14 +242,10 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     # -- user requests ------------------------------------------------------
 
-    @Slot(str, str)
+    @Slot(str, object)
     @safe_ui_action
-    def _on_bot_mode_requested(self, bot_id: str, value: str) -> None:
-        if self._settings_view_model.is_working or self._bots.read_only:
-            return
-        try:
-            mode = BotAlertMode(value)
-        except ValueError:
+    def _on_bot_mode_requested(self, bot_id: str, mode: BotAlertMode) -> None:
+        if self._bots.read_only:
             return
         self._begin(AlertsActionKind.MODE, lambda: self._bots.keep(bot_id, mode))
 
@@ -241,8 +254,6 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     def _on_route_requested(
         self, group: AlertGroup, channel_id: str, loudness: Loudness | None
     ) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(
             AlertsActionKind.ROUTE,
             lambda: self._routing.set_cell(group, channel_id, loudness),
@@ -251,37 +262,34 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     @Slot(str, bool)
     @safe_ui_action
     def _on_channel_requested(self, channel_id: str, on: bool) -> None:
-        if self._settings_view_model.is_working:
-            return
         switch = self._channels.turn_on if on else self._channels.turn_off
         self._begin(AlertsActionKind.CHANNEL, lambda: switch(channel_id))
+
+    @Slot(int)
+    @safe_ui_action
+    def _on_heartbeat_requested(self, hours: int) -> None:
+        self._begin(
+            AlertsActionKind.HEARTBEAT, lambda: self._heartbeat.set_hours(hours)
+        )
 
     @Slot(object, object)
     @safe_ui_action
     def _on_quiet_period_requested(self, start: time, end: time) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(AlertsActionKind.QUIET, lambda: self._quiet.set_period(start, end))
 
     @Slot()
     @safe_ui_action
     def _on_quiet_turn_off_requested(self) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(AlertsActionKind.QUIET, self._quiet.turn_off)
 
     @Slot(str)
     @safe_ui_action
     def _on_save_requested(self, value: str) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(AlertsActionKind.SAVE, lambda: self._setup.save(value))
 
     @Slot(str, str)
     @safe_ui_action
     def _on_telegram_save_requested(self, token: str, chat: str) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(
             AlertsActionKind.TELEGRAM_SAVE,
             lambda: self._telegram_setup.save(token, chat),
@@ -307,13 +315,15 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     @Slot()
     @safe_ui_action
     def _on_send_test_requested(self) -> None:
-        if self._settings_view_model.is_working:
-            return
         self._begin(AlertsActionKind.TEST, self._sender.run)
 
     # -- background actions -------------------------------------------------
 
     def _begin(self, kind: AlertsActionKind, work: Callable[[], object]) -> None:
+        """Starts `work` on the pool; one action at a time, so a request made while another is out
+        is dropped (the controls are off then, this is the backstop)."""
+        if self._settings_view_model.is_working:
+            return
         action = self._tracker.begin_action(kind, None, None)
         self._settings_view_model.set_status("", False)
         self._settings_view_model.set_working(alerts_words.WORKING_WORDS[kind.value])
@@ -348,7 +358,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             self._publish_state(state)
         if kind is AlertsActionKind.MODE:
             self._bots.show_again()
-        self._reshow_kept(kind)
+        if kind is not AlertsActionKind.QUIET:  # its own answer decides (`_quiet_kept`)
+            self._panels.show_kept(kind)
         if failed:
             self._on_action_failed(kind, error_type)
         else:
@@ -360,19 +371,10 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         else:
             self._results.failed(kind.value, error_type)
 
-    def _reshow_kept(self, kind: AlertsActionKind) -> None:
-        """A combo or a box shows what was kept, not what was picked: after a success and after
-        a failure alike."""
-        view_model = self._settings_view_model
-        if kind is AlertsActionKind.ROUTE:
-            view_model.routing.take_state(self._routing.state())
-        elif kind is AlertsActionKind.CHANNEL:
-            view_model.channels.take_state(self._channels.state())
-
     def _quiet_kept(self, outcome: QuietHoursSave) -> None:
         self._results.quiet_kept(outcome)
         if outcome is not QuietHoursSave.NO_PERIOD:  # a refused period stays typed
-            self._settings_view_model.quiet.take_state(self._quiet.state())
+            self._panels.show_kept(AlertsActionKind.QUIET)
 
     def _tellers(self) -> dict[AlertsActionKind, Callable[[object], None]]:
         """What each action's answer is told as; the argument is what that kind's work returned."""
@@ -389,6 +391,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             ),
             kind.ROUTE: lambda r: results.route_kept(cast(RouteSave, r)),
             kind.CHANNEL: lambda r: results.channel_switched(cast(ChannelSwitch, r)),
+            kind.HEARTBEAT: lambda r: results.heartbeat_kept(cast(HeartbeatSave, r)),
             kind.QUIET: lambda r: self._quiet_kept(cast(QuietHoursSave, r)),
             kind.MODE: lambda r: results.mode_kept(cast(BotAlertMode, r)),
             kind.TEST: lambda r: results.test_sent(

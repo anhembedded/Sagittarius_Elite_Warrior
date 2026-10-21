@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-21: finish `036D` in order, the channels table next; `EPIC-036D` §2 ("a channels table (name, type, last send and result, enabled)").
 **Risk:** 🟡 — it decides where alerts go; every switch is on by default, so a missing or unreadable file is the safe side
 **Complexity:** M
-**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-017](../../../../Docs/SPEC/SPEC-017_set_up_an_alert_channel.md) step 9
 **Depends on:** [EPIC-036D7](EPIC-036D7_routing_matrix_on_the_options_page.md)
 

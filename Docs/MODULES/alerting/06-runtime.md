@@ -317,6 +317,12 @@ switched-off channel is never "failing", and with every channel off the indicato
 `Alerts: all channels off`. Send test checks the secret, not the switch, so it still reaches a
 switched-off channel that has one.
 
+**The heartbeat interval** (`EPIC-036D9`) is one more action of the same presenter
+(`AlertsActionKind.HEARTBEAT`): a choice runs `HeartbeatSetup.set_hours` on the pool through the
+page's tracker and relay, and the answer re-reads the choice from memory. `HeartbeatService` reads
+`AlertSettings.heartbeat_every` on every housekeeping pass, so a change reaches the next heartbeat
+without a restart: a shorter interval sends one at the next pass if the last is older than it.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when
