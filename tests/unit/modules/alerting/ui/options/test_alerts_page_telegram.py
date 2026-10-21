@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -159,7 +160,7 @@ def test_send_test_works_with_only_telegram_saved_and_posts_to_it(
     page.click(SEND_TEST)
 
     [post] = page.transport.posts
-    assert "api.telegram.org" in post.url
+    assert urlsplit(post.url).hostname == "api.telegram.org"
     assert page.label(STATUS) == "Test message sent to Telegram. Check the channel."
 
 
