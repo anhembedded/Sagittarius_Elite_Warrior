@@ -24,6 +24,7 @@ BOTS_ROUTE = "bots"
 
 _NAV = NavMetadata(
     title="Bots",
+    access_key="b",
     icon="bot",
     section_sequence=10,
     item_sequence=18,

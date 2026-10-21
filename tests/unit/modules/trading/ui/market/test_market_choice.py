@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_stream import (
     WATCHLIST_STREAM_OWNER,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.mode_access_keys import mode_labels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
     InMemoryStateStore,
 )
@@ -50,9 +51,6 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtu
     tick,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
-from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
-    assign_access_keys,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -159,8 +157,8 @@ def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
     own = (shell_menus.TOOLBARS_MENU, "Stat&us bar")
     reserved = [key for text in own for key in access_keys(text)]
     registry = real_screen_registry(Mock())
-    titles = [s.nav.title for s in registry.modes() if s.nav is not None]
-    modes = assign_access_keys(titles, reserved)
+    navs = [s.nav for s in registry.modes() if s.nav is not None]
+    modes = mode_labels(navs, reserved)
     planned = ("&Market", "T&rade", "&Bots", "Back&test", "&Data", "De&veloper")
     taken = {key for text in (*own, *modes, *planned) for key in access_keys(text)}
     choices = [c for c in market_commands(MARKET_ROUTE) if c.menu_path == VIEW_MENU]

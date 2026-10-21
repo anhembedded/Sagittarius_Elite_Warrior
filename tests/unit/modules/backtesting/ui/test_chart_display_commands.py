@@ -37,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.signal_wiring import (
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.mode_access_keys import mode_labels
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     ZOOM_IN,
     chart_command_id,
@@ -48,9 +49,6 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.backtesting.ui.test_backtest_p
     _FakeStrategy,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
-from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
-    assign_access_keys,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -196,10 +194,10 @@ def test_view_chart_takes_no_access_key_of_the_view_menu():
     own = (shell_menus.TOOLBARS_MENU, "Stat&us bar")
     reserved = [key for text in own for key in access_keys(text)]
     registry = real_screen_registry(Mock())
-    titles = [s.nav.title for s in registry.modes() if s.nav is not None]
+    navs = [s.nav for s in registry.modes() if s.nav is not None]
     taken = {
         key
-        for text in (*own, *assign_access_keys(titles, reserved))
+        for text in (*own, *mode_labels(navs, reserved))
         for key in access_keys(text)
     }
     items = [c for c in backtest_commands(BACKTEST_ROUTE) if c.menu_path == CHART_MENU]
