@@ -8,6 +8,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.acknowledge_loss_cap_for_host import (
     AcknowledgeLossCapForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_for_host import (
+    AddBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue import (
     ChangeBotVenueCommand,
     ChangeBotVenueCommandHandler,
@@ -23,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot import (
     DeleteBotCommand,
     DeleteBotCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot_for_host import (
+    DeleteBotForHostCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot import (
     EditBotCommand,
@@ -70,6 +76,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
+    AddBotForHostCommand,
+    DeleteBotForHostCommand,
     EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
@@ -106,6 +114,10 @@ def bind_commands(container: IContainer) -> None:
     # `EPIC-038K` - `bot start` reuses `StartBotForHostCommand` bound above.
     # `EPIC-038L` - `bot edit` on the running host; the screen's `EditBotCommand` is bound above.
     container.bind(EditBotForHostCommand, EditBotForHostCommandHandler)
+    # `EPIC-045` - `bot add` and `bot delete` on the running host; the screen's `CreateBotCommand`
+    # and `DeleteBotCommand` are bound above.
+    container.bind(AddBotForHostCommand, AddBotForHostCommandHandler)
+    container.bind(DeleteBotForHostCommand, DeleteBotForHostCommandHandler)
     # `EPIC-026L` - the owner's `bot loss-cap-ack` on the running host.
     container.bind(
         AcknowledgeLossCapForHostCommand, AcknowledgeLossCapForHostCommandHandler

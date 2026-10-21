@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
@@ -57,6 +58,7 @@ def command(
     issued_at: datetime = NOW,
     close_position: bool = False,
     settings: tuple[ParameterSetting, ...] = (),
+    entry: NewBotEntry | None = None,
 ) -> HostCommand:
     return HostCommand(
         command_id,
@@ -66,6 +68,7 @@ def command(
         issued_at,
         close_position,
         settings,
+        entry,
     )
 
 

@@ -1,6 +1,6 @@
-"""`bot stop`, `bot pause`, `bot resume`, `bot start` and `bot edit` (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, decision O4, channel A).
+"""`bot stop`, `bot pause`, `bot resume`, `bot start`, `bot edit`, `bot add` and `bot delete` (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, `EPIC-045`, decision O4, channel A).
 
-Five verbs of the `bot` command that change a bot **in another process**: the running `run`
+Seven verbs of the `bot` command that change a bot **in another process**: the running `run`
 host. This process is a read-only copy (`"read_only": true` in `cli_commands.json`) and changes
 nothing; each verb hands a request to `IHostControl`, which writes it where the host reads it,
 and waits for the host's recorded answer. The bot is changed by the host, through the command
@@ -18,28 +18,39 @@ the Bots tab dispatches - there is no second implementation of Stop here.
 @par Extension cases
   · a new verb (`bot archive`) - a `HostControlAction` member, a row in the host's executor, one
     class here and one `BOT_VERBS` entry; `start` (`EPIC-038K`) was added so, and `edit`
-    (`EPIC-038L`) too, with a `_request_of` of its own for the settings it carries.
+    (`EPIC-038L`) too, with a `_request_of` of its own for the settings it carries; `add`
+    (`EPIC-045A`) reads a plan file for its entry, `delete` (`EPIC-045B`) is the plain shape.
 """
 
 from __future__ import annotations
 
 import argparse
 import math
+from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    ADD_SUBJECT,
     LOSS_CAP_SUBJECT,
     HostControlAction,
     HostControlReply,
     HostControlRequest,
     HostControlStatus,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     MAX_SETTINGS_PER_EDIT,
     ParameterSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_document import (
+    PlannedBot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_parser import (
+    InvalidBotPlanError,
+    parse_plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_reports import (
     control_report,
@@ -64,7 +75,7 @@ class _ControlVerb(IBotVerb):
             return CliOutcome(
                 ExitCode.USAGE, "--wait must be a finite number of seconds, 0 or more"
             )
-        request = self._request_of(args)
+        request = self._request_of(args, world)
         if isinstance(request, CliOutcome):
             return request
         reply = world.host_control.send(request, args.wait)
@@ -72,7 +83,9 @@ class _ControlVerb(IBotVerb):
             return world.printer.print_report(control_report(request, reply), args)
         return _failure(request, reply)
 
-    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
         return HostControlRequest(
             self.action,
             args.bot_id,
@@ -120,7 +133,9 @@ class EditBotVerb(_ControlVerb):
     name = "edit"
     action = HostControlAction.EDIT
 
-    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
         given: list[str] = args.set or []
         if not given:
             return CliOutcome(
@@ -147,6 +162,91 @@ class EditBotVerb(_ControlVerb):
         return HostControlRequest(self.action, args.bot_id, settings=tuple(settings))
 
 
+class DeleteBotVerb(_ControlVerb):
+    """`bot delete <id>`: the screen's Delete, for one bot at rest, on the running host (`EPIC-045B`).
+
+    The plain shape of a control verb: it names a bot and nothing else. Whether the bot may be
+    forgotten (DRAFT or STOPPED, and nothing left on the exchange) is the host's answer, in words.
+    """
+
+    name = "delete"
+    action = HostControlAction.DELETE
+
+
+class AddBotVerb(_ControlVerb):
+    """`bot add <plan.json> [--name X] [--venue V]`: the screen's New bot, from one entry of a plan file, on the running host (`EPIC-045A`).
+
+    The file is read and judged here for its shape by the plan parser the other plan verbs use
+    (`parse_plan`), so a typo never reaches the host; whether the kind, the venue and the
+    parameters are ones the host can store is the host's answer, in words. A plan names its
+    bots by name and venue: without `--name` the plan must hold exactly one bot. `desired_state`
+    in the entry is ignored: an add starts nothing, and records no desired state.
+    """
+
+    name = "add"
+    action = HostControlAction.ADD
+
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
+        path = Path(args.plan)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as failure:
+            reason = getattr(failure, "strerror", None) or type(failure).__name__
+            return CliOutcome(ExitCode.USAGE, f"cannot read the plan {path}: {reason}")
+        try:
+            plan = parse_plan(text, world.kinds)
+        except InvalidBotPlanError as invalid:
+            listed = "\n".join(f"  - {problem}" for problem in invalid.problems)
+            return CliOutcome(
+                ExitCode.USAGE, f"{path} is not a plan this build can read:\n{listed}"
+            )
+        chosen = _chosen(plan.bots, args.name, args.venue)
+        if isinstance(chosen, CliOutcome):
+            return chosen
+        try:
+            entry = NewBotEntry(
+                chosen.name,
+                chosen.kind,
+                chosen.venue.value,
+                chosen.symbol,
+                tuple(ParameterSetting(k, v) for k, v in chosen.params.items()),
+            )
+        except ValueError as invalid_entry:
+            return CliOutcome(
+                ExitCode.USAGE,
+                f"{path}: the bot {chosen.name!r} cannot be sent to the host: {invalid_entry}",
+            )
+        return HostControlRequest(self.action, ADD_SUBJECT, entry=entry)
+
+
+def _chosen(
+    bots: tuple[PlannedBot, ...], name: str | None, venue: str | None
+) -> PlannedBot | CliOutcome:
+    """The one entry the operator means: by name (and venue), or the only one."""
+    matching = [
+        bot
+        for bot in bots
+        if (name is None or bot.name == name)
+        and (venue is None or bot.venue.value == venue)
+    ]
+    if len(matching) == 1:
+        return matching[0]
+    listed = "; ".join(f"{bot.name} on {bot.venue.value}" for bot in bots) or "none"
+    if not matching:
+        return CliOutcome(
+            ExitCode.USAGE,
+            f"no bot of the plan matches (it holds: {listed}); name one with --name"
+            " (and --venue)",
+        )
+    return CliOutcome(
+        ExitCode.USAGE,
+        f"{len(matching)} bots of the plan match (it holds: {listed}); choose one with "
+        "--name and, for a name on two venues, --venue",
+    )
+
+
 class AcknowledgeLossCapVerb(_ControlVerb):
     """`bot loss-cap-ack`: the owner clears the latched loss cap so bots may start again (`EPIC-026L`).
 
@@ -157,5 +257,7 @@ class AcknowledgeLossCapVerb(_ControlVerb):
     name = "loss-cap-ack"
     action = HostControlAction.ACKNOWLEDGE_LOSS_CAP
 
-    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
         return HostControlRequest(self.action, LOSS_CAP_SUBJECT)

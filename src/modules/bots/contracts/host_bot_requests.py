@@ -8,7 +8,7 @@ the host adds no way to start or stop a bot, only a way to ask for one by name.
 
 Both answer a `BotCommandResult`, so a refusal reaches the host with the words
 the screen would show. `EPIC-038J` adds two more of the same kind, pause and resume, for the
-commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too; `EPIC-038L` adds `EditBotForHostCommand`.
+commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too; `EPIC-038L` adds `EditBotForHostCommand`; `EPIC-045` adds `AddBotForHostCommand` and `DeleteBotForHostCommand`.
 
 @par `StartBotForHostCommand.confirmed_venue` (decision O8)
 The screen asks the question that names real money. A command line cannot ask,
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
     ParameterSetting,
 )
@@ -99,6 +100,30 @@ class EditBotForHostCommand:
 
     bot_id: str
     settings: tuple[ParameterSetting, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AddBotForHostCommand:
+    """Create this bot, as the Bots tab's New bot does (`EPIC-045A`): a DRAFT, saved and not started.
+
+    An add places no order and asks no venue; the bot starts only by a Start, whose real-money
+    question (decision O8) is untouched. `entry` is text in a closed shape (`NewBotEntry`); the
+    handler judges whether the kind, the venue and the parameters are ones this build can store.
+    """
+
+    entry: NewBotEntry
+
+
+@dataclass(frozen=True, slots=True)
+class DeleteBotForHostCommand:
+    """Forget this bot, which is at rest (DRAFT or STOPPED) and holds nothing (`EPIC-045B`).
+
+    The Bots tab's Delete, plus one refusal the tab does not make: a bot whose record still shows a
+    held base, a live order or an order it owes is kept, because a host delete has no dialog
+    to say "nothing is sent to the exchange" to a person. Sends nothing to the exchange.
+    """
+
+    bot_id: str
 
 
 @dataclass(frozen=True, slots=True)

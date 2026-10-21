@@ -19,6 +19,8 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command imp
 class ExecutionOutcome:
     accepted: bool
     message: str
+    #: The bot the command made (`bot add`): the id the host chose, empty for every other action.
+    bot_id: str = ""
 
 
 class IHostCommandExecutor(ABC):
