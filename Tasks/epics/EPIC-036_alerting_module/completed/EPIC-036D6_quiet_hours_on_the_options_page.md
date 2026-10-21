@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-21: *"Proceed with schedule, then routing matrix"*; design N1–N8 ("a schedule", `EPIC-036D`).
 **Risk:** 🟢 — a settings group; the hub already holds Warning and Info during quiet hours and Critical never waits
 **Complexity:** M — a presenter split first, then the group
-**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-017](../../../../Docs/SPEC/SPEC-017_set_up_an_alert_channel.md) step 7
 **Depends on:** [EPIC-036D4](EPIC-036D4_telegram_on_the_options_page.md)
 

@@ -355,6 +355,7 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(IAlertPublisher),
             resolver.resolve(IOutbox),
             resolver.resolve(IAlertClock),
+            resolver.resolve(IAlertSettingsSource),
         ),
     )
     container.singleton(

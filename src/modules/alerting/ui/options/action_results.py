@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
     WebhookRemoval,
     WebhookSave,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_setup import (
+    HeartbeatSave,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
     QuietHoursSave,
 )
@@ -39,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
     alerts_words,
     channels_words,
+    heartbeat_words,
     quiet_hours_words,
     routing_words,
 )
@@ -103,6 +107,9 @@ class ActionResults:
 
     def channel_switched(self, outcome: ChannelSwitch) -> None:
         self._view_model.set_status(*channels_words.SAVE_WORDS[outcome])
+
+    def heartbeat_kept(self, outcome: HeartbeatSave) -> None:
+        self._view_model.set_status(*heartbeat_words.SAVE_WORDS[outcome])
 
     def quiet_kept(self, outcome: QuietHoursSave) -> None:
         self._view_model.set_status(*quiet_hours_words.SAVE_WORDS[outcome])

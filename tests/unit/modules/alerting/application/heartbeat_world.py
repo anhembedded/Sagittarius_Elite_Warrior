@@ -21,7 +21,7 @@ POLICY = HeartbeatPolicy(heartbeat_every=EVERY, summary_at=time(1, 0))
 
 
 def service_of(rig: Rig, bots: ICommandDispatcher) -> HeartbeatService:
-    return HeartbeatService(bots, rig.hub, rig.outbox, rig.clock, POLICY)
+    return HeartbeatService(bots, rig.hub, rig.outbox, rig.clock, rig.settings, POLICY)
 
 
 def beats_of(rig: Rig, kind: AlertKind = AlertKind.HEARTBEAT) -> list[str]:

@@ -187,7 +187,12 @@ def test_a_tick_that_fails_never_raises_and_says_why_in_the_log(
 
     rig = build_rig(tmp_path)
     service = HeartbeatService(
-        Bots(entry()), _FailingPublisher(), rig.outbox, rig.clock, POLICY
+        Bots(entry()),
+        _FailingPublisher(),
+        rig.outbox,
+        rig.clock,
+        rig.settings,
+        POLICY,
     )
 
     with caplog.at_level(logging.WARNING, logger="App.Alerting"):
@@ -257,3 +262,41 @@ def test_a_restart_after_a_busy_stretch_still_sees_the_last_heartbeat(
 
     counts = rig.outbox.alert_counts_since(NOW - timedelta(days=1))
     assert counts[AlertKind.HEARTBEAT] == 1
+
+
+def test_an_interval_the_owner_chose_replaces_the_policys_and_applies_at_the_next_tick(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-036D9`: shorter, then longer, with no restart between."""
+    rig = build_rig(tmp_path)
+    service = service_of(rig, Bots(entry()))
+    service.tick()
+    rig.settings.replace(AlertSettings(heartbeat_every=timedelta(hours=1)))
+
+    rig.clock.advance(timedelta(hours=1))
+    service.tick()
+    assert len(beats_of(rig)) == 2
+
+    rig.settings.replace(AlertSettings(heartbeat_every=timedelta(hours=12)))
+    rig.clock.advance(EVERY)
+    service.tick()
+    assert len(beats_of(rig)) == 2
+
+    rig.clock.advance(EVERY)
+    service.tick()
+    assert len(beats_of(rig)) == 3
+
+
+def test_with_no_interval_chosen_the_policys_applies(tmp_path: Path) -> None:
+    rig = build_rig(tmp_path)
+    rig.settings.replace(AlertSettings(heartbeat_every=None))
+    service = service_of(rig, Bots(entry()))
+    service.tick()
+
+    rig.clock.advance(EVERY - timedelta(seconds=1))
+    service.tick()
+    assert len(beats_of(rig)) == 1
+
+    rig.clock.advance(timedelta(seconds=1))
+    service.tick()
+    assert len(beats_of(rig)) == 2

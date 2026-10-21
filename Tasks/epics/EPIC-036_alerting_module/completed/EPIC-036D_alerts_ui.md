@@ -1,0 +1,62 @@
+# EPIC-036D — Alerts UI: Options page, Alerts dock, status-bar indicator, per-bot mute
+
+**Status:** ✅ Done (2026-10-21) — built as nine slices, each its own pull request: [`EPIC-036D1`](EPIC-036D1_options_alerts_page_discord_webhook.md) (the Discord webhook, Send test), [`EPIC-036D2`](EPIC-036D2_alerts_screen_history_and_channel_status.md) (the Alerts mode: history, severity filter, channel line and failing notice, as a mode, not a dock), [`EPIC-036D3`](EPIC-036D3_status_bar_indicator.md) (the status-bar indicator), [`EPIC-036D4`](EPIC-036D4_telegram_on_the_options_page.md) (the Telegram fields, rotation by saving again, one Send test for every channel), [`EPIC-036D5`](EPIC-036D5_retry_failed_and_severity_tone.md) (Retry failed, the severity tone), [`EPIC-036D6`](EPIC-036D6_quiet_hours_on_the_options_page.md) (the quiet hours), [`EPIC-036D7`](EPIC-036D7_routing_matrix_on_the_options_page.md) (the routing matrix), [`EPIC-036D8`](EPIC-036D8_channel_switches_on_the_options_page.md) (the channel switches: the checklist's channels table, built as switches because Add/Edit/Rotate already live in the Discord and Telegram groups) and [`EPIC-036D9`](EPIC-036D9_heartbeat_interval_on_the_options_page.md) (the heartbeat interval). **Not built, with who decided:** the per-bot item in the bots list (decided against, the Options page's Bots list covers it: the coordinator for the owner, 2026-10-21, epic README); a last-send time per channel (the author's call in `EPIC-036D8` §3, the Alerts mode shows each channel's deliveries; reported to the coordinator on 2026-10-21 for the owner's veto); the dead man's switch URL field (the URL is a secret read from `ISecretStore` as `DEAD_MANS_SWITCH_SECRET` and set outside the page today; the criterion allowed deferring it only while `EPIC-036E` had not landed, which it has, so this is a drop, the author's call reported to the coordinator on 2026-10-21 for the owner's veto). The last two are **Planned** rows in `Docs/MODULES/alerting/README.md`, so they stay visible; the field needs the Discord group's shape, a masked field over `ISecretStore`. **Left open:** the owner's look at the real window (SPEC-017).
+**Source:** the owner's approval of the alerting design, 2026-10-08 (N4, N5), relayed by the coordinator session.
+**Risk:** 🟢 — QtWidgets on existing seams; no change to delivery
+**Complexity:** L — four surfaces and their previews
+**Epic:** [EPIC-036](../README.md)
+**SPEC:** none yet; a journey "set up an alert channel" is added by this task.
+**Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §3, §4, §7.
+**Split:** the Discord webhook field with Save and Remove, the Send test and the channel status line of the Options page are [EPIC-036D1](EPIC-036D1_options_alerts_page_discord_webhook.md) (owner, 2026-10-16). This task keeps the rest: the channels table with Add, Edit and Rotate, the routing matrix, the schedule, the dock, the indicator and the per-bot mute; its Options page extends the page 036D1 created in `src/modules/alerting/ui/options/` and does not start a second one.
+**Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md) (settings, outbox history), [EPIC-036C](../incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) (channels to configure and test).
+
+---
+
+## 1. Context and problem
+Channels are configured by hand-editing the config; there is no test button, no history of what was sent and no sign in the app when a channel fails. Options pages are contributed through `IOptionsSection` (`src/core/contracts/i_options_section.py`); the bots list has a context menu. UI rules: QtWidgets only, OS theme, `configure_item_view`, async actions through the coordinator, a `preview.py` per package (`.claude/rules/ui-presentation-rule.md`, `async-ui-action-rule.md`).
+
+## 2. Acceptance criteria
+- [x] (`EPIC-036D8`, `EPIC-036D1`, `EPIC-036D4` built the on/off switch per channel as a "Channels" group; the Discord and Telegram groups keep Add, Edit, Remove and Rotate; no last-send column) **Tools → Options → Alerts** (an `IOptionsSection`): a **channels table** (name, type, last send and result, enabled) with Add…, Edit…, Remove and **Send test**; Add/Edit are a `QDialog` with a type, a name and a password-style secret field; on Edit an empty secret field keeps the stored secret; a secret is never shown back; a **Rotate webhook** action.
+- [x] (`EPIC-036D7`) **Routing matrix:** alert group × channel with loudness **Loud / Silent / Off**, N4 defaults pre-set; a short note that the platform accepting a message does not mean the owner read it, and that a stray message in the channel does not prove a bot has trouble.
+- [~] (`EPIC-036D6` the quiet hours, `EPIC-036D9` the heartbeat interval; the dead man's switch URL field is not built, see Status) **Schedule:** heartbeat interval (default 6 h), quiet hours (off by default, CRITICAL still sent), and the **dead man's switch URL** field (off by default; the field is shown only if `EPIC-036E` has landed, otherwise this criterion is deferred in writing).
+- [~] (**changed, not met:** the page keeps nothing pending, every change acts at once and says so, so OK and Apply have nothing to do and `is_dirty`/`revert` are not needed; this shape has held since `EPIC-036D1`, the owner's slice of 2026-10-16, and `OptionsSectionPresenter` supports it) **Apply/OK/Cancel/revert** follow the dialog's contract: nothing is saved by a page on its own; `is_dirty`, `validation_message` and `revert` are tested.
+- [x] (`EPIC-036D2` and `EPIC-036D5` built it as the **Alerts mode**: history, severity filter, the channel line, Retry failed; the table has one Delivery cell, not a column per channel) **View → Alerts dock:** a history table (time, severity, subject, text, one column per channel with delivered / retrying / failed ×n / expired), a severity filter, **Retry failed**; a grouped alert shows its count on one row.
+- [x] (`EPIC-036D3`) **Status-bar indicator:** three states, in words, a failing channel also by icon; clicking it shows the Alerts mode (the surviving dock was built as a mode, `EPIC-036D2`); it follows the failure and its recovery by a background read every 15 s.
+- [ ] (decided against; the Options page covers it, see Status) **Per bot:** an **Alerts: On / Critical only / Off** item in the bot's context menu; **Off asks for a confirmation** (N5); a muted-bell marker appears on the row of a bot whose alerts are not On.
+- [x] Every action that touches the network or the keyring (Send test, Retry failed, Rotate) runs off the UI thread through the async-action coordinator, with fencing and cooperative cancellation.
+- [x] Each package has a `preview.py` that renders its widgets headless; screenshots are attached to the PR.
+
+## 3. Design
+Model-View-Presenter with the project's presenters; the options page mirrors the existing Trading and Market data sections. The dock and the dialogs use `configure_item_view` and the shared widgets, and the alert groups come from the same code constants that `AlertHub` routes by, so the matrix cannot list a group the hub does not know. The dock reads the outbox's `history`; the indicator reads a small channel-health read model published by the worker. Verify the existing bots context-menu seam when the task starts.
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `src/modules/alerting/ui/options/` (new) | The Options page, the channel dialog, presenters |
+| `src/modules/alerting/ui/dock/` (new) | The Alerts dock |
+| `src/modules/alerting/ui/status/` (new) | The status-bar indicator |
+| `src/modules/alerting/ui/*/preview.py` (new) | Previews |
+| `src/modules/bots/ui/` (the bots list's context menu) | One generic hook for a contributed menu item and row marker, so `bots` still imports nothing from `alerting` |
+| `src/shell/` (status bar, View menu) | The contributions registered |
+
+## 5. Testing
+Tier per `ci-rule.md` §2: unit for presenters and view-models, sanity/offscreen for the previews and the contribution wiring.
+- `test_the_options_page_satisfies_ioptionssection`
+- `test_the_page_is_dirty_only_after_an_edit_and_reverts_cleanly`
+- `test_editing_a_channel_with_an_empty_secret_keeps_the_stored_secret`
+- `test_a_secret_is_never_shown_back`
+- `test_the_matrix_lists_exactly_the_hubs_alert_groups`
+- `test_the_defaults_are_loud_for_critical_and_silent_for_warning`
+- `test_send_test_runs_off_the_ui_thread_and_shows_the_guidance`
+- `test_the_dock_shows_the_delivery_status_per_channel`
+- `test_retry_failed_requeues_only_failed_deliveries`
+- `test_the_indicator_is_off_ok_or_names_the_failing_channel`
+- `test_turning_a_bot_off_asks_for_confirmation`
+- `test_a_muted_bot_row_shows_the_bell`
+- `test_bots_still_imports_nothing_from_alerting` (boundary guard)
+- previews: channels table, matrix, dock with failures, indicator in three states, muted row — screenshots in the PR
+
+Each slice names its own tests (its record, §5).
+
+## Implementation notes (written when done)
+Built as the nine slices above, in order of what the owner needed first. The page grew one group at a time (Discord, Telegram, Bots, Channels, Who hears what, Quiet hours, Heartbeat), each acting at once through one presenter, one action tracker and one relay; its parts were split out as it reached the file-size ceiling (`BotModeList`, `ActionResults`, `AlertsActionKind`, `show_channel_states`, `SettingPanels`).

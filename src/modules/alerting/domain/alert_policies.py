@@ -109,8 +109,9 @@ class HeartbeatPolicy:
     The heartbeat every six hours is decision N4. The hour of the daily summary is a chosen
     constant, not a measured one (an implementation constant the owner may change, recorded in
     the task, not an owner decision):
-    01:00 UTC, which is the start of the working day for the owner's own time zone. A UI to
-    change both belongs to `EPIC-036D`.
+    01:00 UTC, which is the start of the working day for the owner's own time zone. The owner
+    can change the interval on the Options page (`EPIC-036D9`, `HEARTBEAT_HOURS_CHOICES`); the hour
+    of the summary stays a constant.
     """
 
     heartbeat_every: timedelta = timedelta(hours=6)
@@ -120,3 +121,7 @@ class HeartbeatPolicy:
 
 
 DEFAULT_HEARTBEAT = HeartbeatPolicy()
+
+#: The intervals, in whole hours, the owner may choose between (`EPIC-036D9`). A free number would
+#: need a bound anyone could argue with; these cover "often while I watch" to "once a day".
+HEARTBEAT_HOURS_CHOICES: tuple[int, ...] = (1, 2, 3, 6, 12, 24)

@@ -50,24 +50,31 @@ def read_channel_states(
     )
 
 
-def _said(line: str, switched_off: bool) -> str:
-    return channels_words.SWITCHED_OFF + line if switched_off else line
+def line_when_off(line: str) -> str:
+    """A channel's own line, told with its switch off: a line that says the channel is on would
+    contradict the switch, so it is replaced; any other (a value that is wrong, a removal waiting
+    for a restart) is still true and follows the sentence."""
+    if line.startswith(alerts_words.ON_PREFIX):
+        return channels_words.SWITCHED_OFF
+    return f"{channels_words.SWITCHED_OFF} {line}"
 
 
 def show_channel_states(
     view_model: AlertsSettingsViewModel, states: ChannelStates
 ) -> None:
-    """Puts what each channel is now on the page: its line, what is saved, and whether Remove and
-    Send test can be used."""
+    """Puts what each channel is now on the page: its line (told with its switch), what is saved,
+    and whether Remove and Send test can be used."""
     discord, telegram = states.discord, states.telegram
+    discord_line = alerts_words.channel_line(discord)
+    telegram_line = alerts_words.telegram_channel_line(telegram)
     view_model.set_channel(
-        _said(alerts_words.channel_line(discord), states.discord_off),
+        line_when_off(discord_line) if states.discord_off else discord_line,
         alerts_words.saved_line(discord),
         can_remove=discord.stored,
         can_test=discord.usable or telegram.usable,
     )
     view_model.telegram.set_channel(
-        _said(alerts_words.telegram_channel_line(telegram), states.telegram_off),
+        line_when_off(telegram_line) if states.telegram_off else telegram_line,
         alerts_words.telegram_saved_line(telegram),
         can_remove=telegram.stored,
     )

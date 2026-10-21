@@ -122,7 +122,11 @@ def test_a_choice_that_cannot_be_kept_shows_what_is_really_set_and_says_so(
 def test_no_bots_is_said_in_words(qapp, request, monkeypatch) -> None:
     empty = build_page(request, monkeypatch, bots=Bots())
 
-    assert empty.view.findChildren(QComboBox) == []
+    assert [
+        box
+        for box in empty.view.findChildren(QComboBox)
+        if box.objectName().startswith("cmbBotMode_")
+    ] == []
     assert empty.label("lblAlertsBotsNote") == alerts_words.NO_BOTS
     assert (
         empty.view.findChild(QLabel, "lblAlertsBotsIntro").text()

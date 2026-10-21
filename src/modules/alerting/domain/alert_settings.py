@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import timedelta
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
@@ -26,6 +27,8 @@ class AlertSettings:
     routes: tuple[AlertRoute, ...] = ()
     bot_modes: Mapping[str, BotAlertMode] = field(default_factory=dict)
     quiet_hours: QuietHours | None = None
+    #: How often the heartbeat is sent; `None` is the policy's own (N4: six hours).
+    heartbeat_every: timedelta | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "bot_modes", MappingProxyType(dict(self.bot_modes)))

@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-21: *"options presenter split, routing matrix, then 036F's design record"*; design N1–N8 ("a routing matrix: alert group × channel with loudness", `EPIC-036D`).
 **Risk:** 🟡 — it decides which alerts a phone rings for; the safe side is kept by the router, not by this page
 **Complexity:** M
-**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); a slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-017](../../../../Docs/SPEC/SPEC-017_set_up_an_alert_channel.md) step 8
 **Depends on:** [EPIC-036D6](EPIC-036D6_quiet_hours_on_the_options_page.md)
 

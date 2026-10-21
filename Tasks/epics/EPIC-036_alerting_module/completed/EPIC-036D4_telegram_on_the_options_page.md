@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-21: *"Take the rest of 036D first, in slices with frames: channels table (Telegram fields + Rotate) first"*; the decision of 2026-10-20 that the Options page's Telegram fields move into 036D (`EPIC-036C2` §3).
 **Risk:** 🟡 — it writes a secret (a bot token) to the keyring; the token must never reach a screen, a log or an exception text
 **Complexity:** M — one use case, one page group, a Send test that stops being Discord-only
-**Epic:** [EPIC-036](../README.md); the third slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); the third slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-017](../../../../Docs/SPEC/SPEC-017_set_up_an_alert_channel.md)
 **Depends on:** [EPIC-036D1](EPIC-036D1_options_alerts_page_discord_webhook.md) (the page), [EPIC-036C1](EPIC-036C1_telegram_alert_channel_and_token_migration.md) (the channel and its secrets)
 

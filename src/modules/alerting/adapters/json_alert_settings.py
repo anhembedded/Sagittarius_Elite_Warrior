@@ -1,9 +1,10 @@
-"""`IAlertSettingsSource` that survives a restart (`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`).
+"""`IAlertSettingsSource` that survives a restart (`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`, `EPIC-036D9`).
 
 One JSON file in the data root's state holds what the owner set: each bot's mode, the quiet hours
-and the routing matrix and the channels switched off (the shape and how it is read are
+and the routing matrix, the channels switched off and the heartbeat's interval (the shape and how it is read are
 `settings_document.py`). One object serves the hub's reads and the Options page's edits
-(`IBotAlertModes`, `IQuietHoursSetting`, `IAlertRouting`, `IChannelEnabling`).
+(`IBotAlertModes`, `IQuietHoursSetting`, `IAlertRouting`, `IChannelEnabling`,
+`IHeartbeatSetting`).
 
 **A missing or unreadable file is every default** (all bots `ON`, no quiet hours, no routes), the
 safe side for an alert system: more messages, never fewer. No file exists until the owner sets
@@ -25,6 +26,7 @@ import os
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import replace
+from datetime import timedelta
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.settings_document import (
@@ -44,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes 
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_enabling import (
     IChannelEnabling,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_heartbeat_setting import (
+    IHeartbeatSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_quiet_hours_setting import (
     IQuietHoursSetting,
@@ -72,6 +77,7 @@ class JsonAlertSettings(
     IQuietHoursSetting,
     IAlertRouting,
     IChannelEnabling,
+    IHeartbeatSetting,
 ):
     def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self._path = path
@@ -88,6 +94,11 @@ class JsonAlertSettings(
             document = self._document
         return AlertSettings(
             disabled_channels=document.disabled,
+            heartbeat_every=(
+                None
+                if document.heartbeat_hours is None
+                else timedelta(hours=document.heartbeat_hours)
+            ),
             routes=document.routes,
             bot_modes=dict(document.modes),
             quiet_hours=_quiet_hours_of(document.quiet),
@@ -167,6 +178,19 @@ class JsonAlertSettings(
             self._commit(
                 replace(self._document, disabled=change(self._document.disabled))
             )
+
+    def heartbeat_hours(self) -> int | None:
+        with self._lock:
+            return self._document.heartbeat_hours
+
+    def set_heartbeat_hours(self, hours: int | None) -> None:
+        self._refuse_if_read_only()
+        with self._lock:
+            self._commit(replace(self._document, heartbeat_hours=hours))
+        logger.info(
+            "Heartbeat every %s [alert-settings]",
+            "default" if hours is None else f"{hours} h",
+        )
 
     def _refuse_if_read_only(self) -> None:
         if self._read_only:

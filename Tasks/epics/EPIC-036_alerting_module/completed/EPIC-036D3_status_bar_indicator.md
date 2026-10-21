@@ -4,7 +4,7 @@
 **Source:** the coordinator, 2026-10-20: *"continue 036D's next slice (status-bar indicator)"*; design N1–N8 ("a status-bar indicator", `EPIC-036D`).
 **Risk:** 🟢 — a status-bar widget and a background read of the outbox; no change to delivery
 **Complexity:** S — the seam (`IStatusSource`) and the read model (`IAlertHistory`) existed
-**Epic:** [EPIC-036](../README.md); the second slice of [EPIC-036D](../incomplete/EPIC-036D_alerts_ui.md)
+**Epic:** [EPIC-036](../README.md); the second slice of [EPIC-036D](../completed/EPIC-036D_alerts_ui.md)
 **SPEC:** [SPEC-016](../../../../Docs/SPEC/SPEC-016_see_what_the_app_told_me.md) step 7
 **Depends on:** [EPIC-036D2](EPIC-036D2_alerts_screen_history_and_channel_status.md)
 

@@ -80,7 +80,12 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
             "Quiet hours",
             "Who hears what",
             "Channels",
+            "Heartbeat",
         } <= titles
+        heartbeat = view.findChild(QGroupBox, "grpHeartbeat")
+        assert heartbeat is not None and heartbeat.isVisible()
+        (choice,) = heartbeat.findChildren(QComboBox)
+        assert choice.currentText() == "12 hours"
         channels = view.findChild(QGroupBox, "grpChannels")
         assert channels is not None and channels.isVisible()
         switches = channels.findChildren(QCheckBox)

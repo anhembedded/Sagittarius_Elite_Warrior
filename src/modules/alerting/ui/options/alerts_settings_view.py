@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_wor
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channels_group import (
     ChannelsGroup,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.heartbeat_group import (
+    HeartbeatGroup,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.quiet_hours_group import (
     QuietHoursGroup,
 )
@@ -86,6 +89,7 @@ class AlertsSettingsView(BaseView):
         self._quiet.connect_view_model(view_model.quiet)
         self._routing.connect_view_model(view_model.routing)
         self._channels.connect_view_model(view_model.channels)
+        self._heartbeat.connect_view_model(view_model.heartbeat)
         self._test_button.clicked.connect(view_model.request_send_test)
         view_model.channel_changed.connect(lambda: self._apply_channel(view_model))
         view_model.working_changed.connect(lambda: self._apply_working(view_model))
@@ -120,6 +124,7 @@ class AlertsSettingsView(BaseView):
         self._quiet.set_idle(idle)
         self._routing.set_idle(idle)
         self._channels.set_idle(idle)
+        self._heartbeat.set_idle(idle)
         for box in self._mode_boxes:
             box.setEnabled(idle and view_model.bots_editable)
 
@@ -254,6 +259,10 @@ class AlertsSettingsView(BaseView):
         self._quiet = QuietHoursGroup()
         self._quiet.setObjectName("grpQuietHours")
         layout.addWidget(self._quiet)
+
+        self._heartbeat = HeartbeatGroup()
+        self._heartbeat.setObjectName("grpHeartbeat")
+        layout.addWidget(self._heartbeat)
 
         self._working_label = plain_label()
         self._working_label.setObjectName("lblAlertsWorking")

@@ -1,6 +1,7 @@
 """The owner hears from the bots on a schedule (`EPIC-036E`).
 
-**Heartbeat.** An INFO message every `HeartbeatPolicy.heartbeat_every` (N4: six hours) saying the
+**Heartbeat.** An INFO message every `AlertSettings.heartbeat_every` the owner chose (`EPIC-036D9`), else
+`HeartbeatPolicy.heartbeat_every` (N4: six hours) saying the
 app is up and what its bots are doing: each active bot's state, reason and resting orders, and
 the `health` snapshot of `EPIC-035W` verbatim once that task fills it. It reads the bots'
 status report (`GetBotStatusReportQuery`), the model the Bots tab and `status` read, so the
@@ -49,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_publisher import (
     IAlertPublisher,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
+    IAlertSettingsSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_catalog import (
@@ -77,12 +81,14 @@ class HeartbeatService:
         publisher: IAlertPublisher,
         outbox: IOutbox,
         clock: IAlertClock,
+        settings: IAlertSettingsSource,
         policy: HeartbeatPolicy = DEFAULT_HEARTBEAT,
     ) -> None:
         self._dispatcher = dispatcher
         self._publisher = publisher
         self._outbox = outbox
         self._clock = clock
+        self._settings = settings
         self._policy = policy
         self._primed = False
         self._last_heartbeat: datetime | None = None
@@ -118,7 +124,8 @@ class HeartbeatService:
 
     def _heartbeat_due(self, now: datetime) -> bool:
         last = self._last_heartbeat
-        return last is None or now - last >= self._policy.heartbeat_every
+        every = self._settings.current().heartbeat_every or self._policy.heartbeat_every
+        return last is None or now - last >= every
 
     def _send_heartbeat(self, now: datetime) -> None:
         try:

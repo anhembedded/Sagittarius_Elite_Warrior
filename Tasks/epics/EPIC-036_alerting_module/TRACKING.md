@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (17/20) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20, `036D3`, `036D4`, `036D5`, `036D6`, `036D7` and `036D8` 2026-10-21
+- **Status:** 🟡 In progress (19/21) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20, `036D3`, `036D4`, `036D5`, `036D6`, `036D7`, `036D8`, `036D9` and `036D` 2026-10-21
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -63,7 +63,8 @@ gantt
 | EPIC-036D6 | [Quiet hours on the Options page](completed/EPIC-036D6_quiet_hours_on_the_options_page.md) | `claude/epic-036d6-schedule` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
 | EPIC-036D7 | [The routing matrix](completed/EPIC-036D7_routing_matrix_on_the_options_page.md) | `claude/epic-036d7-routing-matrix` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
 | EPIC-036D8 | [The channel switches](completed/EPIC-036D8_channel_switches_on_the_options_page.md) | `claude/epic-036d8-channels-table` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
-| EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🟡 Partly done (036D2) | — |
+| EPIC-036D9 | [The heartbeat interval](completed/EPIC-036D9_heartbeat_interval_on_the_options_page.md) | `claude/epic-036d9-heartbeat-interval` | 🟢 | ✅ Done (2026-10-21), awaiting merge | — |
+| EPIC-036D | [UI: the Options page, the Alerts mode, the indicator](completed/EPIC-036D_alerts_ui.md) | — | 🟢 | ✅ Done (2026-10-21), as the slices D1–D9 | — |
 | EPIC-036E1 | [Dead man's switch](completed/EPIC-036E1_dead_mans_switch.md) | `claude/epic-036e1-dead-mans-switch` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036E | [Heartbeat and daily summary](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | `claude/epic-036e-heartbeat-and-daily-summary` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036F | [Remote control from Discord](incomplete/EPIC-036F_remote_control_from_discord.md) | — | 🔴 | 🔵 Designed and approved by the owner (2026-10-21); blocked on 035X | — |

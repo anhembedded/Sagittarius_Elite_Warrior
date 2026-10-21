@@ -20,3 +20,4 @@ class AlertsActionKind(str, Enum):
     QUIET = "quiet"
     ROUTE = "route"
     CHANNEL = "channel"
+    HEARTBEAT = "heartbeat"
