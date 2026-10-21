@@ -196,7 +196,7 @@ def _side(
         *_inside_range(side, estimates),
         *_stop(inputs, side, full_position, exit_price),
     ]
-    said = found or [_ok(inputs, side, full_position, exit_price)]
+    said = found or [_ok(inputs, side, estimates[-1], exit_price)]
     # A Neutral plan has two sides and the same code can speak for each: the verdict says which.
     return [replace(verdict, subject=side.name.lower()) for verdict in said]
 
@@ -299,7 +299,7 @@ def _stop(
                 "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION",
                 f"The exit at {exit_price} is only {gap:.2f} before the estimated liquidation "
                 f"price {liquidation:.2f} for a plan made at {inputs.plan.last_price}; a "
-                f"gap through the exit would leave the liquidation. Keep at least {floor:.2f} "
+                f"gap through the exit could reach the liquidation first. Keep at least {floor:.2f} "
                 f"({inputs.thresholds.min_liq_gap_ratio:.1%} of the exit)",
                 {
                     "gap": gap,
@@ -344,9 +344,10 @@ def _before_liquidation(
 def _ok(
     inputs: PlanRiskInputs,
     side: PositionSide,
-    liquidation: Decimal | None,
+    worst: tuple[LadderStep, Decimal | None],
     exit_price: Decimal | None,
 ) -> Verdict:
+    step, liquidation = worst
     way = side.name.lower()
     if liquidation is None:
         return Verdict(
@@ -364,6 +365,8 @@ def _ok(
         _OK,
         "LIQUIDATION_ESTIMATE",
         f"Estimated liquidation price of the {way} at its worst case: "
-        f"{liquidation:.2f}{where} - an estimate, not a guarantee",
-        numbers,
+        f"{liquidation:.2f}{where} - an estimate, not a guarantee (plan made at "
+        f"{inputs.plan.last_price}, worst-case position {step.position.quantity})",
+        numbers
+        | {"plan_price": inputs.plan.last_price, "position": step.position.quantity},
     )

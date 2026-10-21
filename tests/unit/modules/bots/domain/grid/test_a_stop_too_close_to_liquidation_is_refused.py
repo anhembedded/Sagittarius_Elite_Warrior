@@ -12,6 +12,7 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (
+    _stop,
     judge_futures_plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
@@ -22,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     VerdictSeverity,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.test_futures_grid_checks import (
     _ATR,
@@ -80,3 +84,32 @@ def test_the_floor_is_the_thresholds_not_a_literal() -> None:
 def test_a_negative_floor_is_not_a_threshold() -> None:
     with pytest.raises(ValueError, match="min_liq_gap_ratio"):
         FuturesGridThresholds(min_liq_gap_ratio=D("-0.01"))
+
+
+def test_the_floor_is_pinned_at_its_boundary_for_both_sides() -> None:
+    """A gap exactly at the floor passes, a cent under it is refused (BVA on a real-money line):
+    the floor is a share of the exit's own price, not of the liquidation's."""
+    inputs = _inputs("LONG", 5, atr=None)  # the floor is the thresholds' default: 0.5%
+    exit_price = D(100)  # 0.5% of 100 is 0.5
+    long_at = _stop(inputs, PositionSide.LONG, D("99.5"), exit_price)
+    long_under = _stop(inputs, PositionSide.LONG, D("99.51"), exit_price)
+    short_at = _stop(inputs, PositionSide.SHORT, D("100.5"), exit_price)
+    short_under = _stop(inputs, PositionSide.SHORT, D("100.49"), exit_price)
+
+    assert long_at == short_at == []
+    for under in (long_under, short_under):
+        assert [v.code for v in under] == ["STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION"]
+
+
+def test_the_ok_verdict_says_the_plan_it_estimated_so_two_estimates_can_be_told_apart() -> (
+    None
+):
+    """`BUG-255`: a Plan and a Start estimate that differ must show which price and which position
+    each was made on."""
+    inputs = _inputs("LONG", 5, atr=None)
+
+    ok = next(v for v in judge_futures_plan(inputs) if v.code == "LIQUIDATION_ESTIMATE")
+
+    assert f"plan made at {inputs.plan.last_price}" in ok.reason
+    assert ok.numbers["plan_price"] == inputs.plan.last_price
+    assert ok.numbers["position"] > 0

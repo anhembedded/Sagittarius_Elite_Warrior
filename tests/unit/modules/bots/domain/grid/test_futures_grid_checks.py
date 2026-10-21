@@ -290,7 +290,7 @@ def test_the_thresholds_refuse_inverted_liquidation_distances() -> None:
 
 
 @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
-def test_a_plan_liquidated_between_two_levels_is_refused_though_the_far_edge_looks_fine(
+def test_a_plan_liquidated_between_two_levels_is_refused(
     direction: str,
 ) -> None:
     """Review of PR #486: at 16x a long holding the levels down to 61,000 is liquidated at
