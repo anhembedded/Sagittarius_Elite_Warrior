@@ -51,8 +51,11 @@ Stdlib only, like the other architecture guards here.
 from __future__ import annotations
 
 import ast
+import sys
 from collections.abc import Mapping
 from pathlib import Path
+
+import pytest
 
 
 def _repo_root() -> Path:
@@ -155,15 +158,21 @@ def _identifiers(tree: ast.AST, excluding: ast.AST | None = None) -> set[str]:
 def _orphans(
     trees: Mapping[Path, ast.Module], definition_root: Path
 ) -> list[tuple[str, Path]]:
-    """Subscribing classes no other module in `trees` names."""
+    """Subscribing classes no other module in `trees` names.
+
+    Each module is read once for the names it mentions (`BUG-244`): asking per subscriber walked
+    every module again, subscribers times modules walks of the whole tree (22,892 walks, about
+    45 s under a profiler, 11 s quiet), which a loaded CI runner stretched past the 60 s limit.
+    Only the module that defines a subscriber is read again, without that class's own body."""
+    mentioned = {path: _identifiers(tree) for path, tree in trees.items()}
     orphaned: list[tuple[str, Path]] = []
     for name, (home, classdef) in sorted(
         _subscribing_classes(trees, definition_root).items()
     ):
-        reachable = any(
-            name in _identifiers(tree, excluding=classdef if path == home else None)
-            for path, tree in trees.items()
+        elsewhere = any(
+            name in names for path, names in mentioned.items() if path != home
         )
+        reachable = elsewhere or name in _identifiers(trees[home], excluding=classdef)
         if not reachable:
             orphaned.append((name, home))
     return orphaned
@@ -239,3 +248,39 @@ def test_the_guard_can_actually_fail() -> None:
         f"reading file text rather than the AST. Got {unwired}."
     )
     assert wired == [], f"the guard rejected a subscriber that is constructed: {wired}"
+
+
+def test_each_module_is_read_once_however_many_subscribers_there_are(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`BUG-244`: the cost of the scan grows with the modules plus the subscribers, never their
+    product. Three subscribers nobody names, five modules: asking per subscriber read the modules
+    fifteen times, and the real tree (2,159 modules, fifteen subscribers) took 11 s quiet and more
+    than 60 s on a loaded runner. Counted, not timed, so a slow machine cannot hide it."""
+    root = Path("/synthetic/src")
+    trees: dict[Path, ast.Module] = {
+        root / f"listener_{index}.py": ast.parse(
+            f"class Listener{index}:\n"
+            "    def __init__(self, bus):\n"
+            "        bus.on(SomeEvent, self._handle)\n"
+        )
+        for index in range(3)
+    }
+    for index in range(2):
+        trees[root / f"module_{index}.py"] = ast.parse("value = 1\n")
+    reads: list[ast.AST] = []
+    real = _identifiers
+
+    def counting(tree: ast.AST, excluding: ast.AST | None = None) -> set[str]:
+        reads.append(tree)
+        return real(tree, excluding)
+
+    monkeypatch.setattr(sys.modules[__name__], "_identifiers", counting)
+
+    orphans = _orphans(trees, root)
+
+    assert [name for name, _ in orphans] == ["Listener0", "Listener1", "Listener2"]
+    assert len(reads) <= len(trees) + 3, (
+        f"{len(reads)} module reads for {len(trees)} modules and 3 subscribers: "
+        "the scan reads every module again for each subscriber"
+    )
