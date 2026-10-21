@@ -78,6 +78,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
     TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.tests.discord_posts import (
+    is_heartbeat,
+    posts_without_heartbeat,
+    wait_until_the_heartbeat_is_told,
+)
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -138,7 +143,7 @@ def _settled(app: BootedApp, transport: FakeWebhookTransport) -> list[str]:
         # The fake clock stands still, so a channel's own pacing (four messages per two
         # seconds, `EPIC-036C2`) would hold the fifth for ever: the test lets time pass.
         clock.advance(PACING_STEP)
-    return [str(post.body["content"]) for post in transport.posts]
+    return [str(post.body["content"]) for post in posts_without_heartbeat(transport)]
 
 
 def _started(app: BootedApp) -> str:
@@ -198,9 +203,30 @@ def test_one_silent_message_per_full_fill_and_the_cycle_carries_the_profit_booke
     assert "cycle" not in buy
     assert f"{SYMBOL} · SELL" in sell and "(level 2)" in sell
     assert f"cycle {profit} USDT · grid profit {profit} USDT · 1 cycle" in sell
-    assert [post.body["flags"] for post in transport.posts] == [
+    assert [post.body["flags"] for post in posts_without_heartbeat(transport)] == [
         SUPPRESS_NOTIFICATIONS
     ] * 2
+
+
+def test_the_apps_own_heartbeat_is_not_counted_among_the_messages_a_bot_earns(
+    exchange: FakeExchange,
+) -> None:
+    """`BUG-252`: a run that lasts a second gets a heartbeat beside the bot's fill, and every
+    journey here that counts what was sent failed on a slow runner. The wait makes that certain."""
+    with _told(exchange) as (app, transport):
+        _started(app)
+        app.move_price(48700)
+        wait_until_the_heartbeat_is_told(
+            transport, app.engine.context.container.resolve(IAlertClock)
+        )  # type: ignore[type-abstract]
+
+        [buy] = _settled(app, transport)
+
+    assert any(is_heartbeat(post) for post in transport.posts), "no heartbeat was told"
+    assert "Order filled: grid" in buy and f"{SYMBOL} · BUY" in buy
+    assert [post.body["flags"] for post in posts_without_heartbeat(transport)] == [
+        SUPPRESS_NOTIFICATIONS
+    ]
 
 
 def test_a_restart_sends_nothing_again_and_tells_a_fill_missed_while_closed_once(
