@@ -10,6 +10,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEnt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_for_host import (
     AddBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue import (
+    ChangeBotVenueCommand,
+    ChangeBotVenueCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
     CreateBotCommandHandler,
@@ -21,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot_for_host import (
     DeleteBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.move_bot_for_host import (
+    MoveBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
     StartBotCommand,
     StartBotCommandHandler,
@@ -31,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AddBotForHostCommand,
     DeleteBotForHostCommand,
+    MoveBotForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     JsonValue,
@@ -94,6 +102,7 @@ class AddDeleteHost:
                 world.store, world.clock, BotIdGenerator()
             ),
             DeleteBotCommand: DeleteBotCommandHandler(world.store),
+            ChangeBotVenueCommand: ChangeBotVenueCommandHandler(world.store),
             StartBotCommand: StartBotCommandHandler(
                 world.store, self.runner, self.lock, world.reader, world.clock
             ),
@@ -101,9 +110,15 @@ class AddDeleteHost:
         self._add = AddBotForHostCommandHandler(
             world.store, self.dispatcher, world.kinds, self.lock
         )
+        self._move = MoveBotForHostCommandHandler(
+            world.store, self.dispatcher, self.lock
+        )
         self._delete = DeleteBotForHostCommandHandler(
             world.store, self.dispatcher, world.kinds, self.lock
         )
+
+    def move(self, venue: str, bot_id: str = BOT) -> BotCommandResult:
+        return self._move.execute(MoveBotForHostCommand(bot_id, venue))
 
     def add(self, entry: NewBotEntry) -> BotCommandResult:
         return self._add.execute(AddBotForHostCommand(entry))
@@ -117,17 +132,21 @@ class AddDeleteHost:
         runtime: Mapping[str, JsonValue] | None = None,
         bot_id: str = BOT,
         symbol: str = SYMBOL,
+        venue: TradingVenue = TradingVenue.SPOT_TESTNET,
+        ran: bool = False,
+        name: str = "grid one",
     ) -> None:
         """A bot in `state` whose record is `runtime` (an empty record is a bot that never ran)."""
-        definition = BotDefinition(
-            "grid one", "grid", TradingVenue.SPOT_TESTNET, symbol, CONFIG
-        )
+        definition = BotDefinition(name, "grid", venue, symbol, CONFIG)
         self.world.store.save(
             StoredBot(
                 Bot(
                     BotId(bot_id),
                     definition,
-                    BotLifecycle(state),
+                    BotLifecycle(
+                        state,
+                        run_started_at=self.world.clock.now() if ran else None,
+                    ),
                     self.world.clock.now(),
                 ),
                 dict(runtime or {}),
