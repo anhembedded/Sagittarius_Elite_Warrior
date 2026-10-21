@@ -20,12 +20,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_earnings_rows import (
+    earnings_sum_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import (
     ListBotsVerb,
     ShowBotVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    RunEarnings,
+    held_text,
+    plain_price,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
@@ -148,8 +156,14 @@ def test_bot_show_prints_the_figures_the_bots_tab_shows(
     assert f"Total PnL    {total_pnl}" in out
     assert "Cycles       7" in out
     assert f"Unrealised   {tab.unrealised}" in out
-    assert out.index("Grid profit") < out.index("Cycles") < out.index("Total PnL")
-    assert out.index("Total PnL") < out.index("Unrealised")
+    # `BOT-229`: in the order that adds up, the total last with its sum and the basis beneath.
+    assert f"Realised     {_undecorated(tab.realised)}" in out
+    assert out.index("Realised") < out.index("Grid profit") < out.index("Cycles")
+    assert out.index("Cycles") < out.index("Unrealised") < out.index("Total PnL")
+    assert "= realised 1,230.25 + unrealised 0.00 + funding 0.00" in out
+    assert (
+        "Realised is measured against the average cost; grid profit against each" in out
+    )
 
 
 def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
@@ -163,6 +177,9 @@ def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
     assert "Unrealised   no price yet" in out
     assert _tab("bbbbbb").unrealised == "no price yet"
     assert bot["earnings"] == {
+        "realised": "1230.25",
+        "held": "0.01",
+        "average_cost": "64000",
         "grid_profit": "5.74",
         "completed_cycles": 1,
         "total_pnl": None,
@@ -200,6 +217,9 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
     row = next(line for line in out.splitlines() if line.startswith("aaaaaa"))
     assert "1,234.50" in row and "1,230.25" in row
     assert bots["aaaaaa"]["earnings"] == {
+        "realised": "1230.25",
+        "held": "0",
+        "average_cost": None,
         "grid_profit": "1234.5",
         "completed_cycles": 7,
         "total_pnl": "1230.25",
@@ -264,3 +284,37 @@ def test_a_futures_short_position_says_the_exchange_basis_is_not_available_not_n
 
     assert "Unrealised, exchange basis" in short
     assert "not available: the bot saves its last trade price" in short
+
+
+def _earnings(**changes: object) -> RunEarnings:
+    base = RunEarnings(
+        grid_profit=Decimal("1.83"),
+        completed_cycles=20,
+        total_pnl=Decimal("19.48"),
+        judged=True,
+        unrealised=Decimal("18.60"),
+        realised=Decimal("0.97"),
+        funding=Decimal("-0.09"),
+    )
+    return replace(base, **changes)  # type: ignore[arg-type]
+
+
+def test_the_sum_line_adds_realised_unrealised_and_funding_of_a_futures_run() -> None:
+    """`BOT-229`: 0.97 + 18.60 - 0.09 = 19.48, with funding signed."""
+    assert earnings_sum_text(_earnings()) == (
+        "= realised 0.97 + unrealised 18.60 + funding -0.09"
+    )
+
+
+def test_a_run_that_was_not_judged_or_has_no_price_prints_no_sum() -> None:
+    assert earnings_sum_text(None) == ""
+    assert earnings_sum_text(_earnings(realised=None, judged=False)) == ""
+    assert earnings_sum_text(_earnings(total_pnl=None)) == ""
+
+
+def test_a_short_position_is_held_as_a_negative_quantity_at_its_average() -> None:
+    held = held_text(
+        _earnings(held=Decimal("-0.5"), average_cost=Decimal(2500)), plain_price
+    )
+
+    assert held.startswith("-0.5 at an average cost of")

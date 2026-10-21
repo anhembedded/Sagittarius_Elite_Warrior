@@ -264,6 +264,11 @@ def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | No
         "funding": None if earnings.funding is None else str(earnings.funding),
         "cost": str(earnings.cost),
         "mark_price_at": _utc(earnings.mark_price_at),
+        "realised": None if earnings.realised is None else str(earnings.realised),
+        "held": str(earnings.held),
+        "average_cost": (
+            None if earnings.average_cost is None else f"{earnings.average_cost:f}"
+        ),
     }
 
 
