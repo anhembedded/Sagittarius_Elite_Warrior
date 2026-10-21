@@ -28,6 +28,15 @@ class UnreadStreak:
         self._told = True
         return level
 
+    def tell_position_unread(self, logger: logging.Logger, bot_id: str) -> None:
+        """The position could not be read: WARNING for the first of a run, DEBUG after it."""
+        logger.log(
+            self.failed(),
+            "Bot %s: the position could not be read, so the protective stop is not "
+            "looked at this time [protective-stop]",
+            bot_id,
+        )
+
     def cleared(self) -> None:
         """A read worked: the run is over."""
         self._told = False

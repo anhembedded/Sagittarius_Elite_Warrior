@@ -129,12 +129,7 @@ class ProtectiveStopService(IExposureProtection):
             return ProtectionVerdict.OK
         position = self._context.gateway.account_reads.watched_position()
         if position is None:
-            logger.log(
-                self._position_unread.failed(),
-                "Bot %s: the position could not be read, so the protective stop is not "
-                "looked at this time [protective-stop]",
-                state.bot_id,
-            )
+            self._position_unread.tell_position_unread(logger, state.bot_id)
             return ProtectionVerdict.OK
         self._position_unread.cleared()
         open_stops = self._open_stops()
