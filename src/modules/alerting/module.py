@@ -126,6 +126,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_changed_event import (
     BotRangeChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_entered_event import (
+    BotRangeEnteredEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
 )
@@ -216,6 +219,7 @@ class AlertingModule(BoundedContextModule):
         bus.on(AccountLossCapTrippedEvent, source.on_account_loss_cap_tripped)
         bus.on(BotAutoRecoveredEvent, source.on_auto_recovered)
         bus.on(BotRangeChangedEvent, source.on_range_changed)
+        bus.on(BotRangeEnteredEvent, source.on_range_entered)
         bus.on(BotProtectiveStopEvent, source.on_protective_stop)
         liquidation = container.resolve(LiquidationAlertSource)
         bus.on(BotRiskChangedEvent, liquidation.on_risk_changed)

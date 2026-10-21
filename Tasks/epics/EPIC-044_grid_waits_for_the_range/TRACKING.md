@@ -35,8 +35,8 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-044A | [Decision record](completed/EPIC-044A_the_decision_record.md) | `claude/epic-044-grid-waits-for-the-range` | 🟢 | ✅ Merged (#679) | 2026-10-21 |
-| EPIC-044B | [State and entry](incomplete/EPIC-044B_the_state_and_the_entry.md) | `claude/epic-044b-awaiting-range` | 🔴 | 🟡 Active | 2026-10-25 |
-| EPIC-044C | [Surfaces](incomplete/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | — | 🟡 | 🔵 Planned | 2026-10-27 |
+| EPIC-044B | [State and entry](incomplete/EPIC-044B_the_state_and_the_entry.md) | `claude/epic-044b-awaiting-range` | 🔴 | ✅ Merged (#682) | 2026-10-21 |
+| EPIC-044C | [Surfaces](incomplete/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | `claude/epic-044c-waiting-in-the-ui` | 🟡 | 🟡 In review | 2026-10-27 |
 | EPIC-044D | [Backtest](incomplete/EPIC-044D_the_backtest_waits_the_same_way.md) | — | 🟡 | 🔵 Planned | 2026-10-27 |
 
 ---
@@ -47,6 +47,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-21 | Spec | Epic scaffolded; the ADR written from the owner's rule and a probe of master. |
 | 2026-10-21 | 044A | The ADR passed review in three rounds; D2–D12 accepted. |
+| 2026-10-21 | 044B | Merged (#682) after three review rounds: the state, the entry, the informational checks, the restart row. |
 
 ---
 

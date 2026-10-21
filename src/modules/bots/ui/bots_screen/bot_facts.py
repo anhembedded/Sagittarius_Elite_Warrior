@@ -20,6 +20,13 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    LadderUnavailable,
+    grid_ladder_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
+    waiting_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     NO_VALUE,
     RunEarnings,
@@ -144,9 +151,9 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
     capital_key = KIND_CAPITAL_KEYS.get(bot.kind)
     capital = bot.config.get(capital_key, "") if capital_key else ""
     return BotFacts(
-        state=_state_line(bot),
+        state=_state_line(bot, now),
         state_word=state_text(bot.state),
-        note=_state_note(bot),
+        note=_state_note(bot, now),
         venue=bot.venue.display_name,
         symbol=bot.symbol,
         capital=capital or NO_VALUE,
@@ -165,16 +172,19 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
     )
 
 
-def _state_line(bot: BotSnapshot) -> str:
-    detail = _state_note(bot)
-    if not detail:
+def _state_line(bot: BotSnapshot, now: datetime) -> str:
+    detail = _state_note(bot, now)
+    if not detail or bot.state is BotLifecycleState.AWAITING_RANGE:
+        # The wait's sentence is the Plan's banner; the state line would only repeat it.
         return state_text(bot.state)
     return f"{state_text(bot.state)} — {detail}"
 
 
-def _state_note(bot: BotSnapshot) -> str:
+def _state_note(bot: BotSnapshot, now: datetime) -> str:
     """What the run said about the state: the reason it halted or failed, or what a recovering
-    bot waits for."""
+    bot waits for, or the range and the price a waiting bot waits on."""
+    if bot.state is BotLifecycleState.AWAITING_RANGE:
+        return _waiting_note(bot, now)
     progress = bot.progress
     detail = progress.reason_detail if progress is not None else ""
     if bot.state is BotLifecycleState.RECOVERING:
@@ -186,6 +196,13 @@ def _state_note(bot: BotSnapshot) -> str:
         )
         detail = f"{waits}. {detail}".rstrip()
     return detail
+
+
+def _waiting_note(bot: BotSnapshot, now: datetime) -> str:
+    ladder = grid_ladder_of(bot, now)
+    if isinstance(ladder, LadderUnavailable):
+        return ""
+    return waiting_text(ladder.position, _price)
 
 
 def _unrealised(bot: BotSnapshot) -> str:

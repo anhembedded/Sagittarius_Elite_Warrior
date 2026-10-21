@@ -94,8 +94,12 @@ The walking skeleton (`EPIC-036G`) added:
   warning of a bot that waits in `AWAITING_RECOVERY` (a wait is silent on entry, so it is not in
   `ALERT_ON_ENTRY`; the bot leaving the wait is in `CLEARED_ON_ENTRY`); `on_auto_recovered` raises a
   `BOT_AUTO_RECOVERED` warning for each automatic recovery, keyed by the attempt so a second
-  recovery inside the dedup window is not a count on the first; the `BOT_HALTED` alert's `Reason:`
-  line carries the bot's `reason_detail` (`bot_alert_source.py` → `_reason_line`), which is where
+  recovery inside the dedup window is not a count on the first; `on_range_entered` raises one INFO
+  `BOT_RANGE_ENTERED` alert when a bot that waited for its range has laid its ladder (the entry crosses
+  two states, so it is the bot's own event and not a state entry, and a state change of the entry
+  publishes nothing); the entry into `AWAITING_RANGE` ends `BOT_HALTED`, `BOT_ERROR` and
+  `BOT_RECOVERY_STALLED` (a halted bot resumed flat into the wait, `CLEARED_ON_ENTRY`); the `BOT_HALTED` alert's `Reason:`
+  line carries the bot's `reason_detail` (`bot_reason_routes.py` → `reason_line`), which is where
   "the automatic recoveries are used up" is said; the entry into a state of `CLEARED_ON_ENTRY`
   (`bot_alert_source.py` → `CLEARED_ON_ENTRY`) calls `condition_cleared` with the key
   `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`);

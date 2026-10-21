@@ -29,8 +29,14 @@ def _frame(qtbot, name: str) -> BotsView:
     return view
 
 
-def test_the_three_states_the_owner_asked_to_see_have_a_frame() -> None:
-    assert set(FRAMES) == {"draft_blocked", "futures_running", "spot_running"}
+def test_the_states_the_owner_asked_to_see_have_a_frame() -> None:
+    assert set(FRAMES) == {
+        "draft_blocked",
+        "futures_running",
+        "spot_running",
+        "spot_waiting",
+        "futures_short_waiting",
+    }
 
 
 @pytest.mark.parametrize("name", sorted(FRAMES))

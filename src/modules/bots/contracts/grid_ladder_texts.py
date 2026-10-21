@@ -194,3 +194,17 @@ def _mark(mark: PriceMark, price: PriceWriter) -> str:
 
 def _exit(mark: PriceMark | None, price: PriceWriter) -> str:
     return "off" if mark is None else _mark(mark, price)
+
+
+def waiting_text(position: PricePosition, price: PriceWriter) -> str:
+    """What a bot in AWAITING_RANGE says: the range it waits for and the price it waits on
+    (`EPIC-044C`). The Plan's banner and `bot show` say the same words."""
+    now = (
+        "no price heard yet"
+        if position.last_price is None
+        else f"now {price(position.last_price)}"
+    )
+    return (
+        f"Waiting for the price to enter {price(position.lower.price)}–"
+        f"{price(position.upper.price)} ({now}); nothing is placed until it does"
+    )

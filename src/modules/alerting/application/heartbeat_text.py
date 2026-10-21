@@ -21,10 +21,21 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusEntry,
     BotStatusReport,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import GridLadder
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
+    waiting_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    plain_price,
+)
 
 #: The detail stays under this many characters: Discord refuses more than 2000 in a message and
 #: the head, the subject and the time stamp take about two hundred of them.
 MAX_DETAIL = 1700
+
+#: The state of a bot waiting for its range, as the status report spells states (alerting reads
+#: `bots.contracts`, not `bots.domain`); `test_the_heartbeat_names_a_bot_waiting_for_its_range` spells it from the enum.
+_AWAITING_RANGE = "AWAITING_RANGE"
 
 #: The scheduled messages themselves are not "alerts of the day".
 _NOT_COUNTED = frozenset({AlertKind.HEARTBEAT, AlertKind.DAILY_SUMMARY})
@@ -95,13 +106,22 @@ def _more_line(count: int) -> str:
 
 def _bot_line(bot: BotStatusEntry) -> str:
     where = f"{bot.symbol}, {bot.venue}".strip(", ")
-    state = bot.state if not bot.reason else f"{bot.state} - {bot.reason}"
+    why = bot.reason or _waiting_for(bot)
+    state = bot.state if not why else f"{bot.state} - {why}"
     parts = [f"- {bot.name} ({where}): {state}"]
     if bot.resting_orders:
         parts.append(f"{bot.resting_orders} resting orders")
     if bot.health:
         parts.append(" ".join(f"{key}={value}" for key, value in bot.health.items()))
     return "; ".join(parts)
+
+
+def _waiting_for(bot: BotStatusEntry) -> str:
+    """A bot waiting for its range says which range and at which price (`EPIC-044C`)."""
+    ladder = bot.ladder
+    if bot.state != _AWAITING_RANGE or not isinstance(ladder, GridLadder):
+        return ""
+    return waiting_text(ladder.position, plain_price)
 
 
 def _earnings_line(bot: BotStatusEntry) -> str:

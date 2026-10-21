@@ -69,7 +69,7 @@ JSON logging would be a formatter the Engine owns. It is recorded, not built.
 The `run` host (`EPIC-038D`) writes one INFO record per health interval (`--health-interval`, default 60 s) and one at each state change it makes (`SERVING`, `DRAINING`), through `log_health_line` in `src/modules/operations/application/health_line.py`, the only writer:
 
 ```text
-[health] state=SERVING up=3600s bots=running:3,paused:1,halted:0,recovering:0,error:0,starting:0,stopping:0,awaiting_recovery:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310
+[health] state=SERVING up=3600s bots=running:3,paused:1,halted:0,recovering:0,error:0,starting:0,stopping:0,awaiting_recovery:0,awaiting_range:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310
 ```
 
 | Key | Value | Unknown |

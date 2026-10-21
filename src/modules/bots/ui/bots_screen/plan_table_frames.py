@@ -5,7 +5,7 @@ frame is the one the screen writes (`bot_facts`, `ladder_facts`, `readiness_word
 tall enough for the Plan to show its whole table without scrolling, which is the point of a
 frame the owner looks at (`ui-presentation-rule.md` §5):
 
-  draft_blocked · futures_running · spot_running
+  draft_blocked · futures_running · spot_running · spot_waiting · futures_short_waiting
 
 Run one with `python -m Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_table_frames
 <frame> [--png path]` (offscreen with `--png`, a window otherwise).
@@ -243,10 +243,59 @@ def _spot_running() -> BotsView:
     )
 
 
+def _waiting_progress(price: str) -> BotProgress:
+    """A run that has placed nothing and holds nothing, and has heard `price`."""
+    return BotProgress(
+        realised_profit=Decimal(0),
+        completed_cycles=0,
+        open_orders=0,
+        inventory=Decimal(0),
+        average_cost=None,
+        reason="",
+        reason_detail="",
+        mark_price=Decimal(price),
+        mark_price_at=_NOW - timedelta(seconds=12),
+    )
+
+
+def _spot_waiting() -> BotsView:
+    """`EPIC-044C`: a Spot bot started below its range: it waits, with nothing placed (ADR 044)."""
+    config = {**_RANGE, "capital_quote": "500"}
+    return _screen(
+        _bot(
+            TradingVenue.SPOT_TESTNET,
+            BotLifecycleState.AWAITING_RANGE,
+            config,
+            _waiting_progress("58250"),
+        )
+    )
+
+
+def _futures_short_waiting() -> BotsView:
+    """`EPIC-044C`: a Short Futures bot started above its range: it does not sell short before the
+    price is inside (the defect ADR 044 closes)."""
+    config = {
+        **_RANGE,
+        "capital_quote": "10000",
+        "direction": "SHORT",
+        "leverage": "3",
+    }
+    return _screen(
+        _bot(
+            TradingVenue.FUTURES_TESTNET,
+            BotLifecycleState.AWAITING_RANGE,
+            config,
+            _waiting_progress("71400"),
+        )
+    )
+
+
 FRAMES: Mapping[str, Callable[[], BotsView]] = {
     "draft_blocked": _draft_blocked,
     "futures_running": _futures_running,
     "spot_running": _spot_running,
+    "spot_waiting": _spot_waiting,
+    "futures_short_waiting": _futures_short_waiting,
 }
 
 

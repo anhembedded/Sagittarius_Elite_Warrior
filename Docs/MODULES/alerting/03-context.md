@@ -14,7 +14,10 @@ reads `bots/contracts` and one `trading/contracts` event only — `BotChangedEve
 published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_if_stalled`),
 `BotAutoRecoveredEvent` (`src/modules/bots/contracts/events/bot_auto_recovered_event.py` →
 `BotAutoRecoveredEvent`, published after each automatic recovery by `grid_halt_recovery.py` →
-`GridHaltRecovery._after`) and the one-bot read
+`GridHaltRecovery._after`), `BotRangeEnteredEvent`
+(`src/modules/bots/contracts/events/bot_range_entered_event.py` → `BotRangeEnteredEvent`, published once
+when a waiting Grid has entered its range and laid its ladder by `grid_range_entry.py` →
+`GridRangeEntry._tell_the_ladder_is_laid`; EPIC-044C) and the one-bot read
 `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py` →
 `GetBotStatusReportQuery`, `BotStatusEntry`) — and, since `BOT-189`, `BotOrderFilledEvent`
 (`src/modules/bots/contracts/events/bot_order_filled_event.py` → `BotOrderFilledEvent`, published once

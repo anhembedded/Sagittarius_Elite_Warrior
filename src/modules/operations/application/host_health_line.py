@@ -46,6 +46,7 @@ _LINE_STATES = (
     "starting",
     "stopping",
     "awaiting_recovery",
+    "awaiting_range",
 )
 
 
