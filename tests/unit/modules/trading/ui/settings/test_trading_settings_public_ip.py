@@ -17,7 +17,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QDialog, QLabel, QPushButton, QStackedWidget, QVBoxLayout
+from PySide6.QtWidgets import QLabel, QListWidget, QPushButton
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.key_page_w
     build_page,
     mainnet_accepts,
     status_of,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.options_dialog import (
+    OptionsDialog,
 )
 
 _FUTURES_MAINNET = TradingVenue.FUTURES_MAINNET
@@ -195,25 +198,62 @@ def test_closing_the_dialog_does_not_drop_a_key_check_that_is_running(page) -> N
     assert page.presenter._settings_view_model.busy is True
 
 
-def test_the_page_tells_when_its_dialog_closes_but_not_when_another_page_is_chosen(
-    qapp, page
+@pytest.mark.parametrize("way_out", ["accept", "reject"])
+def test_the_real_options_dialog_closing_drops_a_lookup_still_out(
+    qapp, page, way_out
 ) -> None:
-    dialog = QDialog()
-    stack = QStackedWidget()
-    stack.addWidget(page.view)
-    other = QLabel("another page")
-    stack.addWidget(other)
-    QVBoxLayout(dialog).addWidget(stack)
-    closed: list[bool] = []
-    page.view.dialogClosed.connect(lambda: closed.append(True))
+    dialog = OptionsDialog([page.presenter])
     dialog.show()
+    page.threads.held = []
+    _widget(page, QPushButton, "btnShowPublicIp").click()
 
-    stack.setCurrentWidget(other)
-    assert closed == []
+    getattr(dialog, way_out)()
+    for release in page.threads.held:
+        release()
 
-    stack.setCurrentWidget(page.view)
-    dialog.hide()
-    assert closed == [True]
-
-    page.view.setParent(None)  # the page outlives the dialog, as in Tools → Options
+    assert page.presenter._settings_view_model.busy is False
+    assert page.presenter._settings_view_model.publicIp == ""
     dialog.deleteLater()
+
+
+def test_choosing_another_options_page_does_not_drop_the_lookup(qapp, page) -> None:
+    other = QLabel("another page")
+    dialog = OptionsDialog([page.presenter, _PageOf(other)])
+    dialog.show()
+    page.threads.held = []
+    _widget(page, QPushButton, "btnShowPublicIp").click()
+
+    dialog.findChild(QListWidget, "workbench::options::sections").setCurrentRow(1)
+    for release in page.threads.held:
+        release()
+
+    assert page.presenter._settings_view_model.publicIp == PUBLIC_IP
+    dialog.reject()
+    dialog.deleteLater()
+
+
+class _PageOf:
+    """A second Options page, only so the dialog has another to switch to."""
+
+    title = "Other"
+
+    def __init__(self, widget: QLabel) -> None:
+        self._widget = widget
+
+    def widget(self) -> QLabel:
+        return self._widget
+
+    def apply(self) -> None:
+        return None
+
+    def revert(self) -> None:
+        return None
+
+    def is_dirty(self) -> bool:
+        return False
+
+    def validation_message(self) -> None:
+        return None
+
+    def set_change_listener(self, listener) -> None:
+        return None

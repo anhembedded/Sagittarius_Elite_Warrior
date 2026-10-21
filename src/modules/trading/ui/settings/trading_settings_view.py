@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QGuiApplication, QHideEvent
+from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
     QGridLayout,
@@ -70,7 +70,7 @@ class TradingSettingsView(BaseView):
     """@brief The Trading page of Tools → Options (`EPIC-033E`): one row per
     venue and the actions on a key (`BUG-176`)."""
 
-    #: The Options dialog closed with this page showing (not a switch to another page):
+    #: The Options dialog closed and let go of this page (not a switch to another page):
     #: whatever the page was waiting for is no longer wanted (`BOT-224`).
     dialogClosed = Signal()
 
@@ -95,10 +95,14 @@ class TradingSettingsView(BaseView):
         self._apply_status(view_model)
         self._apply_public_ip(view_model)
 
-    def hideEvent(self, event: QHideEvent) -> None:
-        super().hideEvent(event)
-        if not self.window().isVisible():
+    def event(self, event: QEvent) -> bool:
+        """The Engine's `OptionsDialog.done()` takes every page out of the dialog
+        (`setParent(None)`) before it hides it, so a hide event cannot tell a close
+        from a switch to another page; being let go of can."""
+        handled = super().event(event)
+        if event.type() == QEvent.Type.ParentChange and self.parent() is None:
             self.dialogClosed.emit()
+        return handled
 
     def ask_for_key(self, hint: str) -> tuple[str, str] | None:
         """Asks for a key and a secret in a modal dialog; `None` when cancelled."""

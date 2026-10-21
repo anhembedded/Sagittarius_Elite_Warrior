@@ -1,7 +1,6 @@
 # BOT-224 — Options > Trading shows this machine's public IP, so the key's IP whitelist can be set
 
-**Status:** 🟡 In progress
-**Priority:** P2
+**Status:** ✅ Done (2026-10-21)
 **Board:** A Show public IP button on Options > Trading asks an IP-echo service only on the click, shows the public IPv4 as selectable text with Copy and the whitelist advice, and names it in the `-2015` row.
 **Source:** Owner, 2026-10-21, via the delivery coordinator: adding a mainnet key answered -2015 for every venue because the key's IP whitelist held the LAN address 192.168.1.20 and two stale public IPs; the owner had to run `Invoke-RestMethod https://api.ipify.org` by hand and asked for "a get IP button on that page" (approved).
 **Risk:** 🟢 — a read-only call to a third party, made only on a click; no order, key or setting is touched.
@@ -45,5 +44,7 @@ Unit: the new tests named above, and the existing Trading page tests. Architectu
 ## 6. Docs touched
 `Docs/SPEC/SPEC-003`, §5 and §8. No `Docs/MODULES/trading/` folder exists.
 
-## Resume
-Open until merged. Not fixed here: at the dialog's minimum size the State column's long `-2015` sentence is clipped by the grid (the same before this change, see the frames), so the address is also in the read-out below the buttons.
+## Implementation notes
+- Review round 1 found that `dialogClosed` never fired under the Engine's `OptionsDialog`: `done()` takes each page out (`setParent(None)`) before it hides the dialog, so a hide event saw a visible window. The view now emits on `QEvent.ParentChange` with no parent, and the tests close a real `OptionsDialog` by `accept()` and `reject()` (red when the emit is removed) and check that choosing another page keeps the lookup.
+- Local: the Trading and architecture unit tests pass; the GitHub Actions `-Full` run on the PR's head is the full gate.
+- Not fixed here: at the dialog's minimum size the State column's long `-2015` sentence is clipped by the grid, the same before this change (frames in `BOT-224_assets/`); filed as [BOT-225](../backlog/BOT-225_the_trading_options_state_column_clips_a_long_failure_sentence.md). The address is also in the read-out below the buttons.
