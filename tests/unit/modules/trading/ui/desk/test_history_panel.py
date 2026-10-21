@@ -91,3 +91,39 @@ def test_a_realized_pnl_is_toned_by_its_sign_beside_its_arrow(qapp):
     assert _text(panel, 1, "pnl.signed") == "▼ -12.50"
     assert colour(1) == tone_colour(Tone.NEGATIVE, palette)
     assert colour(2) is None
+
+
+def test_a_long_notice_is_shown_whole_in_a_dock_as_narrow_as_it_goes(qapp):
+    """`BUG-251` review: a size policy that caps the label at its hint cuts the notice again once
+    the dock is narrowed towards its minimum width, at any window size."""
+    from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
+        HistoryView,
+    )
+
+    model = TradeHistoryTableModel()
+    panel = HistoryPanel(model, "TradeHistory")
+    notice = (
+        "Binance keeps a Futures order that was cancelled or expired without a fill for 3 "
+        "days only; older ones are not listed. A pair whose orders were all cancelled "
+        "without a fill, with nothing open, is not found when reading every pair; choose "
+        "the pair to see it."
+    )
+    panel.show_view(HistoryView((), 0, 1, "Orders of ETHUSDT", (notice,)))
+    window = QMainWindow()
+    dock = QDockWidget("History")
+    dock.setWidget(panel)
+    window.setCentralWidget(QWidget())
+    window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+    window.resize(1920, 1080)
+    window.show()
+    window.resizeDocks(
+        [dock], [panel.minimumSizeHint().width()], Qt.Orientation.Horizontal
+    )
+    for _ in range(4):
+        qapp.processEvents()
+    label = panel._notices
+
+    assert label.width() < 300, "the dock was narrowed"
+    assert label.height() >= label.heightForWidth(label.width())
+    window.close()
