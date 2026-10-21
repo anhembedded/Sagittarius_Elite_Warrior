@@ -2,7 +2,7 @@
 
 **Epic:** [EPIC-045](README.md)
 **Date:** 2026-10-21
-**Status:** Accepted for G1; G2 and G3 Proposed (real money, the owner decides)
+**Status:** Accepted for G1 and G2; G3 Proposed (real money, the owner decides)
 **Decided by:** the owner's rule of 2026-10-21 ("whatever the UI can do at runtime, the VPS must be able to do", recorded in `Tasks/COORDINATION.md`) for the four verbs; the author session for G1's shape under ONBOARDING §7 (no real money, reversible); the owner for G2 and G3 (pending)
 **Supersedes / superseded by (optional):** closes the four `OPEN GAP` rows of [EPIC-045D](completed/EPIC-045D_the_tab_and_the_host_cannot_drift.md)'s guard
 
@@ -22,7 +22,7 @@
 | # | Decision | Status | Decided by | Consequence |
 | :-- | :--- | :--- | :--- | :--- |
 | G1 | The venue change is a new verb `bot move <id> --venue <venue>`: a `move` action word and a `to_venue` document key, dispatching the tab's own `ChangeBotVenueCommand` under `BotCommandLock`, with one refusal the tab does not make (a bot of the same name already on the target venue, because a plan's identity is name and venue). | Accepted | 🤖 agent | Built in the first pull request of slice G. No real money: a move places no order and asks no venue, as on the tab. Delete-and-add made a new bot id; this keeps the id. |
-| G2 | Confirm-resume at runtime: a verb that confirms a HALTED or AWAITING_RECOVERY bot's resume on a running host. Shape not decided: see O1. | Proposed | 🔵 | Decided with the owner: it lets a ladder be confirmed that a person has read. |
+| G2 | Confirm-resume at runtime in two steps (O1(a)): `bot resume <id>` on a HALTED or AWAITING_RECOVERY bot dispatches the tab's `ResumeBotCommand` (a proposal, nothing placed) and replies with the second step; a new verb `bot confirm-resume <id>` dispatches the tab's `ConfirmBotResumeCommand`. A mainnet bot needs `--confirm-venue` at both steps. No new command-document key: `confirm-resume` is one more action word. | Accepted | 🟢 user (O1) | Built in the second pull request of slice G. A person reads the proposal in the host's log between the two commands. |
 | G3 | Arm and disarm a strategy at runtime through the command directory, reusing the tab's arm and disarm use cases; an arm on a mainnet venue needs `--confirm-venue`. Shape not decided: see O2. | Proposed | 🔵 | Decided with the owner: it arms real-money trading headless. |
 
 ## 3. Alternatives considered (G1)
@@ -33,11 +33,12 @@
 ## 4. Open questions
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | **Confirm-resume on a running host (G2).** The tab shows a person the proposed ladder, then confirms. Options: (a) `bot resume <id>` also accepts a HALTED bot, proposes, and a second command `bot confirm-resume <id>` confirms (the operator reads the proposal in between); (b) one verb `bot resume <id> --confirm` that takes the proposal as shown without reading it (the `--resume-halted` flag already does this at start); (c) leave `run --resume-halted` as the only way and accept a restart. Recommendation: (a), because decision D13 says a person reads the ladder. | G2 | 2026-10-21 |
+| O1 | **Confirm-resume on a running host (G2).** The tab shows a person the proposed ladder, then confirms. Options: (a) `bot resume <id>` also accepts a HALTED bot, proposes, and a second command `bot confirm-resume <id>` confirms (the operator reads the proposal in between); (b) one verb `bot resume <id> --confirm` that takes the proposal as shown without reading it (the `--resume-halted` flag already does this at start); (c) leave `run --resume-halted` as the only way and accept a restart. Recommendation: (a), because decision D13 says a person reads the ladder. **Answered 2026-10-21 by the owner: (a), two steps (propose, then confirm).** | G2 | 2026-10-21 |
 | O2 | **Arm and disarm at runtime (G3).** Arm takes the strategy's parameters and a venue; real money on mainnet. Options: (a) `strategy arm <venue> ...` and `strategy disarm <venue>` verbs of the command directory, mainnet needing `--confirm-venue`; (b) none: arming stays a desktop act and the exclusion stays, recorded as a reasoned decision. Recommendation: (a), parameters from a saved arming (`armed_strategy_config`), not typed on a command line. | G3 | 2026-10-21 |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| G1 | [045G](incomplete/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | Built; PR open | `tests/unit/modules/bots/application/test_bot_move_for_the_host.py`, `tests/integration/modules/bots/test_bot_move_on_the_running_host_on_the_fake_exchange.py`, the guard row now a `HostVerb`; the `-Full` run is Not yet read |
-| G2, G3 | [045G](incomplete/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | Not started | Not yet verified |
+| G1 | [045G](incomplete/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | Built; merged (#705) | `tests/unit/modules/bots/application/test_bot_move_for_the_host.py`, `tests/integration/modules/bots/test_bot_move_on_the_running_host_on_the_fake_exchange.py`, the guard row now a `HostVerb`; the `-Full` run is Not yet read |
+| G2 | [045G](incomplete/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | Built; PR open | `tests/unit/modules/bots/application/test_confirm_resume_for_the_host.py`, `tests/unit/modules/bots/application/test_host_pause_and_resume_requests.py`, `tests/integration/modules/bots/test_a_halted_bot_resumes_in_two_steps_on_the_running_host_on_the_fake_exchange.py`, the guard row now a `HostVerb`; the `-Full` run is Not yet read |
+| G3 | [045G](incomplete/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | Not started | Not yet verified |

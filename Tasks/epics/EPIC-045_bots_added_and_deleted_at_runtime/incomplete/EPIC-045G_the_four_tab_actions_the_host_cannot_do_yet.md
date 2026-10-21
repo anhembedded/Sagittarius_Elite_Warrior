@@ -1,6 +1,6 @@
 # EPIC-045G — the four Bots tab actions the host cannot do at runtime yet
 
-**Status:** 🟡 In progress (G1, the venue change, built; G2 and G3 wait for the owner's answers)
+**Status:** 🟡 In progress (G1 the venue change merged, G2 confirm-resume built; G3 arm and disarm next)
 **Source:** the owner's rule of 2026-10-21 ("whatever the UI can do at runtime, the VPS must be able to do"), recorded in `Tasks/COORDINATION.md`; the parity guard of [EPIC-045D](../completed/EPIC-045D_the_tab_and_the_host_cannot_drift.md) found the gaps and review round 1 of #697 added the fourth. The coordinator's brief: delete+add is not parity.
 **Risk:** 🔴 — arming a strategy on a mainnet venue is real money.
 **Complexity:** L
@@ -35,7 +35,8 @@ Unit (codec, handlers, verbs), the fake-exchange journey, and the parity guard g
 
 ## Implementation notes (written when done)
 **Part 1, the venue change (built):** `bot move <id> --venue <venue>`; `move` action and `to_venue` key; `MoveBotForHostCommandHandler` dispatching the tab's `ChangeBotVenueCommand` under the lock; a same-name-on-the-target-venue refusal the tab does not make; the parity guard's row is now a `HostVerb`. Mutation-checked (the same-venue check, the lock, the venue refusal, the duplicate check on name and on venue). The composed-app journey proves the bot keeps its id and parameters, nothing is placed, and `bot start` is still refused without the typed venue. Not run: the VPS; the `-Full` result on the pull request head.
-**Parts 2 and 3 (confirm-resume, arm and disarm):** not started; O1 and O2 in the decision record are the owner's to answer first.
+**Part 2, confirm-resume (built):** owner decision O1, two steps. `bot resume <id>` on a HALTED or AWAITING_RECOVERY bot dispatches the tab's `ResumeBotCommand` (mainnet needs `--confirm-venue`) and replies that a proposal was asked for and nothing is placed; `bot confirm-resume <id>` (`confirm-resume` action word, `ConfirmBotResumeForHostCommand`, `ConfirmResumeForHostCommandHandler`) dispatches the tab's `ConfirmBotResumeCommand`, needs `--confirm-venue` on mainnet too, and refuses a bot with no held proposal in words. No new document key. The parity guard's `ConfirmBotResumeCommand` row is now a `HostVerb`. Mutation-checked: the mainnet venue check on the confirmation, the no-proposal words, the real-money check at the resume for HALTED states, and the proposal reply. A fake-exchange journey proves the resume leaves the bot HALTED with nothing resting and the confirmation lays the ladder.
+**Part 3 (arm and disarm):** not started; O2 is answered (verbs, mainnet needs `--confirm-venue`, parameters from a saved arming).
 
 ## Resume
-Next: the owner's answers to O1 and O2, then one pull request each. This file stays in `incomplete/` until all four exclusions are gone from the guard.
+Next: part 3, arm and disarm (O2 answered), one pull request. This file stays in `incomplete/` until all four exclusions are gone from the guard.

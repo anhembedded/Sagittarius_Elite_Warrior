@@ -116,6 +116,13 @@ class ResumeBotVerb(_ControlVerb):
     action = HostControlAction.RESUME
 
 
+class ConfirmResumeBotVerb(_ControlVerb):
+    """`bot confirm-resume <id>`: lay the ladder `bot resume` proposed, as the tab's Confirm resume does."""
+
+    name = "confirm-resume"
+    action = HostControlAction.CONFIRM_RESUME
+
+
 class StartBotVerb(_ControlVerb):
     name = "start"
     action = HostControlAction.START

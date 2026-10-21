@@ -36,6 +36,9 @@ class HostControlAction(StrEnum):
     STOP = "stop"
     PAUSE = "pause"
     RESUME = "resume"
+    #: `EPIC-045G`: lay the ladder a HALTED or AWAITING_RECOVERY bot's resume proposed, as the Bots tab's
+    #: Confirm resume does. The second step of two: a person reads the proposal between them.
+    CONFIRM_RESUME = "confirm-resume"
     #: `EPIC-038K`: start a DRAFT or STOPPED bot, once, as the Bots tab's Start does.
     START = "start"
     #: `EPIC-038L`: change the parameters of a DRAFT or STOPPED bot, as the Bots tab's Save does.

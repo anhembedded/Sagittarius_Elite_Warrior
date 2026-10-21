@@ -80,6 +80,8 @@ _READ_ONLY = {
     ("bot", "delete"),
     # `EPIC-045G` - move: a command file for the host, which moves the bot, never this process.
     ("bot", "move"),
+    # `EPIC-045G` - confirm-resume: a command file for the host, which lays the ladder, never this process.
+    ("bot", "confirm-resume"),
     # `EPIC-026L` - the same again: a command file for the host, which clears the cap, never this process.
     ("bot", "loss-cap-ack"),
     ("preflight", None),
