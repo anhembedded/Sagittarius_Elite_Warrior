@@ -151,7 +151,9 @@ class SelectedBot:
             self.panel.set_planner_market(market)
 
     def edit(self, config: Mapping[str, str]) -> None:
-        self.edited = dict(config)
+        # A design typed back to what is saved is not an edit (`BUG-261`: the Plan says "not saved").
+        saved = dict(self.bot.config) if self.bot is not None else None
+        self.edited = dict(config) if dict(config) != saved else None
 
     def read_editor(self) -> None:
         """What the editor shows is what Save and Start send, whatever gesture
