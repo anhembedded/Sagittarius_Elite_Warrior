@@ -1,7 +1,7 @@
 # BOT-226 — A weight reserve keeps the reads that guard exits served above the 70 % line
 
-**Status:** 🟡 In progress
-**Board:** BUG-247 option C: the venue's gate closes to routine requests at 70 % and to every request at 90 %, so a ladder burst cannot leave a bot's position, mark and open-stop reads refused.
+**Status:** ✅ Done (2026-10-21)
+**Board:** Decision: the venue's gate closes to routine requests at 70 % and to every request at 90 % (owner-delegated, 2026-10-21), and a read named `EXIT_GUARD` on its port (position, mark, open protective stops) is served in between, so a ladder burst cannot leave a stop loss or take profit unjudged ([BUG-247](bug_report/completed/BUG-247_two_wide_grid_ladders_close_the_weight_gate_and_every_read_is_then_logged_as_an_error.md) option C).
 **Source:** The owner, 2026-10-21, on `BUG-247`'s option C: "Ok C"; handed to this session by the coordinating session (session_016sGQHsRy729Fp4cY1cTXfu).
 **Risk:** 🔴 — real-money behaviour: it changes which requests the gate holds near the exchange's limit; a wrong class lets routine traffic spend the reserve, a wrong hard line risks the exchange's 429 and 418.
 **Complexity:** M — three ports, three query handlers, one policy; the classification rides a scoped context because `ITradingClient` stays unchanged.
@@ -54,4 +54,12 @@
 `Docs/MODULES/bots/06-runtime.md` ("Built: several bots on one venue", the reserve bullet); `Docs/VOCABULARY/README.md` (exit guard, weight reserve).
 
 ## Implementation notes (written when done)
-_Pending: the `ci-local.ps1 -Full` run on the PR's head._
+Delivered in PR #690 (head `d7a0602`); the task was filed as BOT-224 and renumbered BOT-226 when #689 took that id.
+
+- **Built as designed (§3, §4).** `RequestPriority` on the three ports, carried by a `ContextVar` scope the three query handlers open; `RateLimitGate.block_routine` / `routine_remaining`; `ExchangeCallPolicy` closes to routine requests at `SOFT_WEIGHT_RATIO` (70 %) and to every request at `HARD_WEIGHT_RATIO` (90 %). The bots name `EXIT_GUARD` in `BotAccountReads.position` / `protective_orders`, `read_mark_price` and `SharedPositionReads`.
+- **Decision: 90 %.** The owner approved option C without a size and delegated the figure to the coordinating session on 2026-10-21; it decided 90 %. Measured guard spend of an idle minute is 96 / 240 / ~780 weight at 1 / 5 / 20 bots against a 480 reserve, and the cap is five bots. Alternatives 85 % (reserve 360, buffer 360) and 95 % (reserve 600, buffer 120). One constant, reversible.
+- **Review round 1 (NEEDS_REVISION, gate green) changed three things:** the BUG-217 regression test regained its original 75 % path; the reserve and the pause that closes every request are announced apart, each with its own end (a 429 inside the reserve was told with the reserve's end); a guard locks which files may name `EXIT_GUARD`. The generated timing row of `Docs/MODULES/bots/10-quality.md` states both lines. Rounds 2 to 4: PASS.
+- **Existing tests moved:** the policy tests that used 75 % of the limit to mean "closed to everything" use 92 %; test doubles of the three ports take the new parameter.
+- **Mutation checks by hand (all red):** a guard treated as routine, a routine read treated as a guard, a handler dropping the priority, the stops read as routine.
+- **Evidence.** CI run 39602930032 on `d7a0602`: `gate (Unit)` (job 119232446921) and `gate (Rest)` (job 119232446533) `RESULT: PASS`, `FAILED_STEPS: none`, no `FAILED` / `Traceback` / `ResourceWarning` / WARNING-ERROR record in either job log. Reviewer's round 4 comment: https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/690#issuecomment-6316451089.
+- **Limits left (also in `Docs/MODULES/bots/06-runtime.md`).** The run host's coverage read (`StopCoverageReader`, a ladder read) answers "unread" in the reserve; the reserve covers the five-bot cap, not 20; the optional journey with a booted bot reading through the reserve was not added.
