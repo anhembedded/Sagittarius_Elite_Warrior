@@ -45,11 +45,15 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     replaceKeyRequested = Signal(object)
     removeKeyRequested = Signal(object)
     checkConnectionsRequested = Signal()
+    showPublicIpRequested = Signal()
+    publicIpChanged = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._rows: tuple[KeyRow, ...] = ()
         self._busy_text = ""
+        self._public_ip = ""
+        self._public_ip_problem = ""
 
     @property
     def rows(self) -> tuple[KeyRow, ...]:
@@ -73,6 +77,26 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     def set_busy(self, text: str) -> None:
         self._busy_text = text
         self.busyChanged.emit()
+
+    @property
+    def publicIp(self) -> str:
+        """The public address last looked up, or "" when none was."""
+        return self._public_ip
+
+    @property
+    def publicIpProblem(self) -> str:
+        """Why the last lookup found no address, or "" when it found one or none was asked."""
+        return self._public_ip_problem
+
+    @Slot(str, str)
+    def set_public_ip(self, address: str, problem: str) -> None:
+        self._public_ip = address
+        self._public_ip_problem = problem
+        self.publicIpChanged.emit()
+
+    @Slot()
+    def requestShowPublicIp(self) -> None:
+        self.showPublicIpRequested.emit()
 
     @Slot()
     def requestAddKey(self) -> None:

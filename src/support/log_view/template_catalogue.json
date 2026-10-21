@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 853, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 857, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -376,6 +376,7 @@
 ["sssd", "Handling GetOrderHistoryQuery on ", ": ", " since ", ", page ", ""],
 ["ss", "Handling GetOrderNotionalLimitQuery on ", ": ", ""],
 ["ss", "Handling GetOrderQuery on ", " for ", ""],
+["", "Handling GetPublicAddressQuery"],
 ["ss", "Handling GetSymbolOrderRulesQuery for ", " on ", ""],
 ["sssd", "Handling GetTradeHistoryQuery on ", ": ", " since ", ", page ", ""],
 ["ss", "Handling GetVenueConnectionQuery for ", " on ", ""],
@@ -851,6 +852,9 @@
 ["ss", "[trade] venue ", " -> ", ""],
 ["ss", "[trade] venues ", "; showing ", ""],
 ["sss", "executionReport  ", "  ", "  qty ", ""],
+["ds", "public address not read from ", " services: ", " [public-ip]"],
+["", "public address read from a service [public-ip]"],
+["ss", "public address service ", " gave no answer (", ") [public-ip]"],
 ["h", "release_owner(", ") requested but it held no subscription; nothing to do."],
 ["ss", "the key is for [", "], refusal ", " [key-check]"]
 ]
