@@ -8,6 +8,8 @@ the refusal a race may still produce, in the same words. Checked by the start,
 **before** the `start` transition, so a refusal leaves the bot in DRAFT or
 STOPPED with nothing to clean up. In order:
 
+  0. **Another owner's orders** (`BUG-259`): an order of the symbol that carries a bot tag no bot of
+     this data root holds refuses the start before anything is claimed.
   1. **The lease**: the bot claims its symbol under its own owner id, so a
      manual order or a strategy on that symbol is refused from now on.
   2. **The order session** is open — Start opens it itself (`EPIC-034C`), after
@@ -20,6 +22,7 @@ STOPPED with nothing to clean up. In order:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import datetime
 
@@ -29,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budg
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_position_claims import (
     venue_position_claims,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.other_owner_orders import (
+    other_owner_refusal,
+    other_owner_tags,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
     order_session_refusal,
@@ -44,9 +51,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import 
     IGridBudgets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
     exposure_limits_of,
+    venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
     exposure_refusal,
 )
@@ -63,6 +75,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_una
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+
+logger = logging.getLogger("App.Bots.GridExecutor")
 
 
 class GridStartPreconditions:
@@ -83,13 +100,25 @@ class GridStartPreconditions:
         `BUG-250`: unlike Start, a resume passes the venue's position claims (`venue_bots` are
         every bot the store holds): the position a host stop left under the bot's protective
         stop is its own, and the exchange's tagged history says so."""
+        held_bots = tuple(venue_bots)
+        if bot.state in RESUME_PROPOSES_STATES:
+            # A resume that lays a ladder is a start by another door (`BUG-259`); a RECOVERING
+            # bot only reconciles its own orders and is not asked.
+            other_owners = self._other_owners_refusal(bot, held_bots)
+            if other_owners is not None:
+                return other_owners
         venue = bot.definition.venue
         session = self._ports.get(venue).trading_session
         return order_session_refusal(
-            session, bot.bot_id.value, venue_position_claims(venue, venue_bots)
+            session, bot.bot_id.value, venue_position_claims(venue, held_bots)
         )
 
-    def check(self, bot: Bot, now: datetime) -> BotCommandResult | None:
+    def check(
+        self, bot: Bot, now: datetime, venue_bots: Iterable[Bot]
+    ) -> BotCommandResult | None:
+        """`venue_bots` are the bots this data root holds: their tags are not another owner's
+        (`BUG-259`); the starting bot's own is always known. Required: a caller that left it out
+        would call its own siblings foreign."""
         bot_id = bot.bot_id.value
         symbol = bot.definition.symbol
         session = self._ports.get(bot.definition.venue).trading_session
@@ -115,6 +144,9 @@ class GridStartPreconditions:
                 f"The venue's limits for {symbol} could not be read: {exc}",
                 bot_id,
             )
+        other_owners = self._other_owners_refusal(bot, venue_bots)
+        if other_owners is not None:
+            return other_owners
         owner = bot_owner_id(bot_id)
         if not session.claim_symbol(symbol, owner):
             holder = session.lease_holder(symbol) or "another owner"
@@ -139,6 +171,45 @@ class GridStartPreconditions:
             cap = f" ({registration.exceeded_cap})" if registration.exceeded_cap else ""
             return _refused(BotRefusal.BUDGET_REFUSED, f"{refusal}{cap}", bot_id)
         return None
+
+    def _other_owners_refusal(
+        self, bot: Bot, venue_bots: Iterable[Bot]
+    ) -> BotCommandResult | None:
+        """Another owner's tagged orders on the symbol refuse the start (`BUG-259`). Read before
+        the symbol is claimed, so a refusal leaves nothing behind."""
+        bot_id = bot.bot_id.value
+        symbol = bot.definition.symbol
+        activity = self._ports.get(bot.definition.venue).account_activity
+        try:
+            orders = activity.open_orders(symbol)
+        except Exception as exc:  # noqa: BLE001 - converted at the seam into a refusal
+            logger.warning(
+                "Bot %s: the open orders of %s could not be read (%s) [other-owner]",
+                bot_id,
+                symbol,
+                exc,
+            )
+            return _refused(
+                BotRefusal.VENUE_NOT_READY,
+                f"The open orders of {symbol} could not be read: {exc}",
+                bot_id,
+            )
+        known = frozenset({bot_id, *(held.bot_id.value for held in venue_bots)})
+        tags = other_owner_tags(orders, symbol, known)
+        if not tags:
+            return None
+        message = other_owner_refusal(
+            symbol, tags, nets_positions=_nets_positions(bot.definition.venue)
+        )
+        logger.warning("Bot %s: refused, %s [other-owner]", bot_id, message)
+        return _refused(BotRefusal.VENUE_NOT_READY, message, bot_id)
+
+
+def _nets_positions(venue: TradingVenue) -> bool:
+    """Whether `venue` holds one netted position per symbol: the venue profile decides, not the
+    market (`test_only_the_venue_profile_decides_the_market`)."""
+    profile = venue_profile_of(venue)
+    return profile is not None and profile.exposure_kind is ExposureKind.POSITION
 
 
 def _refused(refusal: BotRefusal, message: str, bot_id: str) -> BotCommandResult:
