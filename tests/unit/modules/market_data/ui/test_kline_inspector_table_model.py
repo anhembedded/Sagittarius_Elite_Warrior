@@ -162,13 +162,6 @@ def test_a_zero_open_price_does_not_divide_by_zero():
     assert row.change_percent == 0.0
 
 
-def test_an_unchanged_candle_counts_as_bullish():
-    """A doji is not a fall, and the colour has to pick one."""
-    assert market_data_to_kline_row(
-        _kline(open_price=100.0, close_price=100.0)
-    ).is_bullish
-
-
 # ---------------------------------------------------------------------------
 # The presentation roles
 # ---------------------------------------------------------------------------

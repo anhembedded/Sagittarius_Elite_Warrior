@@ -46,7 +46,7 @@ gantt
 | 2026-10-20 | 043B | Appearance page, preference, applier; nine series colours moved to read on both schemes. |
 | 2026-10-20 | 043C | Arrow, sign and tone on every PnL figure; a state is an icon and a word; BOT-196 delivered inside. |
 | 2026-10-21 | 043D | A headline row on each Trade desk; the watchlist's tick flash, an Options toggle off by default. |
-| 2026-10-21 | 043E | The editor's liquidation lines toned per side; the Armed, Options venue and K-line states join the language; `BOT-215` and `BOT-216` filed for what the code does not yet allow. |
+| 2026-10-21 | 043E | The editor's liquidation lines toned per side; the Armed, Options venue and K-line states join the language; every toolbar command shows an icon beside its text; `BOT-215` filed for the live risk level. |
 
 ---
 

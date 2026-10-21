@@ -104,6 +104,7 @@ def trade_commands(
             on_toolbar=True,
             shortcut="F9",
             needs_input=True,
+            icon="plus-circle",
         ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -120,6 +121,7 @@ def trade_commands(
             menu_path=TRADE_MENU,
             mode=route,
             on_toolbar=True,
+            icon="circle-x",
         ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -141,6 +143,7 @@ def trade_commands(
                 consequence=emergency_stop_consequence(venues),
                 accept_text="Stop everything",
             ),
+            icon="alert-triangle",
         ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,

@@ -62,6 +62,7 @@ def data_commands(route: str) -> tuple[CommandContribution, ...]:
         shortcut: str | None = None,
         needs_input: bool = False,
         confirm: CommandConfirmation | None = None,
+        icon: str | None = None,
     ) -> CommandContribution:
         return CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -73,6 +74,7 @@ def data_commands(route: str) -> tuple[CommandContribution, ...]:
             shortcut=shortcut,
             needs_input=needs_input,
             confirm=confirm,
+            icon=icon,
         )
 
     return (
@@ -82,13 +84,14 @@ def data_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             shortcut="Ctrl+L",
             needs_input=True,
+            icon="download",
         ),
-        command(CHECK_GAPS, "&Check gaps", on_toolbar=True),
-        command(REPAIR_GAP, "&Repair gap", on_toolbar=True),
+        command(CHECK_GAPS, "&Check gaps", on_toolbar=True, icon="search"),
+        command(REPAIR_GAP, "&Repair gap", on_toolbar=True, icon="rotate-ccw"),
         command(REPAIR_ALL_GAPS, "Repair a&ll gaps"),
         command(INSPECT_CANDLES, "&Inspect candles"),
-        command(STOP, "St&op", on_toolbar=True),
-        command(SCAN_STATUS, "Scan s&tatus", on_toolbar=True),
+        command(STOP, "St&op", on_toolbar=True, icon="square"),
+        command(SCAN_STATUS, "Scan s&tatus", on_toolbar=True, icon="info"),
         command(SCAN_ALL, "Scan &all shards"),
         command(SYNC_ALL_GAPS, "Sync all &gaps"),
         command(EXPORT, "&Export data…", needs_input=True),

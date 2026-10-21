@@ -23,9 +23,12 @@ that case — it is the first thing a trader reads off a candle list, and the
 QML delegate coloured the close and change cells for exactly that reason.
 The two values are **not** redeclared here: they are `chart_card`'s own
 `BULL_COLOR`/`BEAR_COLOR`, which that package documents as "not chrome — a
-candle body is green because it closed up". The same candle is green on the
-chart and in this table because it is the same constant, and this repository
-has been bitten enough times by a second copy of one value.
+candle body is green because it closed up". A candle that rose or fell is the
+same hue on the chart and in this table because it is the same constant, and this
+repository has been bitten enough times by a second copy of one value. They part
+on a doji (close equal to open): the chart still paints it bull, while this table,
+like every `signed_key` figure, gives exactly zero neither a sign nor a tone
+(`EPIC-043E`; the owner may veto that).
 
 **Values, not text (`EPIC-033N`).** A row holds the candle's numbers and the
 table writes them through the application's formatter, so a price reads here
@@ -80,7 +83,6 @@ class KLineDisplayRow:
     close: float
     volume: float
     trades: int
-    is_bullish: bool
     #: Close against open, in percent.
     change_percent: float
 
@@ -98,7 +100,6 @@ def market_data_to_kline_row(k: MarketData) -> KLineDisplayRow:
         close=k.close_price,
         volume=k.volume,
         trades=k.number_of_trades,
-        is_bullish=k.close_price >= k.open_price,
         change_percent=change,
     )
 

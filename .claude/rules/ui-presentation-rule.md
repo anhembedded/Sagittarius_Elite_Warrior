@@ -50,6 +50,7 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - A literal ampersand in a label is written `&&`, never left to become an access key. `[guard: test_workbench_conformance.py]`
 - A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). The Engine's `ActionDescriptor` refuses "..." and an ellipsis that disagrees with the command's declared `needs_input`, so the booted suite fails on either; whether a command needs input is review. `[guard: test_workbench_conformance.py; review: H3]`
 - OK is spelled "OK"; problems are never "OK" — use Close (MS `mess-confirm`). `[review: H3]`
+- A non-checkable toolbar command names an icon and keeps its text beside it (`BOT-164`, `EPIC-043E`). `[guard: test_toolbar_commands_have_icons.py]`
 - Icons: SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
 
 ## 5. Preview

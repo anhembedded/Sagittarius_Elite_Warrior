@@ -58,15 +58,15 @@ LIVE_TAB = f"{_PREFIX}.live_tab"
 BACKTEST_TAB = f"{_PREFIX}.backtest_tab"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
-_LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
-    (BotAction.SAVE, "&Save bot", True),
+_LIFECYCLE: tuple[tuple[BotAction, str, bool, str | None], ...] = (
+    (BotAction.SAVE, "&Save bot", True, "save"),
     # Decision D8 (`EPIC-034H`): saves the edits on screen, then starts.
-    (BotAction.START, "Save and s&tart", True),
-    (BotAction.PAUSE, "&Pause", True),
-    (BotAction.RESUME, "&Resume", True),
-    (BotAction.CONFIRM_RESUME, "&Confirm resume", True),
-    (BotAction.STOP, "St&op…", True),
-    (BotAction.DELETE, "&Delete bot", False),
+    (BotAction.START, "Save and s&tart", True, "play"),
+    (BotAction.PAUSE, "&Pause", True, "pause"),
+    (BotAction.RESUME, "&Resume", True, "play"),
+    (BotAction.CONFIRM_RESUME, "&Confirm resume", True, "circle-check-big"),
+    (BotAction.STOP, "St&op…", True, "square"),
+    (BotAction.DELETE, "&Delete bot", False, None),
 )
 
 
@@ -84,6 +84,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         on_toolbar: bool,
         needs_input: bool = False,
         standard_shortcut: str | None = None,
+        icon: str | None = None,
     ) -> CommandContribution:
         return CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -94,10 +95,13 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=on_toolbar,
             needs_input=needs_input,
             standard_shortcut=standard_shortcut,
+            icon=icon,
         )
 
     return (
-        command(NEW_BOT, "&New bot…", on_toolbar=True, needs_input=True),
+        command(
+            NEW_BOT, "&New bot…", on_toolbar=True, needs_input=True, icon="plus-circle"
+        ),
         *(
             command(
                 lifecycle_id(action),
@@ -105,8 +109,9 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
                 on_toolbar=on_toolbar,
                 needs_input=text.endswith("…"),
                 standard_shortcut="Save" if action is BotAction.SAVE else None,
+                icon=icon,
             )
-            for action, text, on_toolbar in _LIFECYCLE
+            for action, text, on_toolbar, icon in _LIFECYCLE
         ),
         # On the kind's own toolbar, not the mode's (HLD §11.2.3).
         *(
@@ -128,7 +133,13 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         # `BOT-176`: the bots as a `sew.bot-plan/1` file, for `bot apply` on a server;
         # every letter of its name was another command's access key; "A" moved from
         # Suggest from ATR (now "G", freed by Bollinger moving to "B") to this one.
-        command(EXPORT_PLAN, "Export pl&an…", on_toolbar=True, needs_input=True),
+        command(
+            EXPORT_PLAN,
+            "Export pl&an…",
+            on_toolbar=True,
+            needs_input=True,
+            icon="download",
+        ),
         # `EPIC-040E`: the centre's tabs by keyboard, named "tab" so they are not read as the
         # Backtest mode that View also lists; the Backtest tab is off for a bot whose kind or venue
         # it cannot replay, and says why (never hidden).

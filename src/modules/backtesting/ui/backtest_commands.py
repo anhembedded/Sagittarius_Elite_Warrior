@@ -89,7 +89,7 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
 
     return (
         command(RUN, "&Run backtest", on_toolbar=True, shortcut="F7", icon="play"),
-        command(STOP, "&Stop backtest", on_toolbar=True),
+        command(STOP, "&Stop backtest", on_toolbar=True, icon="square"),
         command(SAVE_REPORT, "Sa&ve report…", needs_input=True),
         command(IMPORT_REPORT, "&Import report…", needs_input=True),
         command(COMPARE_REPORTS, "Com&pare reports…", needs_input=True),

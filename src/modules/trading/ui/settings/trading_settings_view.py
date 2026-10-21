@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.add_key_dialog im
     AddKeyDialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
-    CONNECTED,
+    StateKind,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -91,7 +91,9 @@ class TradingSettingsView(BaseView):
             widgets = self._rows.get(row.venue) or self._add_row(row.venue, view_model)
             widgets.title.setText(row.title)
             widgets.key.setText(row.key)
-            widgets.state.show_state(_worded(row.state, row.state_is_error), _look(row))
+            widgets.state.show_state(
+                _worded(row.state, row.state_kind is StateKind.ERROR), _look(row)
+            )
             widgets.replace.setText("Replace…" if row.has_key else "Add…")
             widgets.replace.setEnabled(row.editable and not view_model.busy)
             widgets.remove.setEnabled(
@@ -172,9 +174,9 @@ class TradingSettingsView(BaseView):
 def _look(row: KeyRow) -> StateLook | None:
     """The icon and tone beside a venue's state: a key that works, or one that does not. A venue
     with no key, or one not checked yet, has only its words."""
-    if row.state_is_error:
+    if row.state_kind is StateKind.ERROR:
         return ERROR_LOOK
-    return CONNECTED_LOOK if row.state == CONNECTED else None
+    return CONNECTED_LOOK if row.state_kind is StateKind.CONNECTED else None
 
 
 def _worded(message: str, is_error: bool) -> str:
