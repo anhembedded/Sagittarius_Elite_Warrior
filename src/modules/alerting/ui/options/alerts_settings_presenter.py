@@ -104,6 +104,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.bot_mode_list imp
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channel_states import (
     ChannelStates,
+    read_channel_states,
     show_channel_states,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.display_zone_key import (
@@ -211,7 +212,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     # -- the state on the page ----------------------------------------------
 
     def _read_states(self) -> ChannelStates:
-        return ChannelStates(self._setup.state(), self._telegram_setup.state())
+        return read_channel_states(self._setup, self._telegram_setup, self._channels)
 
     def _publish_state(self, states: ChannelStates | None = None) -> None:
         """Shows `states`; the page's first state is read here, on the UI thread, once.

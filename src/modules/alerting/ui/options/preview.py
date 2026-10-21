@@ -34,7 +34,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
-from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
+    alerts_words,
+    channels_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
 )
@@ -63,7 +66,7 @@ def build_preview() -> QWidget:
         stored=True, usable=True, hint="qrst", chat="5550123", running=True
     )
     view_model.telegram.set_channel(
-        alerts_words.telegram_channel_line(telegram),
+        channels_words.SWITCHED_OFF + alerts_words.telegram_channel_line(telegram),
         alerts_words.telegram_saved_line(telegram),
         can_remove=telegram.stored,
     )

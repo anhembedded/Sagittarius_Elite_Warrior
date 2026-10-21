@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QCheckBox
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
     JsonAlertSettings,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import channels_words
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_page_world import (
     STATUS,
     AlertsPage,
@@ -51,6 +52,8 @@ def test_clearing_a_switch_keeps_it_at_once_and_says_so(page: AlertsPage) -> Non
     assert "switched off" in page.label(STATUS)
     assert not _box(page, "telegram").isChecked()
     assert _box(page, "discord").isChecked()
+    # One channel off is not "every channel off": the note must stay quiet (review of PR #672).
+    assert page.label("lblChannelsNote") == ""
 
 
 def test_ticking_it_again_switches_the_channel_back_on(page: AlertsPage) -> None:
@@ -137,3 +140,22 @@ def test_an_unexpected_failure_shows_the_state_that_was_kept_not_the_one_clicked
     assert _box(page, "discord").isChecked()
     assert "secret detail" not in page.told_the_user()
     assert "RuntimeError" in page.told_the_user()
+
+
+def test_a_switched_off_channel_says_so_on_its_own_line_and_the_other_does_not(
+    page: AlertsPage,
+) -> None:
+    """Review of PR #672: Telegram's group said "On: alerts go to the saved Telegram bot." beside
+    a cleared switch. The line says it is switched off, and says so for that channel only."""
+    _box(page, "telegram").click()
+
+    assert page.label("lblTelegramChannelState").startswith(channels_words.SWITCHED_OFF)
+    assert not page.label("lblDiscordChannelState").startswith(
+        channels_words.SWITCHED_OFF
+    )
+
+    _box(page, "telegram").click()
+
+    assert not page.label("lblTelegramChannelState").startswith(
+        channels_words.SWITCHED_OFF
+    )

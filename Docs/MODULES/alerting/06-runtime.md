@@ -311,7 +311,11 @@ because `JsonAlertSettings` writes a file, and the answer re-reads the cells fro
 through the page's tracker and relay, and the answer re-reads the switches from memory, so a failed
 write shows the state that was kept. The hub and the router read `AlertSettings.disabled_channels`
 for every alert, so a switch reaches the next alert without a restart; the lane of a switched-off
-channel keeps running and sends what it already holds.
+channel keeps running and sends what it already holds. The status bar and the Alerts mode see the
+switch through `ChannelHealth.enabled` (`OutboxAlertHistory` reads `IAlertSettingsSource`): a
+switched-off channel is never "failing", and with every channel off the indicator reads
+`Alerts: all channels off`. Send test checks the secret, not the switch, so it still reaches a
+switched-off channel that has one.
 
 ## Planned
 

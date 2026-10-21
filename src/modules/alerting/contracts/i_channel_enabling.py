@@ -9,6 +9,11 @@ A disabled channel keeps its secret and its lane: the hub and the router skip it
 `IAlertingStatus` counts it as not carrying alerts. Switching it on again needs nothing but this
 call.
 
+The switch belongs to the channel id, not to its secret: removing a channel's webhook or bot does
+not clear it, so a channel set up again later is still switched off, and its line on the page says
+so (`channels_words.SWITCHED_OFF`). Send test checks the secret, not the switch, so it still
+reaches a switched-off channel that has one.
+
 @par Extension cases
   · a reason or a "until" time for a pause is one more field beside the id in the file and one
     more argument here;

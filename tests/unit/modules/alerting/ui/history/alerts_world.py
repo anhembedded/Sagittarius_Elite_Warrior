@@ -109,7 +109,7 @@ def build_screen(
     rig = build_rig(tmp_path, channel_ids)
     threads = InlineThreads()
     the_history = history or OutboxAlertHistory(
-        rig.outbox, RegisteredChannelCatalog(rig.channels)
+        rig.outbox, RegisteredChannelCatalog(rig.channels), rig.settings
     )
     ports: dict[type, Any] = {
         IAlertHistory: the_history,

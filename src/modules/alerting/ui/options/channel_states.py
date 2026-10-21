@@ -5,13 +5,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.channels_setup import (
+    ChannelsSetup,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordChannelState,
+    DiscordWebhookSetup,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credentials_setup import (
     TelegramChannelState,
+    TelegramCredentialsSetup,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
+    alerts_words,
+    channels_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view_model import (
     AlertsSettingsViewModel,
 )
@@ -21,6 +29,29 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_v
 class ChannelStates:
     discord: DiscordChannelState
     telegram: TelegramChannelState
+    #: The owner switched the channel off under Channels (`EPIC-036D8`).
+    discord_off: bool = False
+    telegram_off: bool = False
+
+
+def read_channel_states(
+    discord: DiscordWebhookSetup,
+    telegram: TelegramCredentialsSetup,
+    channels: ChannelsSetup,
+) -> ChannelStates:
+    """Reads the secrets' state and the switches together; reads the secret stores, so a caller
+    runs it off the UI thread."""
+    off = channels.state().disabled
+    return ChannelStates(
+        discord.state(),
+        telegram.state(),
+        discord.channel_id in off,
+        telegram.channel_id in off,
+    )
+
+
+def _said(line: str, switched_off: bool) -> str:
+    return channels_words.SWITCHED_OFF + line if switched_off else line
 
 
 def show_channel_states(
@@ -30,13 +61,13 @@ def show_channel_states(
     Send test can be used."""
     discord, telegram = states.discord, states.telegram
     view_model.set_channel(
-        alerts_words.channel_line(discord),
+        _said(alerts_words.channel_line(discord), states.discord_off),
         alerts_words.saved_line(discord),
         can_remove=discord.stored,
         can_test=discord.usable or telegram.usable,
     )
     view_model.telegram.set_channel(
-        alerts_words.telegram_channel_line(telegram),
+        _said(alerts_words.telegram_channel_line(telegram), states.telegram_off),
         alerts_words.telegram_saved_line(telegram),
         can_remove=telegram.stored,
     )

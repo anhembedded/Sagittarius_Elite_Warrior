@@ -21,6 +21,8 @@ READ_ONLY_NOTE = (
     "This copy of the app is read-only, so the channels cannot be switched here. "
     "Use the copy that is running the bots."
 )
+#: Said before a channel's own line while it is switched off, so the two never contradict.
+SWITCHED_OFF = "Switched off under Channels, so nothing is sent here. "
 WORKING = "Saving the channel switch…"
 DOING = "saving the channel switch"
 

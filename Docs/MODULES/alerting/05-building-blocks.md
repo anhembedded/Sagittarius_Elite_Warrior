@@ -59,7 +59,9 @@ Five pictures, drawn by hand at a high level, one question each:
   `JsonAlertSettings` (`disable`, `enable`, `disabled`); only a channel the catalog has can be
   switched. The hub and the router read the result as `AlertSettings.disabled_channels`: a disabled
   channel keeps its secret and its lane, gets no delivery even for a Critical, and
-  `ChannelAlertingStatus` counts it as not carrying alerts. The file key is `disabled_channels`
+  `ChannelAlertingStatus` counts it as not carrying alerts. The status bar and the Alerts mode see it as `ChannelHealth.enabled`
+  (`alerting/contracts/alert_history_report.py` → `ChannelHealth`). The switch belongs to the channel
+  id: removing a secret does not clear it. The file key is `disabled_channels`
   (`alerting/adapters/settings_document.py` → `SettingsDocument`). The page group is `ChannelsGroup`
   (`alerting/ui/options/channels_group.py` → `ChannelsGroup`) over `ChannelsViewModel`; the kinds of
   action the page runs are `alerts_action_kind.py` → `AlertsActionKind`, split from the presenter at

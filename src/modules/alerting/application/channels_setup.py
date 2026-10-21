@@ -5,7 +5,8 @@ change applies to the next alert. Only a channel this run has can be switched: a
 channel that is not running reaches nothing and would only look saved.
 
 Switching every channel off is allowed and is the owner's word: `IAlertingStatus` then says no
-channel carries alerts, and the status bar says so. The router's cover for a Critical (N8) chooses
+channel carries alerts, the status bar says `Alerts: all channels off` (`ChannelHealth.enabled`,
+`history_words.indicator_text`), and the Options page says so in its Channels note. The router's cover for a Critical (N8) chooses
 among the enabled channels, so it never sends to one the owner switched off.
 """
 
