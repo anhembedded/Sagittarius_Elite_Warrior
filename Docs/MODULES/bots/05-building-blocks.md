@@ -277,6 +277,8 @@ What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery
 `bots/contracts/i_user_stream_status.py` → `IUserStreamStatus`, kept by
 `bots/application/services/watches/user_stream_status.py` → `UserStreamStatus`.
 
+**A Grid that waits for its range** (`EPIC-044B`): the state is `AWAITING_RANGE`; `bots/application/kinds/grid/watch/grid_range_entry.py` → `GridRangeEntry` decides on every price the exits are judged on (`waits_for_the_range` for the first Start, `on_price` while it waits), `GridPriceReaction` hands it the price and arms the range-exit close's one skipped beat, and the contract `bots/contracts/i_entry_readiness.py` → `IEntryReadiness` is what it asks of the Bots screen's readiness at the price that enters (`bots/application/services/readiness/bot_entry_readiness.py` → `BotEntryReadiness`, resolved lazily in `bots/composition/executor_bindings.py` because the readiness reader needs the kind catalogue these deps build). `bots/domain/bot_lifecycle_fsm_matrix.py` → `may_hold_exposure` is what the exposure watches ask instead of naming states.
+
 The exchange's pause is the third reason the probe knows (`EPIC-042F`): the Grid's layer declares
 `rate_limited` (`bots/domain/grid/grid_kind.py` → `GRID_RECOVERY_LAYER`, with the shared rule
 `bots/domain/halt_recovery_policy.py` → `PAUSE_RULE`), and *clear* is `bots/application/kinds/grid/watch/grid_rate_limit_pause.py`

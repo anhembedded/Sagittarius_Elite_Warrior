@@ -29,6 +29,55 @@ places the ladder (`.../grid_executor.py` → `GridExecutor._run_start`; `.../gr
 `GridStartSequence.run`), and `ladder_ready` moves the bot to `RUNNING`. The order-session opening and
 the budget registration are calls to `trading` the caller waits on.
 
+## Built: a Grid started away from its range waits (EPIC-044B)
+
+*What does a Grid do when it is started with the price outside its range, and what lays its
+ladder?* The owner's rule of 2026-10-21: it starts, places nothing and holds nothing, and lays its
+ladder as a normal start would once the price is inside; for every direction, on Spot and Futures.
+
+```mermaid
+sequenceDiagram
+    participant Runner as BotRunner
+    participant Exec as GridExecutor (worker)
+    participant Entry as GridRangeEntry
+    participant Price as GridPriceReaction
+    participant Venue as Exchange
+    Runner->>Exec: start (lease, session, budget held; STARTING saved)
+    Exec->>Entry: waits_for_the_range(price)
+    Note over Entry: price outside: price_outside_range, nothing sent
+    Entry-->>Exec: AWAITING_RANGE
+    loop each price the exits are judged on (Spot last trade, Futures mark)
+        Price->>Entry: on_price(price)
+        Note over Entry: outside: nothing. Inside: at most one book read per 5 s
+    end
+    Entry->>Venue: read the book price fresh
+    Entry->>Entry: symbol trades, budget registers, sizing clears the minimum and the cap, readiness
+    Entry->>Exec: range_entered (STARTING), then GridStartSequence.run at that price
+    Exec->>Venue: opening trade and ladder, exactly as a normal start
+```
+
+The wait is `AWAITING_RANGE` (`bots/domain/bot_lifecycle_fsm_matrix.py` → `BotLifecycleState`). The
+first Start decides in `bots/application/kinds/grid/grid_executor.py` → `GridExecutor._run_start`,
+which asks `bots/application/kinds/grid/watch/grid_range_entry.py` → `GridRangeEntry.waits_for_the_range`. While it waits, every price the exits are judged on reaches
+`GridRangeEntry.on_price` through `GridPriceReaction` (the streamed last price on Spot, the mark on a
+position venue); a price inside the range (`range_position`, bounds included) starts one attempt, at
+most one per `ENTRY_READ_EVERY_SECONDS` (30 s after a deferral). The attempt confirms the trigger with
+the book price read fresh, then runs the entry pre-checks **before** any transition: the symbol's
+status (`SymbolStatusGate.read`), the owner budget registered again, the ladder's sizing against the
+exchange minimum and trading's cap, and the readiness the Bots screen shows (`IEntryReadiness`,
+`BotEntryReadiness`: the balance and the plan's verdicts at this price). A refusal of the plan halts the
+bot with `ENTRY_REFUSED`; a cause that passes (trading off, the symbol not in TRADING, a rate limit, a
+price that cannot be read, the venue not readable) keeps it waiting and is told once. Only then
+`range_entered` takes the bot to `STARTING` and `GridStartSequence.run` lays the ladder; whatever that
+sequence meets follows `STARTING`'s rows and its own reasons. A price that flickers across a bound
+writes no journal row and no log line per beat.
+
+Stop loss, take profit, the range-exit close, the stale-feed halt, the rate-limit halt and the
+protective-stop supervision do nothing while the bot waits (`BotRunState.may_hold_exposure`); after an
+entry the range-exit close skips exactly one mark beat so a mark on a bound cannot open and close the
+position in two beats (`GridPriceReaction`). A Resume of a bot that holds nothing, with the price
+outside the range, waits instead of laying a ladder (`GridResumeSequence.propose`).
+
 ## Built: several bots on one venue
 
 *Which resources do the bots of one venue share, and what stops them using them all?* (`EPIC-029J1b`;
@@ -223,7 +272,10 @@ restarts?*
 
 `BotRestoreService` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) applies
 `app_restart` to every saved bot: `RUNNING` and `PAUSED` become `RECOVERING`, `STARTING` becomes
-`HALTED`, and nothing is placed. A tripped account-level loss cap is read back from its record and still holds every start and resume
+`HALTED`, and nothing is placed. A waiting `AWAITING_RANGE` bot becomes `RECOVERING` as well, and its
+reconcile (which, for a bot that placed nothing, finds nothing, claims the lease and registers the budget
+again) returns it to waiting; until then no watch that protects exposure runs for it, and on Futures the
+reconcile does not judge the venue's leverage and margin type, which entry makes the bot's. A tripped account-level loss cap is read back from its record and still holds every start and resume
 (`bots/composition/loss_cap_bindings.py` → `bind_loss_cap`); a record this build cannot read starts the
 cap tripped (`LossCapTripReason.RECORD_UNREADABLE`). `BotBootRecovery` (`.../bot_boot_recovery.py` →
 `BotBootRecovery.run`) has every `RECOVERING` bot report what the exchange holds, read only, and pays

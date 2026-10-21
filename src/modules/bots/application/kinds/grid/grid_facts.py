@@ -127,9 +127,10 @@ _E = BotLifecycleEvent
 
 #: The states an Emergency Stop or a switch-off moves to HALTED (`switch_off` is declared in
 #: each). A bot waiting in AWAITING_RECOVERY is one: trading off ends the wait before any
-#: automatic attempt (ADR 042 §2.4).
+#: automatic attempt (ADR 042 §2.4); so is a bot waiting for its range, which must not survive an
+#: Emergency Stop and open its whole capital on the next in-range price (`EPIC-044`, ADR 044 D8).
 _SWITCHED_OFF_FROM: frozenset[BotLifecycleState] = frozenset(
-    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.AWAITING_RECOVERY}
+    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.AWAITING_RECOVERY, _S.AWAITING_RANGE}
 )
 
 _SWITCH_OFF_DETAIL = {

@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stopper import (
     GridStopper,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_range_entry import (
+    GridRangeEntry,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_range_watch import (
     GridRangeWatch,
 )
@@ -51,7 +54,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
     TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
-    PRICE_STALENESS_HALTS,
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
@@ -92,13 +94,23 @@ class GridPriceReaction:
     """Remembers the last price and reacts to a tick and to a quiet feed."""
 
     def __init__(
-        self, context: GridRunContext, stopper: GridStopper, *, exits_on_mark: bool
+        self,
+        context: GridRunContext,
+        stopper: GridStopper,
+        entry: GridRangeEntry,
+        *,
+        exits_on_mark: bool,
     ) -> None:
-        """@param exits_on_mark A position venue's stop loss and take profit are judged on the
+        """@param entry Lays the ladder of a bot waiting for its range when the price enters it
+        (`EPIC-044`); it is handed the price the exits are judged on.
+        @param exits_on_mark A position venue's stop loss and take profit are judged on the
         mark (`on_mark`); the streamed last price then only keeps the price and its age."""
         self._context = context
         self._stopper = stopper
+        self._entry = entry
         self._exits_on_mark = exits_on_mark
+        #: Mark beats the range-exit close still skips: one, armed by an entry (ADR 044 D7).
+        self._range_exit_skips = 0
         self._extremes = GridTickExtremes()
         self._mark_saved_at: float | None = None
         state = context.state
@@ -112,7 +124,9 @@ class GridPriceReaction:
     def on_tick(self, tick: PriceTick) -> None:
         self._context.reference_price.note_tick(tick.last)
         self._context.price_age.note_tick()
-        if self._context.state.state not in _WATCHES_EXITS:
+        if not self._exits_on_mark:
+            self._enter_if_waiting(tick.last)
+        if not self._exits_watched():
             self._extremes.reset()
             self._range.reset()
             return
@@ -122,17 +136,39 @@ class GridPriceReaction:
         if not self._exits_on_mark:
             self._exit_if_crossed(tick, low, high, "price")
 
+    def _exits_watched(self) -> bool:
+        """The exits are watched while the bot may hold an order or a position (ADR 044 D7)."""
+        state = self._context.state
+        return state.state in _WATCHES_EXITS and state.may_hold_exposure
+
+    def _enter_if_waiting(self, price: Decimal) -> bool:
+        """Hand the price to the entry of a bot waiting for its range; answers whether the bot
+        left the wait on it. An entry that went on to lay the ladder arms the range-exit close's
+        one skipped beat (ADR 044 D7)."""
+        if self._context.state.state is not BotLifecycleState.AWAITING_RANGE:
+            return False
+        self._entry.on_price(price)
+        if self._context.state.state is BotLifecycleState.AWAITING_RANGE:
+            return False
+        self._range_exit_skips = 1
+        return True
+
     def on_mark(self, tick: PriceTick) -> None:
         """The mark price of a position venue's symbol: the price its exits are judged on."""
-        if self._context.state.state not in _WATCHES_EXITS:
+        if self._enter_if_waiting(tick.last):
+            return
+        if not self._exits_watched():
             return
         self._exit_if_crossed(tick, tick.low, tick.high, "mark price")
-        if self._context.state.state in _WATCHES_EXITS:
+        if self._exits_watched():
             self._close_if_out_of_range(tick.last)
 
     def _close_if_out_of_range(self, mark: Decimal) -> None:
         params = self._context.params
         if params.on_range_exit is not RangeExit.CLOSE:
+            return
+        if self._range_exit_skips > 0:
+            self._range_exit_skips -= 1
             return
         if params.lower <= mark <= params.upper:
             return
@@ -194,7 +230,7 @@ class GridPriceReaction:
     def check_age(self) -> None:
         state = self._context.state
         age = self._context.price_age
-        if state.state not in PRICE_STALENESS_HALTS:
+        if not state.exposure_watched:
             age.arm()
         elif (detail := age.stale_detail()) is not None:
             age.arm()

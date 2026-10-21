@@ -100,6 +100,8 @@ SILENT = ReasonRoute(Disposition.SILENT)
 #: A halt or an error whose cause the owner reads in the bot's own `Reason:` line.
 _GENERIC_REASONS = (
     "start_refused",
+    # The price entered a waiting bot's range and the plan was refused (`EPIC-044`, ADR 044 D5).
+    "entry_refused",
     "level_keeps_ending",
     "order_rejected",
     "order_refused",

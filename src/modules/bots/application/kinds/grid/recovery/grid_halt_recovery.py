@@ -183,7 +183,7 @@ class GridHaltRecovery:
         self._clear_since = None
         price = self._fresh_price()
         if price is not None and not self._exit_crossed(price):
-            proposal = self._resume.propose(price)
+            proposal = self._resume.propose(price, BotLifecycleEvent.CONDITION_CLEARED)
             if proposal is not None:
                 self._resume.confirm(proposal, BotLifecycleEvent.CONDITION_CLEARED)
         self._after(code, rule, used)

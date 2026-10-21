@@ -208,7 +208,7 @@ def test_the_report_says_which_bots_a_restart_makes_recovering_from_the_lifecycl
     assert entry.payload()["recovers_on_restart"] is restarts
 
 
-def test_a_running_a_paused_and_a_recovering_bot_are_the_ones_a_restart_recovers() -> (
+def test_a_running_a_paused_a_waiting_and_a_recovering_bot_are_the_ones_a_restart_recovers() -> (
     None
 ):
     """Pins the table's current answer, so a change to the restart rule is seen here too."""
@@ -222,7 +222,7 @@ def test_a_running_a_paused_and_a_recovering_bot_are_the_ones_a_restart_recovers
         if entry.recovers_on_restart
     }
 
-    assert recovers == {"RUNNING", "PAUSED", "RECOVERING"}
+    assert recovers == {"RUNNING", "PAUSED", "RECOVERING", "AWAITING_RANGE"}
 
 
 def test_the_at_rest_states_are_the_lifecycles() -> None:

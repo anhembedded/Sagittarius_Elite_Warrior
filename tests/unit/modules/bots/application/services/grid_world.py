@@ -51,6 +51,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
+    IEntryReadiness,
+    NoEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
 )
@@ -279,6 +283,8 @@ def grid_world(
     step: Decimal = STEP,
     last_price: Decimal = LAST_PRICE,
     user_streams: IUserStreamStatus | None = None,
+    venue: TradingVenue = VENUE,
+    entry_readiness: IEntryReadiness | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -296,7 +302,7 @@ def grid_world(
     derive_inventory_from(book, session)
     snapshot = FakeAccountSnapshot()
     ports = fake_venue_ports(
-        VENUE,
+        venue,
         trading_session=session,
         account_snapshot=snapshot,
         order_submission=SimulatedSubmission(book),
@@ -307,7 +313,7 @@ def grid_world(
     store = FakeBotStore()
     clock = FakeBotClock()
     definition = BotDefinition(
-        "grid one", "grid", VENUE, SYMBOL, dict(config or CONFIG)
+        "grid one", "grid", venue, SYMBOL, dict(config or CONFIG)
     )
     lifecycle = BotLifecycle(state, RUN_STARTED, recovering_from)
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
@@ -333,6 +339,7 @@ def grid_world(
             risk_watch=risk_watch,
             exposures=exposures or spot_only_exposures(),
             user_streams=user_streams or FakeUserStreamStatus(connected=True),
+            entry_readiness=entry_readiness or NoEntryReadiness(),
         )
     )
     executor = factory.create(bot)

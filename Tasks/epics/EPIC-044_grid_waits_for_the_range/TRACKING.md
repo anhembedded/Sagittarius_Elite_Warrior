@@ -1,7 +1,7 @@
 # EPIC-044 — Tracking
 
 - **Epic:** [EPIC-044](README.md)
-- **Status:** 🟡 In Progress
+- **Status:** 🟡 In Progress (phase 2)
 - **Target Completion:** 2026-10-28
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -34,8 +34,8 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-044A | [Decision record](incomplete/EPIC-044A_the_decision_record.md) | `claude/epic-044-grid-waits-for-the-range` | 🟢 | 🟡 Active | 2026-10-22 |
-| EPIC-044B | [State and entry](incomplete/EPIC-044B_the_state_and_the_entry.md) | — | 🔴 | 🔵 Planned | 2026-10-25 |
+| EPIC-044A | [Decision record](completed/EPIC-044A_the_decision_record.md) | `claude/epic-044-grid-waits-for-the-range` | 🟢 | ✅ Merged (#679) | 2026-10-21 |
+| EPIC-044B | [State and entry](incomplete/EPIC-044B_the_state_and_the_entry.md) | `claude/epic-044b-awaiting-range` | 🔴 | 🟡 Active | 2026-10-25 |
 | EPIC-044C | [Surfaces](incomplete/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | — | 🟡 | 🔵 Planned | 2026-10-27 |
 | EPIC-044D | [Backtest](incomplete/EPIC-044D_the_backtest_waits_the_same_way.md) | — | 🟡 | 🔵 Planned | 2026-10-27 |
 
@@ -46,6 +46,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-21 | Spec | Epic scaffolded; the ADR written from the owner's rule and a probe of master. |
+| 2026-10-21 | 044A | The ADR passed review in three rounds; D2–D12 accepted. |
 
 ---
 
@@ -53,7 +54,7 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| Reviewer's read of the ADR | 044B | Reviewer session, then the coordinator | 🟡 Open |
+| Reviewer's read of the ADR | 044B | Reviewer PASS round 3; the coordinator accepted D2–D12 | ✅ Resolved |
 | Owner questions O1–O3 (ADR §4) | 044B, 044D | Answered as recommended, 2026-10-21 | ✅ Resolved |
 | Bug: Futures `bot resume` after a host restart refused "unexpected open positions" | 044B (Futures restart test) | Separate bug session | 🟡 Open |
 | `#677`, `#678`, `#674` merge | 044C | The coordinator sequences | 🟡 Open |

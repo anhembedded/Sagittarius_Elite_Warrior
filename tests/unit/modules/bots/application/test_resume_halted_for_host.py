@@ -352,3 +352,20 @@ def test_a_bot_that_recovered_by_itself_first_is_not_reported_as_still_halted() 
 
     assert outcome.resumed and outcome.was == "AWAITING_RECOVERY"
     assert "recovered by itself first" in outcome.note
+
+
+def test_a_flat_bot_that_went_back_to_waiting_for_its_range_is_reported_as_resumed() -> (
+    None
+):
+    """`EPIC-044`: the Resume of a bot that holds nothing, with the price outside its range,
+    leaves it waiting (no proposal to confirm) and armed to lay its ladder on entry; the host must
+    not tell the operator it stayed down."""
+    world = _World()
+    world.bot("aaaaaa", S.HALTED, TESTNET)
+    world.screen.refuse_confirm["aaaaaa"] = "Resume is not declared in AWAITING_RANGE"
+    world.screen.on_confirm = lambda: world.bot("aaaaaa", S.AWAITING_RANGE, TESTNET)
+
+    (outcome,) = world.resume()
+
+    assert outcome.resumed and outcome.was == "HALTED"
+    assert "waits for the price to enter its range" in outcome.note

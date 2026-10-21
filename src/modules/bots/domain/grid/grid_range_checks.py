@@ -1,24 +1,20 @@
-"""`EPIC-035L` (audit H7), owner decision D4 (a) — Start with the price outside the range.
+"""`EPIC-035L` (audit H7), superseded by `EPIC-044`, ADR 044 D6 - the price outside the range, told.
 
-  · `PRICE_BELOW_RANGE` (refusal) — below the lower bound every level is a SELL
-    level, so the plan market-buys the base of the whole ladder before it lays
-    one order, at a price under the range the user designed for;
-  · `PRICE_ABOVE_RANGE` (warning) — above the upper bound every level is a BUY
-    level: nothing is bought, no money is at risk, and the bot waits for a fall.
+A Grid started while the price is outside its range starts and waits: it places nothing until the
+price is inside, then lays its ladder as a normal start would (the owner's decision of 2026-10-21).
+So `PRICE_BELOW_RANGE` and `PRICE_ABOVE_RANGE` no longer refuse or warn: they say, for every
+direction alike, that the bot will wait and for what. The words were once the LONG ladder's
+(`would buy ... at market`, `BUY orders only`) and were false for a SHORT, whose opening trade is
+the mirror; they now describe no trade at all.
 
-The bounds are the user's own: the plan sides a level by its raw price against
-the last price (`grid_plan.py`), so these bounds are exactly where the plan
-changes shape. D2 holds: nothing here mentions a stop loss.
+The price judged is the market's own (`inputs.market`): the plan the other checks read is made at
+the nearest bound (`evaluate_grid`), which is where the bot will enter, so `plan.last_price` is not
+where the price is. D2 holds: nothing here mentions a stop loss.
 """
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
-    figures_of,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
@@ -31,47 +27,29 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     VerdictSeverity,
 )
 
-_PERCENT = Decimal(100)
+_CODES = {
+    RangePosition.BELOW: "PRICE_BELOW_RANGE",
+    RangePosition.ABOVE: "PRICE_ABOVE_RANGE",
+}
 
 
 def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
-    params, plan = inputs.params, inputs.plan
-    last = plan.last_price
-    figures = figures_of(inputs)
-    opening_quote = plan.opening_buy_quantity * last
-    numbers = {
-        "last_price": last,
-        "lower": params.lower,
-        "upper": params.upper,
-        "opening_quote": opening_quote,
-    }
-    match range_position(last, params.lower, params.upper):
-        case RangePosition.BELOW:
-            share = opening_quote / params.capital_quote * _PERCENT
-            return Verdict(
-                VerdictSeverity.REFUSED,
-                "PRICE_BELOW_RANGE",
-                f"The price {plain(last)} is below the range's lower bound "
-                f"{plain(params.lower)}. Starting now would buy about "
-                f"{figures.money(opening_quote)} of {figures.base} at market, "
-                f"{share:.0f}% of the capital. Lower the range to include the price, "
-                "or wait for it to return",
-                numbers,
-            )
-        case RangePosition.ABOVE:
-            return Verdict(
-                VerdictSeverity.WARNING,
-                "PRICE_ABOVE_RANGE",
-                f"The price {plain(last)} is above the range's upper bound "
-                f"{plain(params.upper)}. "
-                "The bot starts with nothing bought and places BUY orders only; it "
-                "trades once the price falls into the range",
-                numbers,
-            )
-        case RangePosition.INSIDE:
-            return Verdict(
-                VerdictSeverity.OK,
-                "PRICE_IN_RANGE",
-                "The price is inside the range",
-                numbers,
-            )
+    params = inputs.params
+    price = inputs.market.last_price
+    position = range_position(price, params.lower, params.upper)
+    numbers = {"last_price": price, "lower": params.lower, "upper": params.upper}
+    if position is RangePosition.INSIDE:
+        return Verdict(
+            VerdictSeverity.OK,
+            "PRICE_IN_RANGE",
+            "The price is inside the range",
+            numbers,
+        )
+    edge = params.lower if position is RangePosition.BELOW else params.upper
+    return Verdict(
+        VerdictSeverity.OK,
+        _CODES[position],
+        f"Starts waiting for the price to enter {plain(params.lower)}-"
+        f"{plain(params.upper)} (now {plain(price)}); nothing is placed until it does",
+        {**numbers, "entry_edge": edge},
+    )

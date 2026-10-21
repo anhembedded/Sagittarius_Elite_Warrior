@@ -125,7 +125,7 @@ class ProtectiveStopService(IExposureProtection):
 
     def supervise(self) -> ProtectionVerdict:
         state = self._context.state
-        if state.state not in _SUPERVISED or not wanted_stops(self._context.params):
+        if not state.holds_in(_SUPERVISED) or not wanted_stops(self._context.params):
             return ProtectionVerdict.OK
         position = self._context.gateway.account_reads.watched_position()
         if position is None:

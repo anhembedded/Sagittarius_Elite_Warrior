@@ -128,7 +128,7 @@ def test_a_figure_not_known_or_zero_has_no_verdict():
 
 
 def test_every_lifecycle_state_has_a_tone_and_only_the_quiet_ones_none():
-    quiet = {S.DRAFT, S.STARTING, S.STOPPING, S.STOPPED}
+    quiet = {S.DRAFT, S.STARTING, S.AWAITING_RANGE, S.STOPPING, S.STOPPED}
     assert {s for s in S if state_tone(s) is Tone.NEUTRAL} == quiet
 
 

@@ -30,9 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_orde
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
-    PRICE_STALENESS_HALTS,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -59,7 +56,7 @@ class GridKeyProbe:
         """One beat: probe when the interval has passed and the bot holds orders."""
         state = self._context.state
         now = self._context.monotonic.seconds()
-        if state.state not in PRICE_STALENESS_HALTS:
+        if not state.exposure_watched:
             self._next_at = now + KEY_PROBE_EVERY_SECONDS
             return
         if now < self._next_at:

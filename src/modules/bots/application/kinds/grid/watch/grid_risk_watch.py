@@ -55,7 +55,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import (
     RiskState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
-    PRICE_STALENESS_HALTS,
     RUN_STARTING_STATES,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -154,7 +153,7 @@ class GridRiskWatch:
         `MAX_RECHECK_DELAYS` delays after the first, instead of adding a re-read and a line to
         the log for each. The re-read is the only thing here that costs weight: it registers the
         budget again."""
-        if self._context.state.state not in PRICE_STALENESS_HALTS:
+        if not self._context.state.exposure_watched:
             delay = self._parts.thresholds.position_recheck_delay.total_seconds()
             first_due = None if self._unconfirmed is None else self._unconfirmed[1]
             self._unconfirmed = (
@@ -189,7 +188,7 @@ class GridRiskWatch:
 
     def check(self) -> None:
         """One beat: confirm a pending divergence, then judge the liquidation distance."""
-        if self._context.state.state not in PRICE_STALENESS_HALTS:
+        if not self._context.state.exposure_watched:
             self._level = RiskLevel.SAFE
             if self._pending is not None and self._unconfirmed is None:
                 self._unconfirmed = (self._pending.divergence, self._pending.due_at)
@@ -199,7 +198,7 @@ class GridRiskWatch:
             return
         self._unconfirmed = None
         self._confirm_divergence()
-        if self._context.state.state in PRICE_STALENESS_HALTS:
+        if self._context.state.exposure_watched:
             self._judge_distance()
 
     # --- the divergence ---

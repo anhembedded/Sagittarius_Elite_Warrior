@@ -83,6 +83,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
+    IEntryReadiness,
+    NoEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
 )
@@ -176,6 +180,8 @@ class GridExecutorDeps:
     #: The shared reading of each symbol's mark price, which the exit watch and the risk watch of
     #: a bot take instead of one read each (`BOT-221`). `None`: each reads for itself.
     marks: SharedMarkReads | None = None
+    #: What a Grid waiting for its range asks at the price that enters it (`EPIC-044`).
+    entry_readiness: IEntryReadiness = field(default_factory=NoEntryReadiness)
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -235,6 +241,7 @@ class GridExecutorFactory(IBotExecutorFactory):
             limits=exposure_limits_of(bot.definition.venue, GRID_MARKETS),
             halts=halts,
             streams=deps.user_streams,
+            entry_readiness=deps.entry_readiness,
             settings_check=partial(
                 deps.settings_gate.verify,
                 GateRequest(
