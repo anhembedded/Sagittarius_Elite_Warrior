@@ -201,13 +201,6 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
             assert not QImage(str(path)).isNull()
             assert not is_blank(host.centralWidget().grab().toImage()), tab
             checks = {name: MODE_CHECKS[name](window, host) for name in _MEASURED}
-            if tab == "live":
-                # The Ladder is tabbed behind Orders: it is measured with its tab in front.
-                presenter.view.show_ladder()
-                _settle()
-                checks["columns_shown_whole"] += MODE_CHECKS["columns_shown_whole"](
-                    window, host
-                )
             checks["fits_the_window"] = fit_problems(window, host, size)
             view = presenter.view
             plan = view.plan if tab == "live" else view.shown_backtest_page()
@@ -215,6 +208,15 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
             # The Plan is the Live tab's own: the Backtest tab shows none of it (`BOT-218`).
             assert view.plan.isVisibleTo(view.centre) == (tab == "live")
             checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, plan)
+            if tab == "live":
+                # The Ladder is tabbed behind Orders: it is measured with its tab in front, after
+                # the checks of the layout as the person first sees it (raising it relayouts the
+                # bottom panels, and the Plan's labels with them).
+                presenter.view.show_ladder()
+                _settle()
+                checks["columns_shown_whole"] += MODE_CHECKS["columns_shown_whole"](
+                    window, host
+                )
             report[f"{BOTS_ROUTE}~{tab}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)
