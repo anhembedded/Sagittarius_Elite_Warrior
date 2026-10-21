@@ -14,7 +14,15 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QSize
-from PySide6.QtWidgets import QApplication, QCheckBox, QGroupBox, QLineEdit
+from PySide6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QGroupBox,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
 )
@@ -56,8 +64,26 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
         assert image.save(str(out_dir / name))
 
         assert not is_blank(image)
+        _controls_keep_their_size_hint(view)
+        whole = view.findChild(QScrollArea, "scrAlertsPage").widget().grab().toImage()
+        assert whole.save(
+            str(
+                out_dir
+                / screenshot_name("alerts_options_whole", QSize(*width_height), scheme)
+            )
+        )
         titles = {box.title() for box in view.findChildren(QGroupBox)}
-        assert {"Discord", "Telegram", "Bots", "Quiet hours"} <= titles
+        assert {
+            "Discord",
+            "Telegram",
+            "Bots",
+            "Quiet hours",
+            "Who hears what",
+        } <= titles
+        routing = view.findChild(QGroupBox, "grpRouting")
+        assert routing is not None and routing.isVisible()
+        cells = routing.findChildren(QComboBox)
+        assert len(cells) == 8 and all(box.isVisible() for box in cells)
         quiet = view.findChild(QGroupBox, "grpQuietHours")
         assert quiet is not None and quiet.isVisible()
         assert quiet.findChild(QCheckBox, "chkQuietHours").isChecked()
@@ -65,3 +91,10 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
         assert token is not None and token.echoMode() is QLineEdit.EchoMode.Password
     finally:
         restore_scheme(app)
+
+
+def _controls_keep_their_size_hint(view: AlertsSettingsView) -> None:
+    """The page scrolls rather than shrinks its controls (review of PR #670: at 1024x700 the
+    combos were cut to a sliver). A combo or a button drawn lower than its size hint is clipped."""
+    for control in (*view.findChildren(QComboBox), *view.findChildren(QPushButton)):
+        assert control.height() >= control.sizeHint().height(), control.objectName()

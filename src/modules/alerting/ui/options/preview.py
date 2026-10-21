@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
     QuietHoursState,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.routing_setup import (
+    RoutingState,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
     ChannelTestOutcome,
 )
@@ -26,6 +29,8 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credent
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
     DeliveryResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
@@ -65,6 +70,17 @@ def build_preview() -> QWidget:
             start=time(22, 0),
             end=time(7, 0),
             zone_key="Europe/Berlin",
+            editable=True,
+        )
+    )
+    view_model.routing.take_state(
+        RoutingState(
+            channels=("discord", "telegram"),
+            chosen={
+                (AlertGroup.BOT_EVENTS, "telegram"): Loudness.LOUD,
+                (AlertGroup.NOTICES, "telegram"): Loudness.SILENT,
+                (AlertGroup.ROUTINE, "discord"): Loudness.OFF,
+            },
             editable=True,
         )
     )

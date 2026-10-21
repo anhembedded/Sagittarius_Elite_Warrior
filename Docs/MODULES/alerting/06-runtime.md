@@ -121,7 +121,7 @@ restart is a task of its own if the owner wants it (`EPIC-036D`).
 
 **No URL anywhere.** An unexpected exception raised under a save or a test can quote the webhook, so
 the page shows and logs the exception's type name only (`alerts_settings_presenter.py` →
-`AlertsSettingsPresenter._work_on_pool`, `AlertsSettingsPresenter._tell_failed`);
+`AlertsSettingsPresenter._work_on_pool`; `action_results.py` → `ActionResults.failed`);
 `test_alerts_page_never_shows_the_url.py` locks the logs, the notice and the labels on every path.
 
 ## Built: the dead man's switch, a ping while the worker is alive
@@ -300,6 +300,11 @@ channel's pace. A read-only copy of the app has the button off: it must not writ
 `JsonAlertSettings` writes a file; the state shown is read from memory (the file is loaded at start).
 A change reaches the hub's next alert without a restart (`IAlertSettingsSource.current` is read for
 every alert).
+
+**The routing matrix** (`EPIC-036D7`) is one more action of the same presenter (`_Kind.ROUTE`): a
+choice in a cell runs `RoutingSetup.set_cell` on the pool through the page's tracker and relay,
+because `JsonAlertSettings` writes a file, and the answer re-reads the cells from memory. The hub reads
+`AlertSettings.routes` for every alert, so a choice reaches the next alert without a restart.
 
 ## Planned
 

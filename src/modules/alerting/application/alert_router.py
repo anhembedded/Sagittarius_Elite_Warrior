@@ -46,6 +46,10 @@ class AlertRouter:
         - **N8:** a CRITICAL that fewer than two channels would hear is lifted to
           two, loud, from the enabled channels whose cell was off. The matrix
           cannot remove the cover for a push that never arrives.
+        - **Loud (owner question of `EPIC-036D7`, taken on the recommendation):** a
+          CRITICAL always has at least one loud delivery. A matrix that makes every
+          cell Silent would otherwise let a halt arrive without a sound on every
+          channel, which is the same failure N8 covers.
         """
         if not self._bot_allows(alert, settings):
             return ()
@@ -68,6 +72,12 @@ class AlertRouter:
                     break
                 if channel_id not in taken:
                     chosen.append(DeliveryTarget(channel_id, Loudness.LOUD))
+        if (
+            alert.severity is Severity.CRITICAL
+            and chosen
+            and all(target.loudness is not Loudness.LOUD for target in chosen)
+        ):
+            chosen[0] = DeliveryTarget(chosen[0].channel_id, Loudness.LOUD)
         return tuple(chosen)
 
     @staticmethod
