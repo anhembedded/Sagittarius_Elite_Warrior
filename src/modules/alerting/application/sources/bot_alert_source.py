@@ -90,9 +90,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
-    AccountLossCapTrippedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
     BotAutoRecoveredEvent,
 )
@@ -114,6 +111,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_st
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    plain_price,
 )
 
 logger = logging.getLogger("App.Alerting")
@@ -140,8 +140,11 @@ CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
             AlertKind.STORAGE_FAILURE,
             AlertKind.PRICE_FEED_STALE,
         ),
-        # A halted bot resumed flat with the price outside its range waits, holding nothing:
-        # the halt is over (`EPIC-044B`).
+        # A halted bot resumed flat with the price outside its range waits, holding nothing: its
+        # halt, error and stalled-wait conditions are over (`EPIC-044B`). The conditions with a
+        # route of their own (a quiet feed, a storage failure, the exchange's pause, a rejected
+        # key) stay open until RUNNING: the wait places no order and reads no stream of its own,
+        # so it proves none of them mended (`EPIC-044C`, review round 1).
         "AWAITING_RANGE": (
             AlertKind.BOT_HALTED,
             AlertKind.BOT_ERROR,
@@ -211,34 +214,6 @@ class BotAlertSource:
         )
         self._publish(AlertKind.STOP_FAILED, subject, detail)
 
-    def on_account_loss_cap_tripped(self, event: AccountLossCapTrippedEvent) -> None:
-        """`EPIC-026L`: the account-level loss cap tripped; the owner must hear it at once.
-
-        About the whole host, not a bot, so its subject is the app. It has no recovery message: the
-        owner's acknowledgement is the end of it, and a cap that trips again is a new alert.
-        """
-        figure = f" (cap {event.figure})" if event.figure else ""
-        detail = (
-            f"The account-level loss cap tripped{figure}: {event.detail}.\n"
-            f"{event.bots_stopped} bot(s) are being stopped. No bot starts or resumes until you "
-            "acknowledge it with `main.py bot loss-cap-ack` on the running host. A Spot bot keeps "
-            "the coin it holds; a Futures bot's position is closed at market."
-        )
-        self._publisher.publish(
-            Alert.raised(
-                AlertKind.ACCOUNT_LOSS_CAP_TRIPPED,
-                AlertSubject.app(),
-                label_of(AlertKind.ACCOUNT_LOSS_CAP_TRIPPED),
-                detail,
-                self._clock.now(),
-                reason=event.reason,
-            )
-        )
-        logger.info(
-            "[alert-source] account loss cap tripped (%s): alert published",
-            event.reason,
-        )
-
     def on_recovery_stalled(self, event: BotRecoveryStalledEvent) -> None:
         """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""
         entry = self._entry(event.bot_id)
@@ -307,7 +282,8 @@ class BotAlertSource:
         ladder. Told once per entry; a bot that starts inside its range is not a wait that ended."""
         subject = subject_or_bare(self._entry(event.bot_id), event.bot_id)
         detail = (
-            f"The price {event.price} entered the range {event.lower}-{event.upper}. "
+            f"The price {plain_price(event.price)} entered the range "
+            f"{plain_price(event.lower)}-{plain_price(event.upper)}. "
             f"The bot laid {event.orders} order(s) and is running."
         )
         self._publish(AlertKind.BOT_RANGE_ENTERED, subject, detail)

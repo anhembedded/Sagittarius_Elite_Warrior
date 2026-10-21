@@ -74,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.alerting_health_
     SECTION_NAME,
     AlertingHealthContributor,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.account_alert_source import (
+    AccountAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
@@ -216,7 +219,10 @@ class AlertingModule(BoundedContextModule):
         bus.on(BotChangedEvent, source.on_bot_changed)
         bus.on(BotStopGaveUpEvent, source.on_stop_gave_up)
         bus.on(BotRecoveryStalledEvent, source.on_recovery_stalled)
-        bus.on(AccountLossCapTrippedEvent, source.on_account_loss_cap_tripped)
+        bus.on(
+            AccountLossCapTrippedEvent,
+            container.resolve(AccountAlertSource).on_account_loss_cap_tripped,
+        )
         bus.on(BotAutoRecoveredEvent, source.on_auto_recovered)
         bus.on(BotRangeChangedEvent, source.on_range_changed)
         bus.on(BotRangeEnteredEvent, source.on_range_entered)

@@ -92,7 +92,9 @@ def test_a_waiting_bot_is_counted_apart_and_listed_with_its_range_and_price() ->
 
     assert "1 AWAITING_RANGE, 1 RUNNING" in text
     line = next(row for row in text.splitlines() if row.startswith("- waiting-grid"))
-    assert "Waiting for the price to enter 100.0000–140.0000 (now 95.0000)" in line
+    assert (
+        "Waiting for the price to enter 100.0000–140.0000 (last price 95.0000)" in line
+    )
 
 
 def test_a_waiting_bot_that_heard_no_price_does_not_invent_one() -> None:
@@ -118,4 +120,4 @@ def test_the_service_sends_the_waiting_bots_line_in_the_heartbeat(
     service_of(rig, Bots(_waiting_entry())).tick()
 
     [text] = beats_of(rig)
-    assert "waiting-grid" in text and "(now 95.0000)" in text
+    assert "waiting-grid" in text and "(last price 95.0000)" in text

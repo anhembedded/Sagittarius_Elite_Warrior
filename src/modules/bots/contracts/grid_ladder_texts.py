@@ -199,12 +199,14 @@ def _exit(mark: PriceMark | None, price: PriceWriter) -> str:
 def waiting_text(position: PricePosition, price: PriceWriter) -> str:
     """What a bot in AWAITING_RANGE says: the range it waits for and the price it waits on
     (`EPIC-044C`). The Plan's banner and `bot show` say the same words."""
-    now = (
+    # The price with how long ago it was heard: a waiting bot watches no exit, so nothing halts it
+    # on a quiet feed, and a bare "now" could be hours old (`domain-truth-rule.md`).
+    heard = (
         "no price heard yet"
         if position.last_price is None
-        else f"now {price(position.last_price)}"
+        else f"last price {_last_price(position, price)}"
     )
     return (
         f"Waiting for the price to enter {price(position.lower.price)}–"
-        f"{price(position.upper.price)} ({now}); nothing is placed until it does"
+        f"{price(position.upper.price)} ({heard}); nothing is placed until it does"
     )

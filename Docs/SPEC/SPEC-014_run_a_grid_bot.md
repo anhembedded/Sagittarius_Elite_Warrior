@@ -107,7 +107,7 @@ sound, I start it, and I watch what it does."*
    (`PRICE_BELOW_RANGE`, `PRICE_ABOVE_RANGE`: "Starts waiting for the price to enter X-Y (now Z)"). The
    rest of the plan is judged at the nearest bound, where the bot will enter. A waiting bot is shown as
    "Waiting for the range" (badge, table, `bot list`), the Plan says "Waiting for the price to enter X–Y
-   (now Z)", the heartbeat counts it apart from running bots, and the owner gets one alert, `BOT_RANGE_ENTERED`
+   (last price Z, N s ago)", the heartbeat counts it apart from running bots, and the owner gets one alert, `BOT_RANGE_ENTERED`
    (INFO), when it enters and lays its ladder (`EPIC-044C`). The field the number lives in carries the sentence
    under it, "Blocks Start: The opening buy and the BUY levels need 995.48 USDT and Spot Testnet has
    800.00 USDT free; lower the capital to at most 803.63" (the balance is judged on the exchange's

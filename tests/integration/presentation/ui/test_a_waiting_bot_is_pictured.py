@@ -39,8 +39,8 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_scree
 _SIZES = [(1024, 700), (1366, 768), (1920, 1080)]
 #: The frame, the sentence its banner says.
 _FRAMES = {
-    "spot_waiting": "Waiting for the price to enter 60,000.00–70,000.00 (now 58,250.00)",
-    "futures_short_waiting": "Waiting for the price to enter 60,000.00–70,000.00 (now 71,400.00)",
+    "spot_waiting": "Waiting for the price to enter 60,000.00–70,000.00 (last price 58,250.00, 12 s ago)",
+    "futures_short_waiting": "Waiting for the price to enter 60,000.00–70,000.00 (last price 71,400.00, 12 s ago)",
 }
 
 

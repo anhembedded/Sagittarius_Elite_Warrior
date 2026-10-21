@@ -1,6 +1,6 @@
 """`EPIC-044C` — the Plan says what a bot in AWAITING_RANGE waits for, and for which price.
 
-ADR 044 D10: "Waiting for the price to enter X-Y (now Z)". The sentence is the banner's, an
+ADR 044 D10: "Waiting for the price to enter X-Y (last price Z, N s ago)". The sentence is the banner's, an
 information (not a warning: a wait is what the owner asked for), and the state line keeps the
 state word alone so the two do not say the same thing twice.
 """
@@ -8,6 +8,7 @@ state word alone so the two do not say the same thing twice.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -58,7 +59,7 @@ def test_the_note_names_the_range_and_the_price_it_waits_on() -> None:
     facts = bot_facts(_waiting(), NOW)
 
     assert facts.note == (
-        "Waiting for the price to enter 60,000.00–70,000.00 (now 58,000.00); "
+        "Waiting for the price to enter 60,000.00–70,000.00 (last price 58,000.00); "
         "nothing is placed until it does"
     )
 
@@ -66,7 +67,7 @@ def test_the_note_names_the_range_and_the_price_it_waits_on() -> None:
 def test_the_note_follows_the_price_the_bot_last_heard() -> None:
     above = replace(_WAITING, mark_price=Decimal(71500))
 
-    assert "(now 71,500.00)" in bot_facts(_waiting(above), NOW).note
+    assert "(last price 71,500.00)" in bot_facts(_waiting(above), NOW).note
 
 
 def test_before_any_price_the_note_says_none_was_heard() -> None:
@@ -119,3 +120,14 @@ def test_the_bots_table_shows_the_state_word_and_does_not_flag_the_wait_for_atte
     assert cell.data(Qt.ItemDataRole.DisplayRole) == "Waiting for the range"
     font = cell.data(Qt.ItemDataRole.FontRole)
     assert font is None or not font.bold()
+
+
+def test_the_note_says_how_long_ago_the_price_was_heard() -> None:
+    """A waiting bot watches no exit, so nothing halts it on a quiet feed: a price three hours old
+    must not read as the current one."""
+    stale = replace(_WAITING, mark_price_at=NOW - timedelta(hours=3))
+
+    note = bot_facts(_waiting(stale), NOW).note
+
+    assert "(last price 58,000.00, 3 h ago)" in note
+    assert "now" not in note

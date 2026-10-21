@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
+    CLEARED_ON_ENTRY,
     BotAlertSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
@@ -51,7 +52,7 @@ def test_an_entry_is_one_info_alert_naming_the_price_the_range_and_the_orders() 
     [alert] = published.published
     assert alert.kind is AlertKind.BOT_RANGE_ENTERED
     assert alert.severity is Severity.INFO
-    assert "101" in alert.detail and "100-140" in alert.detail
+    assert "101.0000" in alert.detail and "100.0000-140.0000" in alert.detail
     assert "laid 8 order(s)" in alert.detail
     assert "eth-grid" in alert.title
 
@@ -93,3 +94,38 @@ def test_a_halted_bot_resumed_into_the_wait_ends_its_halt_condition() -> None:
 def _key(kind: AlertKind) -> str:
     subject = AlertSubject.bot(BOT, "eth-grid", "grid", "spot_mainnet", "ETHUSDT")
     return Alert.condition_key(kind, subject)
+
+
+def test_the_alert_writes_prices_as_the_other_surfaces_do() -> None:
+    source, published = _source()
+
+    source.on_range_entered(
+        BotRangeEnteredEvent(
+            BOT, Decimal("58250.10000000"), Decimal(60000), Decimal(70000), 3
+        )
+    )
+
+    [alert] = published.published
+    assert "58250.10000000" not in alert.detail
+    assert "58,250.10" in alert.detail
+    assert "60,000.00-70,000.00" in alert.detail
+
+
+def test_the_wait_ends_the_halt_conditions_and_leaves_the_own_route_ones_for_running() -> (
+    None
+):
+    """Q1 of the review: a quiet feed, a storage failure, the exchange's pause and a rejected key
+    are mended by something the wait does not do, so they stay until RUNNING."""
+    ended = set(CLEARED_ON_ENTRY["AWAITING_RANGE"])
+
+    assert ended == {
+        AlertKind.BOT_HALTED,
+        AlertKind.BOT_ERROR,
+        AlertKind.BOT_RECOVERY_STALLED,
+    }
+    assert {
+        AlertKind.PRICE_FEED_STALE,
+        AlertKind.STORAGE_FAILURE,
+        AlertKind.RATE_LIMITED,
+        AlertKind.KEY_REJECTED,
+    } <= set(CLEARED_ON_ENTRY["RUNNING"])

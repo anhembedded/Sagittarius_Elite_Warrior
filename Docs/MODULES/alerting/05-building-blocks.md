@@ -103,7 +103,7 @@ The walking skeleton (`EPIC-036G`) added:
   "the automatic recoveries are used up" is said; the entry into a state of `CLEARED_ON_ENTRY`
   (`bot_alert_source.py` → `CLEARED_ON_ENTRY`) calls `condition_cleared` with the key
   `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`);
-  `on_account_loss_cap_tripped` (`EPIC-026L`) raises one CRITICAL `ACCOUNT_LOSS_CAP_TRIPPED` about the
+  `AccountAlertSource.on_account_loss_cap_tripped` (`alerting/application/sources/account_alert_source.py`, `EPIC-026L`; split from `BotAlertSource`, which it needs no bot state for) raises one CRITICAL `ACCOUNT_LOSS_CAP_TRIPPED` about the
   whole app (`AlertSubject.app`, `BOT_EVENTS` group) with the figure, the loss, the count of bots being
   stopped and how to acknowledge; it has no recovery message, because the owner's acknowledgement ends it
   and a second trip is a new alert.

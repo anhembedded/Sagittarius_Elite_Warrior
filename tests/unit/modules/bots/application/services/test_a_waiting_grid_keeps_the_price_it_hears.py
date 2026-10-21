@@ -1,6 +1,6 @@
 """`EPIC-044C` — a bot waiting for its range keeps the last price it heard.
 
-The Plan says "Waiting for the price to enter X-Y (now Z)" and `bot show` the price position,
+The Plan says "Waiting for the price to enter X-Y (last price Z)" and `bot show` the price position,
 both from the run's last price (`BotProgress.mark_price`). A waiting bot watches no exit, so
 without this the price the bot waits on was the one number it never recorded.
 """

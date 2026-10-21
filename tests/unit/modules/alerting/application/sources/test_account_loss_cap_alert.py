@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
-    BotAlertSource,
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.account_alert_source import (
+    AccountAlertSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert_clock import (
     FakeAlertClock,
@@ -19,9 +19,6 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Sever
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
     AccountLossCapTrippedEvent,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.application.sources.bot_source_world import (
-    Bots,
-)
 
 
 def _event(reason: str = "loss_reached") -> AccountLossCapTrippedEvent:
@@ -36,7 +33,7 @@ def _event(reason: str = "loss_reached") -> AccountLossCapTrippedEvent:
 
 def test_a_trip_is_one_critical_alert_about_the_whole_app() -> None:
     published = RecordingAlertPublisher()
-    source = BotAlertSource(Bots(), published, FakeAlertClock())
+    source = AccountAlertSource(published, FakeAlertClock())
 
     source.on_account_loss_cap_tripped(_event())
 
@@ -48,7 +45,7 @@ def test_a_trip_is_one_critical_alert_about_the_whole_app() -> None:
 
 def test_the_alert_tells_the_figure_the_loss_the_count_and_how_to_acknowledge() -> None:
     published = RecordingAlertPublisher()
-    source = BotAlertSource(Bots(), published, FakeAlertClock())
+    source = AccountAlertSource(published, FakeAlertClock())
 
     source.on_account_loss_cap_tripped(_event())
 
@@ -59,7 +56,7 @@ def test_the_alert_tells_the_figure_the_loss_the_count_and_how_to_acknowledge() 
 
 def test_two_trips_for_different_reasons_are_different_conditions() -> None:
     published = RecordingAlertPublisher()
-    source = BotAlertSource(Bots(), published, FakeAlertClock())
+    source = AccountAlertSource(published, FakeAlertClock())
 
     source.on_account_loss_cap_tripped(_event("loss_reached"))
     source.on_account_loss_cap_tripped(_event("not_judgeable"))

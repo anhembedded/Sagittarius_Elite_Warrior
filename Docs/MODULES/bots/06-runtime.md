@@ -74,7 +74,7 @@ writes no journal row and no log line per beat. When the ladder is laid and the 
 `GridRangeEntry._tell_the_ladder_is_laid` publishes one `BotRangeEnteredEvent` (price, range, orders
 laid), which the owner receives as one alert; an entry that ends in a halt publishes none. While it
 waits the bot keeps the price it hears as its last, so the Plan, `bot show` and the heartbeat say
-"now Z".
+"last price Z, N s ago".
 
 Stop loss, take profit, the range-exit close, the stale-feed halt, the rate-limit halt and the
 protective-stop supervision do nothing while the bot waits (`BotRunState.may_hold_exposure`); after an

@@ -51,7 +51,7 @@ _CONFIG = {
     "take_profit": "off",
 }
 _SENTENCE = (
-    "Waiting for the price to enter 60,000.00–70,000.00 (now 58,000.00); "
+    "Waiting for the price to enter 60,000.00–70,000.00 (last price 58,000.00, 7 s ago); "
     "nothing is placed until it does"
 )
 
