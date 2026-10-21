@@ -1,0 +1,122 @@
+# ADR — A Grid started while the price is outside its range starts in its own state, `AWAITING_RANGE`, places nothing, and lays its ladder when the price enters the range
+
+**Epic:** [EPIC-044](README.md)
+**Date:** 2026-10-21
+**Status:** Proposed (D1 is the owner's; D2–D12 are the author's proposals for the reviewer and the owner to accept or veto, §2)
+**Decided by:** the owner, 2026-10-21, through the coordinating session (quoted once in D1); the rest Pending
+**Supersedes / superseded by (optional):** supersedes decision D4 (a) of `EPIC-035L` ("a Start above the range goes through with a warning; below it is refused"), as built in `grid_range_checks.py`. It extends [ADR 029 §3.1](../EPIC-029_bots_tab_grid_fast_track/DECISION_2026-10-03_bots_module_and_grid_bot.md) (the lifecycle) the way [ADR 042](../EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) did.
+
+| Label | Meaning |
+| :--- | :--- |
+| ✅ Established | confirmed on the code tree at `849d973` (`master-warrior`, 2026-10-21); cited by path and symbol |
+| 🟢 User decision | decided by the owner, relayed by the coordinating session |
+| 🔵 Proposed | the author's proposal; accepted by the reviewer's read and the coordinator, or vetoed by the owner |
+| ❓ Open | blocks the named phase until answered |
+
+## 1. Context
+
+The owner's decision of 2026-10-21 changes what a Grid does with real money when it is started away from its range. Today the answer depends on which side the price is on and on which direction the bot trades, and for one case it is wrong.
+
+**Established facts** (probe on `849d973`, Futures limits, the report's range 60 000–70 000 and 10 000 USDT; `grid_plan.plan`, `evaluate_grid`)
+
+| Direction | Price | What the plan does at Start | What the verdict says |
+| :--- | :--- | :--- | :--- |
+| LONG / Spot | 59 000 (below) | every level SELL; **market-buys 0.1695 BTC** (the whole ladder's base) first | `PRICE_BELOW_RANGE` REFUSED |
+| LONG | 71 000 (above) | every level BUY; opening 0; lays 11 BUYs | `PRICE_ABOVE_RANGE` WARNING, "places BUY orders only" |
+| **SHORT** | 71 000 (above) | every level BUY (reduce-only); **market-sells 0.1542 BTC short** (≈ 10 950 USDT) first | `PRICE_ABOVE_RANGE` WARNING, **"starts with nothing bought and places BUY orders only"** — false for a SHORT |
+| SHORT | 59 000 (below) | every level SELL; opening 0; lays 11 SELLs | `PRICE_BELOW_RANGE` REFUSED, "would buy about 0.01 USDT of BTC at market" — false for a SHORT |
+| NEUTRAL | either | no opening trade; 11 BUYs above, 11 SELLs below | the LONG sentences, which describe a trade it does not make |
+
+- ✅ `check_price_against_range` (`bots/domain/grid/grid_range_checks.py`) reads `plan.opening_buy_quantity` (the LONG reading of `opening_quantity`) and never `params.direction`; the SHORT mirror does not exist anywhere the range side is judged. `GridConstraint("price_suits_the_range", …, {"PRICE_BELOW_RANGE": True, "PRICE_ABOVE_RANGE": False})` (`grid_constraints.py`) is the only place a verdict is made blocking.
+- ✅ `plan` sides a level by its raw price against `last_price`; "the level nearest the price stays EMPTY when within half a step" (`grid_plan.py` → `_empty_index`); outside the range no level is that close, so every level holds an order.
+- ✅ Start is two steps: the use case judges readiness and the preconditions (`StartBotCommandHandler`, `GridStartPreconditions.check`: lease, order session, owner-budget registration) and `BotRunner.start` applies `start` (→ `STARTING`), saves, then posts `GridExecutor.start`; the worker's `_run_start` reads the price (`GridReferencePrice.current`), calls `plan(...)` and `GridStartSequence.run`.
+- ✅ `GridStartSequence.run` does, in order: size the ladder against the exchange's minimum and trading's cap, the venue profile's opening (on Futures `FuturesStartChecks`: the margin type and leverage made the bot's and read back, the plan's liquidation risk judged — `futures_start_checks.py`, `opening_futures.py`), the protective stop, the ladder; then `ladder_ready` → `RUNNING`.
+- ✅ A tick is routed by `GridPriceReaction`: `on_tick` for the streamed last price (Spot's exit source) and `on_mark` for a position venue's mark price (`exits_on_mark`). Both only act in `_WATCHES_EXITS`; `GridRangeWatch` publishes a `BotRangeChangedEvent` on each change of place and "starts INSIDE".
+- ✅ `RUNNING` is consulted by 17 files under `src/modules/{bots,alerting,operations}` (`BotLifecycleState.RUNNING` / `_S.RUNNING`): every one assumes a ladder.
+- ✅ A restart is the lifecycle's own rule (`app_restart`): `RUNNING`/`PAUSED` become `RECOVERING` (the order session is closed; the reconcile compares the exchange with the bot's record, then `reconcile_ok` returns to the prior state); `STARTING` becomes `HALTED`; the headless `--start-planned` starts only bots at rest (`StartPlannedBots`: `bot.is_at_rest`), and `--resume-recovering` resumes `RECOVERING` ones.
+- ✅ `AWAITING_RECOVERY` (`EPIC-042`) is the precedent for a state a machine owns: a new row set in `BOT_LIFECYCLE_TRANSITIONS`, hand-written state sets classified once per set, a persisted reason, an alert on entry.
+- ✅ Backtest and live share no plan call: `GridReplay.__init__` and `FuturesReplay.__init__` plan at `first.open` of the window (`grid_replay.py`, `futures_replay.py`); `simulate_grid` walks bars through `engine.may_trade_in`.
+
+**Forces.** The owner wants one rule for every direction and market: starting away from the range commits nothing. The cost of a wrong rule is the opening trade: LONG below the range and SHORT above it each open a position of the whole capital at a price outside the range the user designed for. The mechanism must also survive a host restart without ever placing an order on its own, must show the owner what it is doing in every surface that shows a bot, and must be the same in a backtest.
+
+## 2. Decisions
+
+| # | Decision | Status | Decided by | Consequence |
+| :-- | :--- | :--- | :--- | :--- |
+| D1 | **The rule.** A Grid started (from DRAFT or STOPPED) while the price is outside `[lower, upper]` starts, places nothing and holds nothing; it waits until the price is inside the range, then plans and lays its ladder at that moment exactly as a normal start would, including the opening buy or short the plan needs at that price. Every direction (LONG, SHORT, NEUTRAL), Spot and Futures, mainnet and testnet. **No "start now" option; no time limit on waiting; the owner stops the bot when they want. While waiting, stop loss and take profit do nothing (there is no position); Stop works at once.** The owner's words, 2026-10-21: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"*, then *"không thời hạn chờ"*, then *"OK"* to always waiting with the logic mirrored for Short. | 🟢 Accepted | Owner | The four old behaviours go: LONG/Spot below (refused), LONG above (laid BUYs), SHORT above (market-shorted the ladder), SHORT below (laid SELLs). |
+| D2 | **A real lifecycle state, `AWAITING_RANGE`, not a sub-phase of `RUNNING`.** Declared in `bot_lifecycle_fsm_matrix.py` with its rows (§2.1); persisted as the bot's `BotLifecycle.state` like every state. | 🔵 Proposed | Pending | Reasons: (1) 17 files read `RUNNING` as "has a ladder, fills, a risk watch, a protective stop, a stale-feed halt"; a sub-phase turns each into an `if waiting` — the "if on a state" that `EPIC-042` D3 refused, and `quality.md` §3 puts a lifecycle's states in one matrix; (2) the table then answers the enable-rules (`is_declared`) and the derived sets for free; (3) `AWAITING_RECOVERY` is the precedent. Cost: one state, five events, and each hand-written state set classifies it once (§2.4), held by the guard that every set classifies every state. |
+| D3 | **Events and rows** are those of §2.1: `price_outside_range` (STARTING → AWAITING_RANGE), `range_entered` (AWAITING_RANGE → STARTING, the same STARTING the start and the resume use, so one start sequence lays every ladder), `entry_refused` (→ HALTED), and the existing `stop`, `halt`, `fault`, `switch_off`, `app_restart`. | 🔵 Proposed | Pending | `AWAITING_RANGE` has no `pause`, `resume` or `edit` cell: the wait holds nothing to pause, and an edit of a running bot's range is refused as for every non-rest state. |
+| D4 | **The entry rule.** The price source is the exit's: the **mark price** of a position venue (`on_mark`), the **last trade** on Spot (`on_tick`). The bot enters when a tick's price is `INSIDE` per `range_position` (bounds included, the one definition the range watch already uses) — judged on the tick's close (`tick.last`), not on a wick, as the range watch judges it. Because the plan's own price is the reference price (book mid / last tick) and may differ from the mark by a few basis points, the start sequence **re-reads the plan's price and, if it is outside the range again, returns to `AWAITING_RANGE` before any order** (`STARTING --price_outside_range--> AWAITING_RANGE`). | 🔵 Proposed | Pending | The decision and the plan use the sources their neighbours use (exits, planner); a price that flickers across the bound costs one read and no order. No hysteresis: the bounds are inclusive and the plan at an edge price is the plan any normal start there would lay. |
+| D5 | **Entry checks.** Entry runs the whole start sequence on the price it reads: the ladder sizing against the exchange minimum and the per-order cap, the opening, and on Futures `FuturesStartChecks` (settings made the bot's and read back, the plan's liquidation risk judged) — all of which already sit inside `GridStartSequence` and so are re-done at entry for free. Before it, entry **re-registers the owner budget** (`GridHousekeeping.register`) so the caps and the derived inventory are judged now, and judges the **balance** with the start's own verdicts at the entry price (`evaluate_grid`, the same words as the Bots screen). **Split of failures:** (a) a *deterministic refusal of the plan* — a verdict REFUSED, the budget refused, an order below the minimum or above the cap, a settings or risk refusal — **halts** the bot with `start_refused` (`GridReason.ENTRY_REFUSED`, the detail naming the refusal): the owner reads it, fixes the cause, stops and starts a new run; (b) a *transient external condition* — trading switched off, the symbol not in TRADING, the price unreadable, a rate limit — **keeps waiting**, tells the owner once per cause (log and reason detail) and tries on the next in-range tick. | 🔵 Proposed (→ owner question O2) | Pending | A bot never trades on a plan it would have refused at Start, and never sits "waiting" on a defect that no tick will cure. Halting reuses `START_REFUSED → HALTED` and its alert. A halted flat SHORT or NEUTRAL bot cannot be resumed today (`GridResumeSequence.propose` sizes a LONG only), so the owner's path is Stop then Start; that existing limit is stated, not widened. |
+| D6 | **The checks become information, mirrored.** `PRICE_BELOW_RANGE` and `PRICE_ABOVE_RANGE` stay as codes but their severity is `OK` (informational, never `WARNING`, never `REFUSED`), their text is direction-free and true: *"Starts waiting for the price to enter {lower}–{upper} (now {price}); nothing is placed until it does"*, and their numbers add `entry_edge`. They stop being blocking in the `GridConstraint` table. **The rest of the plan is judged at the nearest bound** (the price clamped into the range) when the price is outside: balance, order sizes, opening quantity and risk then describe the trade that entry will make, to the width of the gap the price jumps. The same clamp feeds the Plan panel's ladder. | 🔵 Proposed | Pending | Fixes the SHORT mirror at its one source (the verdict no longer reads `opening_buy_quantity`); the screen stops reporting a plan at a price the bot will not trade at. `PRICE_IN_RANGE` stays. |
+| D7 | **Stop loss, take profit and the range-exit close do nothing while waiting.** `AWAITING_RANGE` is outside `_WATCHES_EXITS`, `GridRangeWatch` is not fed while waiting (it resets, as for every non-watched state) and the stale-feed halt does not apply (`PRICE_STALENESS_HALTS` classifies the state out): there is no position or order to protect, and a halt would only turn Stop into a Resume. A quiet feed shows as a quiet feed (the existing feed alert), and entry needs a tick, so none can arrive blind. After entry the extremes start fresh (`GridTickExtremes.reset` on a non-watched state), so a wick that happened while waiting is not a stop-loss trigger of the new ladder. | 🔵 Proposed | Pending | Matches D1 literally. A flash move through the range and beyond the stop between two ticks is never entered (its close is outside) and a wick that touched the stop before entry is not counted. |
+| D8 | **Stop while waiting** is the existing `stop` → `STOPPING` → `stop_confirmed` → `STOPPED`: `GridStopper` finds no order and no inventory, cancels nothing, and ends cleanly; the lease and the budget are released as for any stop. `switch_off` leaves the bot waiting (a self-loop: it holds nothing the switch could endanger; entry while trading is off is category (b) of D5). `fault` → `ERROR` and `halt` → `HALTED` as in `STARTING`. | 🔵 Proposed | Pending | The wait can always be ended by the owner, and needs no new stop path. |
+| D9 | **Restart.** `app_restart` answers `AWAITING_RANGE` with `RECOVERING` (`recovering_from = AWAITING_RANGE`, added to `RECOVERABLE_STATES`) exactly as it answers `RUNNING`: the order session is closed after a restart, the lease and the budget registration are gone, and the reconcile then proves the exchange holds nothing tagged for the bot and no position it does not know (`UNKNOWN_TAGGED_ORDER`, foreign position → `HALTED`) before `reconcile_ok` returns it to `AWAITING_RANGE` and the price watch is armed again. Nothing is ever laid by a restart (ADR 029 D12 holds). | 🔵 Proposed (→ owner question O1) | Pending | One proven path, no restore logic of its own. **Cost, stated:** on a headless host a waiting bot needs `--resume-recovering` (with the mainnet venue confirmation of `EPIC-038D`) to continue waiting, like a running one; `--start-planned` alone starts only bots at rest and leaves it `RECOVERING`. |
+| D10 | **Surfaces** (slice 3): the state badge (`StateBadge`, a new look in `bot_state_looks.py`); the Plan banner line **"Waiting for the price to enter {lower}–{upper} (now {price})"** (`NoticeBar` in `plan_status_banner.py`, the `PlanColumn` of `BOT-218`); the Bots table state; `bot list`/`bot show` (the state, the range and the last price); the heartbeat and the daily summary say "waiting" and count waiting bots apart from running ones; **one alert when it enters the range** ("entered the range at {price}, laid {N} orders") built from the state change `AWAITING_RANGE → RUNNING` and the runtime's open orders, so it needs no new bus event. | 🔵 Proposed | Pending | The alert kind waits for `#674` (alerting) to merge; the UI waits for `BOT-219` (`#677`), `BUG-245`/`BUG-248` as the coordinator sequenced them (§4). |
+| D11 | **Backtest parity.** The Grid's replay follows the same rule through the same definitions: `range_position` decides, per step, whether the price is inside; before entry the engine holds no order, equity is the capital in cash, and `may_trade_in` is false; at the first step inside the range it plans at that step's price and runs from there, so the entry **bar** is the live entry's. The buy-and-hold benchmark starts at the same step (both compare an invested capital; a benchmark that started earlier would credit it with a move the grid sat out). A test replays one price path through the replay and through the live entry decision and asserts the same entry bar; a window that never enters the range returns a result with no fill and flat equity, and says so. | 🔵 Proposed (→ owner question O3) | Pending | `GridReplay`/`FuturesReplay` stop planning at `first.open`; the oracle recordings for in-range windows stay byte-identical (entry at step 0). |
+| D12 | **Log lines** (`logging-rule.md`, `App.Bots.GridExecutor`, one tag each, INFO per transition, nothing per tick): `[range-wait]` on entering the wait (price, range, why), `[range-wait] still waiting` never (the tick is TRACE), `[range-entry]` on entering (price, tick source, N orders), `[range-entry-deferred]` for a category (b) cause (once per cause), `[range-entry-refused]` for a category (a) halt. The journal records the state change and the reason through the existing `BotChangedEvent`. | 🔵 Proposed | Pending | Each is run through the real logging configuration in the slice that adds it, and `render_log_templates.py --write` follows. |
+
+### 2.1 The state, its events and its rows
+
+**One state:** `AWAITING_RANGE` — started, nothing placed, nothing held, watching one price for the range to contain it. It is not parked (`GridTaskGuard._PARKED` has nothing to cancel).
+
+| Cell | Next | Why |
+| :--- | :--- | :--- |
+| (STARTING, `price_outside_range`) | AWAITING_RANGE | the start read a price outside the range (D1), or entry's re-read did (D4) |
+| (AWAITING_RANGE, `range_entered`) | STARTING | the in-range tick; the start sequence then lays the ladder, unchanged |
+| (AWAITING_RANGE, `entry_refused`) | HALTED | D5 (a); `GridReason.ENTRY_REFUSED` |
+| (AWAITING_RANGE, `stop`) | STOPPING | D8 |
+| (AWAITING_RANGE, `halt`) | HALTED | an unexpected task failure, as in STARTING |
+| (AWAITING_RANGE, `fault`) | ERROR | as in every state |
+| (AWAITING_RANGE, `switch_off`) | AWAITING_RANGE | D8 |
+| (AWAITING_RANGE, `app_restart`) | RECOVERING | D9 |
+| (RECOVERING, `reconcile_ok`) | PRIOR | already so; `RECOVERABLE_STATES` gains the state |
+
+No `pause`, `resume`, `edit` or `delete` cell. `RUN_STARTING_STATES` is unchanged (the wait belongs to the run `start` stamped).
+
+### 2.2 What does not change
+
+- A **Resume from HALTED or AWAITING_RECOVERY** carries inventory or a position that the stop loss and take profit must watch; D1's "holds nothing" does not describe it. It keeps `resume_plan` and its price tolerance. Only a *new run* (a `start` from DRAFT or STOPPED) waits. ✅ stated so the reviewer can veto.
+- `on_range_exit = CLOSE` (`RANGE_EXIT`) still closes a *running* position-venue bot that leaves the range; it does nothing while the bot waits (D7).
+- No config key, no setting, no dependency and no Engine file changes.
+
+### 2.3 Why the whole tree is not rewritten
+
+The old `PRICE_*_RANGE` checks, `grid_plan.py`'s sides and `range_position.py` are kept: the plan is still the plan at a price (entry calls it at the entry price), and `range_position` is the one definition both the range watch and the entry decide with. What changes is *when* the plan is called and *what the verdict means*.
+
+### 2.4 Where a state is classified by hand
+
+Each of these lists states and must say where `AWAITING_RANGE` stands (the slice-2 tests assert every set classifies every state, as `EPIC-042` did): `PRICE_STREAM_STATES` (in: the bot owns a price stream — it is derived, so it is in), `PRICE_STALENESS_HALTS` (out, D7), `_WATCHES_EXITS` in `grid_price_reaction.py` (out), `_PARKED` in `grid_task_guard.py` (out), `RESUME_PROPOSES_STATES` (out), `RECOVERABLE_STATES` (in, D9), `bot_state_looks.py`, `bots_table_models.py`, `plan_status.py`, `bot_facts.py`, `bots_health_contributor.py`, `bot_run_state.py`, `host_steps.py`'s at-rest test and `rich_text_report_renderer.py`.
+
+## 3. Alternatives considered
+
+| Alternative | Why it lost |
+| :--- | :--- |
+| **A sub-phase of `RUNNING`** (`runtime.waiting_for_range: bool`) | 17 consumers would each learn a flag; the stale-feed halt, the risk watch, the fill handlers, the protective stop and the reconcile would each need an `if waiting`. A flag is the "if on a state" `EPIC-042` D3 already refused, and a flag has no table to enumerate what a waiting bot may do. |
+| **`STARTING` as the waiting state** (stay in `STARTING` until the price enters) | `STARTING` means "a start is in flight and may hold a half-sliced opening"; a restart turns it into `HALTED` with `START_INTERRUPTED` (a cancel owed) — right for a start, wrong for a wait that has placed nothing; and a wait of days would show the owner "starting". |
+| **Keep the old checks and add a "wait" toggle** | The owner said no "start now" option; a toggle keeps the four wrong behaviours (one of them a market short) one click away. |
+| **Wait inside the Start command** (refuse until in range) | The owner wants the bot to *start* and be visibly waiting; a refusal leaves nothing to stop, to alert on or to survive a restart. |
+| **Restart keeps `AWAITING_RANGE` with no reconcile** | The lease, the order session and the budget are per process; a state that says "waiting" while nothing watches the price is a false label (`domain-truth-rule.md`, truthful UI), and a bot that enters with no reconcile could lay a ladder over orders the exchange still holds. |
+| **Restart ends the wait in `STOPPED`/`HALTED`** | Simple and safe, but the owner asked that a restart resume waiting; it would also make `--start-planned` quietly restart a run the owner did not stop. Kept as the fallback if O1 is vetoed. |
+| **Entry on the plan's own price instead of the mark (Futures)** | The exits already use the mark so a wick on the last trade cannot fire a position venue's stops; entry on a different source than the exits would let the two disagree about "in the range". D4 keeps the mark and confirms with the plan's price. |
+| **Hysteresis or a "settled for N seconds" condition on entry** | The owner's rule is "enters when inside"; a dwell adds a constant that no one has asked for, and the re-read in D4 already bounds a flicker to one read and no order. Can be added as a rule later (P7: seam now, variant later). |
+
+## 4. Open questions
+
+| # | Question | Blocks | Asked on |
+| :-- | :--- | :--- | :--- |
+| O1 | **Restart (D9).** A waiting bot returns to waiting through `RECOVERING` and its reconcile, so a headless host needs `--resume-recovering` (with the mainnet confirmation) for a waiting bot to continue, like a running one. Does the owner want `--start-planned` alone to also re-arm a bot that was waiting? Recommendation: **no** for this epic — the reconcile before any trading is the point, and the flag already exists; a host step that re-arms waiting bots is a separate, small task if the owner wants it. | slice 2 (the restore row) | 2026-10-21 |
+| O2 | **Entry failures (D5).** Deterministic refusals halt; transient conditions keep waiting. Does the owner prefer that every failure at entry keeps waiting (and alerts), never halts? Recommendation: **halt on a refusal of the plan** — a bot that will never be able to trade must say so, loudly, once. | slice 2 | 2026-10-21 |
+| O3 | **Backtest benchmark (D11).** Buy-and-hold starts at the entry step, not at the first bar. Recommendation: yes, like for like. | slice 4 | 2026-10-21 |
+| O4 | **Sequencing with the UI sessions.** `session_01462x4uU5pna7VXqNteb7qP` is on `BOT-219` (`#677`), `BUG-245` (`#678`), `BUG-248`; `session_018Fn8FoFbmCvYJ6ZaaGHbfi` is on alerting (`#674`). Slice 3 touches `plan_status_banner.py`, `bots_table_models.py`, `bot_state_looks.py` and `alert_kind.py`: it starts after those merge, or the coordinator names the order. | slice 3 | 2026-10-21 |
+
+## 5. Implementation evidence
+
+| Decision | Delivery task | State | Evidence |
+| :--- | :--- | :--- | :--- |
+| D1 | [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | Not started | Not yet verified |
+| D2, D3, D8, D9 | [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | Not started | Not yet verified |
+| D4, D5, D7, D12 | [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | Not started | Not yet verified |
+| D6 | [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | Not started | Not yet verified |
+| D10 | [EPIC-044C](incomplete/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | Not started | Not yet verified |
+| D11 | [EPIC-044D](incomplete/EPIC-044D_the_backtest_waits_the_same_way.md) | Not started | Not yet verified |
