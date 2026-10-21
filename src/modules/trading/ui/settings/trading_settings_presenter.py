@@ -57,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import Ve
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
     NO_KEY,
     NOT_CHECKED,
+    StateKind,
     state_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.key_enrolment_words import (
@@ -140,7 +141,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             ActionOwnershipTracker()
         )
         #: What the last check said of each venue; a venue is "not checked" until then.
-        self._states: dict[TradingVenue, tuple[str, bool]] = {}
+        self._states: dict[TradingVenue, tuple[str, StateKind]] = {}
         self._keys: tuple[VenueKey, ...] = ()
         #: The venue Replace / Add… was pressed on, while its dialog's key is being checked.
         self._target: TradingVenue | None = None
@@ -193,16 +194,16 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if has_key:
             where = _SOURCE_WORDS[key.source]
             shown = f"{key.fingerprint} ({where})"
-            state, is_error = self._states.get(key.venue, (NOT_CHECKED, False))
+            state, kind = self._states.get(key.venue, (NOT_CHECKED, StateKind.UNKNOWN))
         else:
             shown = "—"
-            state, is_error = NO_KEY, False
+            state, kind = NO_KEY, StateKind.UNKNOWN
         return KeyRow(
             venue=key.venue,
             title=key.venue.display_name,
             key=shown,
             state=state,
-            state_is_error=is_error,
+            state_kind=kind,
             has_key=has_key,
             editable=not key.source.is_provisioned_outside_the_app,
         )

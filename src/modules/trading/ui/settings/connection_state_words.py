@@ -11,6 +11,8 @@ matches an allowlist, only the public address does.
 
 from __future__ import annotations
 
+from enum import Enum, auto
+
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -20,6 +22,17 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 CONNECTED = "Connected"
 NOT_CHECKED = "Not checked yet. Use Check connections."
 NO_KEY = "No key. Use Add key…"
+
+
+class StateKind(Enum):
+    """What a venue row's state says, decided where the check is read; the view draws its look
+    from it and never from the words."""
+
+    UNKNOWN = auto()  # no key, or not checked yet
+    CONNECTED = auto()
+    ERROR = auto()
+
+
 _NOT_UNDERSTOOD = "Binance answered, but not in a way this page can read."
 
 _FAILURES = EnumLabels(
@@ -67,10 +80,10 @@ def failure_words(kind: ConnectionFailureKind) -> str:
     return _FAILURES[kind]
 
 
-def state_of(status: ExchangeConnectionStatus) -> tuple[str, bool]:
-    """The row text for one connection check, and whether it is an error."""
+def state_of(status: ExchangeConnectionStatus) -> tuple[str, StateKind]:
+    """The row text for one connection check, and what kind of state it is."""
     if status.failure is not None:
-        return failure_words(status.failure), True
+        return failure_words(status.failure), StateKind.ERROR
     if not status.reachable:
-        return _NOT_UNDERSTOOD, True
-    return CONNECTED, False
+        return _NOT_UNDERSTOOD, StateKind.ERROR
+    return CONNECTED, StateKind.CONNECTED

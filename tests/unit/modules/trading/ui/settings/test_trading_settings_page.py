@@ -22,9 +22,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
     KeyEnvironment,
     KeyStanding,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
+    StateKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+    CONNECTED_LOOK,
+    ERROR_LOOK,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.key_page_world import (
     KEY,
     OLD_TESTNET_KEY,
@@ -231,7 +239,7 @@ def test_check_connections_words_each_venues_answer(page) -> None:
 
     assert page.row(_FUTURES_TESTNET).state == "Connected"
     spot = page.row(_SPOT_TESTNET)
-    assert spot.state_is_error
+    assert spot.state_kind is StateKind.ERROR
     assert "allowlist" in spot.state
     assert page.row(_SPOT_MAINNET).state.startswith("No key")
     assert "Spot Testnet could not be connected" in page.status_text
@@ -296,3 +304,56 @@ def test_a_key_with_characters_binance_never_uses_is_told_so_not_called_a_networ
 
     assert "does not look like a Binance key" in page.notifier.last.headline
     assert page.probe.asked == []
+
+
+# -- `EPIC-043E`: a venue's state is a word with an icon and a tone beside it ---------------------
+
+
+def _badge(page, venue):
+    badge = page.view.findChild(StateBadge, f"lblKeyState_{venue.name}")
+    assert badge is not None
+    return badge
+
+
+def test_a_venue_that_connects_has_the_word_and_a_green_check_beside_it(page) -> None:
+    page.probe.verdicts = mainnet_accepts(spot=True)
+    page.type_in_dialog()
+
+    page.click_add()
+
+    badge = _badge(page, _SPOT_MAINNET)
+    assert badge.text() == "Connected"
+    assert badge.look() == CONNECTED_LOOK
+
+
+def test_a_refused_key_says_error_in_words_with_the_red_cross(page) -> None:
+    page.providers[_FUTURES_TESTNET].save_to_file(OLD_TESTNET_KEY, "s")
+    page.providers[_SPOT_TESTNET].save_to_file("p" * 20, "s")
+    page.presenter.revert()
+    page.statuses.by_venue[_SPOT_TESTNET] = status_of(
+        _SPOT_TESTNET, ConnectionFailureKind.KEY_REJECTED
+    )
+
+    page.click_check()
+
+    badge = _badge(page, _SPOT_TESTNET)
+    assert badge.text().startswith("Error: ")
+    assert badge.look() == ERROR_LOOK
+    assert _badge(page, _FUTURES_TESTNET).look() == CONNECTED_LOOK  # it connected
+
+
+def test_a_key_not_yet_checked_is_not_shown_as_working(page) -> None:
+    page.providers[_FUTURES_TESTNET].save_to_file(OLD_TESTNET_KEY, "s")
+    page.presenter.revert()
+
+    badge = _badge(page, _FUTURES_TESTNET)
+
+    assert badge.text().startswith("Not checked yet")
+    assert badge.look() is None
+
+
+def test_a_venue_with_no_key_is_its_words_alone(page) -> None:
+    badge = _badge(page, _SPOT_MAINNET)
+
+    assert badge.text().startswith("No key")
+    assert badge.look() is None
