@@ -17,7 +17,9 @@ published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_i
 `GridHaltRecovery._after`), `BotRangeEnteredEvent`
 (`src/modules/bots/contracts/events/bot_range_entered_event.py` → `BotRangeEnteredEvent`, published once
 when a waiting Grid has entered its range and laid its ladder by `grid_range_entry.py` →
-`GridRangeEntry._tell_the_ladder_is_laid`; EPIC-044C) and the one-bot read
+`GridRangeEntry._tell_the_ladder_is_laid`; EPIC-044C), `PlannedBotNotStartedEvent`
+(`src/modules/bots/contracts/events/planned_bot_not_started_event.py` → `PlannedBotNotStartedEvent`, published once per skipped
+bot by `host_steps.py` → `StartPlannedBots._skip`; EPIC-045F) and the one-bot read
 `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py` →
 `GetBotStatusReportQuery`, `BotStatusEntry`) — and, since `BOT-189`, `BotOrderFilledEvent`
 (`src/modules/bots/contracts/events/bot_order_filled_event.py` → `BotOrderFilledEvent`, published once

@@ -1,6 +1,6 @@
 # EPIC-045E — The runbook's add-a-bot procedure is export, scp, `bot add`, `bot start`
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, quoted in the [epic README](../README.md)
 **Risk:** 🟢
 **Complexity:** S
@@ -35,4 +35,4 @@ the runbook
 Runbook §6 gained `bot add` and `bot delete` (command lines, the add procedure, the delete refusals) and lost "Delete is not a running-host command"; §8 gained the one-bot procedure (export, `scp`, `bot add`, `bot start`) and says a `bot add` or `bot delete` is not in the plan file. `SPEC-015`, `Docs/VOCABULARY/README.md` and `Docs/MODULES/bots/05-building-blocks.md`, `06-runtime.md` say the same. Checked with `python3 scripts/check_skill_prompt_references.py`; the document guards run in the unit tier.
 
 ## Resume
-Built and under review in the epic's first pull request; flip to Done and move to `completed/` once it is merged and the `-Full` run is green.
+None: merged in #692 (b4127df); the `-Full` run on its head 0ec9b44 was green and the reviewer's round 3 passed.
