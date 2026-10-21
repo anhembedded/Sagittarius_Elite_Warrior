@@ -36,15 +36,17 @@ def catalogue_text(catalogue: Catalogue) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_catalogue_text(text: str) -> Catalogue:
-    """The catalogue a file holds; raises `ValueError` when it is not one."""
+def parse_catalogue_text(text: str) -> tuple[LogTemplate, ...]:
+    """The templates a file holds; raises `ValueError` when it is not a catalogue.
+
+    The file holds nothing else: the statistics are computed from the source where they are
+    checked, so none is invented here. A file written before `BOT-230` still carries them in its
+    header; they are ignored."""
     rows = json.loads(text)
     header = rows[0]
     if header.get("schema") != _SCHEMA:
         raise ValueError(f"not a {_SCHEMA} file")
-    templates = tuple(LogTemplate(tuple(row[1:]), tuple(row[0])) for row in rows[1:])
-    # A file written before `BOT-230` still carries the statistics; they are not read back.
-    return Catalogue(templates, 0, 0)
+    return tuple(LogTemplate(tuple(row[1:]), tuple(row[0])) for row in rows[1:])
 
 
 def load_templates(path: Path = CATALOGUE_PATH) -> tuple[LogTemplate, ...]:
@@ -53,6 +55,6 @@ def load_templates(path: Path = CATALOGUE_PATH) -> tuple[LogTemplate, ...]:
     A viewer without its catalogue still works: every line is then read by the
     heuristic."""
     try:
-        return parse_catalogue_text(path.read_text(encoding="utf-8")).templates
+        return parse_catalogue_text(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, KeyError, IndexError, TypeError):
         return ()
