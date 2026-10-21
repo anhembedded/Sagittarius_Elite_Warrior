@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -50,6 +53,8 @@ class FakeAccountSnapshot(IAccountSnapshot):
         #: either per candle is a defect a test should be able to see.
         self.connection_checks = 0
         self.position_reads = 0
+        #: The priority each `open_positions` read named (`BOT-224`).
+        self.position_priorities: list[RequestPriority] = []
 
     def answer_with(self, status: ExchangeConnectionStatus) -> None:
         self._status = status
@@ -70,8 +75,11 @@ class FakeAccountSnapshot(IAccountSnapshot):
         for a caller that must not trust either."""
         self._positions_error = error
 
-    def open_positions(self) -> tuple[LivePosition, ...]:
+    def open_positions(
+        self, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> tuple[LivePosition, ...]:
         self.position_reads += 1
+        self.position_priorities.append(priority)
         if self._positions_error is not None:
             raise self._positions_error
         return self._positions

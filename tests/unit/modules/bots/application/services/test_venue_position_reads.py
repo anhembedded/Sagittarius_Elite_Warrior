@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
 )
@@ -77,7 +80,9 @@ class _Account:
         self.requests = 0
         self.failing = False
 
-    def open_positions(self) -> tuple[LivePosition, ...]:
+    def open_positions(
+        self, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> tuple[LivePosition, ...]:
         self.requests += 1
         if self.failing:
             raise ConnectionError("no answer")
@@ -166,10 +171,12 @@ class _SlowAccount(_Account):
         self.began = threading.Event()
         self.finish = threading.Event()
 
-    def open_positions(self) -> tuple[LivePosition, ...]:
+    def open_positions(
+        self, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> tuple[LivePosition, ...]:
         self.began.set()
         assert self.finish.wait(timeout=10)
-        return super().open_positions()
+        return super().open_positions(priority)
 
 
 def _ask_in_a_thread(

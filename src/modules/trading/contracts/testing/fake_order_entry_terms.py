@@ -49,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
     OrderEntryTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
@@ -111,6 +114,8 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         #: Book reads per symbol: a bot that must not trade on a stale price
         #: re-reads the book, and a test should be able to see that it did.
         self.book_reads: list[str] = []
+        #: The priority each `mark_price_for` read named (`BOT-224`).
+        self.mark_priorities: list[RequestPriority] = []
 
     def terms_for(self, symbol: str) -> OrderEntryTerms:
         self.reads.append(symbol)
@@ -153,7 +158,10 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
             raise AccountControlUnavailableError(f"no brackets seeded for {symbol}")
         return answer
 
-    def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
+    def mark_price_for(
+        self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> MarkPrice | NotApplicable:
+        self.mark_priorities.append(priority)
         answer = self._futures.marks.get(symbol)
         if answer is None:
             raise MarketPriceUnavailableError(f"no mark price seeded for {symbol}")

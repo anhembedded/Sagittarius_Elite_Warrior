@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -51,13 +54,16 @@ class AccountSnapshotService(IAccountSnapshot):
             )
         return response
 
-    def open_positions(self) -> tuple[LivePosition, ...]:
+    def open_positions(
+        self, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> tuple[LivePosition, ...]:
         """A tuple, always. The handler answers with one; anything else means
         no handler is bound, and an empty tuple would report "nothing open"
         for a broken container — the one answer a caller must not be given
         (`IAccountSnapshot`'s own docstring)."""
         response = self._dispatcher.dispatch(
-            GetOpenPositionsQuery, GetOpenPositionsQuery(venue=self._venue)
+            GetOpenPositionsQuery,
+            GetOpenPositionsQuery(venue=self._venue, priority=priority),
         )
         if not isinstance(response, tuple):
             raise TypeError(

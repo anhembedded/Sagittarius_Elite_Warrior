@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
@@ -59,7 +62,11 @@ def _order(symbol: str, client_order_id: str) -> Order:
 
 
 class _OfflineActivity(FakeAccountActivity):
-    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+    def open_orders(
+        self,
+        symbol: str | None = None,
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[Order, ...]:
         raise ConnectionError("the exchange did not answer")
 
 

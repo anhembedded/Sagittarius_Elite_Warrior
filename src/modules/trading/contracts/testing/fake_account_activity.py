@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -51,6 +54,8 @@ class FakeAccountActivity(IAccountActivity):
         #: Every `trade_history` request, in order.
         self.trade_requests: list[HistoryRequest] = []
         self.open_order_reads = 0
+        #: The priority each `open_orders` read named (`BOT-224`).
+        self.open_order_priorities: list[RequestPriority] = []
 
     def holding_summary(self, summary: AccountSummary | None) -> None:
         self._summary = summary
@@ -83,8 +88,13 @@ class FakeAccountActivity(IAccountActivity):
     def summary(self) -> AccountSummary | None:
         return self._summary
 
-    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+    def open_orders(
+        self,
+        symbol: str | None = None,
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[Order, ...]:
         self.open_order_reads += 1
+        self.open_order_priorities.append(priority)
         if self._open_orders_error is not None:
             raise self._open_orders_error
         return tuple(

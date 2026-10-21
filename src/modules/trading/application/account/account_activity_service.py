@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -65,8 +68,12 @@ class AccountActivityService(IAccountActivity):
             return None
         return _typed(query, answer, AccountSummary)
 
-    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
-        query = GetOpenOrdersQuery(venue=self._venue, symbol=symbol)
+    def open_orders(
+        self,
+        symbol: str | None = None,
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[Order, ...]:
+        query = GetOpenOrdersQuery(venue=self._venue, symbol=symbol, priority=priority)
         return _typed(
             query, self._dispatcher.dispatch(GetOpenOrdersQuery, query), tuple
         )

@@ -98,6 +98,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
     OwnerPosition,
     PositionDivergence,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.futures_world import (
     BRACKETS,
 )
@@ -267,7 +270,9 @@ def flat_once_sold(
 ) -> None:
     """The exchange reports `held` until a market order was sent, and flat after."""
 
-    def positions() -> tuple[LivePosition, ...]:
+    def positions(
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[LivePosition, ...]:
         sold = any(r.order_type is OrderType.MARKET for r in world.book.requests)
         return () if sold else (a_long_position(held),)
 
@@ -279,7 +284,9 @@ def exchange_holds_less_after_each_sale(
 ) -> None:
     """The exchange reports `held`, less what the bot's market orders sold since (a long)."""
 
-    def positions() -> tuple[LivePosition, ...]:
+    def positions(
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[LivePosition, ...]:
         sold = sum(
             (
                 r.quantity

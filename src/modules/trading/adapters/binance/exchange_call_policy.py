@@ -17,8 +17,12 @@ Every request a venue sends passes `run_read` or `run_once`:
     its ban window.
 
 The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
-(`note_used_weight_header`): at 70 % of the venue's per-minute weight the gate
-closes to the end of the minute, before the exchange has to say so.
+(`note_used_weight_header`). At 70 % of the venue's per-minute weight the gate closes to the end
+of the minute to routine requests, before the exchange has to say so; the reads that guard a
+bot's exits (`RequestPriority.EXIT_GUARD`: its position, the mark price, its open protective
+stops) still pass, in the reserve up to 90 %, so a burst of ladder placement cannot leave a stop
+loss or a take profit unjudged (`BOT-224`, `BUG-247`). At 90 % the gate closes to everything, as
+a 429 does.
 
 A pause is told once and no more (`BUG-217`): one WARNING when it begins, with the instant it
 ends, and one INFO at the first request after it. It is told again, with the end the gate now
@@ -48,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limit_g
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
     RateLimitedApiException,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+    current_priority,
+)
 
 logger = logging.getLogger("App.TradingAdapter")
 
@@ -64,6 +72,11 @@ SPOT_WEIGHT_LIMIT = 6000
 #: 2,168 of 2,400 and the exchange limited the IP in the same second (`BUG-216`). The 30 % left
 #: is ~720 weight of such chains.
 SOFT_WEIGHT_RATIO = 0.7
+#: The share at which the reserve ends and the gate closes to every request, the reads that guard
+#: exits included. The reserve (70 % to here, 480 of Futures' 2,400) is for those reads alone:
+#: a bot costs about 8 weight a beat for them, 20 bots a few hundred a minute (`BOT-221`,
+#: `BOT-184`), and the 10 % left is for the answers already in flight when the header is read.
+HARD_WEIGHT_RATIO = 0.9
 _SECONDS_PER_MINUTE = 60.0
 #: Two pauses whose ends differ by less than this are the same pause to the log.
 _SAME_END_SECONDS = 1.0
@@ -86,6 +99,9 @@ class ExchangeCallPolicy:
         #: end has been announced (or none began).
         self._announced_pause_end: float | None = None
         self._announced_ban = False
+        #: Whether the pause announced since the last one ended already closed every request;
+        #: a reserve announced first is escalated, and told, when the hard line closes it.
+        self._announced_all_closed = False
         # Resolved at the call, so a test can replace `time.sleep` itself.
         self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
@@ -117,11 +133,15 @@ class ExchangeCallPolicy:
         pause = _SECONDS_PER_MINUTE - into_minute + 1.0
         # Always to the minute's end: a shorter pause already running (`-1015` is 10 s) must
         # not let the gate reopen inside a minute at 70 % or more. `block` keeps the longer.
-        # It is told again only when it moves the announced end or turns the pause into a ban.
-        self._gate.block(pause)
-        told = self._tell_pause(
-            f"Used weight {used} of {self._weight_limit}", pause, "rate-limit-soft"
-        )
+        # It is told again only when it moves the announced end, turns the pause into a ban, or
+        # the reserve's pause closes every request.
+        why = f"Used weight {used} of {self._weight_limit}"
+        if used >= self._weight_limit * HARD_WEIGHT_RATIO:
+            self._gate.block(pause)
+            told = self._tell_pause(why, pause, "rate-limit-soft")
+        else:
+            self._gate.block_routine(pause)
+            told = self._tell_pause(why, pause, "rate-limit-reserve", routine_only=True)
         if not told:
             logger.debug(
                 "Used weight %d of %d, inside a pause", used, self._weight_limit
@@ -129,8 +149,9 @@ class ExchangeCallPolicy:
 
     def _run(self, call: Callable[[], T], delays: tuple[float, ...]) -> T:
         retries = iter(delays)
+        priority = current_priority()
         while True:
-            self._raise_if_closed()
+            self._raise_if_closed(priority)
             try:
                 return call()
             except Exception as exc:
@@ -147,17 +168,30 @@ class ExchangeCallPolicy:
                 )
                 self._sleep(delay)
 
-    def _raise_if_closed(self) -> None:
-        remaining = self._gate.remaining()
-        if remaining <= 0:
+    def _raise_if_closed(self, priority: RequestPriority) -> None:
+        """@raise RateLimitedApiException The gate is closed to a request of this priority."""
+        routine_remaining = self._gate.routine_remaining()
+        if routine_remaining <= 0:
             self._announce_pause_ended()
-        else:
-            raise RateLimitedApiException(
-                timedelta(seconds=remaining),
-                banned=self._gate.banned,
-                note=f"no request is sent for another {math.ceil(remaining)} s: "
-                "the exchange asked for a pause",
+            return
+        if priority is RequestPriority.EXIT_GUARD:
+            remaining = self._gate.remaining()
+            if remaining <= 0:
+                return
+            note = (
+                f"no request is sent for another {math.ceil(remaining)} s: "
+                "the exchange asked for a pause"
             )
+        else:
+            remaining = routine_remaining
+            note = f"no request is sent for another {math.ceil(remaining)} s: " + (
+                "the exchange asked for a pause"
+                if self._gate.remaining() > 0
+                else "the weight reserve is kept for the reads that guard exits"
+            )
+        raise RateLimitedApiException(
+            timedelta(seconds=remaining), banned=self._gate.banned, note=note
+        )
 
     def _close_gate(
         self, failure: ExchangeFailure, cause: Exception
@@ -181,11 +215,18 @@ class ExchangeCallPolicy:
         )
 
     def _tell_pause(
-        self, why: str, pause: float, tag: str, *, banned: bool = False
+        self,
+        why: str,
+        pause: float,
+        tag: str,
+        *,
+        banned: bool = False,
+        routine_only: bool = False,
     ) -> bool:
         """Tell a pause that begins, or one that moves the announced end later or turns the
-        running pause into a ban (a burst's answers in flight escalate that way: a soft
-        pause, then a 429, then a 418). The WARNING names the end the gate now holds.
+        running pause into a ban or a reserve's pause into one that closes every request (a
+        burst's answers in flight escalate that way: a soft pause, then a 429, then a 418). The
+        WARNING names the end the gate now holds.
         Decided under the lock, so threads that meet the same pause tell it once.
         @return Whether it was told."""
         ends = self._wall_seconds() + pause
@@ -195,20 +236,36 @@ class ExchangeCallPolicy:
                 known is None
                 or ends > known + _SAME_END_SECONDS
                 or (banned and not self._announced_ban)
+                or (not routine_only and not self._announced_all_closed)
             )
             if worth:
                 self._announced_pause_end = ends if known is None else max(ends, known)
                 self._announced_ban = self._announced_ban or banned
+                self._announced_all_closed = (
+                    self._announced_all_closed or not routine_only
+                )
             shown = self._announced_pause_end
         if not worth or shown is None:
             return False
-        logger.warning(
-            "%s: no request is sent for %.0f s, until %s [%s]",
-            why,
-            max(shown - self._wall_seconds(), 0.0),
-            time.strftime("%H:%M:%S", time.localtime(shown)),
-            tag,
-        )
+        until = time.strftime("%H:%M:%S", time.localtime(shown))
+        remaining = max(shown - self._wall_seconds(), 0.0)
+        if routine_only:
+            logger.warning(
+                "%s: routine requests are not sent for %.0f s, until %s; the reads that "
+                "guard exits still pass [%s]",
+                why,
+                remaining,
+                until,
+                tag,
+            )
+        else:
+            logger.warning(
+                "%s: no request is sent for %.0f s, until %s [%s]",
+                why,
+                remaining,
+                until,
+                tag,
+            )
         return True
 
     def _announce_pause_ended(self) -> None:
@@ -217,6 +274,7 @@ class ExchangeCallPolicy:
             ended = self._announced_pause_end
             self._announced_pause_end = None
             self._announced_ban = False
+            self._announced_all_closed = False
         if ended is not None:
             logger.info(
                 "The exchange's pause is over: requests resume [rate-limit-end]"

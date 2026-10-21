@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
     OrderEntryTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
@@ -108,9 +111,12 @@ class OrderEntryTermsService(IOrderEntryTerms):
             LeverageBrackets,
         )
 
-    def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
+    def mark_price_for(
+        self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> MarkPrice | NotApplicable:
         return self._ask_unless_not_applicable(
-            GetMarkPriceQuery(venue=self._venue, symbol=symbol), MarkPrice
+            GetMarkPriceQuery(venue=self._venue, symbol=symbol, priority=priority),
+            MarkPrice,
         )
 
     def funding_rate_for(self, symbol: str) -> FundingRate | NotApplicable:

@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -14,3 +17,6 @@ class GetOpenOrdersQuery:
     venue: TradingVenue = field(kw_only=True)
     #: One symbol, or `None` for every symbol on the account.
     symbol: str | None = field(default=None, kw_only=True)
+    #: `BOT-224` — whether the read looks for a bot's protective stops and so may use the weight
+    #: reserve.
+    priority: RequestPriority = field(default=RequestPriority.ROUTINE, kw_only=True)

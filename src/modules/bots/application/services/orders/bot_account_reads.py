@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from decimal import Decimal
+from functools import partial
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_identity import (
     BotIdentity,
@@ -39,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
     VenueTradingPorts,
@@ -74,8 +78,14 @@ class BotAccountReads:
     def position(self) -> Decimal | None:
         """The account's signed position on the bot's symbol (positive long, negative short,
         zero flat), as the exchange reports it now; `None` when the read failed, which is not
-        a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else)."""
-        return self._position_in(self._ports.account_snapshot.open_positions)
+        a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else). It guards the bot's exits, so it uses the
+        venue's weight reserve (`BOT-224`)."""
+        return self._position_in(
+            partial(
+                self._ports.account_snapshot.open_positions,
+                priority=RequestPriority.EXIT_GUARD,
+            )
+        )
 
     def watched_position(self) -> Decimal | None:
         """The same, for a watch of the idle beat: the venue's reading the bots of the venue
@@ -139,11 +149,20 @@ class BotAccountReads:
     def ladder_orders(self) -> tuple[Order, ...]:
         """The account's open orders on the bot's symbol that carry its tag and are not
         protective stops."""
-        return tuple(order for order in self._tagged() if not order.close_position)
+        return tuple(
+            order
+            for order in self._tagged(RequestPriority.ROUTINE)
+            if not order.close_position
+        )
 
     def protective_orders(self) -> tuple[Order, ...]:
-        """The account's open protective stops on the bot's symbol that carry its tag."""
-        return tuple(order for order in self._tagged() if order.close_position)
+        """The account's open protective stops on the bot's symbol that carry its tag. They guard
+        the bot's exits, so the read uses the venue's weight reserve (`BOT-224`)."""
+        return tuple(
+            order
+            for order in self._tagged(RequestPriority.EXIT_GUARD)
+            if order.close_position
+        )
 
     def order_status(self, client_order_id: str) -> OrderStatus | None:
         """How the exchange holds one of the bot's orders now, read by its client id (a regular
@@ -161,9 +180,11 @@ class BotAccountReads:
             return None
         return None if order is None else order.status
 
-    def _tagged(self) -> tuple[Order, ...]:
+    def _tagged(self, priority: RequestPriority) -> tuple[Order, ...]:
         return tuple(
             order
-            for order in self._ports.account_activity.open_orders(self._identity.symbol)
+            for order in self._ports.account_activity.open_orders(
+                self._identity.symbol, priority
+            )
             if tag_of(order.client_order_id) == self._identity.tag
         )

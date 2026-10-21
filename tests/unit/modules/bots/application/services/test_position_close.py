@@ -73,7 +73,9 @@ def test_a_short_position_is_closed_by_a_reduce_only_market_buy(
     monkeypatch.setattr(
         world.snapshot,
         "open_positions",
-        lambda: () if world.book.requests else (a_long_position("-0.05"),),
+        lambda priority=None: (
+            () if world.book.requests else (a_long_position("-0.05"),)
+        ),
     )
 
     closer_of(world).close(a_registration("-0.05"), LAST_PRICE)

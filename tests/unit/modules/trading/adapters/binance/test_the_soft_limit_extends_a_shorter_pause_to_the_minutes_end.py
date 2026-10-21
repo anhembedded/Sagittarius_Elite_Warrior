@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.adapters.binance.excha
 )
 
 _LIMIT = 1200
-_OVER = 900  # 75 % of the limit
+_OVER = 1100  # 92 % of the limit: past the reserve, where the gate closes to everything
 
 
 def test_a_short_pause_already_running_is_extended_to_the_end_of_the_minute() -> None:

@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -49,9 +52,16 @@ class IAccountActivity(ABC):
         connection status names why."""
 
     @abstractmethod
-    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+    def open_orders(
+        self,
+        symbol: str | None = None,
+        priority: RequestPriority = RequestPriority.ROUTINE,
+    ) -> tuple[Order, ...]:
         """Every order open on the account, whoever placed it: on `symbol`
         alone when it is given, on every symbol when it is `None`.
+
+        `priority` is `EXIT_GUARD` when the read looks for a bot's protective stops: it then uses
+        the venue's weight reserve (`RequestPriority`, `BOT-224`).
 
         A caller that wants one symbol's orders names it: the exchange charges
         an unfiltered read 40 weight for each of the regular and the algo

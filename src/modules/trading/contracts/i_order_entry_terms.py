@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
     OrderEntryTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
+    RequestPriority,
+)
 
 
 class IOrderEntryTerms(ABC):
@@ -86,8 +89,11 @@ class IOrderEntryTerms(ABC):
         """
 
     @abstractmethod
-    def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
-        """Read `symbol`'s mark price.
+    def mark_price_for(
+        self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
+    ) -> MarkPrice | NotApplicable:
+        """Read `symbol`'s mark price. `priority` is `EXIT_GUARD` when it judges a bot's exit: it
+        then uses the venue's weight reserve (`RequestPriority`, `BOT-224`).
         @raise MarketPriceUnavailableError The exchange did not answer.
         """
 
