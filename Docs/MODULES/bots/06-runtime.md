@@ -163,7 +163,13 @@ the measurements are in the task file's §5a.)
   20, the reserve would last about 37 s of it and the hard line would then hold the guards too. (2) The weight is
   known only from the answer's header, so requests already in flight when the header crosses a line
   still land: the 10 % above the hard line is for them. (3) A guard refused at the hard line is
-  unchanged from before: the bot's exits wait for the minute's end.
+  unchanged from before: the bot's exits wait for the minute's end. (4) 90 % is later than `BUG-216`
+  found right for the soft line, and is safe because above 70 % no routine chain starts: each of its
+  requests meets the gate on its own and a chain stops at its next one, so what is in flight at 90 %
+  is the guard reads of at most five bots (1 to 5 weight each) and single routine requests, inside
+  the 240 weight above the line; the owner confirms the figure. (5) The coverage read of the run host
+  (`StopCoverageReader`, which decides between leaving and closing a flat bot) is a ladder read and
+  stays routine: in the reserve it answers "unread", while the position and the stops are read.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting

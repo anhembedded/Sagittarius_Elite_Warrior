@@ -20,7 +20,9 @@ A read says what it is for through this enum, on the port that serves the fact
 The query handler of each port carries the priority to the session with `prioritised`: the
 session sits below `ITradingClient`, whose methods are the many implementers a parameter on each
 would change. The handlers are the only places that open the scope (a guard test locks that), and
-the scope closes with the read.
+the scope closes with the read. A session opened inside the scope (`VenueSessions`: ping and time,
+about 2 weight, when the old one is ten minutes old) rides the same class, because the guard
+needs it.
 
 Plausible extensions, each a local change: a Spot venue's holdings read as a guard is one more
 port method taking `priority`; an exit's own order (a market close) riding the reserve is a third

@@ -244,3 +244,46 @@ def test_a_guard_passing_the_reserve_does_not_announce_the_pause_over(
     assert not [r for r in caplog.records if r.levelno == logging.INFO], (
         "routine requests are still held: the pause is not over"
     )
+
+
+def test_a_429_inside_the_reserve_is_told_with_its_own_end_not_the_reserves(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The guards are sent again when the exchange's 10 s are over; the WARNING must not say 41 s."""
+    venue = _Venue()
+    caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
+    venue.at_weight(_SOFT_LINE)
+    venue.exchange.failure = rate_limited(429, retry_after="10")
+
+    with (
+        prioritised(RequestPriority.EXIT_GUARD),
+        pytest.raises(RateLimitedApiException),
+    ):
+        venue.session.futures_position_information()
+
+    pause = [
+        r.getMessage() for r in caplog.records if "[rate-limit-pause]" in r.getMessage()
+    ]
+    assert len(pause) == 1 and "no request is sent for 10 s" in pause[0], pause
+    venue.exchange.failure = None
+    venue.advance(11.0)
+    assert venue.guard_reads() == ["positions", "mark", "stops"], (
+        "the guards are served again 11 s later, as the line said"
+    )
+
+
+def test_a_reserve_met_during_an_exchange_pause_does_not_promise_the_guards_pass(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    venue = _Venue()
+    caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
+    venue.gate.block(10.0)
+
+    venue.at_weight(_SOFT_LINE)
+
+    (reserve,) = [
+        r.getMessage()
+        for r in caplog.records
+        if "[rate-limit-reserve]" in r.getMessage()
+    ]
+    assert "except while a pause of the exchange's own runs" in reserve

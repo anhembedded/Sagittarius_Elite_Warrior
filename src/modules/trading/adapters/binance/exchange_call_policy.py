@@ -73,9 +73,14 @@ SPOT_WEIGHT_LIMIT = 6000
 #: is ~720 weight of such chains.
 SOFT_WEIGHT_RATIO = 0.7
 #: The share at which the reserve ends and the gate closes to every request, the reads that guard
-#: exits included. The reserve (70 % to here, 480 of Futures' 2,400) is for those reads alone:
-#: a bot costs about 8 weight a beat for them, 20 bots a few hundred a minute (`BOT-221`,
-#: `BOT-184`), and the 10 % left is for the answers already in flight when the header is read.
+#: exits included. The reserve (70 % to here, 480 of Futures' 2,400) is for those reads alone: an
+#: idle minute of them weighs 96, 240 and ~780 at 1, 5 and 20 bots (`BOT-224`); the cap is five.
+#: `BUG-216` found 90 % too late for the *soft* line, when every request, Grid chains included (a
+#: register is ~100 weight), was still being sent as the header crossed. Above 70 % no routine chain
+#: starts now: each of its requests passes `_raise_if_closed` on its own, so a chain stops at its
+#: next request. What can be in flight at 90 % is the guard reads of at most five bots (1 to 5
+#: weight each) and single routine requests already sent, well inside the 240 weight above this
+#: line. The owner confirms the figure (`BOT-224`).
 HARD_WEIGHT_RATIO = 0.9
 _SECONDS_PER_MINUTE = 60.0
 #: Two pauses whose ends differ by less than this are the same pause to the log.
@@ -99,9 +104,9 @@ class ExchangeCallPolicy:
         #: end has been announced (or none began).
         self._announced_pause_end: float | None = None
         self._announced_ban = False
-        #: Whether the pause announced since the last one ended already closed every request;
-        #: a reserve announced first is escalated, and told, when the hard line closes it.
-        self._announced_all_closed = False
+        #: The same for the reserve, which closes routine requests alone: the guards' own pause
+        #: (above) and the reserve end at different instants, and each is told with its own.
+        self._announced_routine_end: float | None = None
         # Resolved at the call, so a test can replace `time.sleep` itself.
         self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
@@ -224,27 +229,39 @@ class ExchangeCallPolicy:
         routine_only: bool = False,
     ) -> bool:
         """Tell a pause that begins, or one that moves the announced end later or turns the
-        running pause into a ban or a reserve's pause into one that closes every request (a
-        burst's answers in flight escalate that way: a soft pause, then a 429, then a 418). The
-        WARNING names the end the gate now holds.
+        running pause into a ban (a burst's answers in flight escalate that way: a soft pause, then
+        a 429, then a 418). The pause that closes every request and the reserve that closes
+        routine requests alone are announced apart, each with its own end. The WARNING names the
+        end the gate now holds for the class it is about.
         Decided under the lock, so threads that meet the same pause tell it once.
         @return Whether it was told."""
         ends = self._wall_seconds() + pause
         with self._pause_lock:
-            known = self._announced_pause_end
+            known = (
+                self._announced_routine_end
+                if routine_only
+                else self._announced_pause_end
+            )
             worth = (
                 known is None
                 or ends > known + _SAME_END_SECONDS
                 or (banned and not self._announced_ban)
-                or (not routine_only and not self._announced_all_closed)
             )
+            covered = self._announced_pause_end
+            if (
+                routine_only
+                and covered is not None
+                and covered + _SAME_END_SECONDS >= ends
+            ):
+                worth = False  # a pause that closes every request already says it
+            shown = known
             if worth:
-                self._announced_pause_end = ends if known is None else max(ends, known)
-                self._announced_ban = self._announced_ban or banned
-                self._announced_all_closed = (
-                    self._announced_all_closed or not routine_only
-                )
-            shown = self._announced_pause_end
+                shown = ends if known is None else max(ends, known)
+                if routine_only:
+                    self._announced_routine_end = shown
+                else:
+                    self._announced_pause_end = shown
+                    self._announced_ban = self._announced_ban or banned
         if not worth or shown is None:
             return False
         until = time.strftime("%H:%M:%S", time.localtime(shown))
@@ -252,7 +269,7 @@ class ExchangeCallPolicy:
         if routine_only:
             logger.warning(
                 "%s: routine requests are not sent for %.0f s, until %s; the reads that "
-                "guard exits still pass [%s]",
+                "guard exits still pass, except while a pause of the exchange's own runs [%s]",
                 why,
                 remaining,
                 until,
@@ -271,10 +288,10 @@ class ExchangeCallPolicy:
     def _announce_pause_ended(self) -> None:
         """The one INFO after a pause, at the first request that finds the gate open."""
         with self._pause_lock:
-            ended = self._announced_pause_end
+            ended = self._announced_pause_end or self._announced_routine_end
             self._announced_pause_end = None
+            self._announced_routine_end = None
             self._announced_ban = False
-            self._announced_all_closed = False
         if ended is not None:
             logger.info(
                 "The exchange's pause is over: requests resume [rate-limit-end]"
