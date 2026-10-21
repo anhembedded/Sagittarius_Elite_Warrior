@@ -80,7 +80,7 @@ class _Wired:
 
     @property
     def held(self) -> Decimal:
-        return self.books.shares()[0].inventory.quantity
+        return self.books.reads.shares()[0].inventory.quantity
 
 
 @pytest.mark.parametrize("sources", ["response then stream", "stream then response"])
@@ -165,4 +165,4 @@ def test_a_fill_that_could_not_be_applied_can_be_counted_by_the_next_record() ->
 
     emitter.order_filled(_order(), _FILL, None, 777)
 
-    assert books.shares()[0].inventory.quantity == Decimal("0.002")
+    assert books.reads.shares()[0].inventory.quantity == Decimal("0.002")

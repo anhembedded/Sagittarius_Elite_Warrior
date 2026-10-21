@@ -91,7 +91,9 @@ def test_a_subscriber_sees_the_fill_already_in_the_book() -> None:
     books.install(_TAG, OwnerBook(_REGISTRATION, EMPTY_INVENTORY))
     emitter, bus = _wired(books)
     seen: list[OwnerInventory] = []
-    bus.on(OrderFilledEvent, lambda _event: seen.append(books.shares()[0].inventory))
+    bus.on(
+        OrderFilledEvent, lambda _event: seen.append(books.reads.shares()[0].inventory)
+    )
 
     emitter.order_filled(_buy(), (Decimal(60000), Decimal("0.002")), None)
 
@@ -107,7 +109,7 @@ def test_a_subscriber_sees_an_ended_order_already_released() -> None:
     bus.on(
         OrderEndedEvent,
         lambda _event: open_counts.append(
-            books.facts(_TAG, "bot-1", _buy(), _NOW).open_order_count  # type: ignore[union-attr]
+            books.reads.facts(_TAG, "bot-1", _buy(), _NOW).open_order_count  # type: ignore[union-attr]
         ),
     )
 

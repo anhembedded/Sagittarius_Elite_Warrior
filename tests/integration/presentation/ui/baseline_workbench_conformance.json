@@ -5,8 +5,10 @@
     "Only shrinks; empty when EPIC-033M closes.",
     "The Dev Board's rows left with it (EPIC-033P); Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156).",
     "The Futures and Spot desks' rows left with them (EPIC-033I): one Trade mode, on workbench surfaces.",
-    "'failing_with_venues' is the Trade mode measured with both venues built (test_trade_mode_conformance.py), mode~venue -> checks; empty since EPIC-033I stage 3 made the tables' Cancel and Close actions Trade menu commands."
+    "'failing_with_venues' is the Trade mode measured with both venues built (test_trade_mode_conformance.py), mode~venue -> checks; empty since EPIC-033I stage 3 made the tables' Cancel and Close actions Trade menu commands.",
+    "'failing_with_a_bot' is the Bots mode with a backtestable Grid bot selected, measured on its Live and Backtest tabs (test_bots_mode_with_a_bot_conformance.py, EPIC-040 F2), bots~tab -> checks; empty from the start."
   ],
   "failing": {},
-  "failing_with_venues": {}
+  "failing_with_venues": {},
+  "failing_with_a_bot": {}
 }

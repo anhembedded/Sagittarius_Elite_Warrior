@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.prot
     ProtectiveStopOrder,
     protective_stop_request,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.venue_position_reads import (
+    VenuePositionReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
@@ -111,14 +114,19 @@ class BotOrderGateway:
     """Places, cancels and lists one bot's orders on its venue."""
 
     def __init__(
-        self, ports: VenueTradingPorts, identity: BotIdentity, pacer: IOrderPacer
+        self,
+        ports: VenueTradingPorts,
+        identity: BotIdentity,
+        pacer: IOrderPacer,
+        shared_positions: VenuePositionReads | None = None,
     ) -> None:
         self._ports = ports
+        self._shared_positions = shared_positions
         self._identity = identity
         self._pacer = pacer
         self._requests = BotOrderRequests(identity)
         self._history = BotOrderHistory(ports.account_activity, identity.symbol)
-        self._reads = BotAccountReads(ports, identity)
+        self._reads = BotAccountReads(ports, identity, shared_positions)
         self._submissions = 0
         self._rate_limit: timedelta | None = None
 
@@ -198,6 +206,15 @@ class BotOrderGateway:
         )
 
     def cancel(self, client_order_id: str) -> OrderOutcome:
+        """Cancels one order. The venue's shared reading of the positions is dropped before the
+        call and again after it: a read that raced it must not outlive it (`BOT-184`)."""
+        self._reads.account_changed()
+        try:
+            return self._cancel(client_order_id)
+        finally:
+            self._reads.account_changed()
+
+    def _cancel(self, client_order_id: str) -> OrderOutcome:
         try:
             result = self._ports.order_submission.cancel(
                 self._identity.symbol, client_order_id
@@ -293,7 +310,15 @@ class BotOrderGateway:
         return self._submit(request)
 
     def _submit(self, request: OrderRequest) -> OrderOutcome:
+        """Sends one order, dropping the shared reading of the positions before and after."""
         self._submissions += 1
+        self._reads.account_changed()
+        try:
+            return self._send(request)
+        finally:
+            self._reads.account_changed()
+
+    def _send(self, request: OrderRequest) -> OrderOutcome:
         try:
             result = self._ports.order_submission.submit(request, live=True)
         except ExchangeRateLimitedError as limited:

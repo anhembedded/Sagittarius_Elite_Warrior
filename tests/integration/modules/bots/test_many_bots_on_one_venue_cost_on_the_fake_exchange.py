@@ -229,6 +229,44 @@ def test_measured_request_weight_of_n_idle_bots_for_a_minute(
     )
 
 
+#: `positionRisk` without a symbol is one request for the whole account (Binance weight 5).
+POSITION_RISK_PATH = "GET /fapi/v3/positionRisk"
+POSITION_RISK_WEIGHT = 5
+BEATS_PER_MINUTE = int(60 / CHECK_EVERY_SECONDS)
+
+
+@pytest.mark.parametrize("count", COUNTS)
+def test_n_idle_bots_read_the_accounts_positions_once_a_beat_between_them(
+    both_venues: FakeExchange,
+    gate_never_closes: None,
+    count: int,
+    report: Callable[[str], None],
+) -> None:
+    """`BOT-184`: the bots of a venue are on one account, and `positionRisk` is one request for all
+    of it, so a beat reads it once for the whole sweep, not once per bot and watch (it was two a
+    beat per bot: 120 weight a minute for one bot, 2,405 for twenty)."""
+    meter = both_venues.urls.weights
+    with booted_two_venues(both_venues) as app:
+        symbols = FUTURES_SYMBOLS[:count]
+        run_bots(app, FUTURES, symbols)
+        mark = meter.mark()
+
+        _an_idle_minute(app, symbols)
+        spent = meter.by_path_since(mark)[POSITION_RISK_PATH]
+
+    # One read a beat, and one more when a bot's own order dropped the shared reading in mid-beat
+    # (twenty bots do: the first beat's order drops it once).
+    allowed = POSITION_RISK_WEIGHT * (BEATS_PER_MINUTE + 1)
+    report(
+        f"MEASURED positionRisk, idle minute N={count}: {spent} weight "
+        f"(one read a beat is {POSITION_RISK_WEIGHT * BEATS_PER_MINUTE}, allowed {allowed})"
+    )
+    assert spent <= allowed, (
+        f"{count} idle bots spent {spent} weight a minute reading the account's positions: "
+        "more than one read a beat between them"
+    )
+
+
 @pytest.mark.parametrize("count", (1, 5))
 def test_measured_request_weight_of_one_fill_does_not_grow_with_the_bots_beside_it(
     both_venues: FakeExchange,

@@ -117,7 +117,7 @@ def _stop(
     result = handler.execute(EmergencyStopCommand(venue=_SPOT))
 
     assert result.positions_closed.succeeded is True
-    assert state.owner_books.shares() == ()
+    assert state.owner_book_reads.shares() == ()
     sells = [
         (tag_of(call.kwargs["newClientOrderId"]), Decimal(call.kwargs["quantity"]))
         for call in raw_client.futures_create_order.call_args_list

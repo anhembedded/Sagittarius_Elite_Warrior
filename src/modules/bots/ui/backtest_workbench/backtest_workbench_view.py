@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar imp
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    CurrentStaysPinned,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
     Readout,
@@ -82,6 +85,10 @@ INTERVALS = (
     TimeFrame.ONE_HOUR,
 )
 DEFAULT_INTERVAL = TimeFrame.FIFTEEN_MINUTES
+#: Said when the interval Run replays is unticked in the picker (`EPIC-040` F4).
+_CURRENT_INTERVAL_TEXT = (
+    "The interval Run replays stays pinned, so the row always shows it."
+)
 _DEFAULT_DAYS = 7
 _UTC = QTimeZone.utc()
 
@@ -145,6 +152,9 @@ class BacktestWorkbenchView(QWidget):
         self._editor_layout.setContentsMargins(0, 0, 0, 0)
         self._editor: BotKindPanel | None = None
         self.card = ChartCard("Backtest")
+        # The replay is at the interval that was run: a second chooser here would change nothing
+        # the person ran (`EPIC-040` F3).
+        self.card.toolbar.hide_timeframes()
         self.chart = BotChart(self.card, chart_ports, parent=self.card)
         self.equity = EquityPane()
         self.summary = ReadoutSlot()
@@ -321,7 +331,10 @@ def _interval_toolbar() -> ChartToolbar:
     "More timeframes…", offering only what a backtest replays (`INTERVALS`)."""
     codes = [interval.value for interval in INTERVALS]
     toolbar = ChartToolbar(
-        timeframes=codes, active=DEFAULT_INTERVAL.value, offered_codes=codes
+        timeframes=codes,
+        active=DEFAULT_INTERVAL.value,
+        offered_codes=codes,
+        keep_current_pinned=CurrentStaysPinned(_CURRENT_INTERVAL_TEXT),
     )
     toolbar.setObjectName("tbBacktestInterval")
     toolbar.setWindowTitle("Interval")

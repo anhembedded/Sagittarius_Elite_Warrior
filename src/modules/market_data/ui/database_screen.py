@@ -28,6 +28,7 @@ DATABASE_ROUTE = "data_management"
 
 _NAV = NavMetadata(
     title="Data",
+    access_key="d",
     icon="database",
     section_sequence=10,
     item_sequence=20,

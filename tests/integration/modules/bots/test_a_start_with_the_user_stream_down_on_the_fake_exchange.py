@@ -55,7 +55,7 @@ def _start(app: BootedApp) -> str:
 
 
 def _held(app: BootedApp) -> Decimal:
-    (share,) = app.scope.session_state.owner_books.shares()
+    (share,) = app.scope.session_state.owner_book_reads.shares()
     return share.inventory.quantity
 
 

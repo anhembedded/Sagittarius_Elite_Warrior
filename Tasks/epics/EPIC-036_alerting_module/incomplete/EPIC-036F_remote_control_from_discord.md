@@ -1,13 +1,13 @@
 # EPIC-036F — Remote control from Discord: allowlisted commands reach the same handlers as the UI
 
-**Status:** 🔵 Planned — not started (Phase 4); waits for [`EPIC-035X`](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) and for the owner's approval of the library
+**Status:** 🔵 Planned, designed and approved — **blocked on [`EPIC-035X`](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md)** (the owner's answers of 2026-10-21 settle the design; nothing is built)
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N6), relayed by the coordinator session.
 **Risk:** 🔴 — a remote door to a trading app: authorisation, replay, a new dependency and a persistent outbound connection
 **Complexity:** L
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet; a journey "stop a bot from my phone" is added by this task.
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §4, §6, §7.
-**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md), [EPIC-035X](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) (the audit trail, so the first remote command already has a record). **Design record (proposed, awaiting the owner):** [`DECISION_2026-10-21_remote_control_from_discord.md`](../DECISION_2026-10-21_remote_control_from_discord.md) — options, recommendation and the six open questions O1 to O6. **Needs owner approval before starting:** the Discord gateway library, or a hand-written client (`requirements.txt` is a dependency change, `ONBOARDING.md` §7; decision O1).
+**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md), [EPIC-035X](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) (the audit trail, so the first remote command already has a record). **Design record (accepted by the owner, 2026-10-21):** [`DECISION_2026-10-21_remote_control_from_discord.md`](../DECISION_2026-10-21_remote_control_from_discord.md) — a pinned Discord gateway library (the owner approved the dependency; it is added only when this task's code starts), a first release of status, pause and stop, a remote stop that never sells, only the owner's own Discord user id in a private server, slash commands first, and no start before `EPIC-035X`.
 
 ---
 
@@ -17,13 +17,13 @@ An alert that says "bot g3n092 halted" is most useful when the owner can answer 
 ## 2. Acceptance criteria
 - [ ] **`IRemoteCommandSource`** is the receive side, separate from `IAlertChannel` (a channel may implement either or both; Telegram may stay send-only). A Discord implementation connects **outbound** over the gateway; the app opens no port.
 - [ ] **`RemoteCommandGate`** is the one door: every remote command passes it, and a command that skips it cannot reach a handler. It checks, in order: the **user ID is in the allowlist** (an empty allowlist accepts nothing; never authorised by channel, group or role), the **request id has not been run** (idempotency, durable across a restart), the **command tier**, then writes the audit record, runs the command and audits the result.
-- [ ] **Command tiers:** status, pause and stop run at once; **start and resume need a second confirmation** (a confirm step with a short expiry) and are **disabled on mainnet by default**; anything else is refused with a reason.
+- [ ] **Command tiers:** status, pause and stop run at once, and a remote stop **never sells** (it keeps the base); **start and resume are not remote commands in the first release** (the owner, 2026-10-21; a later decision may add them behind a confirm step with a short expiry, off on mainnet by default); anything else is refused with a reason.
 - [ ] **Same handlers as the UI:** a remote stop dispatches the UI's own stop command through `ICommandDispatcher`; instance locking, Start preconditions and the state machine apply exactly as for a click.
 - [ ] **Audit:** who (Discord user id), when, which command, which bot and the result are written to the `EPIC-035X` journal before and after the action; a refused command is audited too; no token or secret is written.
 - [ ] An `INFO` alert reports "bot X stopped by a command from Discord" after a successful command.
 - [ ] A lost gateway connection reconnects with backoff and raises `CHANNEL_FAILING` after its bound; commands issued while disconnected are not replayed on return.
-- [ ] The allowlist is managed in the Options page of `EPIC-036D` and stored with the settings (user ids are not secrets; the bot token is, and lives in the keyring).
-- [ ] The library choice (or the decision to hand-write a client) is recorded in the decision record and approved by the owner **before** any dependency is added.
+- [ ] The allowlist holds **only the owner's own Discord user id**, is managed in the Options page of `EPIC-036D` and stored with the settings (user ids are not secrets; the bot token is, and lives in the keyring); the bot runs in a private server.
+- [x] The library choice is recorded in the decision record and approved by the owner (2026-10-21); the dependency is added when this task starts.
 
 ## 3. Design
 A **command gate** in front of the existing command handlers (the *Anti-Corruption Layer* and *Facade* for an external input), with an idempotency key (a request id) and *tiered authorisation*; the receive side and the send side are two ports so that a send-only channel stays simple (*Interface Segregation*). A button on an alert carries the bot id and a one-time request id, so a replayed click is a no-op. The library question is open (O1): the choices to put to the owner are a maintained gateway library, a minimal hand-written client, and Discord's HTTP interactions (which need an inbound endpoint and are therefore not preferred).
@@ -61,4 +61,4 @@ Not run yet.
 Not started.
 
 ## Resume
-Not started. Blocked on `EPIC-035X` and on the owner's decision on the library (O1). First action when released: put the library options to the owner, then `test_a_command_from_a_user_not_on_the_allowlist_is_refused_and_audited`, run red.
+Not started. Blocked on `EPIC-035X` only: the library, the commands, the allowlist and the audit order are decided (the decision record, 2026-10-21). First action when released: add the pinned library to `requirements.txt` and `requirements.lock` (the owner's approval is recorded), then `test_a_command_from_a_user_not_on_the_allowlist_is_refused_and_audited`, run red.

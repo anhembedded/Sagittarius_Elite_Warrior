@@ -18,12 +18,18 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     decode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_account_reads import (
+    BotAccountReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     BotOrderGateway,
     OrderOutcome,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
     ProtectiveStopOrder,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
+    CHECK_EVERY_SECONDS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
     StopBotCommand,
@@ -242,6 +248,46 @@ def test_the_stop_triggers_in_the_session_and_the_bot_stops_flat_and_says_why(
         assert app.runtime(bot_id).reason is GridReason.PROTECTIVE_STOP_TRIGGERED
         assert stops(app) == []
         assert app.resting() == {}
+
+
+def test_a_stop_that_runs_just_after_a_beat_read_the_positions_still_ends_the_bot_as_triggered(
+    futures: FakeExchange,
+) -> None:
+    """`BOT-184` review: the idle beat's reading of the account's positions is shared and up to
+    half a beat old. A stop that runs right after it leaves the position flat while that reading
+    still says it stands; judged on the reading the stop looked missing, was sent again, and the
+    bot went on trading after its stop loss. The look at the stops confirms on the account."""
+    with booted_futures_bots(futures) as app:
+        bot_id = started(app)
+        futures.urls.futures_book.faults.hold_fills = True
+        app.monotonic.advance(CHECK_EVERY_SECONDS)
+        app.ticker.fire()  # the risk watch reads the positions: the shared reading is taken
+
+        app.move_price(
+            STOP_LOSS - 100
+        )  # no beat since: the reading is younger than half a beat
+
+        assert app.position() == 0
+        assert app.bot(bot_id).state is S.STOPPED
+        assert app.runtime(bot_id).reason is GridReason.PROTECTIVE_STOP_TRIGGERED
+
+
+def test_an_absent_stop_is_judged_on_the_account_even_when_nothing_dropped_the_reading(
+    futures: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The second line of defence of the test above: with every invalidation off, a stop that
+    left the open list is still told as run by the account's own read."""
+    monkeypatch.setattr(BotAccountReads, "account_changed", lambda self: None)
+    with booted_futures_bots(futures) as app:
+        bot_id = started(app)
+        futures.urls.futures_book.faults.hold_fills = True
+        app.monotonic.advance(CHECK_EVERY_SECONDS)
+        app.ticker.fire()
+
+        app.move_price(STOP_LOSS - 100)
+
+        assert app.bot(bot_id).state is S.STOPPED
+        assert app.runtime(bot_id).reason is GridReason.PROTECTIVE_STOP_TRIGGERED
 
 
 def test_a_stop_over_a_symbol_the_owner_flattened_is_cancelled_not_left_to_open_one(

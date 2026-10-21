@@ -213,7 +213,7 @@ class ExecuteOrderCommandHandler(
                 owner_budget=(
                     None
                     if tag is None
-                    else session_state.owner_books.facts(
+                    else session_state.owner_book_reads.facts(
                         tag, command.owner_id, preview.order, now
                     )
                 ),
