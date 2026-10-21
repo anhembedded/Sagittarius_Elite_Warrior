@@ -49,8 +49,9 @@ class GridFillAnnouncer:
                 )
             )
             logger.info(
-                "Bot %s: L%d %s %s @ %s filled whole; %d cycle(s), grid profit %s%s [order-filled]",
+                "Bot %s: %s L%d %s %s @ %s filled whole; %d cycle(s), grid profit %s%s [order-filled]",
                 self._context.state.bot_id,
+                order.client_order_id,
                 order.level_index,
                 order.side.value,
                 order.quantity,
