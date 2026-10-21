@@ -7,9 +7,10 @@ a ticker per holding): twice the request weight, and the owner's log showed ever
 handlers now read through this object, which keeps a venue's last good status for
 `SHARED_READ_SECONDS`, so the second job of a tick finds the first one's read.
 
-Only those two handlers use it. Every other caller of `check_connection()` (the
-order gate, the readiness checks, an Emergency Stop) reads the exchange itself,
-and the summary read that follows a fill asks for a fresh one (`read_now`): the
+Only those two handlers use it. The order gate keeps its own, longer memory
+(`OrderConnectionMemory`, `BUG-247`: a beat, and the lock never held across the read,
+so a slow read cannot hold up a cancel); the readiness checks and an Emergency Stop read
+the exchange themselves, and the summary read that follows a fill asks for a fresh one (`read_now`): the
 fill changed the balances after the tick's read.
 
 A failed status is never kept: the next caller asks again.

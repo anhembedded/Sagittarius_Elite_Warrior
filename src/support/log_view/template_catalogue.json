@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 827, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 828, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -213,6 +213,7 @@
 ["ss", "Bot ", ": the position could not be re-read (", "); asking again [position-divergence]"],
 ["s", "Bot ", ": the position could not be read, so the protective stop is not looked at this time [protective-stop]"],
 ["ss", "Bot ", ": the position of ", " could not be read"],
+["ss", "Bot ", ": the position of ", " was not read: the exchange asked for a pause"],
 ["sf", "Bot ", ": the position still differs after a re-read that followed a burst of reports; looking once more in ", " s [position-divergence]"],
 ["sss", "Bot ", ": the price ", " crossed ", " while the bot waited; stopping, no ladder is laid [bot-halt-recovery]"],
 ["s", "Bot ", ": the price could not be read for the recovery attempt [bot-halt-recovery]"],

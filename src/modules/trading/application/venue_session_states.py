@@ -24,6 +24,9 @@ import threading
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_connection_memory import (
+    OrderConnectionMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -33,13 +36,14 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 class VenueSessionStates:
-    """One `TradingSessionState` and one `EquityCurveRecorder` per venue,
+    """One `TradingSessionState`, one `EquityCurveRecorder` and one `OrderConnectionMemory` per venue,
     built on first use and the same instance on every later call."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._session_states: dict[TradingVenue, TradingSessionState] = {}
         self._equity_recorders: dict[TradingVenue, EquityCurveRecorder] = {}
+        self._order_connections: dict[TradingVenue, OrderConnectionMemory] = {}
 
     def session_state(self, venue: TradingVenue) -> TradingSessionState:
         with self._lock:
@@ -56,3 +60,11 @@ class VenueSessionStates:
                 recorder = EquityCurveRecorder()
                 self._equity_recorders[venue] = recorder
             return recorder
+
+    def order_connection(self, venue: TradingVenue) -> OrderConnectionMemory:
+        with self._lock:
+            memory = self._order_connections.get(venue)
+            if memory is None:
+                memory = OrderConnectionMemory()
+                self._order_connections[venue] = memory
+            return memory
