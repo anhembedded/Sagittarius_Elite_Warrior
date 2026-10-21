@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_dock_frames 
     FRAMES,
     build_frame,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
+    LIQUIDATION_KEY,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 
 _SIZES = [(1024, 700), (1366, 768), (1920, 1080)]
@@ -238,3 +241,16 @@ def test_the_unsaved_design_frame_fills_the_plan_figures_under_its_heading(
     assert grid.shown_group_title("plan") == "Plan (not saved)"
     assert grid.shown_value("capital") != "—"
     assert grid.shown_value("lower_edge") != "—"
+
+
+def test_the_unsaved_design_frame_shows_the_futures_estimate_and_marks_the_ladder(
+    qtbot,
+) -> None:
+    """`BUG-261`: the Liquidation row carries the planner's own estimate (the frame is a Futures
+    plan) and the ladder's summary says it is not saved."""
+    view = _open(qtbot, "unsaved_design")
+
+    estimate = view.plan.properties.shown_value(LIQUIDATION_KEY)
+
+    assert "liquidation near 1,584.11 (estimate)" in estimate
+    assert view.ladder.summary.text().startswith("Not saved: ")

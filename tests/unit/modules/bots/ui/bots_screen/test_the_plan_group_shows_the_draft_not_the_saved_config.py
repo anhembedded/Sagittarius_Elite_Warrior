@@ -12,11 +12,18 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
+    BotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
+    BotRunFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     GridLadder,
+    LadderUnavailable,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -25,8 +32,21 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import
     DetailInputs,
     detail_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
+    SelectedBot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.bots_screen.bots_screen_fixtures import (
+    stored,
 )
 
 NOW = datetime(2026, 10, 21, 9, tzinfo=UTC)
@@ -80,28 +100,6 @@ def test_a_design_typed_back_to_what_is_saved_is_not_marked_unsaved(
     open_bots_screen,
 ) -> None:
     """`BUG-261` review: `edit()` kept a config equal to the saved one as an edit."""
-    from datetime import UTC, datetime
-
-    from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
-        BotKindCatalog,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-        BotRunFactsReader,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
-        SelectedBot,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-        DEFAULT_OWNER_BUDGET_CAPS,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-        FakeVenueTradingPorts,
-        fake_venue_ports,
-    )
-    from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.bots_screen.bots_screen_fixtures import (
-        stored,
-    )
-
     screen = open_bots_screen([stored("a00001", BotLifecycleState.DRAFT)])
     screen.settle()
     selected = SelectedBot(
@@ -129,5 +127,6 @@ def test_the_ladder_and_the_liquidation_row_of_a_design_say_what_they_are() -> N
         DetailInputs(_unsaved_grid(), None, None, NOW, edited={**_DESIGN, "upper": ""})
     )
 
-    assert "saved parameters" not in getattr(detail.ladder, "reason", "")
+    assert isinstance(detail.ladder, LadderUnavailable)
+    assert "saved parameters" not in detail.ladder.reason
     assert detail.facts.liquidation_estimate == ""  # no guard facts for Spot
