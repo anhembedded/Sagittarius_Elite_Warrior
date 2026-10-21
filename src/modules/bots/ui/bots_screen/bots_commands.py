@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
     all_kind_commands,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    chart_commands,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
     live_stream_command,
 )
@@ -39,10 +42,14 @@ from .bot_action_rules import BotAction
 
 BOTS_MENU = ("&Bots",)
 VIEW_MENU = ("&View",)
+#: View → Chart, the chart in front's navigation (`EPIC-040` F1), as Market and Backtest have it.
+CHART_MENU = ("&View", "C&hart")
 _CONTRIBUTOR = "bots"
 _PREFIX = "bots.bots"
 #: The prefix of the commands that follow the selected bot's chart.
 COMMAND_PREFIX = _PREFIX
+#: The prefix of the chart commands (`chart_command_id`).
+CHART_PREFIX = _PREFIX
 
 NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
@@ -158,4 +165,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             shortcut="Ctrl+J",
         ),
+        # `EPIC-040` F1: the chart in front's toolbar by keyboard - More timeframes… for the Live
+        # chart's pinned timeframes and the workbench's interval row, and the Live chart's zoom.
+        *chart_commands(_CONTRIBUTOR, CHART_PREFIX, route, CHART_MENU),
     )

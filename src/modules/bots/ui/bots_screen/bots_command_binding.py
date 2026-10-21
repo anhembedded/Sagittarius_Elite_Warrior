@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedSt
 from ..strategies.venue_strategies import VenueStrategies
 from .bot_action_rules import BotAction, export_plan_availability
 from .bot_chart_host import BotChartHost
+from .bots_chart_commands import BotsChartCommands
 from .bots_commands import (
     ARM_STRATEGY,
     BACKTEST_TAB,
@@ -54,6 +55,7 @@ def bind_bots_commands(
     """What `BotsPresenter.bind_commands` binds."""
     if view is not None:
         _bind_centre_tabs(binder, view)
+        BotsChartCommands(view, view_model).bind_commands(binder)
     idle = DerivedState(
         view_model.action_in_flight_changed,
         lambda: not view_model.action_in_flight,

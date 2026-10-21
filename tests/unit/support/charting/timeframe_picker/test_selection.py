@@ -19,6 +19,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    CurrentStaysPinned,
     TimeframeSelection,
 )
 
@@ -43,12 +44,15 @@ class _Host:
         else:
             self.pinned.remove(code)
 
-    def build(self) -> TimeframeSelection:
+    def build(
+        self, keep_current_pinned: CurrentStaysPinned | None = None
+    ) -> TimeframeSelection:
         selection = TimeframeSelection(
             get_codes=lambda: self.codes,
             get_current=lambda: self.current,
             get_pinned=lambda: self.pinned,
             set_pinned=self.set_pinned,
+            keep_current_pinned=keep_current_pinned,
         )
         selection.refresh()
         return selection
@@ -197,3 +201,72 @@ def test_every_change_announces_itself_once(host):
     selection.set_current("1m")
 
     assert len(changes) == 3
+
+
+def test_the_chosen_timeframe_cannot_be_unpinned_under_the_rule_and_says_why(host):
+    """`EPIC-040` F4: the row always shows what is chosen. Unpinning the chosen one is refused,
+    the host's store is untouched, the views are told to read again, and the reason is told."""
+    host.current, host.pinned = "1m", ["4h", "1m"]
+    selection = host.build(CurrentStaysPinned("The chosen one stays pinned."))
+    reasons: list[str] = []
+    changes: list[None] = []
+    selection.pin_refused.connect(reasons.append)
+    selection.stateChanged.connect(lambda: changes.append(None))
+
+    selection.toggle_pinned("1m")
+
+    assert host.writes == []
+    assert [row.code for row in selection.pinned_rows] == ["1m", "4h"]
+    assert reasons == ["The chosen one stays pinned."]
+    assert changes, "the views must read again, so the cleared box is checked again"
+
+
+def test_another_pin_can_go_and_the_chosen_one_is_still_in_the_row(host):
+    host.current, host.pinned = "1m", ["4h", "1m"]
+    selection = host.build(CurrentStaysPinned("x"))
+
+    selection.toggle_pinned("4h")
+
+    assert host.writes == [("4h", False)]
+    assert [row.code for row in selection.pinned_rows] == ["1m"]
+    assert [row.code for row in selection.pinned_rows if row.current] == ["1m"]
+
+
+def test_choosing_an_unpinned_timeframe_pins_it_under_the_rule(host):
+    host.current, host.pinned = "1m", ["1m"]
+    selection = host.build(CurrentStaysPinned("x"))
+
+    selection.choose("1h")
+
+    assert host.writes == [("1h", True)]
+    assert [row.code for row in selection.pinned_rows if row.current] == ["1h"]
+
+
+def test_a_chosen_timeframe_the_host_never_pinned_is_pinned_on_the_first_read(host):
+    """The row must show it from the start, not only after a choice."""
+    host.current, host.pinned = "1h", ["1m"]
+
+    selection = host.build(CurrentStaysPinned("x"))
+
+    assert host.writes == [("1h", True)]
+    assert {row.code for row in selection.pinned_rows} == {"1m", "1h"}
+
+
+def test_the_first_pinned_one_may_go_when_the_chosen_is_another(host):
+    host.current, host.pinned = "1h", ["1m", "1h"]
+    selection = host.build(CurrentStaysPinned("x"))
+
+    selection.toggle_pinned("1m")
+
+    assert [row.code for row in selection.pinned_rows] == ["1h"]
+
+
+def test_without_the_rule_every_pin_can_go_the_chosen_one_too(host):
+    host.pinned = ["4h"]
+    host.current = "4h"
+    selection = host.build()
+
+    selection.toggle_pinned("4h")
+
+    assert host.writes == [("4h", False)]
+    assert selection.pinned_rows == ()

@@ -66,3 +66,24 @@ def test_the_fallback_after_a_market_change_stays_inside_the_subset(qapp) -> Non
 
     assert seen == ["15m"]
     assert toolbar.active_timeframe == "15m"
+
+
+def test_a_toolbar_that_hides_its_timeframes_shows_none_of_them(qapp) -> None:
+    """`EPIC-040` F3: the row and its "More timeframes…" go, and stay gone when the pins change."""
+    toolbar = ChartToolbar(timeframes=_SUBSET, active="15m", offered_codes=_SUBSET)
+
+    toolbar.hide_timeframes()
+    toolbar._selection.toggle_pinned("1s")
+
+    shown = [action.text() for action in toolbar.actions() if action.isVisible()]
+    assert shown == []
+    assert toolbar.timeframes.more_action in toolbar.actions()
+
+
+def test_a_toolbar_shows_its_timeframes_unless_asked_not_to(qapp) -> None:
+    toolbar = ChartToolbar(timeframes=_SUBSET, active="15m", offered_codes=_SUBSET)
+
+    shown = [action.text() for action in toolbar.actions() if action.isVisible()]
+
+    assert shown[: len(_SUBSET)] == list(_SUBSET)
+    assert toolbar.timeframes.more_action.text() in shown

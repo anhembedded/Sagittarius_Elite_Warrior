@@ -97,6 +97,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    CurrentStaysPinned,
     PinnedTimeframes,
     TimeframeActions,
     TimeframePickerDialog,
@@ -178,6 +179,7 @@ class ChartToolbar(QToolBar):
         symbol: str | None = None,
         timeframe_pin_preferences: TimeframePinPreferences | None = None,
         offered_codes: Collection[str] | None = None,
+        keep_current_pinned: CurrentStaysPinned | None = None,
     ) -> None:
         """@param symbol / timeframe_pin_preferences Scope the pinned set to
         one chart. Both must be given together — `ChartCard` passes its own
@@ -188,7 +190,10 @@ class ChartToolbar(QToolBar):
         seeded from `timeframes`, exactly as before persistence existed.
         @param offered_codes The only timeframes this toolbar offers, pinned or in the
         picker, for a host whose data covers a subset (the backtest workbench's
-        intervals, `EPIC-040`); `None` offers every timeframe the market can load."""
+        intervals, `EPIC-040`); `None` offers every timeframe the market can load.
+        @param keep_current_pinned Pins the timeframe chosen and refuses to unpin it, saying why
+        (`EPIC-040` F4); `None` lets every pin go.
+        """
         active_state = _ActiveTimeframe(
             active or (timeframes[0] if timeframes else None)
         )
@@ -220,6 +225,7 @@ class ChartToolbar(QToolBar):
             get_current=lambda: active_state.code or "",
             get_pinned=get_pinned,
             set_pinned=set_pinned,
+            keep_current_pinned=keep_current_pinned,
         )
         selection.refresh()
 
@@ -233,6 +239,7 @@ class ChartToolbar(QToolBar):
         self._selection = selection
         self._selection.chosen.connect(self._on_chosen)
         self._picker: TimeframePickerDialog | None = None
+        self._timeframes_hidden = False
 
         self.timeframes = TimeframeActions(selection, parent=self)
         self.timeframes.more_requested.connect(self._open_picker)
@@ -247,6 +254,13 @@ class ChartToolbar(QToolBar):
         """Appends the chart's own actions (zoom) after the timeframes."""
         self.addActions(list(actions))
 
+    def hide_timeframes(self) -> None:
+        """Takes the timeframe row off the toolbar for good (`EPIC-040` F3): a chart that only
+        draws what was run has no second interval to choose. The actions stay, hidden, so what
+        asks them (`menuEquivalent`) still finds them."""
+        self._timeframes_hidden = True
+        self._show_timeframes_as_wanted()
+
     def _place_timeframes(self) -> None:
         for action in self.actions():
             if action.objectName().startswith("actTimeframe_"):
@@ -254,6 +268,16 @@ class ChartToolbar(QToolBar):
         self.insertActions(
             self.timeframes.more_action, self.timeframes.timeframe_actions()
         )
+        self._show_timeframes_as_wanted()
+
+    def _show_timeframes_as_wanted(self) -> None:
+        wanted = not self._timeframes_hidden
+        for action in (
+            *self.timeframes.timeframe_actions(),
+            self.timeframes.more_action,
+            self._timeframes_end,
+        ):
+            action.setVisible(wanted)
 
     def _on_chosen(self, code: str) -> None:
         """`selection.chosen` fires from either view — a timeframe triggered here, or

@@ -36,6 +36,12 @@ def replace_in(slot: QLayout, widget: QWidget | None) -> None:
         widget.show()
 
 
+def held_in(slot: QLayout) -> QWidget | None:
+    """The widget `slot` holds now, if any."""
+    item = slot.itemAt(0)
+    return item.widget() if item is not None else None
+
+
 def _retire(old: QWidget, owner: QWidget) -> None:
     old.hide()
     if old.testAttribute(Qt.WidgetAttribute.WA_DeleteOnClose):
