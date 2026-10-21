@@ -23,15 +23,24 @@ that case — it is the first thing a trader reads off a candle list, and the
 QML delegate coloured the close and change cells for exactly that reason.
 The two values are **not** redeclared here: they are `chart_card`'s own
 `BULL_COLOR`/`BEAR_COLOR`, which that package documents as "not chrome — a
-candle body is green because it closed up". The same candle is green on the
-chart and in this table because it is the same constant, and this repository
-has been bitten enough times by a second copy of one value.
+candle body is green because it closed up". A candle that rose or fell is the
+same hue on the chart and in this table because it is the same constant, and this
+repository has been bitten enough times by a second copy of one value. They part
+on a doji (close equal to open): the chart still paints it bull, while this table,
+like every `signed_key` figure, gives exactly zero neither a sign nor a tone
+(`EPIC-043E`; the owner may veto that).
 
 **Values, not text (`EPIC-033N`).** A row holds the candle's numbers and the
 table writes them through the application's formatter, so a price reads here
 as it reads on every other screen. Until then this file had its own
 `_format_price` and `_format_volume` (a compact `1.23M`), and set a monospace
 font family on every cell, which `ui-presentation-rule.md` §1 now forbids.
+**An arrow beside the colour (`EPIC-043E`).** The Change cell is a `signed_key` column, written with
+an arrow and a sign (`▲ +1.00%`), so the direction is in words as well as in the colour. A candle
+that closed where it opened (`0.00%`) has no direction and so no colour: it used to be painted
+green because "a doji is not a fall and the colour has to pick one", a claim the text beside it
+did not make. Every other figure in the application treats zero the same way.
+
 The table stays in time order: the candles arrive that way and the view is
 not sorted until the user clicks a header.
 """
@@ -50,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -73,7 +83,6 @@ class KLineDisplayRow:
     close: float
     volume: float
     trades: int
-    is_bullish: bool
     #: Close against open, in percent.
     change_percent: float
 
@@ -91,7 +100,6 @@ def market_data_to_kline_row(k: MarketData) -> KLineDisplayRow:
         close=k.close_price,
         volume=k.volume,
         trades=k.number_of_trades,
-        is_bullish=k.close_price >= k.open_price,
         change_percent=change,
     )
 
@@ -108,12 +116,14 @@ class KLineInspectorTableModel(RowTableModel[KLineDisplayRow]):
         ColumnSpec("low", "Low", ColumnKind.PRICE),
         ColumnSpec("close", "Close", ColumnKind.PRICE),
         ColumnSpec("volume", "Volume", ColumnKind.QUANTITY),
-        ColumnSpec("change", "Change", ColumnKind.PERCENT),
+        ColumnSpec(signed_key("change"), "Change", ColumnKind.PERCENT),
         ColumnSpec("trades", "Trades", ColumnKind.QUANTITY),
     )
 
     #: The two cells that say which way the candle went.
-    _DIRECTIONAL_KEYS: ClassVar[frozenset[str]] = frozenset({"close", "change"})
+    _DIRECTIONAL_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"close", signed_key("change")}
+    )
 
     def _value(self, row: KLineDisplayRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -135,7 +145,9 @@ class KLineInspectorTableModel(RowTableModel[KLineDisplayRow]):
     def _role_data(self, row: KLineDisplayRow, column: int, role: int) -> object:
         key = self.COLUMNS[column].key
         if role == Qt.ItemDataRole.ForegroundRole and key in self._DIRECTIONAL_KEYS:
-            return BULLISH_COLOR if row.is_bullish else BEARISH_COLOR
+            if row.change_percent == 0:
+                return None  # no direction, so no colour (and no arrow in the text)
+            return BULLISH_COLOR if row.change_percent > 0 else BEARISH_COLOR
         return None
 
     # -- reading and writing the candle list -------------------------------

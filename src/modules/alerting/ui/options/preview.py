@@ -8,9 +8,14 @@ The URL below is a made-up one; nothing here reads a secret store.
 
 from __future__ import annotations
 
+from datetime import time
+
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordChannelState,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_setup import (
+    QuietHoursState,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
     ChannelTestOutcome,
@@ -53,6 +58,15 @@ def build_preview() -> QWidget:
         alerts_words.telegram_channel_line(telegram),
         alerts_words.telegram_saved_line(telegram),
         can_remove=telegram.stored,
+    )
+    view_model.quiet.take_state(
+        QuietHoursState(
+            enabled=True,
+            start=time(22, 0),
+            end=time(7, 0),
+            zone_key="Europe/Berlin",
+            editable=True,
+        )
     )
     refused = ChannelTestOutcome(
         "discord",

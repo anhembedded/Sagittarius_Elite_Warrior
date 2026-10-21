@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (13/16) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20, `036D3` 2026-10-21
+- **Status:** 🟡 In progress (15/18) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20, `036D3`, `036D4`, `036D5` and `036D6` 2026-10-21
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -59,6 +59,8 @@ gantt
 | EPIC-036D2 | [The Alerts mode: history and channel status](completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) | `claude/epic-036d-alerts-history` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036D3 | [The status-bar indicator](completed/EPIC-036D3_status_bar_indicator.md) | `claude/epic-036d-status-indicator` | 🟢 | ✅ Done (2026-10-21), awaiting merge | — |
 | EPIC-036D4 | [Telegram on the Options page](completed/EPIC-036D4_telegram_on_the_options_page.md) | `claude/epic-036d4-telegram-on-the-page` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
+| EPIC-036D5 | [Retry failed and the severity tone](completed/EPIC-036D5_retry_failed_and_severity_tone.md) | `claude/epic-036d5-retry-failed-and-tone` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
+| EPIC-036D6 | [Quiet hours on the Options page](completed/EPIC-036D6_quiet_hours_on_the_options_page.md) | `claude/epic-036d6-schedule` | 🟡 | ✅ Done (2026-10-21), awaiting merge | — |
 | EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🟡 Partly done (036D2) | — |
 | EPIC-036E1 | [Dead man's switch](completed/EPIC-036E1_dead_mans_switch.md) | `claude/epic-036e1-dead-mans-switch` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036E | [Heartbeat and daily summary](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | `claude/epic-036e-heartbeat-and-daily-summary` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
