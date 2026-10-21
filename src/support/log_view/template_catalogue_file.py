@@ -2,6 +2,11 @@
 
 Format (`sew.log-templates/1`): a header object, then one JSON array per template,
 `[kinds, piece0, piece1, ...]`, where `kinds` is the string of hole kinds in order.
+
+The header holds the schema and nothing that changes with the templates. It used to carry their
+count and two statistics; every pull request that added a log call changed that line, so any two of
+them conflicted on it (`BOT-230`). The statistics are computed from the source where they are
+checked (`test_the_log_template_catalogue_is_current.py`), not read back from this file.
 """
 
 from __future__ import annotations
@@ -20,12 +25,7 @@ _SCHEMA = "sew.log-templates/1"
 
 def catalogue_text(catalogue: Catalogue) -> str:
     """The exact text of the committed file for `catalogue`."""
-    header = {
-        "schema": _SCHEMA,
-        "templates": len(catalogue.templates),
-        "variable_template_calls": catalogue.variable_template_calls,
-        "too_generic_templates": catalogue.too_generic_templates,
-    }
+    header = {"schema": _SCHEMA}
     lines = ["[", json.dumps(header, ensure_ascii=False) + ","]
     rows = [
         json.dumps(["".join(t.kinds), *t.pieces], ensure_ascii=False)
@@ -43,11 +43,8 @@ def parse_catalogue_text(text: str) -> Catalogue:
     if header.get("schema") != _SCHEMA:
         raise ValueError(f"not a {_SCHEMA} file")
     templates = tuple(LogTemplate(tuple(row[1:]), tuple(row[0])) for row in rows[1:])
-    return Catalogue(
-        templates,
-        int(header["variable_template_calls"]),
-        int(header["too_generic_templates"]),
-    )
+    # A file written before `BOT-230` still carries the statistics; they are not read back.
+    return Catalogue(templates, 0, 0)
 
 
 def load_templates(path: Path = CATALOGUE_PATH) -> tuple[LogTemplate, ...]:
