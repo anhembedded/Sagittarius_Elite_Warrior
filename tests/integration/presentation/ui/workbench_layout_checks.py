@@ -13,7 +13,14 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QToolBar, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QLabel,
+    QMainWindow,
+    QToolBar,
+    QWidget,
+)
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     command_name,
     top_menus,
@@ -194,4 +201,19 @@ def fit_problems(window: QMainWindow, page: QWidget, size: QSize) -> list[str]:
     need_text, mode_text, chrome_text = (f"{s.width()}x{s.height()}" for s in sizes)
     return [
         f"needs {need_text} (the mode {mode_text}, the window around it {chrome_text})"
+    ]
+
+
+def wrapped_text_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """A word-wrapped label is as tall as its text needs at the width it has: a column squeezed
+    below that clips the end of its sentence and leaves the next label's lines beside it
+    (`BUG-246`). A label whose own box is cut by a scroll area is not clipped, it scrolls."""
+    return [
+        f"{label.objectName() or label.text()[:30]!r} is {label.height()}px tall, its text needs "
+        f"{label.heightForWidth(label.width())}px at {label.width()}px wide"
+        for label in page.findChildren(QLabel)
+        if label.wordWrap()
+        and label.isVisibleTo(page)
+        and label.text()
+        and label.heightForWidth(label.width()) > label.height()
     ]

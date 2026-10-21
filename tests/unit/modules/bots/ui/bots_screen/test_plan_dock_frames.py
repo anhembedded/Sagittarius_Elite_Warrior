@@ -138,7 +138,7 @@ def test_a_running_bot_has_no_banner_and_still_lists_its_checks_last(qtbot) -> N
 
     assert plan.banner.isHidden()
     assert plan.index_of_figures() < plan.index_of_parameters()
-    assert plan._column.indexOf(plan.checks.body) > plan.index_of_parameters()
+    assert plan.column.index_of(plan.checks.body) > plan.index_of_parameters()
 
 
 @pytest.mark.parametrize("size", _SIZES, ids=lambda size: f"{size[0]}x{size[1]}")
@@ -172,8 +172,13 @@ def test_nothing_overlaps_or_is_cut_at_the_three_window_sizes(
     ]
 
     assert overlapping == []
-    # The table's last row is inside the table, not cut where the next widget begins.
+    # The table's last row is inside the table, not cut where the next widget begins. The table
+    # takes its height from its rows a layout pass after they are set: wait for that pass.
     last = plan.properties._proxy_index("last_price", 0)
+    qtbot.waitUntil(
+        lambda: table.visualRect(last).bottom() <= table.viewport().height(),
+        timeout=3000,
+    )
     assert table.visualRect(last).bottom() <= table.viewport().height()
     if checks.isVisibleTo(plan):
         plan.checks.open_passed(True)

@@ -34,7 +34,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -72,10 +72,13 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
+    wrapped_text_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
     SCREENSHOT_DIR_ENV,
+    apply_scheme,
     is_blank,
+    restore_scheme,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     plain_text,
@@ -83,6 +86,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
 )
 
 _WAIT_MS = 15_000
+_MIDDLE_LIGHTNESS = 128
 #: The picker dialog's pin column.
 _PIN_COLUMN = 2
 #: The checks of `MODE_CHECKS` this case leaves out until their bug is fixed, each with that bug.
@@ -160,6 +164,20 @@ def _select_a_grid_bot(desk: TradeDesk, boot: Boot) -> BotsPresenter:
     return presenter
 
 
+def _save_dark(window: QMainWindow, path: Path) -> None:
+    """The same tab in the dark scheme, for the owner to judge beside the light one."""
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    apply_scheme(app, "dark")
+    try:
+        _settle()
+        assert window.palette().window().color().lightness() < _MIDDLE_LIGHTNESS
+        assert window.grab().save(str(path)), path
+    finally:
+        restore_scheme(app)
+        _settle()
+
+
 def _tabs(presenter: BotsPresenter) -> dict[str, Callable[[], None]]:
     view = presenter.view
     return {"live": view.show_live, "backtest": view.show_backtest}
@@ -188,10 +206,17 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
             # Pictured as the person sees the tab, before the checks rearrange the layout.
             path = out_dir / f"{BOTS_ROUTE}~{tab}-with-a-bot@{label}.png"
             assert window.grab().save(str(path)), path
+            _save_dark(window, path.with_name(path.name.replace("@", "~dark@")))
             assert not QImage(str(path)).isNull()
             assert not is_blank(host.centralWidget().grab().toImage()), tab
             checks = {name: MODE_CHECKS[name](window, host) for name in _MEASURED}
             checks["fits_the_window"] = fit_problems(window, host, size)
+            view = presenter.view
+            plan = view.plan if tab == "live" else view.shown_backtest_page()
+            assert plan is not None
+            # The Plan is the Live tab's own: the Backtest tab shows none of it (`BOT-218`).
+            assert view.plan.isVisibleTo(view.centre) == (tab == "live")
+            checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, plan)
             report[f"{BOTS_ROUTE}~{tab}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)

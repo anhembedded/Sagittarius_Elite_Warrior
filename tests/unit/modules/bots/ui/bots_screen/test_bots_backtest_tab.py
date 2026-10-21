@@ -50,7 +50,7 @@ def test_a_grid_bot_fills_the_backtest_tab_and_no_selection_leaves_a_note(
     assert page is not None
     # The planner's read brought the terms, so Run is live.
     assert page.run_button.isEnabled()
-    assert "a00001" in page.source.text()
+    assert "a00001" in page.source.text
 
 
 def test_the_centre_has_live_and_backtest_tabs_and_the_bottom_has_no_backtest(
