@@ -11,6 +11,9 @@ A check the exchange answered with a pause (`RATE_LIMITED`: HTTP 429, `-1003`, a
 neither: the key and the network are fine, and the order is not wrong. It is the pause itself,
 told the way a rejected submit tells it, `ExchangeRateLimitedError`, so a bot waits it out
 (`GridRateLimitPause`) instead of stopping as if trading were off (`BUG-216`).
+
+The check is the venue's last passing one when that is younger than a beat
+(`OrderConnectionMemory`, `BUG-247`): a ladder of fifty orders reads the account once, not fifty times.
 """
 
 from __future__ import annotations
@@ -47,7 +50,7 @@ def order_connection_block(scope: VenueTradingScope) -> ExecuteOrderSafetyGate |
 
     @raise ExchangeRateLimitedError The check met the exchange's pause: nothing is wrong,
     and nothing can be sent until `retry_after` has passed."""
-    status = scope.ports.account_reader.check_connection()
+    status = scope.order_connection.status(scope.ports.account_reader)
     if status.failure is ConnectionFailureKind.RATE_LIMITED:
         raise _pause_of(status)
     return connection_block(status)

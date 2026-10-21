@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavai
     MarketPriceRateLimitedError,
     MarketPriceUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+)
 
 #: What a public read can raise from the SDK, the network or a malformed
 #: payload.
@@ -54,7 +57,8 @@ def market_price_answer(what: str) -> Iterator[None]:
         limited = rate_limited_error_of(exc)
         if limited is not None:
             raise MarketPriceRateLimitedError(
-                f"{what} could not be read: the exchange asked for a pause",
+                f"{what} could not be read: the exchange asked for a pause "
+                f"{EXCHANGE_PAUSE_TAG}",
                 limited.retry_after,
             ) from exc
         raise MarketPriceUnavailableError(

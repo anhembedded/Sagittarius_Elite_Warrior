@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.adapters.binance.exchange_answers import (
     refusal,
     timeout,
@@ -128,3 +131,17 @@ def test_a_book_read_that_meets_a_pause_keeps_the_pause_for_a_caller_that_can_wa
 
     assert limited.value.retry_after == _PAUSE
     assert not isinstance(other.value, MarketPriceRateLimitedError)
+
+
+def test_a_book_read_refused_by_a_pause_carries_the_tag_that_demotes_its_dispatch_failure() -> (
+    None
+):
+    """`BUG-247`: the dispatcher writes `<Query> failed: ...` at ERROR unless the text carries
+    `EXCHANGE_PAUSE_TAG` (`PausedCallFailureFilter`); the mark price read's did not."""
+    with (
+        pytest.raises(MarketPriceRateLimitedError) as limited,
+        market_price_answer("the mark price"),
+    ):
+        raise _pause()
+
+    assert EXCHANGE_PAUSE_TAG in str(limited.value)
