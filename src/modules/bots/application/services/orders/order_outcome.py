@@ -76,9 +76,6 @@ class OrderOutcome:
     #: For `DONE`: the quantity the exchange accepted (`BUG-205`), which a ladder
     #: saves and shows instead of the quantity it asked for.
     quantity: Decimal | None = None
-    #: `BUG-254` - the refusal or pause is the app's own order budget's, not the venue's: the venue
-    #: still answers, so a bot that must protect itself first can (`PositionOpening`).
-    own_budget: bool = False
 
     @property
     def done(self) -> bool:
@@ -188,28 +185,28 @@ def pacing_outcome(result: ExecuteOrderResult) -> OrderOutcome | None:
             OrderOutcomeKind.PACED,
             detail=violation.value,
             retry_after=missing,
-            own_budget=True,
         )
     if violation is TradingLimitViolation.OWNER_BUDGET_RATE:
         return OrderOutcome(
             OrderOutcomeKind.RATE_LIMITED,
             detail=f"the app's own order budget: {violation.value}",
             retry_after=None if facts is None else facts.budget.window,
-            own_budget=True,
         )
     return None
 
 
 def opening_outcome(slice_number: int, outcome: OrderOutcome) -> OrderOutcome:
-    """`BUG-254` - what an opening's slice that was not done means to the start.
+    """`BUG-254`, `BUG-256` - what an opening's slice that was not done means to the start.
 
-    A pause by the app's own budget is right everywhere else in a start: the ladder, with the
-    stop standing, resumes by itself to the full position and ladder. After an opening slice
-    filled it is not: a resume re-derives the ladder from the position held and does not finish
-    the opening, so it would run a smaller grid than the plan the owner saw (one upper level
-    short in the journey). That one case stays a refusal, as before: the start closes, and a
-    leveraged position is never left bare. The first slice has nothing filled to keep."""
-    if slice_number > 1 and outcome.own_budget:
+    A pause is right everywhere else in a start: the ladder, with the stop standing, resumes by
+    itself to the full position and ladder. After an opening slice filled it is not, whether the
+    app's own budget or the exchange asked for it: a resume re-derives the ladder from the
+    position held and does not finish the opening, so it would run a smaller grid than the plan
+    the owner saw (one upper level short in the journey). That case is a refusal: the start
+    closes, and a leveraged position is never left bare by choice. During the exchange's pause
+    nothing can be sent, a stop included, so the close waits for the pause's end like any stop.
+    The first slice has nothing filled to keep."""
+    if slice_number > 1 and outcome.kind is OrderOutcomeKind.RATE_LIMITED:
         return OrderOutcome(
             OrderOutcomeKind.REFUSED, outcome.client_order_id, outcome.detail
         )
