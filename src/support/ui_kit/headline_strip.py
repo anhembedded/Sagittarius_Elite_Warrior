@@ -15,8 +15,9 @@ Capability: A row of headline figures, larger than the detail, each with a capti
     User: src/modules/trading/ui/desk/desk_screen/desk_view.py
     Status: stable
 
-While the figures can no longer be trusted the strip says so in words ("Out of date: …"), as the
-panel they repeat does, and keeps them: they are the last ones read.
+While the figures can no longer be trusted the strip says "Out of date" in words, as the panel they
+repeat does, and keeps them: they are the last ones read. It says no more: the reason is the
+panel's, told once, and a short fixed word cannot widen the row past the window.
 
 Extension cases: a figure that is not a number (a state) is one more `HeadlineFigure` with a
 `ColumnKind.TEXT`; another screen's headline is one more caller of `show_figures`.
@@ -35,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_label import paint_label_tone
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
+
+#: What the strip says while its figures are the last ones read; the reason is the panel's.
+STALE_TEXT: Final = "Out of date"
 
 #: How much larger than the detail's text a headline figure is set.
 HEADLINE_SCALE: Final = 1.5
@@ -116,9 +120,9 @@ class HeadlineStrip(QWidget):  # base-exempt: a row of read-only labels
             self._cells[figure.key].show_figure(figure)
         self.setVisible(bool(figures))
 
-    def mark_stale(self, reason: str) -> None:
+    def mark_stale(self) -> None:
         """Says in words that the figures shown are the last ones read."""
-        self._stale.setText(f"Out of date: {reason}")
+        self._stale.setText(STALE_TEXT)
         self._stale.show()
 
     def clear_stale(self) -> None:

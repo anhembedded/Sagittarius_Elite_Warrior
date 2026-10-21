@@ -6,6 +6,7 @@ from __future__ import annotations
 from PySide6.QtGui import QFontDatabase, QGuiApplication, QPalette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.headline_strip import (
     HEADLINE_SCALE,
+    STALE_TEXT,
     HeadlineFigure,
     HeadlineStrip,
 )
@@ -139,9 +140,21 @@ def test_a_strip_can_say_its_figures_are_the_last_ones_read_and_clear_it(qtbot) 
     strip.show_figures((_EQUITY,))
     assert strip.stale_text == ""
 
-    strip.mark_stale("the venue timed out")
-    assert strip.stale_text == "Out of date: the venue timed out"
+    strip.mark_stale()
+    assert strip.stale_text == STALE_TEXT == "Out of date"
     assert strip.text_of("equity") == "1,000.00"
 
     strip.clear_stale()
     assert strip.stale_text == ""
+
+
+def test_saying_out_of_date_adds_only_a_short_fixed_width(qtbot) -> None:
+    """The reason is the panel's. Whatever the exchange says, the row grows by one short word,
+    never by a sentence that could hold the window wider than 1024 px."""
+    strip = _strip(qtbot)
+    strip.show_figures((_EQUITY, _PNL, _WORDS))
+    before = strip.minimumSizeHint().width()
+
+    strip.mark_stale()
+
+    assert strip.minimumSizeHint().width() - before < 150

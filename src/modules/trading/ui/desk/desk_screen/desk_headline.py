@@ -144,9 +144,9 @@ class DeskHeadline(QObject):
         self._strip.clear_stale()
         self._show()
 
-    def on_stale(self, reason: str) -> None:
+    def on_stale(self) -> None:
         """The summary's figures are the last ones read: say so, beside them."""
-        self._strip.mark_stale(reason)
+        self._strip.mark_stale()
 
     def on_positions(self, positions: Sequence[PositionRow]) -> None:
         self._positions = tuple(positions)

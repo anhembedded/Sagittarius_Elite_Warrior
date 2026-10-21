@@ -84,9 +84,10 @@ class AccountSummaryPresenter(QObject):
     _read = Signal(object)
     #: The summary now shown (`EPIC-043D`: the desk's headline says the same figures once more).
     summaryShown = Signal(object)
-    #: The reason the figures shown can no longer be trusted, told wherever the panel says it
-    #: ("Out of date: …"), so the headline never looks current while the panel says it is not.
-    summaryStale = Signal(str)
+    #: The figures shown can no longer be trusted: told wherever the panel says "Out of date: …",
+    #: so the headline never looks current while the panel says it is not. The reason stays the
+    #: panel's: a failure's advice is told once (`ui-presentation-rule.md` §10).
+    summaryStale = Signal()
 
     def __init__(
         self,
@@ -167,7 +168,7 @@ class AccountSummaryPresenter(QObject):
 
     def _mark_stale(self, reason: str) -> None:
         self._view.mark_stale(reason)
-        self.summaryStale.emit(reason)
+        self.summaryStale.emit()
 
     def _show(self, summary: AccountSummary) -> None:
         self._notifier.clear_failure(self._cause)

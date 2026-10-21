@@ -306,13 +306,13 @@ def test_a_summary_gone_stale_says_so_in_the_headline_and_keeps_the_last_figures
     qapp.processEvents()
     assert desk.view.headline.stale_text == ""
 
-    world.bus.emit(
-        AccountSummaryStaleEvent(reason="the venue timed out", venue=_FUTURES)
-    )
+    reason = "No API key for Futures Testnet. Save one in Tools → Options → Trading."
+    world.bus.emit(AccountSummaryStaleEvent(reason=reason, venue=_FUTURES))
     qapp.processEvents()
 
-    assert desk.view.account_summary.stale_text == "Out of date: the venue timed out"
-    assert desk.view.headline.stale_text == "Out of date: the venue timed out"
+    # The panel tells why, once; the headline only says its figures are the last ones read.
+    assert desk.view.account_summary.stale_text == f"Out of date: {reason}"
+    assert desk.view.headline.stale_text == "Out of date"
     assert _headline_text(desk, EQUITY_KEY) == "1,234.50"
 
 
@@ -329,3 +329,19 @@ def test_the_next_summary_clears_the_headlines_mark(qtbot, qapp) -> None:
 
     assert desk.view.headline.stale_text == ""
     assert desk.view.account_summary.stale_text == ""
+
+
+def test_a_long_stale_reason_never_holds_the_desk_wider(qtbot, qapp) -> None:
+    """The reason is the panel's; what the exchange or an adapter says cannot widen the header
+    row, or the window could not shrink to 1024 px (review round 2)."""
+    world = DeskWorld()
+    desk = build_desk(qtbot, _FUTURES, world)
+    world.bus.emit(AccountSummaryChangedEvent(summary=_futures()))
+    qapp.processEvents()
+    before = desk.view.minimumSizeHint().width()
+
+    reason = "No API key for Futures Testnet. " * 6
+    world.bus.emit(AccountSummaryStaleEvent(reason=reason, venue=_FUTURES))
+    qapp.processEvents()
+
+    assert desk.view.minimumSizeHint().width() - before < 150
