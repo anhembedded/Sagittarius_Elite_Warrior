@@ -114,7 +114,7 @@ the measurements are in the task file's §5a.)
   order when it judges it, a moment after the turn that differs from order to order (a sleep that
   overshoots, the handler's lock, a terms read), so two stamps can be closer than the two turns however
   exactly the turns are spaced. Trading's verdict is the one that counts, and the owner budget's own
-  pacing is "not yet" to a bot, never a refusal: `classify_submit` reads `owner_budget_spacing` as `PACED`
+  pacing is "not yet" to a bot, not a refusal (bar one case below): `classify_submit` reads `owner_budget_spacing` as `PACED`
   (`pacing_outcome`), and `send_paced` takes another turn, a spacing later, and sends again, up to
   `PACING_RETRIES` (3) times; a spacing that kept missing and an `owner_budget_rate` refusal (the window
   moved on short of the pacer's `STAMP_JITTER` margin) are answered `RATE_LIMITED`, the pause a bot waits
