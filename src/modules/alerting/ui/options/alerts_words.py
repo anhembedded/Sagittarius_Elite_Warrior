@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_credent
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
     BotAlertMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import quiet_hours_words
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 WHERE_TO_COPY_IT = (
@@ -94,6 +95,7 @@ DOING_WORDS = {
     "bots": "Reading the bots",
     "telegram_save": "Saving the Telegram bot",
     "telegram_remove": "Removing the Telegram bot",
+    "quiet": quiet_hours_words.DOING,
 }
 WORKING_WORDS = {
     "save": "Saving the webhook…",
@@ -103,6 +105,7 @@ WORKING_WORDS = {
     "bots": "Reading the bots…",
     "telegram_save": "Saving the Telegram bot…",
     "telegram_remove": "Removing the Telegram bot…",
+    "quiet": quiet_hours_words.WORKING,
 }
 
 #: `BOT-191` — what each `BotAlertMode` is called on the page, and what it means.

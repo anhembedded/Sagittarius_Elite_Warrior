@@ -25,9 +25,6 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_cha
     DISCORD_CHANNEL_ID,
     DISCORD_WEBHOOK_SECRET,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings import (
-    JsonAlertSettings,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.null_alert_publisher import (
     NullAlertPublisher,
 )
@@ -113,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.history_bindings import (
     bind_history,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.composition.settings_bindings import (
+    bind_settings,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
     IAlertChannelCatalog,
 )
@@ -127,9 +127,6 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_s
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alerting_status import (
     IAlertingStatus,
-)
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
-    IBotAlertModes,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_catalog_builder import (
     IChannelCatalogBuilder,
@@ -191,20 +188,7 @@ def alert_settings_path() -> Path:
 
 def bind_alerting(container: IContainer) -> None:
     container.singleton(IAlertClock, SystemAlertClock())
-    # `BOT-191`: what the owner set per bot survives a restart; a missing or unreadable file
-    # is every default. One object serves the hub's reads and the Options page's edits.
-    container.singleton(
-        JsonAlertSettings,
-        lambda resolver: JsonAlertSettings(
-            alert_settings_path(), read_only=resolver.resolve(IInstanceAccess).read_only
-        ),
-    )
-    container.singleton(
-        IAlertSettingsSource, lambda resolver: resolver.resolve(JsonAlertSettings)
-    )
-    container.singleton(
-        IBotAlertModes, lambda resolver: resolver.resolve(JsonAlertSettings)
-    )
+    bind_settings(container, alert_settings_path)
     container.singleton(WakeSignal, WakeSignal())
     container.singleton(IDeliveryWakeup, lambda resolver: resolver.resolve(WakeSignal))
     # `EPIC-036G` (D3): the channels' secrets come from the stores the mainnet keys

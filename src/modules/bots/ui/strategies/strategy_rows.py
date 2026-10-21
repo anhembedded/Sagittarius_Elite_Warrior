@@ -19,13 +19,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QApplication, QStyle, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_look import StateLook
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_icon import tone_icon
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -37,6 +40,9 @@ STRATEGIES_DOCK = "Strategies"
 ARMED_TEXT = "Armed"
 NOT_ARMED_TEXT = "Not armed"
 NO_VENUE_TEXT = "No trading venue is available in this build."
+#: An armed venue is live: its word has an icon and the profit tone beside it (`EPIC-043E`);
+#: one that is not armed has no look, as a draft bot has none.
+ARMED_LOOK = StateLook("zap", Tone.POSITIVE)
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,23 @@ class StrategyRowsModel(RowTableModel[StrategyRow]):
     def _is_emphasised(self, row: StrategyRow, column: int) -> bool:
         """An armed venue's state is bold: the word says it, the weight shows it."""
         return column == self.column("state") and row.armed
+
+    def _tone(self, row: StrategyRow, column: int) -> Tone:
+        if column == self.column("state") and row.armed:
+            return ARMED_LOOK.tone
+        return Tone.NEUTRAL
+
+    def _role_data(self, row: StrategyRow, column: int, role: int) -> object:
+        """The armed state's icon beside its word, in its tone's colour on the palette as it is
+        when asked."""
+        if (
+            role != Qt.ItemDataRole.DecorationRole
+            or column != self.column("state")
+            or not row.armed
+        ):
+            return None
+        size = QApplication.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize)
+        return tone_icon(ARMED_LOOK.icon, ARMED_LOOK.tone, size)
 
 
 class StrategiesPanel(QWidget):  # base-exempt: a panel's content, not a surface
