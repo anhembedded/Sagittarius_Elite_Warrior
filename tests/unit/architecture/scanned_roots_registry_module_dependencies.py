@@ -42,4 +42,12 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_bots_services_stay_grouped.py",
         (("src/modules/bots/application/services", "*.py"),),
     ),
+    # `EPIC-045D` - every `*Command` the Bots tab dispatches has a host verb or a reasoned exclusion.
+    (
+        "tests/unit/architecture/test_the_bots_tab_and_the_host_stay_in_step.py",
+        (
+            ("src/modules/bots/ui", "*.py"),
+            ("src/modules/bots/application/use_cases", "*.py"),
+        ),
+    ),
 )

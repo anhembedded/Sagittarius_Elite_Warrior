@@ -1,6 +1,6 @@
 # EPIC-045F — `run --start-planned` skips a mainnet bot that lacks its confirmation and runs the rest
 
-**Status:** 🟡 In progress (built; pull request open)
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, from the VPS: with `--start-planned` in the unit, an applied plan that wants one mainnet bot running and has no `--confirm-venue` made `run` exit 2 before boot; systemd does not restart it, so every other bot (testnet) was left unattended until the owner intervened. "`--start-planned` gặp bot mainnet chưa xác nhận thì bỏ qua bot đó, cảnh báo, và vẫn chạy các bot còn lại" (when `--start-planned` meets a mainnet bot that is not confirmed, skip that bot, warn, and still run the remaining bots).
 **Risk:** 🟡 — it changes what a host does at boot when a plan wants a mainnet bot; it must start no mainnet bot unconfirmed.
 **Complexity:** M
@@ -39,7 +39,7 @@ A unit test of the plan-start path with one unconfirmed mainnet bot and one test
 `Docs/OPERATIONS/headless_runbook.md` §8; the headless host's module doc.
 
 ## Implementation notes (written when done)
-The refusal was a decision of its own (O8 + "a half-started plan is the worse surprise", in the old docstring of `mainnet_start_refusal`); the owner reversed it for `--start-planned` on 2026-10-21 because systemd does not restart exit 2. `--resume-recovering` keeps its pre-boot exit 2 (not asked). The skip is judged inside the step, after boot, with the bot's own venue against the typed one; no start is dispatched for a skipped bot, so no order session is opened for it. The unconfirmed bot stays at rest and is reported by one WARNING and one alert per run. The `-Full` result on the pull request head is Not yet read.
+The refusal was a decision of its own (O8 + "a half-started plan is the worse surprise", in the old docstring of `mainnet_start_refusal`); the owner reversed it for `--start-planned` on 2026-10-21 because systemd does not restart exit 2. `--resume-recovering` keeps its pre-boot exit 2 (not asked). The skip is judged inside the step, after boot, with the bot's own venue against the typed one; no start is dispatched for a skipped bot, so no order session is opened for it. The unconfirmed bot stays at rest and is reported by one WARNING and one alert per run. Merged in #694 (85e77bb); the `-Full` run 39618180144 on its head bba7832 was green and the reviewer's round 2 passed.
 
 ## Resume
-Built and under review; flip to Done and move to `completed/` once merged.
+None: merged.
