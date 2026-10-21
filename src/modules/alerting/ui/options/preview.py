@@ -11,6 +11,9 @@ from __future__ import annotations
 from datetime import time
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.channels_setup import (
+    ChannelsState,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordChannelState,
 )
@@ -31,7 +34,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
-from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import (
+    alerts_words,
+    channels_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
     AlertsSettingsView,
 )
@@ -60,7 +66,7 @@ def build_preview() -> QWidget:
         stored=True, usable=True, hint="qrst", chat="5550123", running=True
     )
     view_model.telegram.set_channel(
-        alerts_words.telegram_channel_line(telegram),
+        channels_words.SWITCHED_OFF + alerts_words.telegram_channel_line(telegram),
         alerts_words.telegram_saved_line(telegram),
         can_remove=telegram.stored,
     )
@@ -70,6 +76,13 @@ def build_preview() -> QWidget:
             start=time(22, 0),
             end=time(7, 0),
             zone_key="Europe/Berlin",
+            editable=True,
+        )
+    )
+    view_model.channels.take_state(
+        ChannelsState(
+            channels=("discord", "telegram"),
+            disabled=frozenset({"telegram"}),
             editable=True,
         )
     )

@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_ca
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
+    IAlertSettingsSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
     DeliveryRecord,
@@ -32,26 +35,35 @@ APP_SUBJECT = "Application"
 
 
 class OutboxAlertHistory(IAlertHistory):
-    def __init__(self, outbox: IOutbox, catalog: IAlertChannelCatalog) -> None:
+    def __init__(
+        self,
+        outbox: IOutbox,
+        catalog: IAlertChannelCatalog,
+        settings: IAlertSettingsSource,
+    ) -> None:
         self._outbox = outbox
         self._catalog = catalog
+        self._settings = settings
 
     def read(self, limit: int) -> AlertHistoryReport:
         entries = self._outbox.history(limit)
+        disabled = self._settings.current().disabled_channels
         return AlertHistoryReport(
             tuple(_row_of(entry) for entry in entries),
             tuple(
-                self._health_of(channel_id)
+                self._health_of(channel_id, disabled)
                 for channel_id in self._catalog.channel_ids()
             ),
         )
 
-    def _health_of(self, channel_id: str) -> ChannelHealth:
+    def _health_of(self, channel_id: str, disabled: frozenset[str]) -> ChannelHealth:
+        enabled = channel_id not in disabled
         newest = self._outbox.latest_real_delivery(channel_id)
         return ChannelHealth(
             channel_id,
-            failing=newest is not None and _did_not_get_through(newest),
+            failing=enabled and newest is not None and _did_not_get_through(newest),
             waiting=self._outbox.pending_count(channel_id),
+            enabled=enabled,
         )
 
 

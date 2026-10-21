@@ -40,11 +40,13 @@ class AlertHistoryRow:
 class ChannelHealth:
     """One channel this run has. `failing` when its newest real delivery did not get through
     (failed, expired, or retrying after a failed try); `waiting` is how many deliveries are
-    still open."""
+    still open. `enabled` is `False` for a channel the owner switched off (`EPIC-036D8`); it is
+    then never `failing`, because nothing is sent there and its last delivery is old news."""
 
     channel_id: str
     failing: bool
     waiting: int
+    enabled: bool = True
 
 
 @dataclass(frozen=True, slots=True)

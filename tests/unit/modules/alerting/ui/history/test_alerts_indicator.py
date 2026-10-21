@@ -19,6 +19,9 @@ from PySide6.QtWidgets import QToolButton
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
+    ChannelHealth,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
     DeliveryResult,
 )
@@ -186,3 +189,23 @@ def test_clicking_the_indicator_shows_the_alerts_mode(
     _indicator(screen).click()
 
     assert asked == [("alerts", NavigationSource.USER_INTENT)]
+
+
+def test_with_every_channel_switched_off_the_indicator_says_so_not_ok() -> None:
+    """Review of PR #672: an owner who silenced everything must not read "Alerts: ok"."""
+    off = [
+        ChannelHealth("discord", failing=False, waiting=0, enabled=False),
+        ChannelHealth("telegram", failing=False, waiting=0, enabled=False),
+    ]
+
+    assert history_words.indicator_text(off) == history_words.INDICATOR_ALL_OFF
+    assert "switched off" in history_words.channels_line(off)
+
+
+def test_one_channel_switched_off_leaves_the_other_to_decide_the_indicator() -> None:
+    mixed = [
+        ChannelHealth("discord", failing=False, waiting=0, enabled=False),
+        ChannelHealth("telegram", failing=True, waiting=0),
+    ]
+
+    assert history_words.indicator_text(mixed) == "Alerts: Telegram failing"

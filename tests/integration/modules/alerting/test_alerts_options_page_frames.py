@@ -79,7 +79,12 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
             "Bots",
             "Quiet hours",
             "Who hears what",
+            "Channels",
         } <= titles
+        channels = view.findChild(QGroupBox, "grpChannels")
+        assert channels is not None and channels.isVisible()
+        switches = channels.findChildren(QCheckBox)
+        assert [box.isChecked() for box in switches] == [True, False]
         routing = view.findChild(QGroupBox, "grpRouting")
         assert routing is not None and routing.isVisible()
         cells = routing.findChildren(QComboBox)
@@ -96,5 +101,9 @@ def test_the_alerts_options_page_shows_both_channels_in_both_schemes(
 def _controls_keep_their_size_hint(view: AlertsSettingsView) -> None:
     """The page scrolls rather than shrinks its controls (review of PR #670: at 1024x700 the
     combos were cut to a sliver). A combo or a button drawn lower than its size hint is clipped."""
-    for control in (*view.findChildren(QComboBox), *view.findChildren(QPushButton)):
+    for control in (
+        *view.findChildren(QComboBox),
+        *view.findChildren(QPushButton),
+        *view.findChildren(QCheckBox),
+    ):
         assert control.height() >= control.sizeHint().height(), control.objectName()

@@ -296,15 +296,26 @@ the channel finds the `PENDING` deliveries at its next look (`LANE_POLL_SECONDS`
 channel's pace. A read-only copy of the app has the button off: it must not write the outbox.
 
 **The Quiet hours group** (`EPIC-036D6`) is one more action of the Alerts options page presenter
-(`_Kind.QUIET`): Save and Turn off run on the pool through the page's tracker and relay, because
+(`AlertsActionKind.QUIET`): Save and Turn off run on the pool through the page's tracker and relay, because
 `JsonAlertSettings` writes a file; the state shown is read from memory (the file is loaded at start).
 A change reaches the hub's next alert without a restart (`IAlertSettingsSource.current` is read for
 every alert).
 
-**The routing matrix** (`EPIC-036D7`) is one more action of the same presenter (`_Kind.ROUTE`): a
+**The routing matrix** (`EPIC-036D7`) is one more action of the same presenter (`AlertsActionKind.ROUTE`): a
 choice in a cell runs `RoutingSetup.set_cell` on the pool through the page's tracker and relay,
 because `JsonAlertSettings` writes a file, and the answer re-reads the cells from memory. The hub reads
 `AlertSettings.routes` for every alert, so a choice reaches the next alert without a restart.
+
+**The channel switches** (`EPIC-036D8`) are one more action of the same presenter
+(`AlertsActionKind.CHANNEL`): a check box runs `ChannelsSetup.turn_on` or `turn_off` on the pool
+through the page's tracker and relay, and the answer re-reads the switches from memory, so a failed
+write shows the state that was kept. The hub and the router read `AlertSettings.disabled_channels`
+for every alert, so a switch reaches the next alert without a restart; the lane of a switched-off
+channel keeps running and sends what it already holds. The status bar and the Alerts mode see the
+switch through `ChannelHealth.enabled` (`OutboxAlertHistory` reads `IAlertSettingsSource`): a
+switched-off channel is never "failing", and with every channel off the indicator reads
+`Alerts: all channels off`. Send test checks the secret, not the switch, so it still reaches a
+switched-off channel that has one.
 
 ## Planned
 

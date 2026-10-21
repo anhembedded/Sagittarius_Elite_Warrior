@@ -35,11 +35,11 @@ records that cross the port are in `alerting/contracts/outbox_records.py`.
 
 What the owner set is one JSON file, `<data root>/state/alert_settings.json`
 (`alerting/composition/alerting_bindings.py` → `alert_settings_path`), shaped
-`{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}, "quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}, "routes": [{"group": "routine", "channel": "discord", "loudness": "off"}]}`
+`{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}, "quiet_hours": {"start": "22:00", "end": "07:00", "zone": "Europe/Berlin"}, "routes": [{"group": "routine", "channel": "discord", "loudness": "off"}], "disabled_channels": ["telegram"]}`
 (`alerting/adapters/settings_document.py` → `SETTINGS_SCHEMA`, `read_document`; the lock, the commit
 and the three ports are `alerting/adapters/json_alert_settings.py` → `JsonAlertSettings`). It holds
-bot ids and modes, the quiet hours and the routing cells, no secret. A mode `on` is not written;
-`quiet_hours` and `routes` are absent when none is set. **A missing file is every default**: nothing
+bot ids and modes, the quiet hours, the routing cells and the ids of the channels switched off, no secret. A mode `on` is not written;
+`quiet_hours`, `routes` and `disabled_channels` are absent when none is set. **A missing file is every default**: nothing
 creates it until the owner sets something. **A file this build cannot read** (not JSON, another
 schema) is every default, told once in the log with `[alert-settings]`, and moved aside to
 `alert_settings.json.unreadable` when the owner next saves. **An entry this build does not know** (a

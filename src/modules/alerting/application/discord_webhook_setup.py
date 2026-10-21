@@ -90,6 +90,11 @@ class DiscordWebhookSetup:
         self._spec = spec
         self._catalog = catalog
 
+    @property
+    def channel_id(self) -> str:
+        """The id of the channel this sets up: what `IChannelEnabling` switches."""
+        return self._spec.channel_id
+
     def state(self) -> DiscordChannelState:
         stored = self._stored()
         usable = bool(stored) and self._spec.is_webhook_url(stored)

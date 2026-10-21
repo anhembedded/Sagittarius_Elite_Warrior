@@ -1,8 +1,9 @@
 """The alert settings file as a value: what it holds, how it is read and how it is written
-(`BOT-191`, `EPIC-036D6`, `EPIC-036D7`).
+(`BOT-191`, `EPIC-036D6`, `EPIC-036D7`, `EPIC-036D8`).
 
 Split from `JsonAlertSettings`, which keeps the lock, the commit and the ports. The file is
-`{"schema": "sew.alert-settings/1", "bot_modes": {...}, "quiet_hours": {...}, "routes": [...]}`;
+`{"schema": "sew.alert-settings/1", "bot_modes": {...}, "quiet_hours": {...}, "routes": [...],
+"disabled_channels": [...]}`;
 every key but `schema` and `bot_modes` is optional, so an older file stays readable, and every
 entry this build cannot read is skipped, told once, with the rest kept (the safe side for an
 alert system is more messages, never fewer).
@@ -41,6 +42,7 @@ class SettingsDocument:
     modes: dict[str, BotAlertMode] = field(default_factory=dict)
     quiet: QuietHoursChoice | None = None
     routes: tuple[AlertRoute, ...] = ()
+    disabled: frozenset[str] = frozenset()
     unreadable: bool = False
 
 
@@ -70,6 +72,8 @@ def document_dict(document: SettingsDocument) -> dict[str, Any]:
                 document.routes, key=lambda r: (r.group.value, r.channel_id)
             )
         ]
+    if document.disabled:
+        out["disabled_channels"] = sorted(document.disabled)
     return out
 
 
@@ -95,6 +99,7 @@ def read_document(path: Path) -> SettingsDocument:
         _modes_in(path, raw["bot_modes"]),
         _quiet_choice_in(path, raw.get("quiet_hours")),
         _routes_in(path, raw.get("routes")),
+        _disabled_in(path, raw.get("disabled_channels")),
     )
 
 
@@ -132,6 +137,24 @@ def _routes_in(path: Path, raw: object) -> tuple[AlertRoute, ...]:
     if skipped:
         logger.warning(
             "%s: %d route(s) are not ones this build knows and are ignored [alert-settings]",
+            path.name,
+            skipped,
+        )
+    return kept
+
+
+def _disabled_in(path: Path, raw: object) -> frozenset[str]:
+    """The channels switched off. An entry that is not a text is skipped, told once; a channel
+    that stays on is the safe side for an alert system."""
+    if raw is None:
+        return frozenset()
+    entries = raw if isinstance(raw, list) else []
+    kept = frozenset(entry for entry in entries if isinstance(entry, str))
+    skipped = (0 if isinstance(raw, list) else 1) + len(entries) - len(kept)
+    if skipped:
+        logger.warning(
+            "%s: %d disabled channel entr(ies) are not ones this build knows and are ignored "
+            "[alert-settings]",
             path.name,
             skipped,
         )

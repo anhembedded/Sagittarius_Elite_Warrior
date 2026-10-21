@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
+    IAlertSettingsSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_requeue import (
     IDeliveryRequeue,
 )
@@ -38,7 +41,9 @@ def bind_history(container: IContainer, outbox_path: Callable[[], Path]) -> None
     container.singleton(
         IAlertHistory,
         lambda resolver: OutboxAlertHistory(
-            resolver.resolve(IOutbox), resolver.resolve(IAlertChannelCatalog)
+            resolver.resolve(IOutbox),
+            resolver.resolve(IAlertChannelCatalog),
+            resolver.resolve(IAlertSettingsSource),
         ),
     )
     container.singleton(
