@@ -1,4 +1,4 @@
-"""`BOT-206` — what the Plan dock's property table lists: its groups and, under each, its rows.
+"""`BOT-206` — what the Plan's property table lists: its groups and, under each, its rows.
 
 Data only. A row's key is the name of the `BotFacts` field or the `ladder_facts` row that writes
 it; a row's title is the label the dock always had (`run_earnings.TOTAL_PNL_BASIS` is

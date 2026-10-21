@@ -1,4 +1,4 @@
-"""`BOT-209` — the Plan dock's status banner: one inline message at the top of the dock.
+"""`BOT-209` — the Plan's status banner: one inline message at the top of the Plan.
 
 The kit's `NoticeBar` (a styled-panel frame, the platform's message icon, a wrapped label; no
 colour of its own), given a `PlanStatus`. It takes no height while it says nothing. It has no

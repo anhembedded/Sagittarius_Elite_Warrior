@@ -89,7 +89,7 @@ def test_run_goes_through_the_query_the_module_binds(open_bots_screen, qtbot) ->
 def test_the_sandbox_editor_is_its_own_and_holds_the_saved_plan(
     open_bots_screen,
 ) -> None:
-    """The Plan dock keeps the real bot's editor on both tabs; the sandbox never shares it, so an
+    """The Live Plan keeps the real bot's editor; the Backtest tab's column has an editor of its own and never shares it, so an
     edit of one is never the other's (`EPIC-040C`, `EPIC-040E`)."""
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()

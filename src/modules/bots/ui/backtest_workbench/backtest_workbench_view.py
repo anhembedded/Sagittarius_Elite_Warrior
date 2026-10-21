@@ -275,8 +275,7 @@ class BacktestWorkbenchView(QWidget):
         answers.addWidget(self.keep_button)
         answers.addStretch(1)
         intro = self.column.intro
-        for widget in (self.question,):
-            intro.addWidget(widget)
+        intro.addWidget(self.question)
         intro.addLayout(answers)
         intro.addWidget(self.changed)
         self.column.foot.addWidget(self.unchecked)

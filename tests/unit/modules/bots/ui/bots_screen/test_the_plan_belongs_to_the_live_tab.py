@@ -97,11 +97,14 @@ def test_a_layout_saved_while_the_plan_was_a_dock_restores_without_it(
     older = BotsView()
     older.surface.place_widget(Place.RAIL, QWidget(), title=_OLD_PLAN_DOCK)
     older.show()
+    older.surface.dock_of(older.log).hide()
     saved = older.surface.save_perspective()
     assert _OLD_PLAN_DOCK in _titles(older)
     older.deleteLater()
 
-    view.surface.restore_perspective(saved)
+    assert view.surface.restore_perspective(saved) is True
 
+    # The rest of the saved layout was applied, not the default: the hidden Log stays hidden.
+    assert view.surface.dock_of(view.log).isHidden()
     assert _OLD_PLAN_DOCK not in _titles(view)
     assert {"Bots", "Strategies", "Orders", "Ladder", "Fills", "Log"} <= _titles(view)
