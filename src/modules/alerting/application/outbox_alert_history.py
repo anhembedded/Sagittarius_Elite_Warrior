@@ -41,15 +41,13 @@ class OutboxAlertHistory(IAlertHistory):
         return AlertHistoryReport(
             tuple(_row_of(entry) for entry in entries),
             tuple(
-                self._health_of(channel_id, entries)
+                self._health_of(channel_id)
                 for channel_id in self._catalog.channel_ids()
             ),
         )
 
-    def _health_of(
-        self, channel_id: str, entries: tuple[HistoryEntry, ...]
-    ) -> ChannelHealth:
-        newest = _newest_delivery(channel_id, entries)
+    def _health_of(self, channel_id: str) -> ChannelHealth:
+        newest = self._outbox.latest_real_delivery(channel_id)
         return ChannelHealth(
             channel_id,
             failing=newest is not None and _did_not_get_through(newest),
@@ -64,22 +62,6 @@ def _did_not_get_through(delivery: DeliveryRecord) -> bool:
     if delivery.state in _NOT_THROUGH:
         return True
     return delivery.state is DeliveryState.RETRYING and delivery.attempts >= 1
-
-
-def _newest_delivery(
-    channel_id: str, entries: tuple[HistoryEntry, ...]
-) -> DeliveryRecord | None:
-    """Entries are newest first, so the first delivery found on the channel is its newest.
-    A dropped or still-pending delivery says nothing about whether the channel works, so
-    the search goes on past it."""
-    for entry in entries:
-        for delivery in entry.deliveries:
-            if delivery.channel_id == channel_id and delivery.state not in (
-                DeliveryState.PENDING,
-                DeliveryState.DROPPED,
-            ):
-                return delivery
-    return None
 
 
 def _row_of(entry: HistoryEntry) -> AlertHistoryRow:

@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.outbox_alert_history import (
     OutboxAlertHistory,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
+    AlertHistoryReport,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
 )
@@ -32,6 +35,20 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_pag
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import Rig, build_rig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+
+class RecordingHistory(IAlertHistory):
+    """An empty history that remembers the limit of every read; `fail` makes the next read raise."""
+
+    def __init__(self) -> None:
+        self.limits: list[int] = []
+        self.fail = False
+
+    def read(self, limit: int) -> AlertHistoryReport:
+        self.limits.append(limit)
+        if self.fail:
+            raise RuntimeError("secret detail the screen must not show")
+        return AlertHistoryReport((), ())
 
 
 @dataclass

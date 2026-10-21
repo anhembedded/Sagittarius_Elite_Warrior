@@ -202,3 +202,37 @@ def test_the_time_shown_is_when_the_alert_was_first_raised_so_the_rows_stay_in_o
     assert [r.subject for r in rows] == ["bot bbbbbb", "bot aaaaaa"]
     assert rows[0].at > rows[1].at
     assert rows[1].count == 2
+
+
+def test_a_dead_channel_stays_failing_however_many_alerts_queue_behind_it(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-036D3` review: a channel's health was read from the newest N alerts, so a
+    retrying head with 50 or more alerts queued behind it fell out of a small window and the
+    indicator said `ok` while the channel was dark. Health is the channel's own newest real
+    delivery, whatever the window."""
+    rig = build_rig(tmp_path, ("phone",), delivery_policy=FAST)
+    rig.channels["phone"].script.append(DeliveryResult.failed("timeout"))
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED, bot_subject("aaaaaa")))
+    rig.deliver_all()  # the head: RETRYING after a real failed try; the channel now waits
+    for number in range(60):
+        rig.hub.publish(an_alert(AlertKind.BOT_HALTED, bot_subject(f"q{number:05d}")))
+
+    for limit in (1, 5, 500):
+        report = _history(rig).read(limit)
+
+        assert report.channels[0].failing, f"read({limit})"
+        assert report.channels[0].waiting == 61, f"read({limit})"
+
+
+def test_the_health_is_the_same_whatever_the_window_when_nothing_is_wrong(
+    tmp_path: Path,
+) -> None:
+    rig = build_rig(tmp_path, ("phone",))
+    for number in range(8):
+        rig.hub.publish(an_alert(AlertKind.BOT_HALTED, bot_subject(f"q{number:05d}")))
+    rig.deliver_all()
+
+    assert [_history(rig).read(limit).channels for limit in (1, 500)] == [
+        _history(rig).read(500).channels
+    ] * 2

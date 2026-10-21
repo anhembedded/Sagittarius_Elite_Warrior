@@ -271,8 +271,11 @@ the window's shutdown does not own); it reads the whole list when its mode is sh
 (`AlertsPresenter.on_mode_shown`) and when Refresh is pressed, and a `QTimer` on the UI thread
 reads in the background first after `FIRST_READ_MS` (5 s) and then every `REFRESH_INTERVAL_MS`
 (15 s), whether or not the mode is visible, because the status-bar indicator is there in every
-mode (`EPIC-036D3`); a hidden mode reads only `HEALTH_LIMIT` (50) alerts, enough for a channel's
-health. Clicking the indicator asks the window's `INavigationService`, resolved at the click (it
+mode (`EPIC-036D3`); a hidden mode reads only `HEALTH_LIMIT` (1) alert, because a channel's health is its own newest
+delivery (`IOutbox.latest_real_delivery`, not bounded by a window) and that read updates the
+indicator only, never the list. A failed read turns the indicator to `Alerts: unknown` and is
+logged once per run of failures; a Refresh asked while a hidden read is out starts the full read
+when that one ends. Clicking the indicator asks the window's `INavigationService`, resolved at the click (it
 exists only once the window is built), to show the mode. The read runs on the pool
 (`alerts_presenter.py` → `AlertsPresenter.refresh`, `AlertsPresenter._read_history_on_pool`) because
 `IOutbox.history` queries the database. One read is out at a time: a timer tick or a click while

@@ -131,6 +131,11 @@ class AlertsView(BaseView):
         self, rows: Sequence[AlertHistoryRow], channels: Sequence[ChannelHealth]
     ) -> None:
         self._history.take_alerts_read(rows)
+        self.show_channel_health(channels)
+
+    def show_channel_health(self, channels: Sequence[ChannelHealth]) -> None:
+        """Only the channels' state: the line, the notice and the indicator. The list stays as it
+        was, which is what a read made for the indicator alone brings."""
         self._channels.setText(history_words.channels_line(channels))
         notice = history_words.failing_notice(channels)
         if notice:
@@ -143,7 +148,24 @@ class AlertsView(BaseView):
             if failing
             else QIcon()
         )
+        self._indicator.setToolTip(history_words.INDICATOR_TIP)
         self._indicator.show()
+
+    def show_health_unknown(self, error_type: str) -> None:
+        """The last read failed, so what the indicator said is no longer known: it says so, in
+        words, rather than keep an `ok` nobody has checked."""
+        self._indicator.setText(history_words.INDICATOR_UNKNOWN)
+        self._indicator.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
+        )
+        self._indicator.setToolTip(
+            history_words.INDICATOR_UNKNOWN_TIP.format(error_type=error_type)
+        )
+        self._indicator.show()
+
+    @property
+    def indicator_text(self) -> str:
+        return self._indicator.text()
 
     def status_widgets(self) -> Sequence[QWidget]:
         """The indicator, for the window's status bar (`IStatusSource`)."""

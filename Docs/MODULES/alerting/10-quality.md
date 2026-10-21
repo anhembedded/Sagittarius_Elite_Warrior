@@ -22,7 +22,7 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | A lane looks at the outbox unprompted every; housekeeping runs every | 5 s; 1 s | `alerting/composition/alerting_bindings.py` → `LANE_POLL_SECONDS`, `HOUSEKEEPING_SECONDS` |
 | A channel sends at most (a chosen margin under Discord's about 5 per 2 s per webhook, research 036 §1; Telegram's request of one per second per chat): Discord; Telegram | 4 per 2 s; 1 per 1 s | `alerting/domain/alert_policies.py` → `DISCORD_PACING`, `TELEGRAM_PACING` (`PacingPolicy.max_sends`, `PacingPolicy.per`) · `alerting/adapters/paced_channel.py` → `PacedChannel` |
 | A lane never sleeps less than, so a wait of a few milliseconds is not a spin | 50 ms | `alerting/adapters/threaded_delivery_host.py` → `MIN_SLEEP_S` |
-| The Alerts screen reads again every; reads at most (shown; hidden, for the status-bar indicator); first background read after | 15 s; 500 and 50 alerts; 5 s | `alerting/ui/history/alerts_presenter.py` → `REFRESH_INTERVAL_MS`, `HISTORY_LIMIT`, `HEALTH_LIMIT`, `FIRST_READ_MS` |
+| The Alerts screen reads again every; reads at most (shown; hidden, for the status-bar indicator); first background read after | 15 s; 500 and 1 alerts; 5 s | `alerting/ui/history/alerts_presenter.py` → `REFRESH_INTERVAL_MS`, `HISTORY_LIMIT`, `HEALTH_LIMIT`, `FIRST_READ_MS` |
 | One webhook POST counts as no answer after | 10 s | `alerting/adapters/urllib_webhook_transport.py` → `REQUEST_TIMEOUT_S` |
 | A 429 that names no wait waits | 5 s | `alerting/adapters/discord_answer.py` → `DEFAULT_RETRY_AFTER` |
 | `stop()` waits for a lane stuck inside a channel | 5 s | `alerting/adapters/threaded_delivery_host.py` → `JOIN_TIMEOUT_S` |

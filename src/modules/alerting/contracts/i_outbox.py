@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records import (
+    DeliveryRecord,
     DeliveryTarget,
     DeliveryUpdate,
     DueDelivery,
@@ -93,6 +94,13 @@ class IOutbox(ABC):
     @abstractmethod
     def history(self, limit: int) -> tuple[HistoryEntry, ...]:
         """The newest `limit` alerts with their deliveries."""
+
+    @abstractmethod
+    def latest_real_delivery(self, channel_id: str) -> DeliveryRecord | None:
+        """The newest delivery on `channel_id` that says whether the channel works: sent, failed,
+        expired or retrying. A pending or dropped delivery says nothing. `None` when there is none. Not bounded
+        by a history window: a channel's health must not depend on how many alerts queued behind
+        its head (`EPIC-036D3`)."""
 
     @abstractmethod
     def latest_alert_at(self, kind: AlertKind) -> datetime | None:
