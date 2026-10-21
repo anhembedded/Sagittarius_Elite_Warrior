@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bo
     ConfirmBotResumeCommand,
     ConfirmBotResumeCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_resume_for_host import (
+    ConfirmResumeForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
     CreateBotCommandHandler,
@@ -80,6 +83,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
@@ -115,6 +119,7 @@ def bind_commands(container: IContainer) -> None:
     container.bind(StopBotForOperatorCommand, StopBotForOperatorCommandHandler)
     container.bind(PauseBotForHostCommand, PauseBotForHostCommandHandler)
     container.bind(ResumeBotForHostCommand, ResumeBotForHostCommandHandler)
+    container.bind(ConfirmBotResumeForHostCommand, ConfirmResumeForHostCommandHandler)
     # `EPIC-038K` - `bot start` reuses `StartBotForHostCommand` bound above.
     # `EPIC-038L` - `bot edit` on the running host; the screen's `EditBotCommand` is bound above.
     container.bind(EditBotForHostCommand, EditBotForHostCommandHandler)
