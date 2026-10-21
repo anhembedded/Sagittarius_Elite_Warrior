@@ -71,9 +71,22 @@ the measurements are in the task file's §5a.)
   read) calls `BotAccountReads.position` and reads the account itself. A failed read is raised and not
   kept. Measured on the fake exchange (`test_many_bots_on_one_venue_cost_on_the_fake_exchange.py`): an
   idle minute reads the positions 60 weight whether there are 1, 5 or 20 bots (it was 120, 600, 2,405),
-  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). What is
-  still per bot is symbol-scoped: the mark (two `premiumIndex` reads a beat), the open orders and the
-  open algo orders. A stop that left the open list is judged on the account's own read (`ProtectiveStopService._explain_absence`), never on the beat's, so a stop that ran just after a beat's read is told as triggered.
+  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). A stop that left the open list is judged on the account's own read (`ProtectiveStopService._explain_absence`), never on the beat's, so a stop that ran just after a beat's read is told as triggered.
+- **The symbol's mark price, read once a beat for the bot's two watches** (`BOT-221`). The exit watch
+  (`GridMarkExit`) and the risk watch (`PositionRiskSnapshots`) of one bot each read the symbol's
+  `premiumIndex` every beat: two requests (weight 1 each). `SharedMarkReads.of(venue, symbol)` hands
+  both the same `BoundedAgeReading` (`bots/application/services/risk/`, the mechanism `VenuePositionReads`
+  also stands on), reached through `BotAccountReads.shared_mark` by `ExchangeMarkSource`. It is
+  served for at most half a beat, dropped by every order or cancel the bot sends and every fill it
+  hears (`BotAccountReads.account_changed`, the same call that drops the positions), and a failed
+  read is raised and not kept. Two bots never hold one symbol of a venue (`other_active_bot`), so
+  today the sharers are the two watches of one bot, not several bots: an idle bot costs 103, 55 and 46
+  weight at 1, 5 and 20 (it was 115, 67, 58). **Not shared on purpose:** the open orders and open algo
+  orders (`BotAccountReads.protective_orders`, one read a beat, no second reader on the symbol, so
+  sharing saves nothing and would sit between the bot and the question whether its stop still stands);
+  and every confirmation. **Limit:** what an idle bot still costs is symbol-scoped and linear in the
+  bots; the next lever is `premiumIndex` without a symbol (weight 10 for every symbol, worth it only
+  above about ten bots on a venue, past today's cap).
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting

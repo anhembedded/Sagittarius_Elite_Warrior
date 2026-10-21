@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     BotIdentity,
     BotOrderGateway,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_shared_reads import (
+    BotSharedReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
     SHARED_READING_MAX_AGE_SECONDS,
     SharedPositionReads,
@@ -260,7 +263,10 @@ def _gateway(
     ports.account_snapshot = account
     ports.order_submission = submission
     return BotOrderGateway(
-        ports, BotIdentity("bot:abc123", "abc123", "BTCUSDT"), Mock(), reads
+        ports,
+        BotIdentity("bot:abc123", "abc123", "BTCUSDT"),
+        Mock(),
+        BotSharedReads(reads),
     )
 
 
