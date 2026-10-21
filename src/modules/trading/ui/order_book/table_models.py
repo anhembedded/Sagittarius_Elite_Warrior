@@ -27,14 +27,13 @@ aligns, sorts and writes them by kind. Sorting is numeric because the value
 is a number, not because a `SORT_ROLE` stood beside the text, which is what
 this file carried until then.
 
-**No colour.** The deleted delegates painted the PnL cell and the side label
-from `Theme.success`/`Theme.danger` (`chart_card`'s `BULL_COLOR`/`BEAR_COLOR`).
-ADR D21 leaves colour to the system colour scheme, and Qt has no colour role meaning
-"this position is losing money", so the fact is carried where it cannot be
-themed away: the sign is already in the number (`10.00` / `-10.00`),
-the side is a word (`LONG` / `SHORT`), and a losing row's PnL cell is **bold** —
-the row the user came here to act on, which is the same emphasis and the same
-argument `database_status_table_model.py` uses for a shard with gaps.
+**Meaning, three ways (`EPIC-043C`).** A position's PnL says its direction in the text (an arrow and
+a sign, `▲ +10.00` / `▼ -10.00`, from the `.signed` key), in the colour the meaning table gives it
+on the application's palette (`RowTableModel._tone`, which Qt's colour scheme does not touch), and,
+for a losing row, in **bold**: the row the user came here to act on, the same emphasis
+`database_status_table_model.py` uses for a shard with gaps. The side is a word
+(`LONG` / `SHORT`); the deleted delegates painted it from `Theme.success`/`Theme.danger`, and it
+stays a word.
 
 @par What left this file in PR 4.1b
 `rowCount()`, `columnCount()`, `headerData()`, `row_for()`, `set_rows()` and the
@@ -60,7 +59,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import signed_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -77,7 +81,7 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         ColumnSpec("size", "Size", ColumnKind.QUANTITY),
         ColumnSpec("entry", "Entry", ColumnKind.PRICE),
         ColumnSpec("mark", "Mark", ColumnKind.PRICE),
-        ColumnSpec("pnl", "Unrealized PnL (USDT)", ColumnKind.MONEY),
+        ColumnSpec(signed_key("pnl"), "Unrealized PnL (USDT)", ColumnKind.MONEY),
         ColumnSpec("leverage", "Leverage (x)", ColumnKind.QUANTITY),
         ColumnSpec("liquidation", "Liquidation", ColumnKind.PRICE),
     )
@@ -103,9 +107,14 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         return row.symbol
 
     def _is_emphasised(self, row: PositionRow, column: int) -> bool:
-        """A losing position's PnL cell is bold. The one emphasis this table
-        carries, and it replaces a colour (ADR D21)."""
-        return column == self.column("pnl") and not row.pnl_is_profit
+        """A losing position's PnL cell is bold: the emphasis this table
+        carries, beside the tone, the arrow and the sign."""
+        return column == self.column(signed_key("pnl")) and not row.pnl_is_profit
+
+    def _tone(self, row: PositionRow, column: int) -> Tone:
+        if column == self.column(signed_key("pnl")):
+            return sign_tone(row.unrealized_pnl)
+        return Tone.NEUTRAL
 
 
 class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):

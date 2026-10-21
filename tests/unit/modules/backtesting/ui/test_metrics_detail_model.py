@@ -6,7 +6,7 @@ readout."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_rules import (
     MetricGroup,
     MetricRow,
@@ -15,11 +15,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.metrics_detail_model i
     detail_rows,
     metrics_detail_table,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _PROFIT = MetricRow(
@@ -79,9 +78,9 @@ def test_value_and_verdict_are_coloured_by_their_tones(qapp):
     def colour(row: int, column: int) -> object:
         return model.data(model.index(row, column), Qt.ItemDataRole.ForegroundRole)
 
-    assert colour(0, 2) == QColor(BULL_COLOR)
-    assert colour(0, 3) == QColor(BULL_COLOR)
-    assert colour(1, 2) == QColor(BEAR_COLOR)
+    assert colour(0, 2) == tone_colour(Tone.POSITIVE, QGuiApplication.palette())
+    assert colour(0, 3) == tone_colour(Tone.POSITIVE, QGuiApplication.palette())
+    assert colour(1, 2) == tone_colour(Tone.NEGATIVE, QGuiApplication.palette())
     assert colour(1, 3) is None  # an aside, not a verdict
     assert colour(2, 2) is None
     assert colour(0, 1) is None

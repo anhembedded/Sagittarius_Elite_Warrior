@@ -124,9 +124,9 @@ def test_what_is_not_known_is_a_blank_cell_never_a_zero(open_bots_screen) -> Non
 
     _select(screen, "a00001")
 
-    assert _text(screen, 0, "net") == ""
-    assert _text(screen, 0, "net_quote") == ""
-    assert _text(screen, 0, "gross_quote") != ""
+    assert _text(screen, 0, "net.signed") == ""
+    assert _text(screen, 0, "net_quote.signed") == ""
+    assert _text(screen, 0, "gross_quote.signed") != ""
     assert _text(screen, 0, "state") == "Not recorded"
     assert screen.view.ladder.summary.text().endswith("before fees (estimate)")
     assert "no maker rate is recorded" in screen.view.ladder.summary.toolTip()
@@ -139,9 +139,9 @@ def test_the_columns_say_where_each_figure_comes_from() -> None:
     columns = {spec.key: spec.title for spec in BotLadderTableModel.COLUMNS}
 
     assert "(designed)" in columns["step"]
-    assert "(designed)" in columns["net"]
-    assert "(estimate)" in columns["gross_quote"]
-    assert "(estimate)" in columns["net_quote"]
+    assert "(designed)" in columns["net.signed"]
+    assert "(estimate)" in columns["gross_quote.signed"]
+    assert "(estimate)" in columns["net_quote.signed"]
     assert "(recorded)" in columns["state"]
 
 
@@ -175,7 +175,7 @@ def test_the_plan_says_where_the_last_price_the_bot_heard_stands(
     assert _fact(screen, "stop_loss") == "off"
     assert _fact(screen, "take_profit") == "off"
     assert _fact(screen, "grid_step") == "1.45% to 1.67%"
-    assert _fact(screen, "cycle_average").startswith("2.50")
+    assert _fact(screen, "cycle_average").startswith("▲ +2.50")
     assert not screen.view.plan.properties.row_is_shown("liquidation")
 
 

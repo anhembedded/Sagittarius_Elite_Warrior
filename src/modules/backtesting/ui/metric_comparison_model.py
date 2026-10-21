@@ -23,8 +23,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
-from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import tone_colour
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -68,9 +67,11 @@ class MetricComparisonModel(RowTableModel[MetricComparisonRow]):
     def _role_data(self, row: MetricComparisonRow, column: int, role: int) -> object:
         if role == SORT_ROLE:
             return row.label if column == _METRIC_COLUMN else self.rows.index(row)
-        if role != Qt.ItemDataRole.ForegroundRole or column != _DELTA_COLUMN:
-            return None
-        return tone_colour(row.tone)
+        return None
+
+    def _tone(self, row: MetricComparisonRow, column: int) -> Tone:
+        """Only the difference is coloured, on the application's palette (`BOT-196`)."""
+        return row.tone if column == _DELTA_COLUMN else Tone.NEUTRAL
 
 
 class OutOfSampleComparisonModel(MetricComparisonModel):

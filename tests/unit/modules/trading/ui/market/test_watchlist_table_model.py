@@ -1,5 +1,5 @@
 """`WatchlistTableModel` — the four columns a `QTableView` renders, seeded
-rows before the first tick, and win/loss colour on `% Change`."""
+rows before the first tick, and win/loss tone, arrow and sign on `% Change`."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_table_model import (
     WatchlistTableModel,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 
@@ -30,7 +31,7 @@ def _text(model: WatchlistTableModel, row: int, key: str) -> str:
     application's formatter by the column's kind (`EPIC-033N`)."""
     column = WatchlistTableModel.column(key)
     raw = model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole)
-    return write_value(WatchlistTableModel.COLUMNS[column].kind, raw)
+    return write_value(WatchlistTableModel.COLUMNS[column].kind, raw, key)
 
 
 def test_set_symbols_seeds_one_blank_row_per_symbol(model):
@@ -42,7 +43,7 @@ def test_set_symbols_seeds_one_blank_row_per_symbol(model):
     # No tick yet — price/change/volume are unknown, an empty cell,
     # never a fabricated 0.0 that would look like a real quote.
     assert _text(model, 0, "last_price") == ""
-    assert _text(model, 0, "change") == ""
+    assert _text(model, 0, "change.signed") == ""
     assert _text(model, 0, "volume") == ""
 
 
@@ -52,7 +53,7 @@ def test_update_tick_fills_in_the_row_for_its_symbol(model):
     model.update_tick("ETHUSDT", 3_210.5, -0.92, 45_678.9)
 
     assert _text(model, 1, "last_price") == "3,210.50"
-    assert _text(model, 1, "change") == "-0.92%"
+    assert _text(model, 1, "change.signed") == "▼ -0.92%"
     assert _text(model, 1, "volume") == "45,678.9"
     # The untouched row is unaffected.
     assert _text(model, 0, "last_price") == ""
@@ -74,20 +75,26 @@ def test_update_tick_replaces_a_previous_tick_for_the_same_symbol(model):
     model.update_tick("BTCUSDT", 200.0, -2.0, 20.0)
 
     assert _text(model, 0, "last_price") == "200.0000"
-    assert _text(model, 0, "change") == "-2.00%"
+    assert _text(model, 0, "change.signed") == "▼ -2.00%"
 
 
-def test_percent_change_label_omits_leading_plus_for_a_loss(model):
-    model.set_symbols(["BTCUSDT"])
+def test_percent_change_says_its_direction_in_the_text(model):
+    """Colour is never the only signal: a gain reads `▲ +`, a loss `▼ -`, a
+    change of exactly zero neither; one too small for its decimals keeps its direction, as its
+    colour does."""
+    model.set_symbols(["BTCUSDT", "ETHUSDT", "SOLUSDT", "ADAUSDT"])
+    model.update_tick("BTCUSDT", 100.0, 1.5, 10.0)
+    model.update_tick("ETHUSDT", 100.0, -1.5, 10.0)
+    model.update_tick("SOLUSDT", 100.0, 0.001, 10.0)
+    model.update_tick("ADAUSDT", 100.0, 0.0, 10.0)
 
-    model.update_tick("BTCUSDT", 100.0, -1.5, 10.0)
+    assert _text(model, 0, "change.signed") == "▲ +1.50%"
+    assert _text(model, 1, "change.signed") == "▼ -1.50%"
+    assert _text(model, 2, "change.signed") == "▲ +0.00%"
+    assert _text(model, 3, "change.signed") == "0.00%"
 
-    label = _text(model, 0, "change")
-    assert label == "-1.50%"
-    assert "+-" not in label
 
-
-def test_percent_change_colors_a_gain_bull_and_a_loss_bear(model):
+def test_percent_change_takes_the_meaning_tables_colour_on_the_palette(model):
     model.set_symbols(["BTCUSDT", "ETHUSDT"])
     model.update_tick("BTCUSDT", 100.0, 2.0, 10.0)
     model.update_tick("ETHUSDT", 100.0, -2.0, 10.0)
@@ -101,8 +108,10 @@ def test_percent_change_colors_a_gain_bull_and_a_loss_bear(model):
         Qt.ItemDataRole.ForegroundRole,
     )
 
-    assert win_color.name().lower() == BULL_COLOR.lower()
-    assert loss_color.name().lower() == BEAR_COLOR.lower()
+    palette = QGuiApplication.palette()
+    assert win_color == tone_colour(Tone.POSITIVE, palette)
+    assert loss_color == tone_colour(Tone.NEGATIVE, palette)
+    assert win_color != loss_color
 
 
 def test_percent_change_has_no_colour_before_the_first_tick(model):
@@ -116,10 +125,10 @@ def test_percent_change_has_no_colour_before_the_first_tick(model):
     assert color is None
 
 
-def test_a_breakeven_change_is_bullish_not_bearish(model):
-    """`0.0` is `>= 0.0` — matches this codebase's other win/loss
-    conventions being explicit about which side of zero is which, rather
-    than leaving the boundary to an implicit `> 0`."""
+def test_a_breakeven_change_has_no_verdict(model):
+    """`0.0` is neither a win nor a loss: no colour and no arrow, as for
+    every other figure the application tones (`sign_tone`). It was painted
+    as a win until `EPIC-043C`."""
     model.set_symbols(["BTCUSDT"])
 
     model.update_tick("BTCUSDT", 100.0, 0.0, 10.0)
@@ -128,7 +137,7 @@ def test_a_breakeven_change_is_bullish_not_bearish(model):
         model.index(0, WatchlistTableModel.PERCENT_CHANGE_COLUMN),
         Qt.ItemDataRole.ForegroundRole,
     )
-    assert color.name().lower() == BULL_COLOR.lower()
+    assert color is None
 
 
 def test_set_symbols_again_resets_the_table():

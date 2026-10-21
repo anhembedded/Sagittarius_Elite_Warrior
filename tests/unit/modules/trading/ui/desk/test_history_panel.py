@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_panel import (
     HistoryPanel,
@@ -14,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_table_models import (
     TradeHistoryTableModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text
 
@@ -53,11 +59,35 @@ def test_a_fill_reads_by_kind_with_its_fee_asset_beside_the_fee(qapp):
     assert _text(panel, 0, "fee") == "0.00001"
     assert _text(panel, 0, "fee_asset") == "BTC"
     # A Spot fill has no realized PnL: an empty cell, never 0.
-    assert _text(panel, 0, "pnl") == ""
+    assert _text(panel, 0, "pnl.signed") == ""
 
 
 def test_a_futures_fill_shows_its_signed_realized_pnl(qapp):
     model = TradeHistoryTableModel()
     panel = _panel_with(model, _fill("USDT", Decimal("-12.5")))
 
-    assert _text(panel, 0, "pnl") == "-12.50"
+    assert _text(panel, 0, "pnl.signed") == "▼ -12.50"
+
+
+def test_a_realized_pnl_is_toned_by_its_sign_beside_its_arrow(qapp):
+    """`EPIC-043C`: the colour is the meaning table's, and the arrow says the same in words."""
+    model = TradeHistoryTableModel()
+    panel = _panel_with(
+        model,
+        _fill("USDT", Decimal("12.5")),
+        _fill("USDT", Decimal("-12.5")),
+        _fill("BTC", None),
+    )
+    column = TradeHistoryTableModel.column("pnl.signed")
+
+    def colour(row: int) -> object:
+        return panel.table.model().data(
+            panel.table.model().index(row, column), Qt.ItemDataRole.ForegroundRole
+        )
+
+    palette = QGuiApplication.palette()
+    assert _text(panel, 0, "pnl.signed") == "▲ +12.50"
+    assert colour(0) == tone_colour(Tone.POSITIVE, palette)
+    assert _text(panel, 1, "pnl.signed") == "▼ -12.50"
+    assert colour(1) == tone_colour(Tone.NEGATIVE, palette)
+    assert colour(2) is None

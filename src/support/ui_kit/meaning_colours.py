@@ -17,13 +17,15 @@ the platform's own text colours stand (`ui-presentation-rule.md` §1).
 
 Capability: Colour something by meaning (good, bad, warning), never a hex
     Also: colour, red green, tone, palette, stylesheet
-    Use: Tone, tone_colour
+    Use: Tone, tone_colour, sign_tone
     User: src/modules/backtesting/ui/backtest_stat_row.py
     Status: stable
 """
 
 from __future__ import annotations
 
+import math
+from decimal import Decimal
 from enum import Enum, auto
 
 from PySide6.QtCore import Qt
@@ -66,6 +68,15 @@ _DARK_BASE_COLOURS = {
     Tone.NEGATIVE: "lightcoral",
     Tone.CAUTION: "darkorange",
 }
+
+
+def sign_tone(amount: Decimal | float | None) -> Tone:
+    """Profit, loss, or no verdict for zero and for a figure not known; the
+    figure's own digits, sign and arrow stay in the text beside it. A figure that is not
+    finite (NaN, infinity) has no arrow in the text, so no verdict either."""
+    if amount is None or amount == 0 or not math.isfinite(amount):
+        return Tone.NEUTRAL
+    return Tone.POSITIVE if amount > 0 else Tone.NEGATIVE
 
 
 def is_high_contrast() -> bool:
