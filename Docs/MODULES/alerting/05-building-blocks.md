@@ -42,6 +42,15 @@ Five pictures, drawn by hand at a high level, one question each:
   (`alerting/composition/channel_bindings.py` → `CHANNEL_DESCRIPTORS`), is the one list a channel is
   added to. The test double is `FakeAlertChannel`
   (`alerting/contracts/testing/fake_alert_channel.py` → `FakeAlertChannel`).
+- **Quiet hours** (`EPIC-036D6`): `QuietHoursSetup` (`alerting/application/quiet_hours_setup.py` →
+  `QuietHoursSetup`) keeps a period through `IQuietHoursSetting`
+  (`alerting/contracts/i_quiet_hours_setting.py` → `IQuietHoursSetting`, `QuietHoursChoice`), served by
+  `JsonAlertSettings`; the hub reads it as `AlertSettings.quiet_hours` and `QuietHoursHold` does the
+  holding. The Options page group is `QuietHoursGroup` (`alerting/ui/options/quiet_hours_group.py` →
+  `QuietHoursGroup`) over `QuietHoursViewModel`; the zone is the display zone's own name (`UTC`, an IANA key, or `SYSTEM` for
+  the machine's clock, read with `zone=None` in `quiet_hours.py` → `QuietHours.contains`), from
+  `display_zone_key.py` → `display_zone_key_of`. The Bots list of the page is `BotModeList`
+  (`bot_mode_list.py` → `BotModeList`), split from the presenter at the file-size ceiling.
 - **`JsonAlertSettings`** (`alerting/adapters/json_alert_settings.py` → `JsonAlertSettings`) serves
   `IAlertSettingsSource` for the hub and `IBotAlertModes` (`alerting/contracts/i_bot_alert_modes.py` →
   `IBotAlertModes`) for the Options page, over one file ([`08-concepts.md`](08-concepts.md));
@@ -278,5 +287,5 @@ The Alerts screen (`EPIC-036D2`) added:
 | Class | Where | Task |
 | :--- | :--- | :--- |
 | The Discord embed layout, pacing under the platform limit, `RotateSecret`, the Telegram fields of the Options page (built, `EPIC-036D4`) | `alerting/adapters/`, `alerting/application/`, `alerting/ui/` | `EPIC-036C` |
-| The channels table, routing matrix and schedule of the Options page, the status-bar indicator, the per-bot menu item; the persisted routes, disabled channels and quiet hours of `IAlertSettingsSource` (only the per-bot modes are persisted, `BOT-191`) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| The channels table and routing matrix of the Options page, the heartbeat's interval; the persisted routes and disabled channels of `IAlertSettingsSource` (the per-bot modes, `BOT-191`, and the quiet hours, `EPIC-036D6`, are persisted). The per-bot menu item in the bots list is decided against: the Options page covers it (the coordinator for the owner, 2026-10-21) | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |
