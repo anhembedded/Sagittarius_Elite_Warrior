@@ -5,13 +5,16 @@ view on the UI thread: the read opens the outbox's database, which must not bloc
 It reads the whole list when its mode is shown and Refresh asks now. A `QTimer` reads in the
 background every `REFRESH_INTERVAL_MS` whether or not the mode is visible, because the
 status-bar indicator the view offers is there in every mode; a hidden mode reads only the few
-newest alerts (`HEALTH_LIMIT`). A click on the indicator shows the mode. One read is in
+newest alert (`HEALTH_LIMIT`), whose read also carries every channel's own state, and it
+updates the indicator only: the list on screen is not replaced by a one-row one. A click on the indicator shows the mode. One read is in
 flight at a time, so a slow disk is never queued behind itself. An answer for a read that
 is no longer the current one is dropped, and none arrives after `shutdown()`
 (`async-ui-action-rule.md`).
 
-A failed read leaves the last list on screen and says so in words; the exception is told by
-its type name only, as on the Options page.
+A failed read leaves the last list on screen and says so in words, and the indicator says
+`unknown` rather than keep a state nobody has checked anymore; the exception is told by its
+type name only, as on the Options page. The warning is logged once per run of failures, not
+every 15 s.
 """
 
 from __future__ import annotations
@@ -50,9 +53,9 @@ logger = logging.getLogger("App.Alerting.History")
 
 #: How many alerts one read returns while the mode is shown.
 HISTORY_LIMIT = 500
-#: And while it is hidden: only the status-bar indicator reads then, and a channel's health needs
-#: the newest few (`OutboxAlertHistory`), not the whole list.
-HEALTH_LIMIT = 50
+#: And while it is hidden: only the status-bar indicator reads then; a channel's health is its
+#: own newest delivery whatever the window (`IOutbox.latest_real_delivery`), so one row is enough.
+HEALTH_LIMIT = 1
 #: The first background read after start, so the indicator appears soon without a read at build
 #: (every mode is built at start; a read then started pool threads the window does not own).
 FIRST_READ_MS = 5_000
@@ -75,6 +78,9 @@ class AlertsPresenter(BasePresenter):
         )
         self._relay = AlertsActionRelay(self._on_read_done)
         self._reading = False
+        self._reading_full = False
+        self._full_read_wanted = False
+        self._failing = False
         view.refresh_button.clicked.connect(self.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(REFRESH_INTERVAL_MS)
@@ -116,10 +122,13 @@ class AlertsPresenter(BasePresenter):
     def refresh(self) -> None:
         """A read the owner asked for (Refresh, or the mode shown): says it is reading and
         greys the button. The timer's reads are silent, so the list does not jump every 15 s."""
-        if self._reading:
-            return
         self._view.refresh_button.setEnabled(False)
         self._view.show_history_note(history_words.READING)
+        if self._reading and not self._reading_full:
+            self._full_read_wanted = (
+                True  # the read out is the indicator's: the list follows it
+            )
+            return
         self._start_read(HISTORY_LIMIT)
 
     def _start_read(self, limit: int) -> None:
@@ -127,6 +136,7 @@ class AlertsPresenter(BasePresenter):
         if self._reading:
             return
         self._reading = True
+        self._reading_full = limit == HISTORY_LIMIT
         action = self._tracker.begin_action(_READ, None, None)
         try:
             self._thread_manager.submit(
@@ -161,17 +171,32 @@ class AlertsPresenter(BasePresenter):
             self._tracker.log_stale_callback(_READ, action_id, _READ)
             return
         self._reading = False
-        self._view.refresh_button.setEnabled(True)
+        full = self._reading_full
         if error_type is not None:
             self._tracker.finish_action(action_id, ActionOutcome.FAILED)
+            self._show_read_failed(error_type)
+        else:
+            self._tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
+            self._failing = False
+            if full:
+                self._view.show_history_note("")
+                self._view.show_alert_history(report.rows, report.channels)
+            else:
+                self._view.show_channel_health(report.channels)
+        if self._full_read_wanted:
+            self._full_read_wanted = False
+            self._start_read(HISTORY_LIMIT)
+        else:
+            self._view.refresh_button.setEnabled(True)
+
+    def _show_read_failed(self, error_type: str) -> None:
+        if not self._failing:
             logger.warning("Alerts screen: the history read raised %s", error_type)
-            self._view.show_history_note(
-                history_words.READ_FAILED.format(error_type=error_type)
-            )
-            return
-        self._tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        self._view.show_history_note("")
-        self._view.show_alert_history(report.rows, report.channels)
+        self._failing = True
+        self._view.show_health_unknown(error_type)
+        self._view.show_history_note(
+            history_words.READ_FAILED.format(error_type=error_type)
+        )
 
 
 def build_alerts_presenter(view: BaseView, container: IContainer) -> BasePresenter:

@@ -248,7 +248,7 @@ The Alerts screen (`EPIC-036D2`) added:
 - **The read model**: `IAlertHistory` (`alerting/contracts/i_alert_history.py` → `IAlertHistory.read`)
   answers `AlertHistoryReport` (`alert_history_report.py` → `AlertHistoryRow`, `ChannelOutcome`,
   `ChannelHealth`); `OutboxAlertHistory` (`alerting/application/outbox_alert_history.py` →
-  `OutboxAlertHistory.read`) builds it from `IOutbox.history` and `IAlertChannelCatalog`. A
+  `OutboxAlertHistory.read`) builds it from `IOutbox.history` and `IAlertChannelCatalog`. Each channel's health comes from `IOutbox.latest_real_delivery`, so it does not depend on the window of alerts read. A
   channel is failing when its newest delivery in the window is retrying, failed or expired; a
   pending or dropped one says nothing about whether it works.
 - **The screen**, in `alerting/ui/history/`: `AlertsView` over `AlertHistoryTableModel` (one row

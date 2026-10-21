@@ -66,6 +66,11 @@ FILTER_CHOICES: tuple[tuple[str, Severity | None], ...] = (
 #: The status-bar indicator (`EPIC-036D3`): the state in words, a failing channel also by icon.
 INDICATOR_OK = "Alerts: ok"
 INDICATOR_OFF = "Alerts: no channel"
+INDICATOR_UNKNOWN = "Alerts: unknown"
+INDICATOR_UNKNOWN_TIP = (
+    "The alert history could not be read ({error_type}), so the channels' state is not known. "
+    "Open the Alerts mode, check the log, then press Refresh."
+)
 INDICATOR_TIP = "Open the Alerts mode to see what was sent and where it stands."
 
 
