@@ -16,8 +16,9 @@ INTRO = (
     "and Apply have nothing to save here."
 )
 COVER_NOTE = (
-    "A Critical alert always reaches two channels when two are set up, whatever is chosen "
-    "here, because a push that never arrives is a known failure."
+    "A Critical alert always reaches two channels when two are set up, and at least one of them "
+    "rings, whatever is chosen here, because a push that never arrives or arrives without a "
+    "sound is a known failure."
 )
 NO_CHANNELS = (
     "No alert channel is running, so there is nothing to route. Set one up above; a channel "

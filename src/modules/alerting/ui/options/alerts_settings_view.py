@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -157,7 +159,19 @@ class AlertsSettingsView(BaseView):
         self._status_label.setText(prefix + message)
 
     def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        """The groups sit in one scroll area: the Options dialog does not scroll its pages, and a
+        page that outgrows the dialog (1024×700) would otherwise shrink its controls below their
+        size hint. Scrolling once, at the page (`ui-presentation-rule.md` §3)."""
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setObjectName("scrAlertsPage")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 0, 0)
 
         intro = plain_label(_INTRO)

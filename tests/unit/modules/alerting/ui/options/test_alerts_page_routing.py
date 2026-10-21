@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.json_alert_settings
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_route import AlertRoute
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import routing_words
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_page_world import (
     STATUS,
     AlertsPage,
@@ -136,8 +137,28 @@ def test_the_cells_are_off_while_the_work_is_out(page: AlertsPage) -> None:
 
 def test_the_matrix_has_exactly_the_groups_the_hub_routes_by() -> None:
     """A new `AlertGroup` is a new row, or this goes red (`EPIC-036D7` §3)."""
-    from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import routing_words
-
     assert [group for group, _name, _examples in routing_words.GROUP_ROWS] == list(
         AlertGroup
     )
+
+
+def test_an_unexpected_failure_shows_the_value_that_was_kept_not_the_one_picked(
+    qapp, request, monkeypatch, tmp_path
+) -> None:
+    """Review of PR #670: the combo must not keep saying what was never saved."""
+
+    class _Failing(JsonAlertSettings):
+        def set_route(self, group, channel_id, loudness) -> None:  # type: ignore[no-untyped-def]
+            raise RuntimeError("secret detail the page must not show")
+
+    modes = _Failing(tmp_path / "state" / "alert_settings.json")
+    page = build_page(
+        request, monkeypatch, running=True, telegram_running=True, modes=modes
+    )
+    box = _cell(page, AlertGroup.ROUTINE, "discord")
+
+    _choose(box, "Off")
+
+    assert _cell(page, AlertGroup.ROUTINE, "discord").currentText() == "Default"
+    assert "secret detail" not in page.told_the_user()
+    assert "RuntimeError" in page.told_the_user()

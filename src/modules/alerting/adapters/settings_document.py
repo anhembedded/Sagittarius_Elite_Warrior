@@ -116,31 +116,38 @@ def _modes_in(path: Path, raw: dict[str, Any]) -> dict[str, BotAlertMode]:
 
 
 def _routes_in(path: Path, raw: object) -> tuple[AlertRoute, ...]:
-    """The routes the file names; an entry of a group, loudness or shape this build does not know
-    is skipped (that cell is its default again) and told once."""
+    """The routes the file names. An entry of a shape, group or loudness this build does not know
+    is skipped, and so is a cell named twice (the file says two things, so the cell is its
+    default again, never the last word of a hand edit); told once, the rest kept."""
     if raw is None:
         return ()
     entries = raw if isinstance(raw, list) else []
-    routes: dict[tuple[AlertGroup, str], AlertRoute] = {}
-    skipped = 0 if isinstance(raw, list) else 1
-    for entry in entries:
-        try:
-            route = AlertRoute(
-                AlertGroup(entry["group"]),
-                str(entry["channel"]),
-                Loudness(entry["loudness"]),
-            )
-        except (KeyError, ValueError, TypeError):
-            skipped += 1
-            continue
-        routes[(route.group, route.channel_id)] = route
+    found = [_route_in(entry) for entry in entries]
+    cells = [(r.group, r.channel_id) for r in found if r is not None]
+    repeated = {cell for cell in cells if cells.count(cell) > 1}
+    kept = tuple(
+        r for r in found if r is not None and (r.group, r.channel_id) not in repeated
+    )
+    skipped = (0 if isinstance(raw, list) else 1) + len(found) - len(kept)
     if skipped:
         logger.warning(
             "%s: %d route(s) are not ones this build knows and are ignored [alert-settings]",
             path.name,
             skipped,
         )
-    return tuple(routes.values())
+    return kept
+
+
+def _route_in(entry: object) -> AlertRoute | None:
+    """One route entry, or `None` for one of a shape or a name this build does not know."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("channel"), str):
+        return None
+    try:
+        return AlertRoute(
+            AlertGroup(entry["group"]), entry["channel"], Loudness(entry["loudness"])
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
 
 
 def _quiet_choice_in(path: Path, raw: object) -> QuietHoursChoice | None:

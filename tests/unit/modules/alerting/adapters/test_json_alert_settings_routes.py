@@ -129,3 +129,44 @@ def test_a_read_only_copy_refuses_a_route_change(path: Path) -> None:
         settings.set_route(AlertGroup.ROUTINE, "discord", Loudness.OFF)
 
     assert not path.exists()
+
+
+def test_a_channel_that_is_not_text_is_not_turned_into_a_route(path: Path) -> None:
+    """Review of PR #670: a hand-edited list must not become the channel "['x']"."""
+    _write(
+        path,
+        {
+            "schema": SETTINGS_SCHEMA,
+            "bot_modes": {},
+            "routes": [{"group": "routine", "channel": ["x"], "loudness": "off"}],
+        },
+    )
+
+    assert JsonAlertSettings(path).routes() == ()
+
+
+def test_a_cell_named_twice_is_its_default_not_the_last_word(
+    path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The file says two things (`off` then `loud`, or the reverse): neither is trusted."""
+    entry = {"group": "routine", "channel": "discord"}
+    _write(
+        path,
+        {
+            "schema": SETTINGS_SCHEMA,
+            "bot_modes": {},
+            "routes": [
+                {**entry, "loudness": "off"},
+                {**entry, "loudness": "loud"},
+                {"group": "notices", "channel": "discord", "loudness": "silent"},
+            ],
+        },
+    )
+
+    with caplog.at_level(logging.WARNING, logger="App.Alerting"):
+        settings = JsonAlertSettings(path)
+
+    assert settings.routes() == (
+        AlertRoute(AlertGroup.NOTICES, "discord", Loudness.SILENT),
+    )
+    assert len([r for r in caplog.records if "route" in r.getMessage()]) == 1

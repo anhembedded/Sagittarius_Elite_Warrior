@@ -22,7 +22,7 @@ Status: Current
 5. The owner presses Send test: one loud test message goes to every channel that is set up, and the page names the channels it reached or says why one refused.
 6. To replace a secret the owner saves again; to stop a channel the owner presses Remove and answers a question whose safe choice is Keep.
 7. Under Quiet hours the owner checks "Hold Warning and Info alerts during these hours", picks a From and a To time and presses Save quiet hours; the line above says what is held and in which zone. The times are read in the display time zone as it is when the owner saves, and kept with that zone's name. During the period the app holds Warning and Info alerts and sends one summary when it ends; Critical alerts are never held. Clearing the box and pressing Save turns it off.
-8. Under Who hears what the owner sees one row per kind of alert (bot events, app and exchange problems, notices, routine messages) and one column per channel that is running, with a choice in each cell: Default, Loud, Silent or Off. A choice acts at once and the page says so. Default is Loud for a Critical alert and Silent for the rest; choosing Default again puts the cell back, so a later change of the defaults still reaches it. A Critical alert still reaches two channels when two are set up, whatever the matrix says.
+8. Under Who hears what the owner sees one row per kind of alert (bot events, app and exchange problems, notices, routine messages) and one column per channel that is running, with a choice in each cell: Default, Loud, Silent or Off. A choice acts at once and the page says so. Default is Loud for a Critical alert and Silent for the rest; choosing Default again puts the cell back, so a later change of the defaults still reaches it. A Critical alert still reaches two channels when two are set up, and at least one of them rings, whatever the matrix says.
 
 ## 4. What must be true afterwards
 The secret is in the keyring and nowhere else: not in a file, a log, an exception text or on the screen except its last four characters. The test message reached the phone.
@@ -42,7 +42,7 @@ The secret is in the keyring and nowhere else: not in a file, a log, an exceptio
 ## 6. What this use case does NOT promise
 - That a message reached a person: the platform accepted it.
 - That a first save sends at once: the lane needs a restart.
-- That Off in every cell silences a Critical alert: the router keeps a second channel for it (N8). The heartbeat's interval is not editable.
+- That Off or Silent in every cell silences a Critical alert: the router keeps a second channel for it (N8) and one loud delivery. The heartbeat's interval is not editable.
 
 ## 7. Ports and modules it exercises
 `alerting`: `DiscordWebhookSetup`, `TelegramCredentialsSetup`, `SendTestToConfiguredChannels`, `IChannelCatalogBuilder`; `ISecretStore`.

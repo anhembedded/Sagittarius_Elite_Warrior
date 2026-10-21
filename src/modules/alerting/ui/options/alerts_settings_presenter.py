@@ -245,18 +245,15 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             return
         self._begin(_Kind.MODE, lambda: self._bots.keep(bot_id, mode))
 
-    @Slot(str, str, str)
+    @Slot(object, str, object)
     @safe_ui_action
-    def _on_route_requested(self, group: str, channel_id: str, value: str) -> None:
+    def _on_route_requested(
+        self, group: AlertGroup, channel_id: str, loudness: Loudness | None
+    ) -> None:
         if self._settings_view_model.is_working:
             return
-        try:
-            wanted = Loudness(value) if value else None
-            cell = AlertGroup(group)
-        except ValueError:
-            return
         self._begin(
-            _Kind.ROUTE, lambda: self._routing.set_cell(cell, channel_id, wanted)
+            _Kind.ROUTE, lambda: self._routing.set_cell(group, channel_id, loudness)
         )
 
     @Slot(object, object)
@@ -356,6 +353,9 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     def _on_action_failed(self, kind: _Kind, error_type: str) -> None:
         if kind is _Kind.BOTS:
             self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
+        elif kind is _Kind.ROUTE:  # the combo shows what was kept, not what was picked
+            self._settings_view_model.routing.take_state(self._routing.state())
+            self._results.failed(kind.value, error_type)
         else:
             self._results.failed(kind.value, error_type)
 

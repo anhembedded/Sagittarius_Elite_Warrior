@@ -47,7 +47,8 @@ Five pictures, drawn by hand at a high level, one question each:
   (`alerting/contracts/i_alert_routing.py` → `IAlertRouting`), served by `JsonAlertSettings`; a cell
   not set is its default and `None` puts it back. Only a channel the catalog has can be set. The hub
   reads the cells as `AlertSettings.routes` (`loudness_for`), and `AlertRouter.route` keeps the N8
-  cover for a Critical whatever the matrix says. The file's shape and how it is read are
+  cover for a Critical whatever the matrix says: two channels when two are set up, and one loud
+  delivery among them. The file's shape and how it is read are
   `alerting/adapters/settings_document.py` → `SettingsDocument`, `read_document`. The page group is
   `RoutingMatrixGroup` (`alerting/ui/options/routing_matrix_group.py` → `RoutingMatrixGroup`) over
   `RoutingMatrixViewModel`; what each outcome is told as is `action_results.py` → `ActionResults`,

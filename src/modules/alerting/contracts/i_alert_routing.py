@@ -6,7 +6,8 @@ object serves both, so the two cannot disagree (as for `IBotAlertModes`).
 
 A cell is one `(group, channel)` pair. A cell with no route is its default (`AlertSettings.
 loudness_for`: CRITICAL loud, the rest silent). `AlertRouter` keeps its own cover for a CRITICAL:
-whatever the matrix says, one that fewer than two channels would hear is lifted to two (N8).
+whatever the matrix says, one that fewer than two channels would hear is lifted to two (N8), and
+one that no channel would hear loudly has its first delivery made loud.
 
 @par Extension cases
   · a per-severity cell is one more field on `AlertRoute` and one more lookup in `loudness_for`;

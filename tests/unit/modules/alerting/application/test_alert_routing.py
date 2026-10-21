@@ -148,3 +148,67 @@ def test_a_second_channel_needs_no_application_change(tmp_path: Path) -> None:
 
     assert [len(c.received) for c in one.channels.values()] == [1]
     assert [len(c.received) for c in three.channels.values()] == [1, 1, 1]
+
+
+def test_a_critical_is_loud_somewhere_even_if_the_matrix_makes_every_cell_silent(
+    tmp_path: Path,
+) -> None:
+    """Review of PR #670: Silent on every channel for the group would let a halt arrive without a
+    sound. The router keeps one loud delivery for a CRITICAL, as it keeps a second channel."""
+    rig = build_rig(tmp_path)
+    rig.settings.replace(
+        AlertSettings(
+            routes=(
+                AlertRoute(AlertGroup.BOT_EVENTS, "phone", Loudness.SILENT),
+                AlertRoute(AlertGroup.BOT_EVENTS, "backup", Loudness.SILENT),
+            )
+        )
+    )
+
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+    rig.deliver_all()
+
+    loudness = [item.loudness for c in rig.channels.values() for item in c.received]
+    assert len(loudness) == 2
+    assert loudness.count(Loudness.LOUD) == 1
+    assert loudness.count(Loudness.SILENT) == 1
+
+
+def test_a_critical_already_loud_somewhere_keeps_its_other_cell_silent(
+    tmp_path: Path,
+) -> None:
+    rig = build_rig(tmp_path)
+    rig.settings.replace(
+        AlertSettings(
+            routes=(
+                AlertRoute(AlertGroup.BOT_EVENTS, "phone", Loudness.LOUD),
+                AlertRoute(AlertGroup.BOT_EVENTS, "backup", Loudness.SILENT),
+            )
+        )
+    )
+
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED))
+    rig.deliver_all()
+
+    assert [i.loudness for i in rig.channels["phone"].received] == [Loudness.LOUD]
+    assert [i.loudness for i in rig.channels["backup"].received] == [Loudness.SILENT]
+
+
+def test_a_warning_may_be_silent_everywhere(tmp_path: Path) -> None:
+    """Only a CRITICAL has a loud floor: the owner's Silent for the rest is kept."""
+    rig = build_rig(tmp_path)
+    rig.settings.replace(
+        AlertSettings(
+            routes=(
+                AlertRoute(AlertGroup.NOTICES, "phone", Loudness.SILENT),
+                AlertRoute(AlertGroup.NOTICES, "backup", Loudness.SILENT),
+            )
+        )
+    )
+
+    rig.hub.publish(an_alert(AlertKind.RATE_LIMITED))
+    rig.deliver_all()
+
+    assert {i.loudness for c in rig.channels.values() for i in c.received} == {
+        Loudness.SILENT
+    }

@@ -2,8 +2,9 @@
 
 The columns (the channels this run has), what the owner chose in each cell, whether this copy can
 change it, and one line saying why not. A cell value is the text of a `Loudness`, or empty for the
-default: the view sends text and the presenter makes the enum again (a `str`-based enum comes back
-from a combo as a plain `str`, `BUG-144`).
+default. The view sends text and this view model makes the enums (a `str`-based enum comes back
+from a combo as a plain `str`, `BUG-144`), so the presenter is handed an `AlertGroup` and a
+`Loudness` or `None`.
 """
 
 from __future__ import annotations
