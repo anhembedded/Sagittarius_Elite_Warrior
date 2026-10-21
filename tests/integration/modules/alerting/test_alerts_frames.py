@@ -13,7 +13,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QApplication, QStatusBar
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_view import (
     AlertsView,
@@ -64,9 +64,27 @@ def test_the_alerts_screen_fits_and_reads_in_both_schemes(
         assert notice is not None and notice.isVisible()
         assert view.notice_text.startswith("Telegram is not getting your alerts")
         assert view.notice_text.endswith("Tools → Options → Alerts.")
+        _severity_tone_and_retry(view)
         _status_bar_frame(qtbot, view, out_dir, size, scheme)
     finally:
         restore_scheme(app)
+
+
+def _severity_tone_and_retry(view: AlertsView) -> None:
+    """`EPIC-036D5`: a critical alert's severity word is drawn in the meaning table's colour
+    (its word is there too), and Retry failed is offered, whole."""
+    model = view.history_table.view.model()
+    severity = model.sourceModel().column("severity")
+    tones = {
+        model.index(row, severity).data(Qt.ItemDataRole.DisplayRole): model.index(
+            row, severity
+        ).data(Qt.ItemDataRole.ForegroundRole)
+        for row in range(model.rowCount())
+    }
+    assert tones["Critical"] is not None
+    assert tones["Info"] is None
+    assert view.retry_button.isVisible()
+    assert view.retry_button.text() == "Retry failed"
 
 
 def _status_bar_frame(

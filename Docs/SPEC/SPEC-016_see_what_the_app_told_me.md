@@ -2,7 +2,7 @@ Status: Current
 
 # SPEC-016 — See what the app told me, and whether it is getting through
 
-- **Status:** 🟡 partly built — the Alerts mode shows the stored alerts and each channel's delivery, and says when a channel is failing (`EPIC-036D2`). The status-bar indicator is built too (`EPIC-036D3`). Not built yet: the channels table with Send test and Rotate, the routing matrix, the quiet-hours schedule, a per-bot mute in the bots list and "Retry failed" (the rest of `EPIC-036D`).
+- **Status:** 🟡 partly built — the Alerts mode shows the stored alerts and each channel's delivery, and says when a channel is failing (`EPIC-036D2`). The status-bar indicator is built too (`EPIC-036D3`), and so are the severity tone and "Retry failed" (`EPIC-036D5`). Not built yet: the routing matrix, the quiet-hours schedule and a per-bot mute in the bots list (the rest of `EPIC-036D`).
 - **Actor:** trader, operator (the owner, at the desktop, after being away)
 - **Origin:** `EPIC-036` decision N1–N8 ("the owner can see what was sent, to which channel, and what failed"); slice `EPIC-036D2`.
 - **Surfaces:** the Alerts mode (the bell on the mode bar), View → Alerts.
@@ -25,6 +25,8 @@ Status: Current
 5. The owner narrows the list with the severity filter (All, Warning and above, Critical only); no second read is made.
 6. The list is read again every fifteen seconds and when the owner presses Refresh.
 7. In every mode the status bar says whether alerts are getting through: `Alerts: ok`, `Alerts: no channel`, or `Alerts: <channel> failing` with a warning icon. A click on it shows the Alerts mode. It appears a few seconds after the app starts, once the first background read is done.
+8. The severity word is drawn in the colour of its meaning (Critical as a loss, Warning as a caution, Info plain); the word is always there, so the colour is never the only signal.
+9. "Retry failed" puts every delivery that gave up within the last 24 hours back in the queue. The app says how many were queued again, or that there was nothing to retry, then reads the list; the channel's lane sends each at its next send, at its own pace (a channel under its rate limit, or one removed since, waits). A delivery that failed after the far side had in fact received it is sent again too: a resend the owner asked for. An older alert is never sent late, and a copy of the app that is read-only has the button off.
 
 ## 4. What must be true afterwards
 
