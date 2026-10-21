@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_display import (
     marker_icon,
 )
@@ -37,9 +37,15 @@ class FieldHints:
         self._suggested = 0
         self._error_labels: dict[str, QLabel] = {}
         self._marker_labels: dict[str, QLabel] = {}
+        self._lines: dict[str, QWidget] = {}
+        self._row_shown: dict[str, bool] = {}
 
-    def under(self, key: str, editor: QWidget) -> QWidget:
-        """The editor with, under it, what the constraints say about it."""
+    def hint_line(self, key: str) -> QWidget:
+        """The line under a field: its sign, its sentence and, for the Grids field, the button.
+
+        It is a row of the form of its own, across both columns, and hidden while it says nothing:
+        a hint wrapped beside its field was measured by the form at a width the field was not
+        given, and drawn two lines short of its text (`BUG-245`)."""
         error = plain_label()
         error.setObjectName(f"lblGridError_{key}")
         error.setWordWrap(True)
@@ -49,18 +55,30 @@ class FieldHints:
         marker.setObjectName(f"lblGridMarker_{key}")
         marker.setVisible(False)
         self._marker_labels[key] = marker
-        said = QHBoxLayout()
+        line = QWidget()
+        said = QHBoxLayout(line)
         said.setContentsMargins(0, 0, 0, 0)
         said.addWidget(marker, 0, Qt.AlignmentFlag.AlignTop)
         said.addWidget(error, 1)
         if key == GRID_COUNT:
             said.addWidget(self.use_suggested_grids, 0, Qt.AlignmentFlag.AlignTop)
-        row = QWidget()
-        column = QVBoxLayout(row)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.addWidget(editor)
-        column.addLayout(said)
-        return row
+        line.setVisible(False)
+        self._lines[key] = line
+        return line
+
+    def set_row_shown(self, key: str, shown: bool) -> None:
+        """The field's row is offered (or not) by the venue's profile: its line follows."""
+        self._row_shown[key] = shown
+        self._show_line(key)
+
+    def _show_line(self, key: str) -> None:
+        line = self._lines.get(key)
+        if line is None:
+            return
+        says = not self._error_labels[key].isHidden() or (
+            key == GRID_COUNT and not self.use_suggested_grids.isHidden()
+        )
+        line.setVisible(says and self._row_shown.get(key, True))
 
     def fields(self) -> tuple[str, ...]:
         return tuple(self._error_labels)
@@ -71,6 +89,7 @@ class FieldHints:
             label.setText(error.text if error else "")
             label.setVisible(error is not None)
             self._mark(key, error)
+            self._show_line(key)
 
     def text_of(self, key: str) -> str:
         """What a field says now, `""` when nothing is about it."""
@@ -89,6 +108,7 @@ class FieldHints:
         button.setEnabled(enabled)
         if offered:
             button.setText(f"Use {count} grids")
+        self._show_line(GRID_COUNT)
 
     def marker_of(self, key: str) -> QLabel:
         """The sign beside a field's line."""

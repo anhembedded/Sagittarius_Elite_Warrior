@@ -172,7 +172,7 @@ class GridPanel(BotKindPanel):
         )
         self._facts = replace(self._facts, limits=limits)
         for key, shown in self.exposure.visible_rows().items():
-            self._form.setRowVisible(self._rows[key], shown)
+            self._show_row(key, shown)
 
     def config(self) -> dict[str, str]:
         return {
@@ -253,9 +253,9 @@ class GridPanel(BotKindPanel):
             (TAKE_PROFIT, self.take_profit),
         )
         for key, editor in rows:
-            row = self._hints.under(key, editor)
-            self._rows[key] = row
-            form.addRow(FIELD_LABELS[key], row)
+            self._rows[key] = editor
+            form.addRow(FIELD_LABELS[key], editor)
+            form.addRow(self._hints.hint_line(key))
         for key, widget in self.exposure.read_only_rows():
             self._rows[key] = widget
             form.addRow(ROW_LABELS[key], widget)
@@ -265,7 +265,12 @@ class GridPanel(BotKindPanel):
         layout.addWidget(self.suggestion_note)
         layout.addLayout(form)
         for key in self.exposure.visible_rows():
-            form.setRowVisible(self._rows[key], False)
+            self._show_row(key, False)
+
+    def _show_row(self, key: str, shown: bool) -> None:
+        """A field's row, with the line under it, offered or not."""
+        self._form.setRowVisible(self._rows[key], shown)
+        self._hints.set_row_shown(key, shown)
 
     # -- constraints on the fields (EPIC-034F) ----------------------------- #
 
