@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
+    StateKind,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -26,7 +29,7 @@ class KeyRow:
     #: The key's fingerprint and where it is kept; "No key" when there is none.
     key: str
     state: str
-    state_is_error: bool
+    state_kind: StateKind
     has_key: bool
     #: Whether Replace and Remove can act: not for a key that is an environment variable.
     editable: bool

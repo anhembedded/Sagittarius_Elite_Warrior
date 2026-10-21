@@ -64,7 +64,7 @@ def model(qapp):
 def _text(model: KLineInspectorTableModel, row: int, key: str) -> str:
     column = KLineInspectorTableModel.column(key)
     raw = model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole)
-    return write_value(KLineInspectorTableModel.COLUMNS[column].kind, raw)
+    return write_value(KLineInspectorTableModel.COLUMNS[column].kind, raw, key)
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ def test_each_column_is_written_by_its_kind(model):
     assert _text(model, 0, "low") == "99.0000"
     assert _text(model, 0, "close") == "101.0000"
     assert _text(model, 0, "volume") == "1,500,000"
-    assert _text(model, 0, "change") == "1.00%"
+    assert _text(model, 0, "change.signed") == "▲ +1.00%"
     assert _text(model, 0, "trades") == "42"
 
 
@@ -162,13 +162,6 @@ def test_a_zero_open_price_does_not_divide_by_zero():
     assert row.change_percent == 0.0
 
 
-def test_an_unchanged_candle_counts_as_bullish():
-    """A doji is not a fall, and the colour has to pick one."""
-    assert market_data_to_kline_row(
-        _kline(open_price=100.0, close_price=100.0)
-    ).is_bullish
-
-
 # ---------------------------------------------------------------------------
 # The presentation roles
 # ---------------------------------------------------------------------------
@@ -184,7 +177,7 @@ def test_the_close_and_change_cells_carry_the_candle_direction(model):
 
     for column in (
         KLineInspectorTableModel.column("close"),
-        KLineInspectorTableModel.column("change"),
+        KLineInspectorTableModel.column("change.signed"),
     ):
         assert (
             model.data(model.index(0, column), Qt.ItemDataRole.ForegroundRole)
@@ -194,6 +187,24 @@ def test_the_close_and_change_cells_carry_the_candle_direction(model):
             model.data(model.index(1, column), Qt.ItemDataRole.ForegroundRole)
             == BEARISH_COLOR
         )
+
+
+def test_an_unchanged_candle_has_no_direction_in_colour_or_in_words(model):
+    """The colour never says what the text does not: `0.00%` has no arrow, so no green."""
+    model.set_klines([_kline(0, open_price=100.0, close_price=100.0)])
+
+    assert _text(model, 0, "change.signed") == "0.00%"
+    for key in ("close", "change.signed"):
+        column = KLineInspectorTableModel.column(key)
+        assert (
+            model.data(model.index(0, column), Qt.ItemDataRole.ForegroundRole) is None
+        )
+
+
+def test_a_falling_candle_says_its_direction_in_words_too(model):
+    model.set_klines([_kline(0, open_price=100.0, close_price=99.0)])
+
+    assert _text(model, 0, "change.signed") == "▼ -1.00%"
 
 
 def test_no_other_cell_is_coloured(model):

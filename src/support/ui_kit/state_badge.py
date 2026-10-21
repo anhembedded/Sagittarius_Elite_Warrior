@@ -53,6 +53,10 @@ class StateBadge(QWidget):
     def text(self) -> str:
         return self._text.text()
 
+    def look(self) -> StateLook | None:
+        """What the badge shows beside its word; `None` is the word alone."""
+        return self._look
+
     def setText(self, text: str) -> None:
         self._text.setText(text)
 
