@@ -248,6 +248,12 @@ The Alerts screen (`EPIC-036D2`) added:
   The surface `alerts` is declared by the shell (`shell/surfaces.py` → `ALERTS_SURFACE_ID`) and
   by the view (`alerts_view.py` → `ALERTS_SURFACE`), a test holding the two equal; the mode is
   contributed by `AlertingModule.contribute` (`alerts_screen.py` → `alerts_screen`).
+- **The status-bar indicator** (`EPIC-036D3`): `AlertsView.status_widgets` offers one
+  `QToolButton` (`IStatusSource`), which the window places in its status bar once, for every
+  mode. `history_words.indicator_text` says `Alerts: ok`, `Alerts: no channel` or
+  `Alerts: <channel> failing`; a failing channel also shows a warning icon, so colour never
+  carries it. It is hidden until the first read; `AlertsView.indicator_clicked` → the presenter
+  shows the mode.
 
 ## Planned
 

@@ -12,7 +12,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QPushButton,
+    QStyle,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
@@ -44,7 +54,11 @@ ALERTS_SURFACE = Surface(
 
 
 class AlertsView(BaseView):
-    """@brief The View of the Alerts screen."""
+    """@brief The View of the Alerts screen, and the status-bar indicator it offers
+    (`IStatusSource`, `EPIC-036D3`)."""
+
+    #: The owner clicked the indicator: show this mode.
+    indicator_clicked = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -64,6 +78,13 @@ class AlertsView(BaseView):
         self._status.setObjectName("lblAlertHistoryStatus")
         self._status.setWordWrap(True)
         self._status.hide()
+        self._indicator = QToolButton()
+        self._indicator.setObjectName("btnAlertsIndicator")
+        self._indicator.setAutoRaise(True)
+        self._indicator.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._indicator.setToolTip(history_words.INDICATOR_TIP)
+        self._indicator.clicked.connect(self.indicator_clicked)
+        self._indicator.hide()
         self.severity_filter = QComboBox()
         self.severity_filter.setObjectName("cmbAlertSeverity")
         for text, _minimum in history_words.FILTER_CHOICES:
@@ -115,6 +136,18 @@ class AlertsView(BaseView):
         if notice:
             self._notice.show_notice(NoticeKind.WARNING, notice)
         self._notice.setVisible(bool(notice))
+        self._indicator.setText(history_words.indicator_text(channels))
+        failing = any(channel.failing for channel in channels)
+        self._indicator.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+            if failing
+            else QIcon()
+        )
+        self._indicator.show()
+
+    def status_widgets(self) -> Sequence[QWidget]:
+        """The indicator, for the window's status bar (`IStatusSource`)."""
+        return (self._indicator,)
 
     def show_history_note(self, text: str) -> None:
         self._status.setText(text)

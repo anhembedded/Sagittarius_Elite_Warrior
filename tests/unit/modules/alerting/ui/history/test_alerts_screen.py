@@ -188,23 +188,19 @@ class _Counting(IAlertHistory):
         return AlertHistoryReport((), ())
 
 
-def test_nothing_is_read_until_the_mode_is_shown_and_nothing_while_it_is_hidden(
+def test_nothing_is_read_at_build_and_showing_the_mode_reads_the_whole_list(
     qapp, request, tmp_path: Path
 ) -> None:
-    """Every mode is built at start; a hidden Alerts mode must not query the outbox."""
+    """Every mode is built at start; a read then would start pool threads the window's shutdown
+    does not own (`test_the_window_shuts_down_within_budget`). Timers wait for their first tick."""
     history = _Counting()
     screen = build_screen(request, tmp_path, history=history)
     assert history.reads == 0
-
-    screen.presenter.on_mode_shown(NavigationSource.USER_INTENT)
-    assert history.reads == 1
     assert screen.presenter._timer.isActive()
 
-    screen.presenter._refresh_if_visible()
-    assert history.reads == 1, "a tick reads nothing while the view is not visible"
-    screen.view.show()
-    screen.presenter._refresh_if_visible()
-    assert history.reads == 2
+    screen.presenter.on_mode_shown(NavigationSource.USER_INTENT)
+
+    assert history.reads == 1
 
 
 def test_the_timers_read_is_silent_and_a_refresh_the_owner_asked_for_is_not(
@@ -214,7 +210,7 @@ def test_the_timers_read_is_silent_and_a_refresh_the_owner_asked_for_is_not(
     screen.view.show()
     screen.threads.held = []
 
-    screen.presenter._refresh_if_visible()
+    screen.presenter._poll()
 
     assert len(screen.threads.held) == 1
     assert screen.view.history_note == ""
@@ -238,7 +234,7 @@ def test_a_pool_that_refuses_the_read_does_not_leave_the_screen_stuck(
     screen.presenter._thread_manager = _Refusing()
 
     with pytest.raises(RuntimeError):
-        screen.presenter._start_read()
+        screen.presenter._start_read(500)
 
     assert screen.view.refresh_button.isEnabled()
     assert not screen.presenter._reading

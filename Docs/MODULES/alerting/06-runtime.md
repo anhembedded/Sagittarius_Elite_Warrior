@@ -266,8 +266,14 @@ only a return to `RUNNING`, so no "Recovered" is sent while the cause stands.
 ## Built: the Alerts screen reads the history (`EPIC-036D2`)
 
 *Which thread reads the outbox, and how often?* The Alerts mode is built at start with every
-mode (SPEC-011 §4). Its presenter asks for a read when it is built, every `REFRESH_INTERVAL_MS`
-(15 s, a `QTimer` on the UI thread) and when Refresh is pressed; the read runs on the pool
+mode (SPEC-011 §4). Its presenter reads nothing when it is built (a read then started pool threads
+the window's shutdown does not own); it reads the whole list when its mode is shown
+(`AlertsPresenter.on_mode_shown`) and when Refresh is pressed, and a `QTimer` on the UI thread
+reads in the background first after `FIRST_READ_MS` (5 s) and then every `REFRESH_INTERVAL_MS`
+(15 s), whether or not the mode is visible, because the status-bar indicator is there in every
+mode (`EPIC-036D3`); a hidden mode reads only `HEALTH_LIMIT` (50) alerts, enough for a channel's
+health. Clicking the indicator asks the window's `INavigationService`, resolved at the click (it
+exists only once the window is built), to show the mode. The read runs on the pool
 (`alerts_presenter.py` → `AlertsPresenter.refresh`, `AlertsPresenter._read_history_on_pool`) because
 `IOutbox.history` queries the database. One read is out at a time: a timer tick or a click while
 one runs is ignored. The answer is handed to the UI thread by `AlertsActionRelay` and applied only

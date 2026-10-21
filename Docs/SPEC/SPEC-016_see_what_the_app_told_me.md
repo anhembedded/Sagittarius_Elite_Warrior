@@ -2,7 +2,7 @@ Status: Current
 
 # SPEC-016 — See what the app told me, and whether it is getting through
 
-- **Status:** 🟡 partly built — the Alerts mode shows the stored alerts and each channel's delivery, and says when a channel is failing (`EPIC-036D2`). Not built yet: the channels table with Send test and Rotate, the routing matrix, the quiet-hours schedule, a status-bar indicator, a per-bot mute in the bots list and "Retry failed" (the rest of `EPIC-036D`).
+- **Status:** 🟡 partly built — the Alerts mode shows the stored alerts and each channel's delivery, and says when a channel is failing (`EPIC-036D2`). The status-bar indicator is built too (`EPIC-036D3`). Not built yet: the channels table with Send test and Rotate, the routing matrix, the quiet-hours schedule, a per-bot mute in the bots list and "Retry failed" (the rest of `EPIC-036D`).
 - **Actor:** trader, operator (the owner, at the desktop, after being away)
 - **Origin:** `EPIC-036` decision N1–N8 ("the owner can see what was sent, to which channel, and what failed"); slice `EPIC-036D2`.
 - **Surfaces:** the Alerts mode (the bell on the mode bar), View → Alerts.
@@ -24,6 +24,7 @@ Status: Current
 4. When a channel's newest real delivery did not get through (failed, expired, or retrying after a failed try; a wait the platform or the pacing asked for is not a failure), a notice says which channel and points to Tools → Options → Alerts.
 5. The owner narrows the list with the severity filter (All, Warning and above, Critical only); no second read is made.
 6. The list is read again every fifteen seconds and when the owner presses Refresh.
+7. In every mode the status bar says whether alerts are getting through: `Alerts: ok`, `Alerts: no channel`, or `Alerts: <channel> failing` with a warning icon. A click on it shows the Alerts mode. It appears a few seconds after the app starts, once the first background read is done.
 
 ## 4. What must be true afterwards
 
@@ -41,7 +42,7 @@ The owner can say, from the screen alone, which alerts were raised, which channe
 ## 6. What this use case does NOT promise
 
 - That a delivery marked "delivered" was read by a person: it says the channel accepted it.
-- That the list is live to the second: it is read every fifteen seconds.
+- That the list or the indicator is live to the second: they are read every fifteen seconds (the indicator's first read, five seconds after start).
 - Colour: severity and state are words today; a colour comes with the shared meaning table of `EPIC-043`.
 - Anything beyond the newest 500 alerts.
 
@@ -56,6 +57,7 @@ The owner can say, from the screen alone, which alerts were raised, which channe
 | The history read model, channel health | `tests/unit/modules/alerting/application/test_outbox_alert_history.py` | unit |
 | The screen: words, filter, notice, failed read, stale answer | `tests/unit/modules/alerting/ui/history/test_alerts_screen.py` | unit |
 | The frames, light and dark, three window sizes | `tests/integration/modules/alerting/test_alerts_frames.py` | integration |
+| The status-bar indicator: its three states, the icon, the click, the small background read | `tests/unit/modules/alerting/ui/history/test_alerts_indicator.py` | unit |
 | The module contributes the screen; the surface is the shell's | `tests/unit/modules/alerting/test_alerting_module.py` | unit |
 | The workbench rules hold with the mode present | `tests/integration/presentation/ui/test_workbench_conformance.py` | integration |
 | **The user runs it:** store a Discord webhook the network cannot reach, let any alert be raised (a bot halting), open Alerts and see the Discord line say failing, the notice name Discord and the alert's Delivery cell say retrying or failed | — | manual |

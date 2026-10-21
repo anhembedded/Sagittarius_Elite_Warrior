@@ -1,6 +1,6 @@
 # EPIC-036D — Alerts UI: Options page, Alerts dock, status-bar indicator, per-bot mute
 
-**Status:** 🟡 Partly done — [`EPIC-036D2`](../completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) (2026-10-20) built the Alerts mode (history, severity filter, channel line and failing notice, as a mode, not a dock). Left: the channels table (with the Telegram fields and Rotate), routing matrix, schedule, status-bar indicator, per-bot mute, Retry failed
+**Status:** 🟡 Partly done — [`EPIC-036D2`](../completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) (2026-10-20) built the Alerts mode (history, severity filter, channel line and failing notice, as a mode, not a dock). [`EPIC-036D3`](../completed/EPIC-036D3_status_bar_indicator.md) built the status-bar indicator. Left: the channels table (with the Telegram fields and Rotate), routing matrix, schedule, per-bot mute, Retry failed
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N4, N5), relayed by the coordinator session.
 **Risk:** 🟢 — QtWidgets on existing seams; no change to delivery
 **Complexity:** L — four surfaces and their previews
@@ -21,7 +21,7 @@ Channels are configured by hand-editing the config; there is no test button, no 
 - [ ] **Schedule:** heartbeat interval (default 6 h), quiet hours (off by default, CRITICAL still sent), and the **dead man's switch URL** field (off by default; the field is shown only if `EPIC-036E` has landed, otherwise this criterion is deferred in writing).
 - [ ] **Apply/OK/Cancel/revert** follow the dialog's contract: nothing is saved by a page on its own; `is_dirty`, `validation_message` and `revert` are tested.
 - [~] (`EPIC-036D2` built it as the **Alerts mode**: history, severity filter and the channel line; "Retry failed" and a column per channel are left, the table has one Delivery cell) **View → Alerts dock:** a history table (time, severity, subject, text, one column per channel with delivered / retrying / failed ×n / expired), a severity filter, **Retry failed**; a grouped alert shows its count on one row.
-- [ ] **Status-bar indicator:** three states — off (no channel configured), ok, or "`<channel>` failing"; clicking it opens the dock; it follows `CHANNEL_FAILING` and its recovery.
+- [x] (`EPIC-036D3`) **Status-bar indicator:** three states, in words, a failing channel also by icon; clicking it shows the Alerts mode (the surviving dock was built as a mode, `EPIC-036D2`); it follows the failure and its recovery by a background read every 15 s.
 - [ ] **Per bot:** an **Alerts: On / Critical only / Off** item in the bot's context menu; **Off asks for a confirmation** (N5); a muted-bell marker appears on the row of a bot whose alerts are not On.
 - [ ] Every action that touches the network or the keyring (Send test, Retry failed, Rotate) runs off the UI thread through the async-action coordinator, with fencing and cooperative cancellation.
 - [ ] Each package has a `preview.py` that renders its widgets headless; screenshots are attached to the PR.

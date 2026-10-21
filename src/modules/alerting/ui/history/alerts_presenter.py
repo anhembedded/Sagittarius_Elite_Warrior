@@ -1,8 +1,11 @@
-"""The Alerts screen's presenter (`EPIC-036D2`).
+"""The Alerts screen's presenter (`EPIC-036D2`, and the status-bar indicator of `EPIC-036D3`).
 
 It reads the history through `IAlertHistory` on the thread pool and hands the report to the
 view on the UI thread: the read opens the outbox's database, which must not block a paint.
-It reads when its mode is shown and then, a `QTimer` asks again every `REFRESH_INTERVAL_MS` while it is visible; Refresh asks now; one read is in
+It reads the whole list when its mode is shown and Refresh asks now. A `QTimer` reads in the
+background every `REFRESH_INTERVAL_MS` whether or not the mode is visible, because the
+status-bar indicator the view offers is there in every mode; a hidden mode reads only the few
+newest alerts (`HEALTH_LIMIT`). A click on the indicator shows the mode. One read is in
 flight at a time, so a slow disk is never queued behind itself. An answer for a read that
 is no longer the current one is dropped, and none arrives after `shutdown()`
 (`async-ui-action-rule.md`).
@@ -24,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history im
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history import history_words
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_view import (
+    ALERTS_ROUTE,
     AlertsView,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_action_relay import (
@@ -33,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import INavigationService
 from sagittarius_engine.extensions.pyside_mvc import (
     BasePresenter,
     BaseView,
@@ -43,8 +48,14 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.Alerting.History")
 
-#: How many alerts one read returns.
+#: How many alerts one read returns while the mode is shown.
 HISTORY_LIMIT = 500
+#: And while it is hidden: only the status-bar indicator reads then, and a channel's health needs
+#: the newest few (`OutboxAlertHistory`), not the whole list.
+HEALTH_LIMIT = 50
+#: The first background read after start, so the indicator appears soon without a read at build
+#: (every mode is built at start; a read then started pool threads the window does not own).
+FIRST_READ_MS = 5_000
 #: How often the screen asks again, in milliseconds.
 REFRESH_INTERVAL_MS = 15_000
 _READ = "read"
@@ -56,6 +67,7 @@ class AlertsPresenter(BasePresenter):
     def __init__(self, view: AlertsView, container: IContainer) -> None:
         super().__init__(view, container)
         self._view = view
+        self._container = container
         self._history: IAlertHistory = container.resolve(IAlertHistory)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._tracker: ActionOwnershipTracker[str, None, None] = (
@@ -66,24 +78,38 @@ class AlertsPresenter(BasePresenter):
         view.refresh_button.clicked.connect(self.refresh)
         self._timer = QTimer(self)
         self._timer.setInterval(REFRESH_INTERVAL_MS)
-        self._timer.timeout.connect(self._refresh_if_visible)
+        self._timer.timeout.connect(self._poll)
+        self._timer.start()
+        self._first_read = QTimer(self)
+        self._first_read.setSingleShot(True)
+        self._first_read.setInterval(FIRST_READ_MS)
+        self._first_read.timeout.connect(self._poll)
+        self._first_read.start()
+        view.indicator_clicked.connect(self._show_the_mode)
         logger.info(
-            "Alerts screen: reads up to %d alert(s) when shown, again every %d ms while shown.",
+            "Alerts screen: reads up to %d alert(s) when shown and %d while hidden (for the "
+            "status-bar indicator), first after %d ms, then every %d ms.",
             HISTORY_LIMIT,
+            HEALTH_LIMIT,
+            FIRST_READ_MS,
             REFRESH_INTERVAL_MS,
         )
 
     def on_mode_shown(self, source: NavigationSource) -> None:
         """The mode is built at start with every other, so nothing is read until the owner can
-        see it: it reads now and then every `REFRESH_INTERVAL_MS` while it stays shown."""
-        self._timer.start()
+        see it: it reads the whole list now."""
         self.refresh()
 
-    def _refresh_if_visible(self) -> None:
-        """Another mode may have taken the window since: nothing reads while the list cannot be
-        seen."""
-        if self._view.isVisible():
-            self._start_read()
+    def _poll(self) -> None:
+        """The background read: the whole list while the mode is visible, the few newest alerts
+        (enough for the indicator) while it is not. Silent either way."""
+        self._start_read(HISTORY_LIMIT if self._view.isVisible() else HEALTH_LIMIT)
+
+    def _show_the_mode(self) -> None:
+        """The indicator was clicked. The navigation service is the window's and exists only
+        once the window is built, so it is asked for now, not at construction."""
+        navigation: INavigationService = self._container.resolve(INavigationService)
+        navigation.navigate(ALERTS_ROUTE, source=NavigationSource.USER_INTENT)
 
     @Slot()
     @safe_ui_action
@@ -94,16 +120,18 @@ class AlertsPresenter(BasePresenter):
             return
         self._view.refresh_button.setEnabled(False)
         self._view.show_history_note(history_words.READING)
-        self._start_read()
+        self._start_read(HISTORY_LIMIT)
 
-    def _start_read(self) -> None:
+    def _start_read(self, limit: int) -> None:
         """Asks for a fresh read unless one is already out."""
         if self._reading:
             return
         self._reading = True
         action = self._tracker.begin_action(_READ, None, None)
         try:
-            self._thread_manager.submit(self._read_history_on_pool, action.action_id)
+            self._thread_manager.submit(
+                self._read_history_on_pool, action.action_id, limit
+            )
         except Exception:
             self._reading = False
             self._view.refresh_button.setEnabled(True)
@@ -112,14 +140,15 @@ class AlertsPresenter(BasePresenter):
     def shutdown(self) -> None:
         """Answers still in flight are dropped, and none is delivered after this."""
         self._timer.stop()
+        self._first_read.stop()
         self._tracker.invalidate_active()
         self._relay.stop_delivering()
         super().shutdown()
 
-    def _read_history_on_pool(self, action_id: int) -> None:
+    def _read_history_on_pool(self, action_id: int, limit: int) -> None:
         """Runs on the thread pool: touches no widget; reports through the relay."""
         try:
-            report = self._history.read(HISTORY_LIMIT)
+            report = self._history.read(limit)
         except Exception as exc:  # noqa: BLE001 - worker boundary: told in words, not lost to a pool thread
             self._relay.hand_over((action_id, None, type(exc).__name__))
         else:

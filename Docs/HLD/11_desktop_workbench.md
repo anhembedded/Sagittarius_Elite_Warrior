@@ -77,6 +77,9 @@ the mode the user last used; there is no Welcome page.
   the status bar, never by colour alone (MS `vis-color`; replaces the coloured banner of
   `EPIC-021K`; `test_environment_banner_all_screens.py` is retargeted to the title).
 - **The connection state** in the status bar, as a word plus an icon (SPEC-003).
+- **Whether alerts are getting through** in the status bar, in words (`Alerts: ok`, `no channel`,
+  `<channel> failing`; a failing channel also has an icon); a click shows the Alerts mode
+  (SPEC-016, `EPIC-036D3`).
 
 ### 11.2.3 The menu bar is the catalogue of commands
 

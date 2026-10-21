@@ -60,15 +60,20 @@ def build_screen(
     tmp_path: Path,
     channel_ids: tuple[str, ...] = ("discord",),
     history: IAlertHistory | None = None,
+    services: dict[type, Any] | None = None,
 ) -> AlertsScreen:
     rig = build_rig(tmp_path, channel_ids)
     threads = InlineThreads()
     the_history = history or OutboxAlertHistory(
         rig.outbox, RegisteredChannelCatalog(rig.channels)
     )
-    services = {IAlertHistory: the_history, IThreadManager: threads}
+    ports: dict[type, Any] = {
+        IAlertHistory: the_history,
+        IThreadManager: threads,
+        **(services or {}),
+    }
     container = Mock()
-    container.resolve.side_effect = lambda interface: services.get(interface, Mock())
+    container.resolve.side_effect = lambda interface: ports.get(interface, Mock())
     view = AlertsView()
     request.addfinalizer(view.deleteLater)
     presenter = AlertsPresenter(view, container)
