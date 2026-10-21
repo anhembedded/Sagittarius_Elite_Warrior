@@ -20,7 +20,7 @@ The Plan was a window-level dock on the right, shown on both tabs, while the Bac
 - [x] No wrapped label is clipped on either column at 1024×700, 1366×768 and 1920×1080 (`wrapped_text_problems`, red on the old layout).
 - [x] The mode still fits 1024×700 (`fits_the_window` on both tabs).
 - [x] Frames of both tabs with a bot selected, light and dark, at the three sizes, in the pull request's CI artifact.
-- [ ] The Strategies dock is removed: not done here, it is the only way to arm a strategy; BOT-219 holds the options.
+- [x] The Strategies dock is removed: done by [BOT-219](BOT-219_the_strategies_dock_is_removed_from_the_bots_mode.md) after the owner chose how arming stays reachable (the dock was the only way to arm).
 
 ## 3. Design
 `PlanColumn` (a `QScrollArea`) owns the order: head, banner, intro, figures, editor, checks, foot. The Live `BotPlanPanel` fills head (name, state), intro (Venue) and figures (the property table); `BacktestWorkbenchView` fills the banner with the source line, intro with its question, the Replace and Keep buttons and the changed-fields line, and the foot with what a simulation cannot check (a verdict that did not run is never counted among the passed checks). The column's `minimumSizeHint` is its content's width, so a splitter never cuts the editor's right edge and the window keeps the width the column asks for. Both views put the column on the left, the chart or the results on the right.

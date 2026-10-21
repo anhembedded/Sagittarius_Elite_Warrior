@@ -101,8 +101,6 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
     assert [view.live.widget(0), view.live.widget(1)] == [view.plan, view.chart_area]
     assert areas == {
         "Bots": _AREA.LeftDockWidgetArea,
-        # `EPIC-033K` stage 3: each venue's armed strategy, under Bots.
-        "Strategies": _AREA.LeftDockWidgetArea,
         "Orders": _AREA.BottomDockWidgetArea,
         "Ladder": _AREA.BottomDockWidgetArea,
         "Fills": _AREA.BottomDockWidgetArea,

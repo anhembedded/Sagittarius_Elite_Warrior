@@ -80,7 +80,8 @@ def test_a_plan_exported_from_the_screen_applies_as_no_changes(
                 ask_new_bot=lambda _kinds, _venues: None,
                 ask_stop=lambda _bot: None,
                 confirm_delete=lambda _bot: False,
-                ask_arm_strategy=lambda _venue, _form: False,
+                ask_arm_strategy=lambda _question: None,
+                choose_venue=lambda _choice: None,
                 allow_real_money=lambda _venue, _what: True,
                 ask_export_plan=lambda _bots, _selected: ExportPlanChoice(
                     ExportPlanScope.ALL, False, ExportPlanAction.SAVE

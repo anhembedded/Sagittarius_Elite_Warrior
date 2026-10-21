@@ -47,9 +47,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
     SUGGEST_FROM_ATR,
     SUGGEST_FROM_BOLLINGER,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
-    StrategiesPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -103,9 +100,7 @@ def test_a_kind_command_follows_the_kind_s_toolbar_action(qtbot) -> None:
         lambda binder: bind_bots_commands(
             binder,
             view_model,
-            venue_strategies(
-                StrategiesPanel(), (VenueArming(TradingVenue.SPOT_TESTNET),)
-            ),
+            venue_strategies((VenueArming(TradingVenue.SPOT_TESTNET),)),
         ),
     )
     atr = menu.action(SUGGEST_FROM_ATR)

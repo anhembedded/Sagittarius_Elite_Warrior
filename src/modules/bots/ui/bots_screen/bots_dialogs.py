@@ -30,8 +30,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     ask_stop_with_dialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
     AskArmStrategy,
     ask_arm_with_dialog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.disarm_choice import (
+    ChooseVenue,
+    choose_venue_with_dialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
     IRealMoneyConsent,
@@ -54,8 +59,10 @@ class BotsDialogs:
     ask_new_bot: AskNewBot
     ask_stop: AskStop
     confirm_delete: ConfirmDelete
-    #: Bots → Arm strategy… (`EPIC-033K` stage 3).
+    #: Bots → Arm strategy… (`EPIC-033K` stage 3, `BOT-219`: what to arm and on which venue).
     ask_arm_strategy: AskArmStrategy
+    #: Bots → Disarm strategy…: which armed venue (`BOT-219`).
+    choose_venue: ChooseVenue
     allow_real_money: AllowRealMoney
     #: Bots → Export plan… (`BOT-176`): which bots and how, then where to save.
     ask_export_plan: AskExportPlan
@@ -82,16 +89,25 @@ def dialogs_for(
         ),
         ask_stop=lambda bot: ask_stop_with_dialog(parent, bot),
         confirm_delete=lambda bot: _ask_delete(parent, bot),
-        ask_arm_strategy=lambda venue, form: (
-            consent.confirmed(venue, "arm a strategy")
-            and ask_arm_with_dialog(parent, venue, form)
-        ),
+        ask_arm_strategy=lambda question: _ask_arm(parent, question, consent),
+        choose_venue=lambda choice: choose_venue_with_dialog(parent, choice),
         allow_real_money=consent.confirmed,
         ask_export_plan=lambda bots, selected: ask_export_plan_with_dialog(
             parent, bots, selected
         ),
         ask_plan_save_path=lambda suggested: _ask_plan_save_path(parent, suggested),
     )
+
+
+def _ask_arm(
+    parent: QWidget, question: ArmQuestion, consent: IRealMoneyConsent
+) -> TradingVenue | None:
+    """The dialog first, then the real-money question for the venue it chose: a mainnet venue's
+    first Arm of the session asks (`EPIC-034` D3, D11), and a refusal arms nothing."""
+    venue = ask_arm_with_dialog(parent, question)
+    if venue is None or not consent.confirmed(venue, "arm a strategy"):
+        return None
+    return venue
 
 
 def _ask_plan_save_path(parent: QWidget, suggested: str) -> str:

@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen import bots_dialogs
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
@@ -35,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs impo
     BotsDialogs,
     dialogs_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    ArmQuestion,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
     FakeRealMoneyConsent,
 )
@@ -43,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 _MAINNET = TradingVenue.SPOT_MAINNET
+_TESTNET = TradingVenue.SPOT_TESTNET
 
 
 @pytest.fixture(autouse=True)
@@ -129,15 +134,34 @@ def test_a_testnet_bot_starts_without_the_question(venue: TradingVenue) -> None:
     assert consent.asked == []
 
 
-def test_arming_a_strategy_on_a_mainnet_venue_asks_first_and_a_no_arms_nothing() -> (
-    None
-):
+def test_arming_a_strategy_on_a_mainnet_venue_asks_after_the_venue_is_chosen_and_a_no_arms_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`BOT-219`: the venue is chosen in the dialog, so the real-money question about it comes
+    after the dialog and a "no" arms nothing."""
+    monkeypatch.setattr(
+        bots_dialogs, "ask_arm_with_dialog", lambda _parent, _question: _MAINNET
+    )
     consent = FakeRealMoneyConsent(agrees=False)
 
-    armed = _dialogs(consent).ask_arm_strategy(_MAINNET, Mock())
+    venue = _dialogs(consent).ask_arm_strategy(ArmQuestion({_MAINNET: Mock()}))
 
-    assert armed is False  # the dialog was never opened: the question stopped it
+    assert venue is None
     assert consent.asked == [(_MAINNET, "arm a strategy")]
+
+
+def test_arming_a_strategy_on_a_testnet_venue_is_not_asked_about_real_money(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        bots_dialogs, "ask_arm_with_dialog", lambda _parent, _question: _TESTNET
+    )
+    consent = FakeRealMoneyConsent(agrees=False)
+
+    venue = _dialogs(consent).ask_arm_strategy(ArmQuestion({_TESTNET: Mock()}))
+
+    assert venue is _TESTNET
+    assert consent.asked == []
 
 
 def test_save_and_start_with_edits_asks_first_and_a_no_sends_nothing() -> None:
