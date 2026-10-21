@@ -3,7 +3,8 @@
 
 @details Built over the same `OwnerBookState` as the lifecycle side, so every read takes the lock
 a fill or an install takes and sees the books before or after one, never between. Nothing here
-changes a book. `TradingSessionState` holds one instance beside `OwnerBooks`; a collaborator that
+changes a book: a question that moves a book's state (`cross_check`, `take_departure`: they
+consume what they answer) is a write and is on `OwnerBooks`. `TradingSessionState` holds one instance beside `OwnerBooks`; a collaborator that
 only reads (the budget check, the reconcilers, Emergency Stop) is handed this, not the side that
 writes.
 """
@@ -12,7 +13,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book_state import (
     OwnerBookState,
@@ -24,7 +24,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     OwnerPosition,
-    PositionDivergence,
 )
 
 
@@ -105,25 +104,3 @@ class OwnerBookReads:
                 and book.owner_id == owner_id
                 and book.agrees_with_last_report()
             )
-
-    def cross_check_owner(
-        self, tag: str, exchange_quantity: Decimal
-    ) -> PositionDivergence | None:
-        """@brief Compares `tag`'s position with `exchange_quantity`; `None`
-        when they agree, `tag` has no book, or it is no Futures book."""
-        with self._state.lock:
-            book = self._state.by_tag.get(tag)
-            return None if book is None else book.cross_check(exchange_quantity)
-
-    def cross_check(
-        self, symbol: str, exchange_quantity: Decimal
-    ) -> tuple[PositionDivergence, ...]:
-        """@brief Compares every Futures owner's position on `symbol` with
-        `exchange_quantity` (`positionRisk`), returning each new divergence."""
-        with self._state.lock:
-            checked = (
-                book.cross_check(exchange_quantity)
-                for book in self._state.by_tag.values()
-                if book.symbol == symbol
-            )
-            return tuple(found for found in checked if found is not None)

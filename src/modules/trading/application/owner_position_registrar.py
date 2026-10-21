@@ -176,7 +176,7 @@ def _cross_check(
             exc,
         )
         return None
-    divergence = scope.session_state.owner_book_reads.cross_check_owner(
+    divergence = scope.session_state.owner_books.cross_check_owner(
         registration.tag, exchange
     )
     if divergence is not None:

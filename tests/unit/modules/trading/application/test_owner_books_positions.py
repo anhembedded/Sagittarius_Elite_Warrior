@@ -120,8 +120,8 @@ def test_the_cross_check_reaches_every_futures_owner_on_the_symbol_only() -> Non
     books = OwnerBooks()
     books.install(TAG, OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP))
 
-    assert books.reads.cross_check("ETHUSDT", Decimal(5)) == ()
-    (found,) = books.reads.cross_check("BTCUSDT", Decimal(5))
+    assert books.cross_check("ETHUSDT", Decimal(5)) == ()
+    (found,) = books.cross_check("BTCUSDT", Decimal(5))
 
     assert found.kind is PositionDivergenceKind.POSITION_MISMATCH
-    assert books.reads.cross_check("BTCUSDT", Decimal(5)) == ()  # reported once
+    assert books.cross_check("BTCUSDT", Decimal(5)) == ()  # reported once

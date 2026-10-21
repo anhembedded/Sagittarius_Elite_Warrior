@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book_reads 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerBooks,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_book import (
+    OwnerPositionBook,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -36,6 +39,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistration,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    EMPTY_POSITION,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.owner_position_world import (
+    REGISTRATION,
+    STEP,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.owner_position_world import (
+    TAG as POSITION_TAG,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.owner_position_world import (
+    order as position_order,
 )
 
 _TAG = "a3f9c1"
@@ -87,11 +103,18 @@ def test_the_read_side_holds_no_write_and_the_write_side_no_read() -> None:
         "position_of",
         "shares",
         "agrees_with_last_report",
-        "cross_check_owner",
-        "cross_check",
     }
     assert set(_public_methods(OwnerBookReads)) == reads
     assert reads.isdisjoint(_public_methods(OwnerBooks))
+
+
+def test_a_question_that_moves_a_books_state_is_a_write() -> None:
+    """`cross_check` keeps what it was told and returns each divergence once (as `take_departure`
+    consumes its mark): a handle that only reads must not be able to spend either."""
+    writes = {"cross_check_owner", "cross_check", "take_departure"}
+
+    assert writes <= set(_public_methods(OwnerBooks))
+    assert writes.isdisjoint(_public_methods(OwnerBookReads))
 
 
 def test_a_read_sees_what_a_write_did() -> None:
@@ -159,3 +182,53 @@ def test_a_read_waits_for_a_fill_in_progress_and_sees_the_book_after_it() -> Non
     assert facts is not None
     assert facts.open_order_count == 0
     assert facts.inventory == _BOUGHT
+
+
+class _PositionFillInProgress(OwnerPositionBook):
+    """A Futures owner's book whose fill is held half-way, as `_FillInProgress` holds Spot's."""
+
+    def __init__(self) -> None:
+        super().__init__(REGISTRATION, EMPTY_POSITION, STEP)
+        self.began = threading.Event()
+        self.finish = threading.Event()
+
+    def apply_fill(
+        self,
+        order: Order,
+        fill: tuple[Decimal, Decimal],
+        fee: tuple[Decimal, str] | None,
+        trade_id: int | None = None,
+    ) -> None:
+        self.began.set()
+        assert self.finish.wait(timeout=10)
+        super().apply_fill(order, fill, fee, trade_id)
+
+
+def test_a_position_read_waits_for_a_futures_fill_in_progress() -> None:
+    """The Futures read path under contention too: `position_of` asked while a fill is being
+    applied answers after it, never from the position as the fill changes it."""
+    books = OwnerBooks()
+    book = _PositionFillInProgress()
+    books.install(POSITION_TAG, book)
+    answers: list[object] = []
+    fill = position_order(1, OrderSide.BUY, "0.010", status=OrderStatus.FILLED)
+    writer = threading.Thread(
+        target=books.apply_fill,
+        args=(fill, (Decimal(60000), Decimal("0.010")), None, 5),
+    )
+    reader = threading.Thread(
+        target=lambda: answers.append(books.reads.position_of(POSITION_TAG, "bot-f0"))
+    )
+
+    writer.start()
+    assert book.began.wait(timeout=10)
+    reader.start()
+    reader.join(timeout=0.3)
+    still_waiting = reader.is_alive()
+    book.finish.set()
+    writer.join(timeout=10)
+    reader.join(timeout=10)
+
+    assert still_waiting, "the read answered while a fill held the lock"
+    (position,) = answers
+    assert position is not None and position.quantity == Decimal("0.010")

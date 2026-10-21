@@ -80,9 +80,9 @@ def cross_check_owner_positions(
     "fixed" by trusting the bot's record and never written over the book: the
     caller publishes the divergences it gets back for the guard (`EPIC-039F`).
     Like `reconcile_position_state`, it runs on the websocket thread; the
-    comparison itself is `OwnerBookReads`' own lock-guarded `cross_check`.
+    comparison itself is `OwnerBooks`' own lock-guarded `cross_check`.
     """
-    divergences = session_state.owner_book_reads.cross_check(symbol, exchange_quantity)
+    divergences = session_state.owner_books.cross_check(symbol, exchange_quantity)
     for divergence in divergences:
         # `BUG-203` - DEBUG, not WARNING: the report can outrun the fill that explains it, so
         # this is a snapshot nobody has confirmed yet, one line per fill of a burst. The owner's

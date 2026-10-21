@@ -2,7 +2,7 @@
 
 **Status:** 🔵 Backlog
 **Priority:** P3
-**Board:** `TradingSessionState` has 18 public members against the guideline of 15 (`architecture-rule.md` §5); [BOT-207](../completed/BOT-207_split_owner_books_by_read_and_lifecycle_side.md) noted it and left it, because it is on other seams than the owner books.
+**Board:** `TradingSessionState` has 18 public members against the guideline of 15 (`architecture-rule.md` §5); [BOT-207](completed/BOT-207_split_owner_books_by_read_and_lifecycle_side.md) noted it and left it, because it is on other seams than the owner books.
 **Source:** the independent reviewer's review of `BUG-233` (PR #623) reported the count; `BOT-207` (2026-10-21) found it on a different seam and filed it here.
 **Risk:** 🟡 — the session state is read from the order pool, the websocket and the session handlers under one lock; a split must keep one lock.
 **Complexity:** M — three groups of members, one lock to share.

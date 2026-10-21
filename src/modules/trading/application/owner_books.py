@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_book import
     IOwnerBook,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    PositionDivergence,
+)
 
 
 @dataclass(frozen=True)
@@ -154,6 +157,30 @@ class OwnerBooks:
             departed = symbol in self._state.departed
             self._state.departed.discard(symbol)
             return departed
+
+    def cross_check_owner(
+        self, tag: str, exchange_quantity: Decimal
+    ) -> PositionDivergence | None:
+        """@brief Compares `tag`'s position with `exchange_quantity`; `None`
+        when they agree, `tag` has no book, or it is no Futures book. A write: the book keeps
+        what it was told and returns each divergence once (`OwnerPositionBook.cross_check`)."""
+        with self._state.lock:
+            book = self._state.by_tag.get(tag)
+            return None if book is None else book.cross_check(exchange_quantity)
+
+    def cross_check(
+        self, symbol: str, exchange_quantity: Decimal
+    ) -> tuple[PositionDivergence, ...]:
+        """@brief Compares every Futures owner's position on `symbol` with
+        `exchange_quantity` (`positionRisk`), returning each new divergence. A write, like
+        `cross_check_owner`: each book keeps what it was told."""
+        with self._state.lock:
+            checked = (
+                book.cross_check(exchange_quantity)
+                for book in self._state.by_tag.values()
+                if book.symbol == symbol
+            )
+            return tuple(found for found in checked if found is not None)
 
     def record_sent(
         self, tag: str, order: Order, notional: Decimal, when: datetime
