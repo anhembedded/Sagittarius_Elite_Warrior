@@ -22,14 +22,15 @@ class UnreadStreak:
     def __init__(self) -> None:
         self._told = False
 
-    def after(self, position: object | None) -> int | None:
-        """`None` for a read that worked (the run ends); else the level to tell the failure at."""
-        if position is not None:
-            self._told = False
-            return None
+    def failed(self) -> int:
+        """The level to tell a failed read at."""
         level = logging.DEBUG if self._told else logging.WARNING
         self._told = True
         return level
+
+    def cleared(self) -> None:
+        """A read worked: the run is over."""
+        self._told = False
 
 
 def log_unread_stops(logger: logging.Logger, failure: Exception, bot_id: str) -> None:
