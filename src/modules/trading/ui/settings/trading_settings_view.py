@@ -13,16 +13,25 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.add_key_dialog import (
     AddKeyDialog,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
+    CONNECTED,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_look import StateLook
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QLabel
 
-    from .trading_settings_view_model import TradingSettingsViewModel
+    from .trading_settings_view_model import (
+        KeyRow,
+        TradingSettingsViewModel,
+    )
 
 _INTRO = (
     "Add a Binance key and the app finds out which environment it belongs to: "
@@ -32,6 +41,9 @@ _INTRO = (
     "when you add, replace or remove it: OK and Apply have nothing to save here."
 )
 _COLUMNS = ("Venue", "Key", "State")
+#: A key the exchange accepted, and one it did not (`EPIC-043E`); the words stay beside the icon.
+CONNECTED_LOOK = StateLook("circle-check-big", Tone.POSITIVE)
+ERROR_LOOK = StateLook("circle-x", Tone.NEGATIVE)
 
 
 class _RowWidgets:
@@ -41,8 +53,7 @@ class _RowWidgets:
         self.venue = venue
         self.title = plain_label()
         self.key = plain_label()
-        self.state = plain_label()
-        self.state.setWordWrap(True)
+        self.state = StateBadge(f"lblKeyState_{venue.name}", wrap=True)
         self.replace = QPushButton()
         self.replace.setObjectName(f"btnReplaceKey_{venue.name}")
         self.remove = QPushButton("Remove")
@@ -80,7 +91,7 @@ class TradingSettingsView(BaseView):
             widgets = self._rows.get(row.venue) or self._add_row(row.venue, view_model)
             widgets.title.setText(row.title)
             widgets.key.setText(row.key)
-            widgets.state.setText(_worded(row.state, row.state_is_error))
+            widgets.state.show_state(_worded(row.state, row.state_is_error), _look(row))
             widgets.replace.setText("Replace…" if row.has_key else "Add…")
             widgets.replace.setEnabled(row.editable and not view_model.busy)
             widgets.remove.setEnabled(
@@ -156,6 +167,14 @@ class TradingSettingsView(BaseView):
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
+
+
+def _look(row: KeyRow) -> StateLook | None:
+    """The icon and tone beside a venue's state: a key that works, or one that does not. A venue
+    with no key, or one not checked yet, has only its words."""
+    if row.state_is_error:
+        return ERROR_LOOK
+    return CONNECTED_LOOK if row.state == CONNECTED else None
 
 
 def _worded(message: str, is_error: bool) -> str:

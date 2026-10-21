@@ -296,3 +296,48 @@ def test_a_key_with_characters_binance_never_uses_is_told_so_not_called_a_networ
 
     assert "does not look like a Binance key" in page.notifier.last.headline
     assert page.probe.asked == []
+
+
+# -- `EPIC-043E`: a venue's state is a word with an icon and a tone beside it ---------------------
+
+
+def _badge(page, venue):
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
+
+    badge = page.view.findChild(StateBadge, f"lblKeyState_{venue.name}")
+    assert badge is not None
+    return badge
+
+
+def test_a_venue_that_connects_has_the_word_and_a_check_beside_it(page) -> None:
+    page.probe.verdicts = mainnet_accepts(spot=True)
+    page.type_in_dialog()
+
+    page.click_add()
+
+    badge = _badge(page, _SPOT_MAINNET)
+    assert badge.text() == "Connected"
+    assert not badge._icon.isHidden()
+
+
+def test_a_refused_key_says_error_in_words_with_the_loss_icon(page) -> None:
+    page.providers[_FUTURES_TESTNET].save_to_file(OLD_TESTNET_KEY, "s")
+    page.providers[_SPOT_TESTNET].save_to_file("p" * 20, "s")
+    page.presenter.revert()
+    page.statuses.by_venue[_SPOT_TESTNET] = status_of(
+        _SPOT_TESTNET, ConnectionFailureKind.KEY_REJECTED
+    )
+
+    page.click_check()
+
+    badge = _badge(page, _SPOT_TESTNET)
+    assert badge.text().startswith("Error: ")
+    assert not badge._icon.isHidden()
+    assert not _badge(page, _FUTURES_TESTNET)._icon.isHidden()  # it connected
+
+
+def test_a_venue_with_no_key_is_its_words_alone(page) -> None:
+    badge = _badge(page, _SPOT_MAINNET)
+
+    assert badge.text().startswith("No key")
+    assert badge._icon.isHidden()

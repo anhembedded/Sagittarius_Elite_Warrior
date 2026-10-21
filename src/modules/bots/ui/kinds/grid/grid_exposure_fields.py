@@ -33,8 +33,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors 
     LEVERAGE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_liquidation import (
-    NOT_ESTIMATED,
     liquidation_lines,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.liquidation_readout import (
+    LiquidationReadout,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
@@ -66,9 +68,7 @@ class ExposureFields:
         self.leverage.setSuffix("×")
         self.margin_mode: QLabel = plain_label()
         self.margin_mode.setObjectName("lblGridMarginMode")
-        self.liquidation: QLabel = plain_label()
-        self.liquidation.setObjectName("lblGridLiquidation")
-        self.liquidation.setWordWrap(True)
+        self.liquidation = LiquidationReadout()
         self._profile: VenueProfile | None = None
 
     def read_only_rows(self) -> Iterable[tuple[str, QWidget]]:
@@ -97,7 +97,7 @@ class ExposureFields:
         self.margin_mode.setText(
             ", ".join(mode.value.capitalize() for mode in sorted(profile.margin_modes))
         )
-        self.liquidation.setText(NOT_ESTIMATED)
+        self.liquidation.show_unjudged()
 
     def _close_if_not_yet_runnable(
         self, profile: VenueProfile, direction: TradeDirection
@@ -145,10 +145,7 @@ class ExposureFields:
         self.direction.setCurrentIndex(max(index, 0))
 
     def show_liquidation(self, verdicts: tuple[Verdict, ...]) -> None:
-        lines = liquidation_lines(verdicts)
-        self.liquidation.setText(
-            "\n".join(line.text for line in lines) if lines else NOT_ESTIMATED
-        )
+        self.liquidation.show_lines(liquidation_lines(verdicts))
 
     @property
     def exposes_position(self) -> bool:
