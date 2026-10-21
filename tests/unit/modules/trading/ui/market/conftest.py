@@ -120,6 +120,7 @@ def _deps(
     state=None,
     params_store=None,
     filters=None,
+    tick_flash=None,
     interval="1m",
 ) -> MarketDependencies:
     return MarketDependencies(
@@ -144,6 +145,7 @@ def _deps(
         state=state,
         params_store=params_store,
         filters=filters,
+        tick_flash=tick_flash,
     )
 
 

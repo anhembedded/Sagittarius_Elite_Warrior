@@ -10,12 +10,19 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_repo
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history import history_words
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
     DisplayValue,
 )
+
+_SEVERITY_TONES = {
+    Severity.INFO: Tone.NEUTRAL,
+    Severity.WARNING: Tone.CAUTION,
+    Severity.CRITICAL: Tone.NEGATIVE,
+}
 
 
 class AlertHistoryTableModel(RowTableModel[AlertHistoryRow]):
@@ -63,3 +70,10 @@ class AlertHistoryTableModel(RowTableModel[AlertHistoryRow]):
             history_words.delivery_text(row.outcomes),
         )
         return values[column]
+
+    def _tone(self, row: AlertHistoryRow, column: int) -> Tone:
+        """The severity cell reads by tone as well as by its word (Critical, Warning, Info):
+        a critical alert is a loss-coloured word, a warning a cautious one."""
+        if column != self.column("severity"):
+            return Tone.NEUTRAL
+        return _SEVERITY_TONES[row.severity]

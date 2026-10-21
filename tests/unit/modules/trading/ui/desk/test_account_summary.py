@@ -333,3 +333,32 @@ def test_the_unrealized_pnl_is_painted_by_its_sign_and_the_other_figures_are_not
         Tone.NEGATIVE, QGuiApplication.palette()
     )
     assert wallet.palette().color(colour) == panel.palette().color(colour)
+
+
+# -- `EPIC-043D`: what the panel says is stale is told to the headline too ----------------------
+
+
+def test_a_failed_read_and_a_stale_event_are_each_told_to_whoever_repeats_the_figures(
+    qtbot, qapp
+) -> None:
+    bus, _, panel, presenter = _summary_desk(qtbot)
+    told: list[bool] = []
+    presenter.summaryStale.connect(lambda: told.append(True))
+
+    presenter.refresh()  # nothing to read: the account could not be read
+    bus.emit(AccountSummaryStaleEvent(reason="the venue timed out", venue=_FUTURES))
+    qapp.processEvents()
+
+    assert told == [True, True]
+    assert panel.stale_text == "Out of date: the venue timed out"
+
+
+def test_a_summary_shown_is_told_once_with_the_summary_itself(qtbot) -> None:
+    _, activity, _, presenter = _summary_desk(qtbot)
+    activity.holding_summary(_futures("100"))
+    shown: list[object] = []
+    presenter.summaryShown.connect(shown.append)
+
+    presenter.refresh()
+
+    assert [summary.available_balance for summary in shown] == [Decimal(100)]

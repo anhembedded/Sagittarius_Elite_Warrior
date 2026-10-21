@@ -7,6 +7,7 @@ outside (an exception) is its type name only, as on the Options page.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
     ChannelHealth,
@@ -47,6 +48,40 @@ NO_CHANNELS = (
     "Tools → Options → Alerts."
 )
 READING = "Reading the alert history…"
+RETRYING = "Queuing the failed deliveries again…"
+RETRY_READ_ONLY = (
+    "This copy of the app is read-only, so it cannot queue a delivery again. "
+    "Use the copy that is running the bots."
+)
+RETRY_FAILED = (
+    "Retry failed did not work ({error_type}). Nothing was queued again; check the log."
+)
+
+
+def window_text(window: timedelta) -> str:
+    """`24 hours`: how far back Retry failed reaches, from the policy that expires alerts."""
+    hours = max(1, round(window.total_seconds() / 3600))
+    return f"{hours} hour" if hours == 1 else f"{hours} hours"
+
+
+def retry_tip(window: timedelta) -> str:
+    return (
+        f"Send again every delivery that gave up in the last {window_text(window)}, "
+        "now that the cause may be fixed."
+    )
+
+
+def retry_none(window: timedelta) -> str:
+    return f"Nothing to retry: no delivery has failed within the last {window_text(window)}."
+
+
+def retry_done(count: int) -> str:
+    noun = "delivery" if count == 1 else "deliveries"
+    return (
+        f"{count} failed {noun} queued again. Each goes out at its channel's next send."
+    )
+
+
 READ_FAILED = (
     "Reading the alert history failed ({error_type}). The list below is the last one read; "
     "check the log, then press Refresh."

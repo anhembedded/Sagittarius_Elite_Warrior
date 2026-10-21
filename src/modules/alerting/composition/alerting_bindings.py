@@ -75,9 +75,6 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.heartbeat_service import (
     HeartbeatService,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.application.outbox_alert_history import (
-    OutboxAlertHistory,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
 )
@@ -113,14 +110,14 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
     build_channel_catalog,
     own_reader,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.composition.history_bindings import (
+    bind_history,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
     IAlertChannelCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
-)
-from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
-    IAlertHistory,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_publisher import (
     IAlertPublisher,
@@ -264,12 +261,7 @@ def bind_alerting(container: IContainer) -> None:
     )
     container.singleton(IOutbox, lambda _resolver: SqliteOutbox(outbox_path()))
     # `EPIC-036D2`: the Alerts screen's read model.
-    container.singleton(
-        IAlertHistory,
-        lambda resolver: OutboxAlertHistory(
-            resolver.resolve(IOutbox), resolver.resolve(IAlertChannelCatalog)
-        ),
-    )
+    bind_history(container, outbox_path)
     container.singleton(DeliveryPolicy, DeliveryPolicy())
     container.singleton(NoisePolicy, NoisePolicy())
     container.singleton(

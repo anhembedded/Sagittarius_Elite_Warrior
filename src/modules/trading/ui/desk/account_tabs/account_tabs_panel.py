@@ -112,6 +112,9 @@ class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
     messageShown = Signal(str)
     #: `(HistoryKind value, zero-based page)`.
     historyPageRequested = Signal(str, int)
+    #: The `PositionRow`s the Positions table now holds (`EPIC-043D`: the desk's headline counts
+    #: and measures what the table shows).
+    positionsShown = Signal(object)
 
     def __init__(
         self,
@@ -181,6 +184,7 @@ class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
     def set_positions(self, rows: Sequence[PositionRow]) -> None:
         self._positions = tuple(rows)
         self._render_live_tables()
+        self.positionsShown.emit(self._positions)
 
     def set_holdings(self, rows: Sequence[HoldingRow]) -> None:
         self._holdings_panel.set_rows(rows)

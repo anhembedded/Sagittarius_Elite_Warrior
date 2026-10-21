@@ -60,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form.strategy_params_dia
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_preference import (
     ColourSchemePreference,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
+    TickFlashPreference,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPickerOverlay,
 )
@@ -235,7 +238,9 @@ def test_the_appearance_page_is_pictured_in_each_scheme(
     out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
     out_dir.mkdir(parents=True, exist_ok=True)
     apply_scheme(qapp, scheme)
-    dialog = OptionsDialog((AppearanceOptionsPage(ColourSchemePreference()),))
+    dialog = OptionsDialog(
+        (AppearanceOptionsPage(ColourSchemePreference(), TickFlashPreference()),)
+    )
     try:
         dialog.resize(dialog.sizeHint().expandedTo(dialog.minimumSizeHint()))
         dialog.show()
