@@ -12,17 +12,29 @@ from typing import Any
 from unittest.mock import Mock
 
 from PySide6.QtWidgets import QComboBox, QPushButton
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_catalog import (
     RegisteredChannelCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.sqlite_delivery_requeue import (
+    SqliteDeliveryRequeue,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.outbox_alert_history import (
     OutboxAlertHistory,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.retry_failed_deliveries import (
+    RetryFailedDeliveries,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.alert_history_report import (
     AlertHistoryReport,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_history import (
     IAlertHistory,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import (
+    DeliveryPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_presenter import (
     AlertsPresenter,
@@ -35,6 +47,21 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.ui.options.alerts_pag
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import Rig, build_rig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+
+class WritableCopy(IInstanceAccess):
+    """The first copy on the data root: it may change things."""
+
+    def __init__(self, read_only: bool = False) -> None:
+        self._read_only = read_only
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
+
+    @property
+    def reason(self) -> str:
+        return "read-only" if self._read_only else ""
 
 
 class RecordingHistory(IAlertHistory):
@@ -87,6 +114,10 @@ def build_screen(
     ports: dict[type, Any] = {
         IAlertHistory: the_history,
         IThreadManager: threads,
+        IInstanceAccess: WritableCopy(),
+        RetryFailedDeliveries: RetryFailedDeliveries(
+            SqliteDeliveryRequeue(rig.path), rig.clock, DeliveryPolicy()
+        ),
         **(services or {}),
     }
     container = Mock()

@@ -47,6 +47,23 @@ NO_CHANNELS = (
     "Tools → Options → Alerts."
 )
 READING = "Reading the alert history…"
+RETRY_TIP = "Send again every delivery that gave up in the last 24 hours, now that the cause may be fixed."
+RETRYING = "Queuing the failed deliveries again…"
+RETRY_NONE = "Nothing to retry: no delivery has failed within the last 24 hours."
+RETRY_READ_ONLY = (
+    "This copy of the app is read-only, so it cannot queue a delivery again. "
+    "Use the copy that is running the bots."
+)
+RETRY_FAILED = (
+    "Retry failed did not work ({error_type}). Nothing was queued again; check the log."
+)
+
+
+def retry_done(count: int) -> str:
+    noun = "delivery" if count == 1 else "deliveries"
+    return f"{count} failed {noun} queued again. They go out within a few seconds."
+
+
 READ_FAILED = (
     "Reading the alert history failed ({error_type}). The list below is the last one read; "
     "check the log, then press Refresh."

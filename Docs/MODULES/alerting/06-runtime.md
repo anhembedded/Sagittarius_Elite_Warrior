@@ -287,6 +287,14 @@ if the tracker says it is still the current one (`AlertsPresenter._on_read_done`
 exception's type name only. The read takes the outbox's short lock like any other caller and holds
 none across the view.
 
+**Retry failed** (`EPIC-036D5`) is a second action on the same presenter, with its own tracker and
+relay so a read and a retry never supersede each other: the button greys at once, the work
+(`RetryFailedDeliveries.run`, one `UPDATE` in a transaction of its own on the outbox file, which is in
+WAL mode) runs on the pool, and the answer ("n failed deliveries queued again" or "nothing to retry")
+stays on screen over the full read that follows it, until the owner presses Refresh. The lane that owns
+the channel finds the `PENDING` deliveries at its next look (`LANE_POLL_SECONDS`) and sends them at the
+channel's pace. A read-only copy of the app has the button off: it must not write the outbox.
+
 ## Planned
 
 Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when
