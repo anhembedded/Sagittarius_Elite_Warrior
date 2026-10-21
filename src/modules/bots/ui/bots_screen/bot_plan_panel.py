@@ -18,6 +18,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
+    QSizePolicy,
     QStackedWidget,
     QWidget,
 )
@@ -91,6 +92,13 @@ class BotPlanPanel(QStackedWidget):
         self.state = StateBadge("lblBotState", wrap=True)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbBotVenue")
+        # The column asks for the room of the longest venue line, so the chosen one is shown whole
+        # (`BUG-245`): a combo's own minimum is a few letters, but a layout keeps a `Minimum`
+        # policy at its size hint.
+        self.venue.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.venue.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
         #: The column the Backtest sandbox is laid out in too (`BOT-218`).
         self.column = PlanColumn("scrollBotPlan", "bannerBotPlanStatus")
         #: Where the bot stands, in one sentence with the platform's message icon (`BOT-209`).
