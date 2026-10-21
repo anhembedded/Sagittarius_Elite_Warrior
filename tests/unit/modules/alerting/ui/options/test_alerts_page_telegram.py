@@ -220,3 +220,25 @@ def assert_no_secret_in(text: str, where: str) -> None:
         assert part not in text, f"{part!r} leaked into {where}"
     # The page may show the four characters it was designed to show, and nothing around them.
     assert_no_secret(text, where)
+
+
+def test_a_mixed_send_test_says_which_channel_got_it_and_which_did_not() -> None:
+    from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
+        ChannelTestOutcome,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
+        DeliveryResult,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
+
+    sentence, is_error = alerts_words.send_test_words(
+        (
+            ChannelTestOutcome("telegram", DeliveryResult.sent()),
+            ChannelTestOutcome("discord", DeliveryResult.refused("refused (404)")),
+        )
+    )
+
+    assert is_error
+    assert sentence.startswith(
+        "Sent to Telegram. Test message not sent: refused (404)."
+    )

@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 820, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 821, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -575,6 +575,7 @@
 ["ss", "[alert-routed] ", " -> ", ""],
 ["ss", "[alert-setup] ", " credentials removal: ", ""],
 ["ss", "[alert-setup] ", " credentials save: ", ""],
+["s", "[alert-setup] ", " credentials: the earlier value could not be put back"],
 ["ss", "[alert-setup] ", " webhook removal: ", ""],
 ["ss", "[alert-setup] ", " webhook save: ", ""],
 ["s", "[alert-skipped] read-only copy, ignoring clear of ", ""],

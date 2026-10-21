@@ -236,3 +236,55 @@ def test_no_outcome_state_or_log_line_holds_the_token(
     for text in (repr(saved), repr(state), caplog.text):
         assert BOT_KEY not in text
         assert BOT_KEY.split(":")[1] not in text
+
+
+class _SecondWriteRefused(InMemorySecretStore):
+    """A store whose chat write fails after the token write went through."""
+
+    def write(self, name: str, value: str) -> None:
+        if name == TELEGRAM_CHAT_SECRET:
+            raise SecretStoreUnavailableError("refused")
+        super().write(name, value)
+
+
+class _SecondDeleteRefused(InMemorySecretStore):
+    def delete(self, name: str) -> None:
+        if name == TELEGRAM_CHAT_SECRET:
+            raise SecretStoreUnavailableError("refused")
+        super().delete(name)
+
+
+def test_a_refused_chat_write_puts_the_earlier_token_back() -> None:
+    store = _SecondWriteRefused(
+        **{TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY, TELEGRAM_CHAT_SECRET: CHAT}
+    )
+
+    outcome = setup_over(store).save(BOT_KEY, "99")
+
+    assert outcome is TelegramSave.STORE_UNAVAILABLE
+    assert store.secrets == {
+        TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY,
+        TELEGRAM_CHAT_SECRET: CHAT,
+    }
+
+
+def test_a_refused_chat_write_leaves_no_token_when_there_was_none() -> None:
+    store = _SecondWriteRefused()
+
+    setup_over(store).save(BOT_KEY, "99")
+
+    assert store.secrets == {}
+
+
+def test_a_refused_chat_delete_puts_the_token_back() -> None:
+    store = _SecondDeleteRefused(
+        **{TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY, TELEGRAM_CHAT_SECRET: CHAT}
+    )
+
+    outcome = setup_over(store).remove()
+
+    assert outcome is TelegramRemoval.STORE_UNAVAILABLE
+    assert store.secrets == {
+        TELEGRAM_TOKEN_SECRET: OTHER_BOT_KEY,
+        TELEGRAM_CHAT_SECRET: CHAT,
+    }

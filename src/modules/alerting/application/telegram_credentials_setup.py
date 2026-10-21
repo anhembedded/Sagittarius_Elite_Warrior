@@ -114,10 +114,13 @@ class TelegramCredentialsSetup:
         refused = self._refusal(token, chat)
         if refused is not None:
             return self._saved_as(refused)
+        earlier_token = self._secrets.read(self._spec.token_secret)
         try:
             self._secrets.write(self._spec.token_secret, token)
             self._secrets.write(self._spec.chat_secret, chat)
         except SecretStoreUnavailableError:
+            # The pair is one thing: a new token must not stay next to the old chat.
+            self._put_back(self._spec.token_secret, earlier_token)
             return self._saved_as(TelegramSave.STORE_UNAVAILABLE)
         stored_token, stored_chat = self._stored()
         if not stored_token or not stored_chat:
@@ -131,14 +134,31 @@ class TelegramCredentialsSetup:
     def remove(self) -> TelegramRemoval:
         if not any(self._stored()):
             return self._removed_as(TelegramRemoval.NOTHING_STORED)
+        earlier_token = self._secrets.read(self._spec.token_secret)
         try:
             self._secrets.delete(self._spec.token_secret)
             self._secrets.delete(self._spec.chat_secret)
         except SecretStoreUnavailableError:
+            self._put_back(self._spec.token_secret, earlier_token)
             return self._removed_as(TelegramRemoval.STORE_UNAVAILABLE)
         if any(self._stored()):
             return self._removed_as(TelegramRemoval.STILL_SET_ELSEWHERE)
         return self._removed_as(TelegramRemoval.REMOVED)
+
+    def _put_back(self, name: str, earlier: str | None) -> None:
+        """Returns one secret to what it was before a write or delete that failed half-way, so
+        the pair stays what the page says ("nothing was saved"). Best effort: a store that is
+        unavailable now may refuse this too, and that is told in the log."""
+        try:
+            if earlier is None:
+                self._secrets.delete(name)
+            else:
+                self._secrets.write(name, earlier)
+        except SecretStoreUnavailableError:
+            logger.warning(
+                "[alert-setup] %s credentials: the earlier value could not be put back",
+                self._spec.channel_id,
+            )
 
     def _refusal(self, token: str, chat: str) -> TelegramSave | None:
         if not token:

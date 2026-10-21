@@ -98,7 +98,7 @@ DOING_WORDS = {
 WORKING_WORDS = {
     "save": "Saving the webhook…",
     "remove": "Removing the webhook…",
-    "test": "Sending a test message to Discord…",
+    "test": "Sending a test message…",
     "mode": "Saving the bot's alert setting…",
     "bots": "Reading the bots…",
     "telegram_save": "Saving the Telegram bot…",
@@ -284,7 +284,9 @@ def send_test_words(outcomes: tuple[ChannelTestOutcome, ...]) -> tuple[str, bool
         names = " and ".join(_channel_name(o.channel_id) for o in outcomes)
         where = "channel" if len(outcomes) == 1 else "channels"
         return f"Test message sent to {names}. Check the {where}.", False
-    lines = [
+    reached = [o for o in outcomes if o.result.ok]
+    lines = [f"Sent to {_channel_name(o.channel_id)}." for o in reached]
+    lines += [
         f"Test message not sent: {outcome.result.reason}.{_failure_advice(outcome)}"
         for outcome in failed
     ]

@@ -28,7 +28,7 @@ Telegram works once its two credentials are provisioned (the headless runbook) o
 - **A group and a view model of its own**, so the page's view and view model do not grow with every channel; the presenter's answer carries both channels' state (`ChannelStates`) read together on the pool.
 - **The *channels table* the 036D plan named is not built.** Two channels fit two groups with a state line each; a table would add a second place to say the same thing. When a third channel exists, the table is one view over `ChannelStates`.
 - **Send test is not per channel.** It already tests every channel in the catalog, so it moved out of Discord's group and says so; a per-channel test would need the catalog to be built for one channel only.
-- **A pair, not two writes the owner could half do.** Both values are required to save; a half-stored pair (only possible by hand) is reported as "stored, not a complete bot".
+- **A pair, not two writes the owner could half do.** Both values are required to save; a store that refuses the second write or delete gets the first put back (review round 1 of #658), so a half-stored pair is only possible by hand and is reported as "stored, not a complete bot".
 
 ## 3a. Reuse
 `used DiscordWebhookSetup`'s pattern, `ActionOwnershipTracker`, `UiThreadRelay` (through `AlertsActionRelay`), `ask_with_verbs` / `VerbQuestion`, `plain_label`, `is_bot_token` / `is_chat_id` of the Telegram adapter (injected). `not used`: `StatusMessageViewModel` beyond the page's own (the Telegram view model has no status of its own; the page's one status line answers).
