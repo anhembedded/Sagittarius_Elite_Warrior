@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_connection_memory import (
+    OrderConnectionMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -40,6 +43,7 @@ class VenueTradingScope:
     ports: VenueContext
     session_state: TradingSessionState
     equity_recorder: EquityCurveRecorder
+    order_connection: OrderConnectionMemory
 
 
 class VenueTradingScopes:
@@ -58,4 +62,5 @@ class VenueTradingScopes:
             ports=ports,
             session_state=self._states.session_state(venue),
             equity_recorder=self._states.equity_recorder(venue),
+            order_connection=self._states.order_connection(venue),
         )

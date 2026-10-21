@@ -46,6 +46,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protectio
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.stop_coverage_reader import (
     StopCoverageReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.unread_streak import (
+    UnreadStreak,
+    log_unread_stops,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
     StopCoverageReading,
 )
@@ -96,6 +100,7 @@ class ProtectiveStopService(IExposureProtection):
     def __init__(self, context: GridRunContext, marks: IMarkSource) -> None:
         self._context = context
         self._marks = marks
+        self._position_unread = UnreadStreak()
         self._book = ProtectiveStopBook(context)
         self._coverage = StopCoverageReader(
             context, lambda: self._book.stops, self._open_stops
@@ -124,12 +129,9 @@ class ProtectiveStopService(IExposureProtection):
             return ProtectionVerdict.OK
         position = self._context.gateway.account_reads.watched_position()
         if position is None:
-            logger.warning(
-                "Bot %s: the position could not be read, so the protective stop is not "
-                "looked at this time [protective-stop]",
-                state.bot_id,
-            )
+            self._position_unread.tell_position_unread(logger, state.bot_id)
             return ProtectionVerdict.OK
+        self._position_unread.cleared()
         open_stops = self._open_stops()
         if open_stops is None:
             return ProtectionVerdict.OK
@@ -331,13 +333,8 @@ class ProtectiveStopService(IExposureProtection):
         exchange's open orders could not be read, which is not "none stand"."""
         try:
             orders = self._context.gateway.account_reads.protective_orders()
-        except (
-            Exception
-        ):  # converted at this seam: an unread list is `None`, never empty
-            logger.exception(
-                "Bot %s: the open protective stops could not be read [protective-stop]",
-                self._context.state.bot_id,
-            )
+        except Exception as failure:  # noqa: BLE001 - converted at this seam: an unread list is `None`, never empty
+            log_unread_stops(logger, failure, self._context.state.bot_id)
             return None
         return {str(order.client_order_id): order for order in orders}
 

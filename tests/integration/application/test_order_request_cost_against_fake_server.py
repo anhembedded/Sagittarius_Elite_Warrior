@@ -5,13 +5,16 @@ this test's journey, a Spot LIMIT order after the first cost **10 requests**: th
 session the account read opened (ping, clock), the account read's own connection
 check (ping, clock, account, and one price per priced holding, here two), the
 session the trading client opened (ping, clock), and the order. A session is now
-opened once per venue and key and reused, so the steady-state order costs **6**:
+opened once per venue and key and reused, so the steady-state order cost **6**:
 the safety gate's connection check (ping, clock, account, two prices) and the order.
 
-The remaining five are the gate's read of the account (`EXPECTED_STEADY_ORDER`), kept
-on purpose: a bot's order is refused when the exchange cannot be reached, and the
-connection check is what says so. A lighter readiness probe would cut them to one;
-that changes `IVenueAccountReader` and is recorded as a follow-up, not built here.
+The remaining five are the gate's read of the account. They were kept on purpose (a bot's
+order is refused when the exchange cannot be reached, and the connection check is what says
+so), and `BUG-247` showed the price: a Futures ladder of 48 levels spent 7 weight of checks per
+level laid and two bots together closed the weight gate. A check that passed is now kept for a
+beat (`OrderConnectionMemory`), so an order that follows another inside it costs the order alone
+(`EXPECTED_STEADY_ORDER`); the first order of a beat, and every order after a failed check, still
+pays the check.
 
 The journey is `test_spot_manual_order_pipeline_against_fake_server.py`'s, through the
 real `ExecuteOrderCommandHandler`, `SpotAccountReader`, `SpotTradingClient` and the
@@ -97,15 +100,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity")
 from binance_fake_server import run_binance_fake_server
 
 #: The steady-state order, by path, measured on the wire (see the module docstring).
-EXPECTED_STEADY_ORDER = Counter(
-    {
-        "/api/v3/ping": 1,
-        "/api/v3/time": 1,
-        "/api/v3/account": 1,
-        "/api/v3/ticker/price": 2,
-        "/api/v3/order": 1,
-    }
-)
+EXPECTED_STEADY_ORDER = Counter({"/api/v3/order": 1})
 _LIMITS = TradingLimits(
     max_orders_per_session=20,
     max_notional_per_order=Decimal(50000),
@@ -181,4 +176,4 @@ def test_a_steady_state_order_costs_the_documented_minimum_of_requests() -> None
         steady = [order(), order()]
 
     assert steady == [EXPECTED_STEADY_ORDER, EXPECTED_STEADY_ORDER]
-    assert sum(EXPECTED_STEADY_ORDER.values()) == 6
+    assert sum(EXPECTED_STEADY_ORDER.values()) == 1

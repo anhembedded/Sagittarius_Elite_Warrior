@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
@@ -90,6 +93,14 @@ class BotAccountReads:
     ) -> Decimal | None:
         try:
             held = read()
+        except ExchangeRateLimitedError:
+            # The pause was told once, by the venue's gate (`ExchangeCallPolicy`, `BUG-247`).
+            logger.debug(
+                "Bot %s: the position of %s was not read: the exchange asked for a pause",
+                self._identity.tag,
+                self._identity.symbol,
+            )
+            return None
         except (
             Exception
         ):  # converted at this seam: an unread position is `None`, never flat
