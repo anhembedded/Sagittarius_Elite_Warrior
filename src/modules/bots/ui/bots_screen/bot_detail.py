@@ -12,7 +12,7 @@ what is judged is what would run. What is left before Start is
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -89,6 +89,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks impor
     PlanChecks,
     plan_checks_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_liquidation import (
+    liquidation_lines,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
@@ -126,7 +129,8 @@ class BotDetail:
     #: Why no grid is drawn on the chart of a bot at rest ("Grid not drawn: …"),
     #: empty when one is (`EPIC-035N`).
     overlay_note: str = ""
-    #: The ladder the saved parameters make, with what the saved run records (`BOT-193`).
+    #: The ladder the parameters on screen make (the saved ones when nothing is edited), with what
+    #: the saved run records (`BOT-193`, `BUG-261`).
     ladder: GridLadder | LadderUnavailable | None = None
 
 
@@ -171,8 +175,18 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         resume_blocked_by=_resume_blocked_by(inputs),
     )
     verdicts = judged.verdicts + (field_verdicts(readiness.items) if readiness else ())
+    # `BUG-261`: the plan figures read the design on screen, as the checks and the chart do.
+    shown = bot if inputs.edited is None else replace(bot, config=config)
     return BotDetail(
-        facts=bot_facts(bot, inputs.now),
+        facts=replace(
+            bot_facts(shown, inputs.now),
+            unsaved=inputs.edited is not None,
+            liquidation_estimate=(
+                "; ".join(line.text for line in liquidation_lines(verdicts))
+                if inputs.edited is not None
+                else ""
+            ),
+        ),
         verdicts=verdicts,
         checks=plan_checks_of(verdicts),
         availability={
@@ -181,7 +195,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         overlay=judged.overlay,
         readiness=readiness,
         overlay_note=_not_drawn(bot, inputs.market, judged),
-        ladder=grid_ladder_of(bot, inputs.now),
+        ladder=grid_ladder_of(shown, inputs.now),
     )
 
 

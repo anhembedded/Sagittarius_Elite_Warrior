@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
@@ -70,6 +71,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         StopBotForOperatorCommand(BOT, "spot_mainnet"),
         PauseBotForHostCommand(BOT),
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
+        ConfirmBotResumeForHostCommand(BOT, "spot_mainnet"),
         StartBotForHostCommand(BOT, "spot_mainnet"),
         EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
         AddBotForHostCommand(_ENTRY),
@@ -240,3 +242,31 @@ def test_an_accepted_move_speaks_the_hosts_sentence() -> None:
     )
 
     assert outcome.accepted and outcome.message == "bot moved to spot_mainnet"
+
+
+def test_a_resume_that_proposed_speaks_the_hosts_sentence_and_one_that_did_not_keeps_the_fixed_words() -> (
+    None
+):
+    said = BotCommandResult(accepted=True, bot_id=BOT, message="nothing is placed yet")
+    quiet = BotCommandResult.done(BOT)
+
+    spoke = BotHostCommandExecutor(_Dispatcher(said)).execute(
+        command(action=HostControlAction.RESUME)
+    )
+    kept = BotHostCommandExecutor(_Dispatcher(quiet)).execute(
+        command(action=HostControlAction.RESUME)
+    )
+
+    assert spoke.message == "nothing is placed yet"
+    assert kept.message == "the bot is resuming (see `bot show`)"
+
+
+def test_an_accepted_confirm_resume_speaks_the_hosts_sentence() -> None:
+    said = BotCommandResult(
+        accepted=True, bot_id=BOT, message="the confirmation is queued"
+    )
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(command(action=HostControlAction.CONFIRM_RESUME))
+
+    assert outcome.accepted and outcome.message == "the confirmation is queued"

@@ -65,7 +65,8 @@ def test_every_figure_the_dock_had_is_still_on_it_with_its_old_title(qtbot) -> N
     assert grid.shown_title("total_pnl") == f"Total PnL ({TOTAL_PNL_BASIS})"
     assert grid.shown_title("cycle_average") == "Average per cycle (net of fees)"
     assert grid.shown_title("funding") == "Funding (earned +, paid −)"
-    assert grid.shown_title("grid_step") == "Saved grid step, top to bottom"
+    # `BUG-261`: the figure may come from a design not saved yet, so its title no longer says "Saved".
+    assert grid.shown_title("grid_step") == "Grid step, top to bottom"
 
 
 def test_a_row_the_table_does_not_have_is_refused(qtbot) -> None:
@@ -211,3 +212,11 @@ def test_the_table_is_a_stock_tree_view_that_does_not_sort(qtbot) -> None:
     assert type(grid.view) is QTreeView
     assert not grid.view.isSortingEnabled()
     assert grid.view.rootIsDecorated()
+
+
+def test_the_plan_heading_says_when_its_figures_are_not_saved(qtbot) -> None:
+    grid = _grid(qtbot)
+
+    assert grid.shown_group_title("plan") == "Plan"
+    grid.set_group_title("plan", "Plan (not saved)")
+    assert grid.shown_group_title("plan") == "Plan (not saved)"

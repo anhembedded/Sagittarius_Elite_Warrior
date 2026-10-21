@@ -202,7 +202,7 @@ def test_a_running_bot_is_paused_and_resumed_from_the_command_directory(
         assert app.bot(running).state is S.RUNNING
 
 
-def test_a_halted_bot_is_not_resumed_from_a_file_and_stays_halted(
+def test_a_halted_bot_whose_coin_is_gone_is_refused_by_the_screens_readiness_and_stays_halted(
     exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(DATA_ROOT_ENV, str(exchange.tmp_path))
@@ -217,7 +217,7 @@ def test_a_halted_bot_is_not_resumed_from_a_file_and_stays_halted(
         )
 
         assert reply.status is HostControlStatus.REFUSED
-        assert "--resume-halted" in reply.message
+        assert "Resume is blocked" in reply.message and "0 BTC free" in reply.message
         assert app.bot(halted).state is S.HALTED
 
 

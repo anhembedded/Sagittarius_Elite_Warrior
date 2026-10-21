@@ -104,7 +104,7 @@ def test_resuming_a_paused_or_recovering_testnet_bot_is_the_screens_resume(
 
 
 @pytest.mark.parametrize("state", [S.HALTED, S.AWAITING_RECOVERY])
-def test_a_halted_bot_is_not_resumed_from_a_file_and_the_words_name_the_ways_that_can(
+def test_resuming_a_halted_bot_proposes_and_the_words_name_the_second_step(
     state: BotLifecycleState,
 ) -> None:
     dispatcher = _RecordingDispatcher()
@@ -114,9 +114,55 @@ def test_a_halted_bot_is_not_resumed_from_a_file_and_the_words_name_the_ways_tha
 
     result = handler.execute(ResumeBotForHostCommand("aaaaaa"))
 
-    assert result.refusal is BotRefusal.INVALID_TRANSITION
-    assert "--resume-halted" in result.message and "Bots tab" in result.message
+    assert result.accepted
+    assert dispatcher.dispatched == [ResumeBotCommand("aaaaaa")]
+    assert "nothing is placed" in result.message
+    assert "`bot confirm-resume aaaaaa`" in result.message
+    assert "--confirm-venue" not in result.message
+
+
+@pytest.mark.parametrize("state", [S.HALTED, S.AWAITING_RECOVERY, S.RECOVERING])
+def test_a_mainnet_resume_that_reopens_the_session_is_not_dispatched_until_the_venue_is_typed(
+    state: BotLifecycleState,
+) -> None:
+    venue = TradingVenue.SPOT_MAINNET
+    dispatcher = _RecordingDispatcher()
+    handler = ResumeBotForHostCommandHandler(_store_with(state, venue), dispatcher)
+
+    refused = handler.execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert refused.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
     assert dispatcher.dispatched == []
+
+
+def test_a_mainnet_proposal_names_the_flag_the_confirmation_needs() -> None:
+    venue = TradingVenue.SPOT_MAINNET
+    handler = ResumeBotForHostCommandHandler(
+        _store_with(S.HALTED, venue), _RecordingDispatcher()
+    )
+
+    result = handler.execute(ResumeBotForHostCommand("aaaaaa", venue.value))
+
+    assert result.accepted
+    assert (
+        f"`bot confirm-resume aaaaaa --confirm-venue {venue.value}`" in result.message
+    )
+
+
+def test_a_refused_proposal_is_the_screens_refusal_not_a_proposal_reply() -> None:
+    class _Refusing(_RecordingDispatcher):
+        def dispatch(
+            self, handler_class: type, input_dto: object | None = None
+        ) -> object:
+            return BotCommandResult.refused(
+                BotRefusal.INVALID_DEFINITION, "Resume is blocked: x", "aaaaaa"
+            )
+
+    result = ResumeBotForHostCommandHandler(
+        _store_with(S.HALTED, TradingVenue.SPOT_TESTNET), _Refusing()
+    ).execute(ResumeBotForHostCommand("aaaaaa"))
+
+    assert not result.accepted and "Resume is blocked" in result.message
 
 
 def test_a_recovering_mainnet_bot_is_not_resumed_until_the_venue_is_typed() -> None:

@@ -46,11 +46,8 @@ PARITY: dict[str, HostVerb | Excluded] = {
     "ResumeBotCommand": HostVerb("resume", HostControlAction.RESUME),
     "StopBotCommand": HostVerb("stop", HostControlAction.STOP),
     "DeleteBotCommand": HostVerb("delete", HostControlAction.DELETE),
-    "ConfirmBotResumeCommand": Excluded(
-        "OPEN GAP. Confirming a HALTED bot's resume proposal is a person's act on the tab (decision "
-        "D13), and `bot resume` refuses a HALTED bot. The host's only answer is `run --resume-halted`, "
-        "a flag of `run`: it acts when a host starts, so a bot that halts on a running host is "
-        "confirmed only by restarting the host, which is the cost the owner's rule is about."
+    "ConfirmBotResumeCommand": HostVerb(
+        "confirm-resume", HostControlAction.CONFIRM_RESUME
     ),
     "ChangeBotVenueCommand": HostVerb("move", HostControlAction.MOVE),
 }
