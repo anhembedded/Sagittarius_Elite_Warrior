@@ -15,7 +15,7 @@ class GetMarkPriceQuery:
 
     venue: TradingVenue = field(kw_only=True)
     symbol: str = field(kw_only=True)
-    #: `BOT-224` — whether the read judges a bot's exit and so may use the weight reserve.
+    #: `BOT-226` — whether the read judges a bot's exit and so may use the weight reserve.
     priority: RequestPriority = field(default=RequestPriority.ROUTINE, kw_only=True)
 
     def __post_init__(self) -> None:

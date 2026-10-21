@@ -61,7 +61,7 @@ class IAccountActivity(ABC):
         alone when it is given, on every symbol when it is `None`.
 
         `priority` is `EXIT_GUARD` when the read looks for a bot's protective stops: it then uses
-        the venue's weight reserve (`RequestPriority`, `BOT-224`).
+        the venue's weight reserve (`RequestPriority`, `BOT-226`).
 
         A caller that wants one symbol's orders names it: the exchange charges
         an unfiltered read 40 weight for each of the regular and the algo

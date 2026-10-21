@@ -1,4 +1,4 @@
-"""`BOT-224` — the priority a port's caller names reaches the session that sends the request.
+"""`BOT-226` — the priority a port's caller names reaches the session that sends the request.
 
 @details Two hops, each tested where it lives. The port's service puts the priority on the query
 (`AccountSnapshotService`, `AccountActivityService`, `OrderEntryTermsService`). The query's handler

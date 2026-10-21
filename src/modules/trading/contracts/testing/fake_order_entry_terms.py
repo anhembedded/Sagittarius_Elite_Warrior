@@ -114,7 +114,7 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         #: Book reads per symbol: a bot that must not trade on a stale price
         #: re-reads the book, and a test should be able to see that it did.
         self.book_reads: list[str] = []
-        #: The priority each `mark_price_for` read named (`BOT-224`).
+        #: The priority each `mark_price_for` read named (`BOT-226`).
         self.mark_priorities: list[RequestPriority] = []
 
     def terms_for(self, symbol: str) -> OrderEntryTerms:

@@ -21,7 +21,7 @@ The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
 of the minute to routine requests, before the exchange has to say so; the reads that guard a
 bot's exits (`RequestPriority.EXIT_GUARD`: its position, the mark price, its open protective
 stops) still pass, in the reserve up to 90 %, so a burst of ladder placement cannot leave a stop
-loss or a take profit unjudged (`BOT-224`, `BUG-247`). At 90 % the gate closes to everything, as
+loss or a take profit unjudged (`BOT-226`, `BUG-247`). At 90 % the gate closes to everything, as
 a 429 does.
 
 A pause is told once and no more (`BUG-217`): one WARNING when it begins, with the instant it
@@ -74,13 +74,13 @@ SPOT_WEIGHT_LIMIT = 6000
 SOFT_WEIGHT_RATIO = 0.7
 #: The share at which the reserve ends and the gate closes to every request, the reads that guard
 #: exits included. The reserve (70 % to here, 480 of Futures' 2,400) is for those reads alone: an
-#: idle minute of them weighs 96, 240 and ~780 at 1, 5 and 20 bots (`BOT-224`); the cap is five.
+#: idle minute of them weighs 96, 240 and ~780 at 1, 5 and 20 bots (`BOT-226`); the cap is five.
 #: `BUG-216` found 90 % too late for the *soft* line, when every request, Grid chains included (a
 #: register is ~100 weight), was still being sent as the header crossed. Above 70 % no routine chain
 #: starts now: each of its requests passes `_raise_if_closed` on its own, so a chain stops at its
 #: next request. What can be in flight at 90 % is the guard reads of at most five bots (1 to 5
 #: weight each) and single routine requests already sent, well inside the 240 weight above this
-#: line. The owner confirms the figure (`BOT-224`).
+#: line. The owner confirms the figure (`BOT-226`).
 HARD_WEIGHT_RATIO = 0.9
 _SECONDS_PER_MINUTE = 60.0
 #: Two pauses whose ends differ by less than this are the same pause to the log.

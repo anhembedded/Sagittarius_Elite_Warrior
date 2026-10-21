@@ -1,4 +1,4 @@
-"""`BOT-224` - above the 70 % line a ladder waits and the reads that guard exits are served.
+"""`BOT-226` - above the 70 % line a ladder waits and the reads that guard exits are served.
 
 @details `BUG-247`'s owner decision "C": the gate stays at 70 % for routine traffic and keeps a
 reserve up to 90 % for a bot's position, the mark price and its open protective stops. The chain is

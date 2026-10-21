@@ -1,4 +1,4 @@
-"""`BOT-224` — a bot's position, mark price and open protective stops are read as exit guards.
+"""`BOT-226` — a bot's position, mark price and open protective stops are read as exit guards.
 
 @details Classed at the ports (`IAccountSnapshot.open_positions`, `IOrderEntryTerms.mark_price_for`,
 `IAccountActivity.open_orders`), by what the fact is for: the three the exits are judged on name

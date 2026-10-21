@@ -140,7 +140,7 @@ the measurements are in the task file's §5a.)
   and every confirmation. **Limit:** what an idle bot still costs is symbol-scoped and linear in the
   bots; the next lever is `premiumIndex` without a symbol (weight 10 for every symbol, worth it only
   above about ten bots on a venue, past today's cap).
-- **A reserve of weight for the reads that guard exits** (`BOT-224`, `BUG-247` option C). The venue's gate
+- **A reserve of weight for the reads that guard exits** (`BOT-226`, `BUG-247` option C). The venue's gate
   closes at 70 % of the minute's weight (`SOFT_WEIGHT_RATIO`); two wide ladders placed in one minute
   reached it and left every bot's position, mark and open-stop reads refused until the minute turned,
   so no stop loss or take profit was judged. The gate now has two lines. At 70 % it closes to *routine*

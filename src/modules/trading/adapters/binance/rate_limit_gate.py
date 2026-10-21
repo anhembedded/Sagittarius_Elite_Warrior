@@ -10,7 +10,7 @@ The clock is injected (`time.monotonic` in production): a wall-clock step cannot
 shorten or lengthen a pause. It is the same clock the order pacer takes, in the
 same shape; this module sits below `bots` and cannot import its clock port.
 
-A second, narrower deadline closes the gate to routine traffic only (`BOT-224`): the weight
+A second, narrower deadline closes the gate to routine traffic only (`BOT-226`): the weight
 reserve between the 70 % line and the hard line (`ExchangeCallPolicy`). It never outlasts or
 replaces the first; a request that guards an exit asks `remaining`, any other `routine_remaining`.
 """

@@ -79,7 +79,7 @@ class BotAccountReads:
         """The account's signed position on the bot's symbol (positive long, negative short,
         zero flat), as the exchange reports it now; `None` when the read failed, which is not
         a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else). It guards the bot's exits, so it uses the
-        venue's weight reserve (`BOT-224`)."""
+        venue's weight reserve (`BOT-226`)."""
         return self._position_in(
             partial(
                 self._ports.account_snapshot.open_positions,
@@ -157,7 +157,7 @@ class BotAccountReads:
 
     def protective_orders(self) -> tuple[Order, ...]:
         """The account's open protective stops on the bot's symbol that carry its tag. They guard
-        the bot's exits, so the read uses the venue's weight reserve (`BOT-224`)."""
+        the bot's exits, so the read uses the venue's weight reserve (`BOT-226`)."""
         return tuple(
             order
             for order in self._tagged(RequestPriority.EXIT_GUARD)

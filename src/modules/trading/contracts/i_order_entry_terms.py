@@ -93,7 +93,7 @@ class IOrderEntryTerms(ABC):
         self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
     ) -> MarkPrice | NotApplicable:
         """Read `symbol`'s mark price. `priority` is `EXIT_GUARD` when it judges a bot's exit: it
-        then uses the venue's weight reserve (`RequestPriority`, `BOT-224`).
+        then uses the venue's weight reserve (`RequestPriority`, `BOT-226`).
         @raise MarketPriceUnavailableError The exchange did not answer.
         """
 

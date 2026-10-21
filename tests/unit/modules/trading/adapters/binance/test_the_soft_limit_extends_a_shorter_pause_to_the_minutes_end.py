@@ -6,7 +6,7 @@ the minute's end for the chains: skipping the whole branch because a pause is ru
 go out again inside a minute that is already nearly spent. Only the telling is skipped (one WARNING
 per pause, `test_exchange_call_policy.py`).
 
-Since `BOT-224` the end of the minute binds routine requests from 70 % (`routine_remaining`) and every
+Since `BOT-226` the end of the minute binds routine requests from 70 % (`routine_remaining`) and every
 request from 90 % (`remaining`); between the two, the reads that guard exits follow the exchange's own
 pause. Both halves are tested here: the original path at 75 %, and the hard line at 92 %.
 """

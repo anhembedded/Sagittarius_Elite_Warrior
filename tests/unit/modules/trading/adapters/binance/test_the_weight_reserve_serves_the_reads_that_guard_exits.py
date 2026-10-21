@@ -1,4 +1,4 @@
-"""`BOT-224` — between the 70 % line and the hard line the venue serves the reads that guard exits.
+"""`BOT-226` — between the 70 % line and the hard line the venue serves the reads that guard exits.
 
 `BUG-247`: two wide ladders closed the weight gate at 70 % and every read failed, so a bot's stop
 loss and take profit were not judged for the rest of the minute. The gate now closes to routine

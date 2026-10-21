@@ -1,4 +1,4 @@
-"""`BOT-224` — whether an exchange read guards a bot's exits, so it may use the weight reserve.
+"""`BOT-226` — whether an exchange read guards a bot's exits, so it may use the weight reserve.
 
 @details The venue's request-weight gate closes at 70 % of the minute's weight (`BUG-216`) so
 that the chains already in flight (a Grid's registers, a burst of fills) cannot carry it past the

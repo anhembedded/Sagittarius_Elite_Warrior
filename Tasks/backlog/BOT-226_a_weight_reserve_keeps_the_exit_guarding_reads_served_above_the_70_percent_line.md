@@ -1,4 +1,4 @@
-# BOT-224 — A weight reserve keeps the reads that guard exits served above the 70 % line
+# BOT-226 — A weight reserve keeps the reads that guard exits served above the 70 % line
 
 **Status:** 🟡 In progress
 **Board:** BUG-247 option C: the venue's gate closes to routine requests at 70 % and to every request at 90 %, so a ladder burst cannot leave a bot's position, mark and open-stop reads refused.

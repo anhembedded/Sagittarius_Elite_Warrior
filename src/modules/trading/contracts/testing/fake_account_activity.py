@@ -54,7 +54,7 @@ class FakeAccountActivity(IAccountActivity):
         #: Every `trade_history` request, in order.
         self.trade_requests: list[HistoryRequest] = []
         self.open_order_reads = 0
-        #: The priority each `open_orders` read named (`BOT-224`).
+        #: The priority each `open_orders` read named (`BOT-226`).
         self.open_order_priorities: list[RequestPriority] = []
 
     def holding_summary(self, summary: AccountSummary | None) -> None:

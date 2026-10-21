@@ -53,7 +53,7 @@ class FakeAccountSnapshot(IAccountSnapshot):
         #: either per candle is a defect a test should be able to see.
         self.connection_checks = 0
         self.position_reads = 0
-        #: The priority each `open_positions` read named (`BOT-224`).
+        #: The priority each `open_positions` read named (`BOT-226`).
         self.position_priorities: list[RequestPriority] = []
 
     def answer_with(self, status: ExchangeConnectionStatus) -> None:

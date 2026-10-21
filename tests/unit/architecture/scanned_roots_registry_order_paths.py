@@ -10,7 +10,7 @@ the directories a guard *scans*.
 from __future__ import annotations
 
 ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
-    # `BOT-224` - only the three query handlers open the request-priority scope.
+    # `BOT-226` - only the three query handlers open the request-priority scope.
     (
         "tests/unit/architecture/test_only_the_query_handlers_open_a_request_priority_scope.py",
         (("src", "*.py"),),

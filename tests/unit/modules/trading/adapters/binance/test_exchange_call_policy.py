@@ -223,7 +223,7 @@ def test_used_weight_near_the_limit_pauses_to_the_end_of_the_minute() -> None:
         "15 s left of the minute, +1: routine requests wait to the minute's end"
     )
     assert world.gate.remaining() == 0.0, (
-        "the reserve is not a pause: the reads that guard exits are not held (BOT-224)"
+        "the reserve is not a pause: the reads that guard exits are not held (BOT-226)"
     )
 
 

@@ -1,4 +1,4 @@
-"""`BOT-224` — only the three query handlers open the request-priority scope.
+"""`BOT-226` — only the three query handlers open the request-priority scope.
 
 **Why.** `RequestPriority` travels from a port's caller to the session by a scope the query
 handler opens around its one client call (`contracts/request_priority.py`): the session sits

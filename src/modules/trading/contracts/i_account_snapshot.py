@@ -60,7 +60,7 @@ class IAccountSnapshot(ABC):
         """Every position the venue reports open, empty when there are none.
 
         `priority` is `EXIT_GUARD` when the read judges or confirms a bot's exit: it then uses
-        the venue's weight reserve (`RequestPriority`, `BOT-224`).
+        the venue's weight reserve (`RequestPriority`, `BOT-226`).
 
         Empty rather than `None`: "no open positions" is the ordinary state,
         and a caller rendering a table already handles it. A venue that could
