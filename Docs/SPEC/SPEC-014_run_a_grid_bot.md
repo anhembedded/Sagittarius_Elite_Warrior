@@ -185,7 +185,11 @@ sound, I start it, and I watch what it does."*
    bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures
    as a read-out: grid profit apart from unrealised, both curves' end against the capital, fees by
    maker and taker, and how many candles were replayed without 1-second klines; under them, in words,
-   what stopped the replay, the fill rule and what the coarse or missing candles mean. **Cancel**
+   what stopped the replay, the fill rule and what the coarse or missing candles mean. A period whose
+   first candle opens outside the range waits for it, as the live bot does (`EPIC-044D`): the equity and
+   the buy-and-hold benchmark stay the capital, the bot enters on the first 1-second step that closes
+   inside the range and plans there, and the words say where it entered, or that it never did and placed
+   nothing; a Futures backtest says it judges the entry on the trade close, not on a mark. **Cancel**
    drops the run and the last result stays; selecting another bot drops it and clears the result.
 10. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
    and says its resting orders will be cancelled. **Cancel** leaves the bot running. A stop the

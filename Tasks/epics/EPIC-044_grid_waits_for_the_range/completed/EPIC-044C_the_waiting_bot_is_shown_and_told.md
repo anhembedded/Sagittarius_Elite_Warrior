@@ -1,12 +1,12 @@
 # EPIC-044C — Every surface that shows a bot says it is waiting for the range, and the owner is told when it enters
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, through the coordinating session (quoted once in the epic README: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"* — if the price is out of the range the bot still starts but only begins laying orders once the price is inside).
 **Risk:** 🟡 — display and alert only; a false label would mislead (`domain-truth-rule.md`).
 **Complexity:** M — six surfaces, one alert, frames.
 **Epic (optional):** [EPIC-044](../README.md)
 **SPEC (optional):** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-044B](EPIC-044B_the_state_and_the_entry.md) (merged, #682); #674 does not touch what this changes (the coordinator allowed the start, 2026-10-21)
+**Depends on:** [EPIC-044B](../incomplete/EPIC-044B_the_state_and_the_entry.md) (merged, #682); #674 does not touch what this changes (the coordinator allowed the start, 2026-10-21)
 
 ---
 

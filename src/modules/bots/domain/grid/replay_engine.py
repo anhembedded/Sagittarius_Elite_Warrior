@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_outcome impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     BacktestFill,
+    RangeEntry,
     StopReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
@@ -65,6 +66,16 @@ class ReplayEngine(ABC):
     @abstractmethod
     def stopped(self) -> bool:
         """Whether the replay has ended (an exit, a halt, a liquidation)."""
+
+    @property
+    def waited_for_range(self) -> bool:
+        """Whether the run started away from its range and waited (`waiting_replay.py`)."""
+        return False
+
+    @property
+    def range_entry(self) -> RangeEntry | None:
+        """Where the wait ended; `None` while it has not, or when there was no wait."""
+        return None
 
     @abstractmethod
     def may_trade_in(self, low: Decimal, high: Decimal) -> bool:

@@ -76,6 +76,10 @@ class PriceStep:
     high: Decimal
     legs: tuple[Leg, Leg]
     coarse: bool = False
+    #: Where the step ended (a 1-second kline's close, a coarse step's candle close): the price a
+    #: Grid waiting for its range is judged on (`EPIC-044D`, ADR 044 D11). `None` only for a step
+    #: built by hand that never asks.
+    close: Decimal | None = None
 
 
 def buy_fills(level_price: Decimal, low: Decimal, tick: Decimal) -> bool:
@@ -92,7 +96,9 @@ def steps_for(bar: PriceBar, fine: Sequence[PriceBar]) -> tuple[PriceStep, ...]:
     """The steps one candle is replayed as: its 1-second klines when they
     span its range, or else itself, coarse."""
     if not spans(bar, fine):
-        return (PriceStep(bar.time, bar.open, bar.low, bar.high, _ADVERSE, True),)
+        return (
+            PriceStep(bar.time, bar.open, bar.low, bar.high, _ADVERSE, True, bar.close),
+        )
     return tuple(_fine_step(kline) for kline in fine)
 
 
@@ -109,4 +115,6 @@ _ADVERSE = (Leg.DOWN, Leg.UP)
 
 def _fine_step(kline: PriceBar) -> PriceStep:
     legs = (Leg.DOWN, Leg.UP) if kline.close >= kline.open else (Leg.UP, Leg.DOWN)
-    return PriceStep(kline.time, kline.open, kline.low, kline.high, legs)
+    return PriceStep(
+        kline.time, kline.open, kline.low, kline.high, legs, close=kline.close
+    )

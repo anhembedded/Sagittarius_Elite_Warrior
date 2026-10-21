@@ -117,6 +117,7 @@ def grid_notes(result: GridBacktestResult) -> tuple[str, ...]:
     if result.stop_detail:
         stop = f"{stop} ({result.stop_detail})"
     notes = [f"Stopped by {stop}.", f"Fill rule: {result.provenance.fill_rule}"]
+    notes[:0] = _range_wait_notes(result)
     notes[:0] = _futures_notes(result)
     if result.coarse_periods:
         notes.append(
@@ -129,6 +130,33 @@ def grid_notes(result: GridBacktestResult) -> tuple[str, ...]:
     if window is not None and window.missing_candles:
         notes.append("The replay ran on what is stored, not the whole period.")
     return tuple(notes)
+
+
+def _range_wait_notes(result: GridBacktestResult) -> list[str]:
+    """`EPIC-044D`: a window that opened outside the range waited for it, as the live bot does."""
+    if not result.waited_for_range:
+        return []
+    entry = result.range_entry
+    if entry is None:
+        return [
+            (
+                "The price was outside the range at the first candle and never entered it: "
+                "the bot waited, placed nothing and the equity stayed the capital."
+            )
+        ]
+    notes = [
+        (
+            "The price was outside the range at the first candle, so the bot waited and "
+            f"entered at {entry.time:%Y-%m-%d %H:%M:%S} UTC, at {entry.price}: the first step "
+            "that closed inside it. The buy-and-hold benchmark buys at the same step."
+        )
+    ]
+    if result.futures is not None:
+        notes.append(
+            "A position venue has no mark-price history here, so the entry is judged on the "
+            "trade close; a live bot judges it on the mark, which can differ."
+        )
+    return notes
 
 
 def _figure(

@@ -1,7 +1,8 @@
 """`EPIC-029D` — replay a Grid on stored candles, against buy-and-hold (ADR D14, D18).
 
 `simulate_grid` walks the candles oldest first through a `ReplayEngine` (the Spot one unless
-the inputs name another, `EPIC-039K`). A candle no resting order or
+the inputs name another, `EPIC-039K`); a window that opens outside the range waits for it first
+(`waiting_replay.py`, `EPIC-044D`). A candle no resting order or
 exit could react to is skipped, 1-second klines and all; one that could is
 replayed through its 1-second klines, or, without klines spanning its low and
 high, as one coarse step, listed in `coarse_periods`. After each candle the grid's equity and the
@@ -56,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.replay_engine import
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.spot_replay_engine import (
     SpotReplayEngine,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.waiting_replay import (
+    engine_starting_at,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +98,7 @@ def simulate_grid(
     """@brief The replay of `inputs`, or the point it was cancelled at."""
     bars = inputs.bars
     first = bars[0]
-    engine = _engine_for(inputs)(first)
+    engine = engine_starting_at(_engine_for(inputs), inputs.params, first)
     equity: list[EquityPoint] = []
     coarse: list[datetime] = []
     last = first
@@ -146,6 +150,8 @@ def simulate_grid(
         average_cost=outcome.average_cost,
         stop_detail=outcome.stop_detail,
         futures=outcome.futures,
+        waited_for_range=engine.waited_for_range,
+        range_entry=engine.range_entry,
     )
 
 
