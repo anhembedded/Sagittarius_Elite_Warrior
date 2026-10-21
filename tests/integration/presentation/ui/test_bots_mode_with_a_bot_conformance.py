@@ -217,6 +217,8 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
                 checks["columns_shown_whole"] += MODE_CHECKS["columns_shown_whole"](
                     window, host
                 )
+                presenter.view.surface.dock_of(presenter.view.orders).raise_()
+                _settle()
             report[f"{BOTS_ROUTE}~{tab}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)

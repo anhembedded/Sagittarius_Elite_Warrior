@@ -8,7 +8,7 @@ Retire when: the checks they probe are retired with the conformance suite.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QStandardItemModel
+from PySide6.QtGui import QAction, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QComboBox,
     QMainWindow,
@@ -102,16 +102,40 @@ def test_a_wrapping_tree_may_have_a_column_narrower_than_one_line(qtbot) -> None
     tree.setObjectName("tvProbe")
     model = QStandardItemModel(1, 2, tree)
     model.setHorizontalHeaderLabels(["Check", "Finding of some length"])
+    model.setItem(
+        0, 0, QStandardItem("A finding that is long enough to need two lines")
+    )
     tree.setModel(model)
     QVBoxLayout(page).addWidget(tree)
     page.resize(600, 200)
     page.show()
-    tree.header().resizeSection(0, tree.header().minimumSectionSize())
+    tree.header().resizeSection(0, tree.header().sectionSizeHint(0))
     assert column_problems(page, page) != []
 
     tree.setWordWrap(True)
 
     assert column_problems(page, page) == []
+
+
+def test_a_wrapping_tree_still_shows_its_header_title_whole(qtbot) -> None:
+    """A header never wraps: a title cut short is elided whatever the cells do."""
+    page = QWidget()
+    qtbot.addWidget(page)
+    tree = QTreeView(page)
+    tree.setObjectName("tvProbe")
+    tree.setWordWrap(True)
+    tree.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    model = QStandardItemModel(1, 2, tree)
+    model.setHorizontalHeaderLabels(["A very long column title", "Finding"])
+    tree.setModel(model)
+    QVBoxLayout(page).addWidget(tree)
+    page.resize(600, 200)
+    page.show()
+    tree.header().resizeSection(0, tree.header().minimumSectionSize())
+
+    found = column_problems(page, page)
+
+    assert len(found) == 1 and "'A very long column title'" in found[0]
 
 
 def test_a_combo_too_narrow_for_its_choice_is_seen(qtbot) -> None:

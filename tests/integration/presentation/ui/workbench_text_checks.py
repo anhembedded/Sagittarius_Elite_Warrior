@@ -44,7 +44,7 @@ def column_problems(_window: QWidget, page: QWidget) -> list[str]:
     narrower than its title and the cells it shows (Qt elides it), and no
     column beyond the right edge of a view that does not scroll sideways
     (MS `ctrl-list-views`). A tree that wraps its words (the Plan's checks) shows a long text
-    over more lines instead of eliding it, so its column may be narrower than the one line."""
+    over more lines instead of eliding it, so its column may be narrower than the one line, but never than its title."""
     found = []
     for view in page.findChildren(QTableView) + page.findChildren(QTreeView):
         if not view.isVisible() or view.visibleRegion().isEmpty():
@@ -57,8 +57,10 @@ def column_problems(_window: QWidget, page: QWidget) -> list[str]:
             if header.isSectionHidden(column):
                 continue
             title = str(header.model().headerData(column, header.orientation()))
-            need = max(header.sectionSizeHint(column), view.sizeHintForColumn(column))
-            if header.sectionSize(column) < need and not _wraps(view):
+            # A wrapping tree puts a long cell over more lines, but a header title never wraps.
+            floor = header.sectionSizeHint(column)
+            need = floor if _wraps(view) else max(floor, view.sizeHintForColumn(column))
+            if header.sectionSize(column) < need:
                 found.append(
                     f"{name}: column {title!r} is {header.sectionSize(column)} px, "
                     f"its content {need} px"
