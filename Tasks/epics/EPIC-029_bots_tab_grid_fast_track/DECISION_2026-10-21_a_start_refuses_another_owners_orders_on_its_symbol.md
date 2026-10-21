@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-029](README.md)
 **Date:** 2026-10-21
-**Status:** Accepted (the owner may veto: O1)
-**Decided by:** the author session, on the coordinator's instruction of 2026-10-21 ("decide and implement how a start must refuse, or at least loudly warn"); recorded so the owner can veto
+**Status:** Accepted (2026-10-21)
+**Decided by:** the author session, on the coordinator's instruction of 2026-10-21 ("decide and implement how a start must refuse, or at least loudly warn"); the owner then said to follow the author's recommendations where the Constitution holds (2026-10-21), so the refusal stands
 
 | Label | Meaning |
 | :--- | :--- |
@@ -35,7 +35,7 @@ On 2026-10-21 the owner ran desktop bot `xvp0x7` and VPS bot `y3embt` on one Bin
 ## 4. Open questions
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | Refuse (this record) or warn only? | nothing: the refusal ships; a veto reverts `GridStartPreconditions._other_owners_refusal` | 2026-10-21 |
+| O1 | ~~Refuse or warn only?~~ Answered: refuse, as recommended | — | 2026-10-21 |
 | O2 | A *running* bot whose symbol later gains another owner's orders (the other host starts second, after this check is over). Detect in the running watch and halt or alert? Not done here: the second host's own start is the one that now refuses. | `EPIC-029J` | 2026-10-21 |
 
 ## 5. Implementation evidence
