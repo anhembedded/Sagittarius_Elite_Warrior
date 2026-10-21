@@ -12,6 +12,8 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
+from PySide6.QtGui import QGuiApplication, QPalette
+from PySide6.QtWidgets import QStyleOptionViewItem
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
@@ -29,6 +31,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    RecordedCycles,
+    grid_ladder_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -45,12 +52,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_grid import (
+    VALUE_COLUMN,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     READINESS_GROUP,
     step_key,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import NoticeKind
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_column_checks import (
@@ -257,3 +271,50 @@ def test_a_bot_with_a_run_keeps_its_figures_and_no_readiness(qtbot) -> None:
 
     assert not panel.properties.group_is_shown(READINESS_GROUP)
     assert panel.properties.group_is_shown("results")
+
+
+def _value_colour(panel: BotPlanPanel, key: str):
+    grid = panel.properties
+    option = QStyleOptionViewItem()
+    grid.view.itemDelegate().initStyleOption(
+        option, grid._proxy_index(key, VALUE_COLUMN)
+    )
+    return option.palette.color(QPalette.ColorRole.Text)
+
+
+def test_the_panel_paints_each_earnings_figure_by_what_it_means(qtbot) -> None:
+    """`EPIC-043C`: a run that is ahead reads in the profit colour, one that is behind in the loss
+    colour, and the same rows return to the platform's colour with no verdict."""
+    panel = _panel(qtbot)
+    palette = QGuiApplication.palette()
+    assert _value_colour(panel, "total_pnl") == tone_colour(Tone.POSITIVE, palette)
+    assert _value_colour(panel, "grid_profit") == tone_colour(Tone.POSITIVE, palette)
+
+    behind = _bot(
+        TradingVenue.FUTURES_TESTNET,
+        progress=replace(
+            _PROGRESS, pnl=replace(_COSTS, total=Decimal(-3), hodl=Decimal(-1))
+        ),
+    )
+    panel._model.set_selected(behind)
+    panel._model.set_facts(bot_facts(behind, NOW))
+
+    assert _value_colour(panel, "total_pnl") == tone_colour(Tone.NEGATIVE, palette)
+    assert _value_colour(panel, "hodl") == tone_colour(Tone.NEGATIVE, palette)
+    assert panel.properties.shown_value("total_pnl").startswith("▼ -3.00")
+    assert _value_colour(panel, "symbol") != _value_colour(panel, "total_pnl")
+
+
+def test_the_panel_paints_the_ladders_cycle_average_by_what_it_means(qtbot) -> None:
+    """`EPIC-043C`: the ladder rows reach the grid with their tones, as the earnings do; a cycle
+    that earned reads in the profit colour, one that lost in the loss colour."""
+    panel = _panel(qtbot)
+    palette = QGuiApplication.palette()
+    ladder = grid_ladder_of(_bot(TradingVenue.FUTURES_TESTNET), NOW)
+    assert isinstance(ladder, GridLadder)
+
+    for booked, tone in ((Decimal(10), Tone.POSITIVE), (Decimal(-10), Tone.NEGATIVE)):
+        recorded = RecordedCycles(completed_cycles=2, grid_profit=booked)
+        panel._model.set_ladder(replace(ladder, recorded=recorded))
+        assert _value_colour(panel, "cycle_average") == tone_colour(tone, palette)
+    assert panel.properties.shown_value("cycle_average").startswith("▼ -5.00")

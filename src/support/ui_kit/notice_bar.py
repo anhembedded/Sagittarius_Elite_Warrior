@@ -5,7 +5,8 @@ Built from stock parts: a styled-panel `QFrame`, the platform's own
 information or warning icon (`QStyle.StandardPixmap`), a word-wrapped
 `QLabel` and a `QPushButton`. It replaces the kit `Banner`, a panel painted
 in a severity colour with an icon tinted from the app's own colours. The icon and
-the words carry the severity, so it reads the same in High Contrast.
+the words carry the severity, so it reads the same in High Contrast; the message takes the meaning
+table's tone for its severity on top (`EPIC-043C`), which High Contrast leaves to the platform.
 
 Two consumers (the Backtest figures and the Bots Plan dock's status banner, `BOT-209`), so it
 lives here. `show_notice` re-words a bar whose severity changes; its action is optional.
@@ -29,7 +30,9 @@ from PySide6.QtWidgets import (
     QStyle,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_label import paint_label_tone
 
 
 class NoticeKind(Enum):
@@ -58,6 +61,7 @@ class NoticeBar(QFrame):
         self._show_icon()
         self._message = plain_label()
         self._message.setWordWrap(True)
+        paint_label_tone(self._message, _KIND_TONES[kind])
         self.action_button = QPushButton(action_text)
         self.action_button.setVisible(bool(action_text))
         row = QHBoxLayout(self)
@@ -78,12 +82,18 @@ class NoticeBar(QFrame):
         return self._kind
 
     def show_notice(
-        self, kind: NoticeKind, text: str, accessible_name: str = ""
+        self,
+        kind: NoticeKind,
+        text: str,
+        accessible_name: str = "",
+        tone: Tone | None = None,
     ) -> None:
         """Says `text` under `kind`'s icon. The icon's words go to a screen reader: the kit's
         own ("Error" for a critical notice), or `accessible_name` where the consumer knows what
-        the notice means on its screen ("Blocks Start")."""
+        the notice means on its screen ("Blocks Start"). The message is in the tone of its
+        severity, or in `tone` where the consumer knows better ("Ready to start" is good news)."""
         self._kind = kind
+        paint_label_tone(self._message, _KIND_TONES[kind] if tone is None else tone)
         self._show_icon()
         self._icon.setAccessibleName(accessible_name or _ACCESSIBLE_NAME[kind])
         self.text = text
@@ -95,6 +105,12 @@ class NoticeBar(QFrame):
         )
         self._icon.setAccessibleName(_ACCESSIBLE_NAME[self._kind])
 
+
+_KIND_TONES = {
+    NoticeKind.INFORMATION: Tone.NEUTRAL,
+    NoticeKind.WARNING: Tone.CAUTION,
+    NoticeKind.CRITICAL: Tone.NEGATIVE,
+}
 
 _ACCESSIBLE_NAME = {
     NoticeKind.INFORMATION: "Information",

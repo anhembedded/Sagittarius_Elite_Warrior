@@ -55,7 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.wrapped_rows impo
     wrapped_row_size,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kind_font import kind_font
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text_at
+from Sagittarius_Elite_Warrior.src.support.ui_kit.tone_delegate import TONE_ROLE
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -169,14 +171,23 @@ class PlanPropertyGrid:
 
     # -- the values ------------------------------------------------------ #
 
-    def set_values(self, values: Mapping[str, DisplayValue]) -> None:
-        """Writes the given values; keys left out keep their text.
+    def set_values(
+        self,
+        values: Mapping[str, DisplayValue],
+        tones: Mapping[str, Tone] | None = None,
+    ) -> None:
+        """Writes the given values; keys left out keep their text. Given `tones`, every written
+        row takes the tone it names there, or none (`EPIC-043C`: a profit, a loss); without them
+        the rows keep their tone.
         @raise KeyError a key that is no row of the table."""
         unknown = sorted(set(values) - set(self._rows))
         if unknown:
             raise KeyError(f"no property row for {unknown}")
         for key, raw in values.items():
-            self._value_item(key).setData(raw, Qt.ItemDataRole.DisplayRole)
+            item = self._value_item(key)
+            item.setData(raw, Qt.ItemDataRole.DisplayRole)
+            if tones is not None:
+                item.setData(tones.get(key, Tone.NEUTRAL), TONE_ROLE)
         self._fit_rows()
 
     def shown_value(self, key: str) -> str:

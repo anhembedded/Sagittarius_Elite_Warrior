@@ -1,7 +1,7 @@
 """`EPIC-034D` — the strip above a bot: who it is, where it trades and
 whether that account could be read.
 
-Two stock labels, so the answer to "why can I not
+A stock label for who the bot is and a state badge for the connection (an icon and a word, `EPIC-043C`), so the answer to "why can I not
 start?" is on screen before any click and is never colour alone: the status is
 a word. Retrying is Bots → Retry venue account, a command like every other of the
 mode (`ui-presentation-rule.md` §6: the mode holds no button of its own). It
@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
     BotsViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
 
 _SEPARATOR = " · "
 
@@ -31,13 +32,10 @@ class IdentityStrip(QWidget):
         self._model = model
         self.who = plain_label()
         self.who.setObjectName("lblBotIdentity")
-        self.connection = plain_label()
-        self.connection.setObjectName("lblBotConnection")
-        self.connection.setWordWrap(True)
+        self.connection = StateBadge("lblBotConnection", wrap=True)
         #: The selected bot's venue, for the window's status bar, which shows
         #: it in every mode while a bot is selected (`EPIC-034D`).
-        self.status_label = plain_label()
-        self.status_label.setObjectName("lblBotVenueStatus")
+        self.status_label = StateBadge("lblBotVenueStatus")
         row = QHBoxLayout(self)
         row.setContentsMargins(6, 2, 6, 2)
         row.addWidget(self.who)
@@ -54,7 +52,11 @@ class IdentityStrip(QWidget):
         self.status_label.setVisible(bot is not None)
         if bot is None:
             return
-        self.status_label.setText(f"Bot venue: {view.venue}, {view.status.lower()}")
+        self.status_label.show_state(
+            f"Bot venue: {view.venue}, {view.status.lower()}", view.look
+        )
         saved = state_text(bot.state)
         self.who.setText(f"{bot.name} ({bot.kind}){_SEPARATOR}{saved}")
-        self.connection.setText(f"{view.venue}: {view.status}{_SEPARATOR}{view.detail}")
+        self.connection.show_state(
+            f"{view.venue}: {view.status}{_SEPARATOR}{view.detail}", view.look
+        )

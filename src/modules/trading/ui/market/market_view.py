@@ -43,6 +43,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_look import StateLook
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -120,8 +122,7 @@ class MarketView(OutputSourceView):
         self._central = QStackedWidget()
         self._central.addWidget(self._no_chart)
         self._central.addWidget(self.tabs)
-        self.connection = plain_label()
-        self.connection.setObjectName("lblConnection")
+        self.connection = StateBadge("lblConnection")
         self.stream = plain_label()
         self.stream.setObjectName("lblMarketStream")
         self._charts: dict[str, ChartCard] = {}
@@ -209,8 +210,9 @@ class MarketView(OutputSourceView):
         self.indicators.blockSignals(False)
         self.indicator_selected.emit(self.selected_indicator)
 
-    def set_connection_text(self, text: str) -> None:
-        self.connection.setText(text)
+    def set_connection_text(self, text: str, look: StateLook | None = None) -> None:
+        """The exchange connection: its word, and the icon and tone beside it (`EPIC-043C`)."""
+        self.connection.show_state(text, look)
 
     def set_stream_text(self, text: str) -> None:
         self.stream.setText(text)

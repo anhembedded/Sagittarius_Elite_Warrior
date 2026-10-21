@@ -42,10 +42,25 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snaps
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
     AccountSource,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_look import StateLook
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
+
+#: The icon and tone beside the connection's word (`EPIC-043C`). A bot that waits for its account
+#: is a warning; a read that failed is a loss; a read that answered is good news, whatever the
+#: step after it is.
+_CONNECTED = StateLook("circle-check-big", Tone.POSITIVE)
+_LOOKS = {
+    ReadinessState.NOT_CONNECTED: StateLook("circle-x", Tone.CAUTION),
+    ReadinessState.CONNECTING: StateLook("clock", Tone.NEUTRAL),
+    ReadinessState.FAILED: StateLook("circle-x", Tone.NEGATIVE),
+    ReadinessState.DESIGNING: _CONNECTED,
+    ReadinessState.RUN_BLOCKED: _CONNECTED,
+    ReadinessState.READY: _CONNECTED,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +75,11 @@ class ConnectView:
     #: What the readiness item for a failed read says (`EPIC-034H`): the same
     #: few words, "Not connected: key refused".
     cause: str = ""
+
+    @property
+    def look(self) -> StateLook:
+        """The icon and tone that go beside `status`."""
+        return _LOOKS[self.state]
 
     @property
     def locked(self) -> bool:

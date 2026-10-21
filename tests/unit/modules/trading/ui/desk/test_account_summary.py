@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from PySide6.QtGui import QGuiApplication, QPalette
 from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
@@ -48,6 +49,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
+)
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
@@ -88,7 +93,7 @@ def test_a_futures_account_shows_its_four_figures_in_usdt(qtbot) -> None:
     assert _shown(qtbot, _futures()) == {
         "Available (USDT)": "100.00",
         "Wallet balance (USDT)": "125.00",
-        "Unrealized PnL (USDT)": "-5.00",
+        "Unrealized PnL (USDT)": "▼ -5.00",
         "Margin balance (USDT)": "120.00",
     }
 
@@ -309,3 +314,22 @@ def test_an_open_read_answering_after_a_newer_event_is_dropped(qtbot, qapp) -> N
     held.run(0)
 
     assert panel.value_of("available") == "80.00"
+
+
+def test_the_unrealized_pnl_is_painted_by_its_sign_and_the_other_figures_are_not(
+    qtbot,
+) -> None:
+    """`EPIC-043C`: a loss reads `▼ -5.00` and is in the loss colour; the balances say nothing."""
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+    panel.show_readout(summary_readout(_futures()))
+
+    pnl = panel.findChild(QLabel, "readout::unrealized_pnl.signed")
+    wallet = panel.findChild(QLabel, "readout::wallet")
+
+    assert pnl is not None and wallet is not None
+    colour = QPalette.ColorRole.WindowText
+    assert pnl.palette().color(colour) == tone_colour(
+        Tone.NEGATIVE, QGuiApplication.palette()
+    )
+    assert wallet.palette().color(colour) == panel.palette().color(colour)

@@ -124,6 +124,12 @@ def _text(verb: ListBotsVerb | ShowBotVerb, capsys: pytest.CaptureFixture[str], 
     return capsys.readouterr().out
 
 
+def _undecorated(text: str) -> str:
+    """The Bots tab writes a figure with an arrow and a sign (`EPIC-043C`); a terminal report
+    prints the figure alone, so parity is the number, not the decoration."""
+    return text.removeprefix("▲ +").removeprefix("▼ ")
+
+
 def _tab(bot_id: str):
     snapshot = _world().dispatch(GetBotQuery, GetBotQuery(bot_id))
     assert isinstance(snapshot, BotSnapshot)
@@ -136,9 +142,10 @@ def test_bot_show_prints_the_figures_the_bots_tab_shows(
     out = _text(ShowBotVerb(), capsys, bot_id="aaaaaa")
 
     tab = _tab("aaaaaa")
-    assert (tab.grid_profit, tab.total_pnl) == ("1,234.50", "1,230.25")
-    assert f"Grid profit  {tab.grid_profit}" in out
-    assert f"Total PnL    {tab.total_pnl}" in out
+    grid_profit, total_pnl = _undecorated(tab.grid_profit), _undecorated(tab.total_pnl)
+    assert (tab.grid_profit, tab.total_pnl) == ("▲ +1,234.50", "▲ +1,230.25")
+    assert f"Grid profit  {grid_profit}" in out
+    assert f"Total PnL    {total_pnl}" in out
     assert "Cycles       7" in out
     assert f"Unrealised   {tab.unrealised}" in out
     assert out.index("Grid profit") < out.index("Cycles") < out.index("Total PnL")

@@ -69,8 +69,10 @@ from .chart_history import ChartHistory
 from .chart_history_commands import ChartHistoryCommands
 from .connection_words import (
     CHECK_FAILED,
-    CHECKING,
+    CHECKING_STATE,
     NOT_CHECKED,
+    NOT_CONNECTED_STATE,
+    connection_look,
     connection_word,
     failure_text,
 )
@@ -238,7 +240,7 @@ class MarketPresenter(CommandPresenter):
     def check_connection(self) -> None:
         action = self._checks.begin_action(_CHECK, None, None)
         self.checkConnectionEnabled.emit(False)
-        self.view.set_connection_text(CHECKING)
+        self.view.set_connection_text(*CHECKING_STATE)
         logger.info("[market] connection check %d started", action.action_id)
         self._deps.thread_manager.submit(self._run_check, action.action_id)
 
@@ -266,7 +268,7 @@ class MarketPresenter(CommandPresenter):
             return
         self._checks.finish_action(action_id, ActionOutcome.FAILED)
         logger.warning("[market] connection check %d failed: %s", action_id, detail)
-        self.view.set_connection_text("Exchange: not connected")
+        self.view.set_connection_text(*NOT_CONNECTED_STATE)
         self.view.log.append(CHECK_FAILED, "error")
         self._tell_check_failed(CHECK_FAILED, detail)
 
@@ -279,7 +281,7 @@ class MarketPresenter(CommandPresenter):
             status.reachable,
             status.failure.name if status.failure is not None else None,
         )
-        self.view.set_connection_text(word)
+        self.view.set_connection_text(word, connection_look(status))
         if problem is None:
             self.view.log.append(word)
             return

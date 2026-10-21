@@ -25,7 +25,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     summary_line,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import NO_VALUE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    sign_tone,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    signed_key,
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -53,6 +58,11 @@ def _money(value: Decimal) -> str:
     return write_value(ColumnKind.MONEY, float(value))
 
 
+def _signed_money(value: Decimal) -> str:
+    """A figure the run booked, with its arrow and sign (`EPIC-043C`)."""
+    return write_value(ColumnKind.MONEY, float(value), signed_key("pnl"))
+
+
 @dataclass(frozen=True, slots=True)
 class LadderFacts:
     """What the Bots mode says about the selected bot's ladder: one line for the Ladder panel and
@@ -68,6 +78,8 @@ class LadderFacts:
     rows: Mapping[str, str] = field(default_factory=dict)
     #: Whether the venue has a liquidation price to say is unknown (the Plan row is hidden otherwise).
     shows_liquidation: bool = False
+    #: What a row means, by key: the average cycle the run booked is a profit or a loss.
+    tones: Mapping[str, Tone] = field(default_factory=dict)
 
 
 def ladder_facts(ladder: GridLadder | LadderUnavailable | None) -> LadderFacts:
@@ -83,7 +95,7 @@ def ladder_facts(ladder: GridLadder | LadderUnavailable | None) -> LadderFacts:
         rows={
             "grid_step": step_text(ladder.summary),
             "cycle_profit": cycle_profit_text(ladder.summary, _money),
-            "cycle_average": recorded_average_text(ladder.recorded, _money),
+            "cycle_average": recorded_average_text(ladder.recorded, _signed_money),
             "last_price": position.last_price,
             "lower_edge": position.lower_edge,
             "upper_edge": position.upper_edge,
@@ -92,4 +104,5 @@ def ladder_facts(ladder: GridLadder | LadderUnavailable | None) -> LadderFacts:
             "liquidation": position.liquidation or "",
         },
         shows_liquidation=position.liquidation is not None,
+        tones={"cycle_average": sign_tone(ladder.recorded.average_profit)},
     )

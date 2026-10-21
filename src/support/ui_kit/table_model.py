@@ -110,11 +110,15 @@ from collections.abc import Sequence
 from typing import ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QObject, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QGuiApplication
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kind_font import kind_font
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.no_symbol_precisions import (
     NO_SYMBOL_PRECISIONS,
@@ -201,6 +205,12 @@ class RowTableModel[TRow](QAbstractTableModel):
             return self._precision(row, index.column())
         if role == Qt.ItemDataRole.FontRole:
             return self._font(row, index.column())
+        if role == Qt.ItemDataRole.ForegroundRole:
+            colour = tone_colour(
+                self._tone(row, index.column()), QGuiApplication.palette()
+            )
+            if colour is not None:
+                return colour
         return self._role_data(row, index.column(), role)
 
     # -- reading and writing whole rows ------------------------------------
@@ -296,6 +306,15 @@ class RowTableModel[TRow](QAbstractTableModel):
         position's PnL, the shard to act on — drawn bold in its kind's font.
         None by default."""
         return False
+
+    def _tone(self, row: TRow, column: int) -> Tone:
+        """What this cell means: a profit, a loss, a state that needs a look
+        (`Tone`). The colour is the palette's own for that tone, asked at each
+        paint so a change of colour scheme is followed, and is none for
+        `NEUTRAL` and in High Contrast (`meaning_colours.py`). The cell's text
+        carries the meaning too (a sign and an arrow, a word); the colour only
+        adds to it. `NEUTRAL` by default."""
+        return Tone.NEUTRAL
 
     def _role_data(self, row: TRow, column: int, role: int) -> object:
         """Any role beyond the value, its precision and its font — a colour,

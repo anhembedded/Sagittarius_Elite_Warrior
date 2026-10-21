@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -17,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.connection_words import (
     CHECK_FAILED,
+    connection_look,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
     CHECK_CONNECTION,
@@ -27,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
     RaisingAccount,
 )
@@ -162,3 +165,47 @@ def test_a_superseded_checks_answer_is_ignored(build, threads, notifier):
 
     assert presenter.view.connection.text() == "Exchange: connected (FUTURES_TESTNET)"
     assert notifier.failures == []
+
+
+def test_the_connection_word_has_an_icon_beside_it_for_each_answer(build, threads):
+    """`EPIC-043C`: connected, reachable-but-cannot-trade and not connected each have their own
+    icon, and a connection not yet checked has none."""
+    presenter = build()
+    badge = presenter.view.connection
+    assert not badge._icon.isVisible() and badge.text() == "Exchange: not checked"
+
+    presenter.check_connection()
+    assert badge.text() == "Exchange: checking…"
+    assert not badge._icon.pixmap().isNull()
+    threads.run_all()
+    connected = bytes(badge._icon.pixmap().toImage().constBits())
+
+    refused = build(account=FakeAccountSnapshot(status=_NO_KEY))
+    refused.check_connection()
+    threads.run_all()
+
+    assert not refused.view.connection._icon.pixmap().isNull()
+    assert (
+        bytes(refused.view.connection._icon.pixmap().toImage().constBits()) != connected
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "icon", "tone"),
+    [
+        (_CONNECTED, "circle-check-big", Tone.POSITIVE),
+        (
+            dataclasses.replace(
+                _CONNECTED, failure=ConnectionFailureKind.WITHDRAWAL_ENABLED
+            ),
+            "triangle-alert",
+            Tone.CAUTION,
+        ),
+        (_NO_KEY, "circle-x", Tone.NEGATIVE),
+    ],
+    ids=["connected", "cannot-trade", "not-connected"],
+)
+def test_the_connection_look_follows_what_the_exchange_answered(status, icon, tone):
+    look = connection_look(status)
+
+    assert (look.icon, look.tone) == (icon, tone)

@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_ladder_facts 
     LADDER_ROWS,
     ladder_facts,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_state_looks import (
+    state_look,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
@@ -71,6 +74,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice impo
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
 
 from .widget_slot import replace_in
 
@@ -92,9 +96,7 @@ class BotPlanPanel(QStackedWidget):
         self._model = model
         self.title = plain_label()
         self.title.setObjectName("lblBotName")
-        self.state = plain_label()
-        self.state.setObjectName("lblBotState")
-        self.state.setWordWrap(True)
+        self.state = StateBadge("lblBotState", wrap=True)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbBotVenue")
         #: Where the bot stands, in one sentence with the platform's message icon (`BOT-209`).
@@ -242,17 +244,22 @@ class BotPlanPanel(QStackedWidget):
     def _show_facts(self) -> None:
         self._arrange()
         facts = self._model.facts
-        self.state.setText((facts.state_word or facts.state) if facts else "")
+        selected = self._model.selected
+        self.state.show_state(
+            (facts.state_word or facts.state) if facts else "",
+            state_look(selected.state) if facts and selected else None,
+        )
         self._show_where_the_bot_stands()
         self.properties.set_values(
-            {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS}
+            {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS},
+            facts.tones if facts else {},
         )
         self._show_costs(facts is not None and facts.shows_costs)
 
     def _show_ladder(self) -> None:
         """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
         ladder = ladder_facts(self._model.ladder)
-        self.properties.set_values(dict(ladder.rows))
+        self.properties.set_values(dict(ladder.rows), ladder.tones)
         self.properties.set_rows_shown((LIQUIDATION_KEY,), ladder.shows_liquidation)
 
     def _show_costs(self, shown: bool) -> None:

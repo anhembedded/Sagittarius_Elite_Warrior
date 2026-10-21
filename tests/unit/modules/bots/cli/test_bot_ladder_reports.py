@@ -164,7 +164,10 @@ def test_bot_show_prints_the_position_rows_the_bots_tab_shows(
         ("Take profit", "take_profit"),
         ("Average per cycle (net of fees)", "cycle_average"),
     ):
-        assert f"{label:<32} {tab[key]}" in out, label
+        shown = (
+            tab[key].removeprefix("▲ +").removeprefix("▼ ")
+        )  # the tab's arrow and sign
+        assert f"{label:<32} {shown}" in out, label
     assert tab["lower_edge"] == "60,000.00 (-6.98%)"
 
 
