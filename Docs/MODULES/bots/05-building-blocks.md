@@ -102,7 +102,7 @@ a splitter with the chart on its right (`BotsView.live`), and the Backtest tab's
 results: `bots/ui/bots_screen/plan_column.py` → `PlanColumn`, one scroll holding a status banner, what sits under it, the figures, the
 kind's editor and the checks list (`BOT-218`). The Plan fills it with the real bot's name, venue and figures; the workbench fills it
 with the sandbox's source line as the banner, its question about discarding edits and the verdicts as the checks, with an editor of
-its own, so the Backtest tab shows none of the Live Plan. A layout saved while the Plan was a dock restores without it. The tab's content is
+its own, so the Backtest tab shows none of the Live Plan. A layout saved while the Plan or the Strategies panel was a dock restores without them. Arming a strategy has no panel (`BOT-219`): `bots/ui/strategies/venue_strategies.py` → `VenueStrategies` holds the two commands, Arm strategy… asking what and on which venue in `arm_strategy_dialog.py` → `ArmStrategyDialog` (which lists what is armed) and Disarm strategy… asking which armed venue in `disarm_choice.py` → `venue_chooser`, and each `ArmedStrategyChangedEvent` is told in the Bots channel of the Output pane (`BotsView.output_log`). The tab's content is
 `bots/ui/bots_screen/backtest_workbenches.py` → `BacktestWorkbenches`: one workbench per venue,
 built when a bot of that venue first needs it and kept (its chart and sync read that venue's market,
 `BUG-172`, and a sandbox with edits survives the selection moving to another venue, so the question

@@ -106,7 +106,6 @@ _SITES = {
     "bots chart": (_bots, _by_text(NO_CHART_TEXT)),
     "bots plan": (_bots, _by_name("lblBotsEmpty")),
     "bots backtest": (_bots, _by_text(NO_SELECTION_BACKTEST_TEXT)),
-    "bots strategies": (_bots, _instruction_of("tblStrategiesBody")),
     "bots orders": (_bots, _instruction_of("tblBotOrdersBody")),
     "bots fills": (_bots, _instruction_of("tblBotFillsBody")),
     "trade no venue": (_trade, _by_name("lblNoVenue")),

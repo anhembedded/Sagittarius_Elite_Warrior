@@ -12,6 +12,7 @@ import pytest
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
     ARM_TEXT,
+    ArmQuestion,
     ArmStrategyDialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
@@ -40,7 +41,19 @@ def form() -> StrategyFormViewModel:
 def _dialog(
     qtbot, venue: TradingVenue, form: StrategyFormViewModel
 ) -> ArmStrategyDialog:
-    dialog = ArmStrategyDialog(venue, form)
+    dialog = ArmStrategyDialog(ArmQuestion({venue: form}))
+    qtbot.addWidget(dialog)
+    return dialog
+
+
+def _both(qtbot, armed_now: tuple[str, ...] = ()) -> ArmStrategyDialog:
+    """Two venues to arm on, each with a form of its own."""
+    forms = {
+        TradingVenue.FUTURES_TESTNET: _form(),
+        TradingVenue.SPOT_TESTNET: _form(),
+    }
+    forms[TradingVenue.SPOT_TESTNET].set_symbol("BTCUSDT", ("BTCUSDT", "ETHUSDT"))
+    dialog = ArmStrategyDialog(ArmQuestion(forms, armed_now))
     qtbot.addWidget(dialog)
     return dialog
 
@@ -128,3 +141,43 @@ def test_a_first_arming_sends_the_timeframe_and_strategy_it_shows(qtbot) -> None
         form.selected_strategy_key == dialog.strategy.currentData() == "ema_crossover"
     )
     assert form.selected_symbol == "BTCUSDT"
+
+
+def test_the_venue_is_a_row_only_while_more_than_one_venue_can_arm(qtbot) -> None:
+    both = _both(qtbot)
+    one = _dialog(qtbot, TradingVenue.SPOT_TESTNET, _form())
+
+    assert both.findChild(QFormLayout).isRowVisible(both.venue)
+    assert not one.findChild(QFormLayout).isRowVisible(one.venue)
+    assert [both.venue.itemText(i) for i in range(both.venue.count())] == [
+        "Futures Testnet",
+        "Spot Testnet",
+    ]
+
+
+def test_choosing_another_venue_fills_the_fields_from_its_form_and_edits_go_there(
+    qtbot,
+) -> None:
+    dialog = _both(qtbot)
+    futures = dialog._forms[TradingVenue.FUTURES_TESTNET]
+    spot = dialog._forms[TradingVenue.SPOT_TESTNET]
+    assert dialog.chosen_venue is TradingVenue.FUTURES_TESTNET
+    assert _leverage_shown(dialog)
+
+    dialog.venue.setCurrentIndex(dialog.venue.findData(TradingVenue.SPOT_TESTNET))
+
+    assert dialog.chosen_venue is TradingVenue.SPOT_TESTNET
+    assert dialog.symbol.currentText() == "BTCUSDT"  # the Spot form's own
+    assert not _leverage_shown(dialog)
+    dialog.sizing.setValue(9.0)
+    assert spot.sizing_percent == 9.0
+    assert futures.sizing_percent == 5.0  # the other venue's form is untouched
+
+
+def test_what_is_armed_already_is_listed_above_the_fields_or_not_shown(qtbot) -> None:
+    told = _both(qtbot, ("Spot Testnet: EMA crossover BTCUSDT 15m",))
+    silent = _both(qtbot)
+
+    assert not told.armed_now.isHidden()
+    assert "Spot Testnet: EMA crossover BTCUSDT 15m" in told.armed_now.text()
+    assert silent.armed_now.isHidden()
