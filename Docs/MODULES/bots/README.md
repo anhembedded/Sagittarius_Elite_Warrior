@@ -38,6 +38,7 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | The Futures venue profile and the Futures Grid | **Built** | `EPIC-039` |
 | The exchange-side protective stop on Futures: placed, kept, cancelled after flat, adopted on restart | **Built** (C2 of four pull requests) | `EPIC-039L` ([`06-runtime.md`](06-runtime.md), [`state-machines.md`](state-machines.md)) |
 | What a halt does with a position under that stop; the Emergency Stop's order; the mainnet gate | Planned | `EPIC-039L` C3, C4 |
+| The state `AWAITING_RANGE`: a Grid started away from its range waits, places nothing, and lays its ladder when the price enters it | **Built** (the state, the entry and the checks; the surfaces and the backtest are `EPIC-044C`, `EPIC-044D`) | `EPIC-044B` ([`06-runtime.md`](06-runtime.md)) |
 | The state `AWAITING_RECOVERY`, the layered halt-recovery policy and the attempt ledger in the bot record | **Built** | `EPIC-042B` |
 | A Spot Grid halted by a quiet feed or a down user stream waits in `AWAITING_RECOVERY` and recovers by itself through the Resume path | **Built** | `EPIC-042C` ([`06-runtime.md`](06-runtime.md)) |
 | `bot order <id>`: the orders a bot's file records (stored, not live) | **Built** | `BOT-187` |

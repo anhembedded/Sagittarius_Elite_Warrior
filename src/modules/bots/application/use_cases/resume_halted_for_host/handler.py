@@ -153,6 +153,12 @@ class ResumeHaltedForHostCommandHandler(
             return _outcome(
                 bot, True, f"recovered by itself first; the bot is {now.value}"
             )
+        if now is BotLifecycleState.AWAITING_RANGE:
+            # A bot that holds nothing, with the price outside its range, waits for it (ADR 044):
+            # there is no proposal to confirm, and it is armed to lay its ladder on entry.
+            return _outcome(
+                bot, True, "holds nothing; it waits for the price to enter its range"
+            )
         return _outcome(bot, False, answer.message)
 
     def _ask(

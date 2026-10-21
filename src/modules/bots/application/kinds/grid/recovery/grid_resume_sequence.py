@@ -69,12 +69,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resume_plan imp
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
+    RangePosition,
+    range_position,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
     RESUME_PRICE_TOLERANCE,
     moved_beyond,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRegistrationResult,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -114,13 +121,30 @@ class GridResumeSequence:
         #: The detail before the resume's unplaced-base sentence, and with it.
         self._noted: tuple[str, str] | None = None
 
-    def propose(self, price: Decimal) -> ResumeProposal | None:
-        """Steps 1–3; `None` when a step could not finish (the reason says why)."""
+    def propose(
+        self,
+        price: Decimal,
+        event: BotLifecycleEvent = BotLifecycleEvent.RESUME,
+    ) -> ResumeProposal | None:
+        """Steps 1–3; `None` when a step could not finish (the reason says why), or when the
+        bot holds nothing and the price is outside its range: it then waits for the range
+        instead (`EPIC-044`, ADR 044 D5), through `event`, the one that leaves HALTED or
+        AWAITING_RECOVERY."""
         state = self._context.state
         if not self._storage.admits_relaunch():
             return None
         registration = self._housekeeping.register()
         held = self._exposure.held(registration)
+        if (
+            registration.registered
+            and held is not None
+            and held.quantity == 0
+            and self._outside_range(price)
+        ):
+            again = self._wait_if_still_flat(price, event)
+            if again is None:
+                return None
+            registration, held = again, self._exposure.held(again)
         sizes = self._context.params.direction is TradeDirection.LONG
         if not registration.registered or held is None or not sizes:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
@@ -151,6 +175,51 @@ class GridResumeSequence:
             proposal.inventory.quantity,
         )
         return proposal
+
+    def _outside_range(self, price: Decimal) -> bool:
+        params = self._context.params
+        return range_position(price, params.lower, params.upper) is not (
+            RangePosition.INSIDE
+        )
+
+    def _wait_if_still_flat(
+        self, price: Decimal, event: BotLifecycleEvent
+    ) -> OwnerBudgetRegistrationResult | None:
+        """A bot that holds nothing is resumed into a wait, not a ladder off its range: its tagged
+        orders are cancelled as for any resume, the holding is read again (a halt leaves the
+        ladder resting, and an order may fill while it is cancelled), and only a bot that still
+        holds nothing starts waiting (ADR 044 D5).
+
+        @return `None` when the bot waits, or a cancel failed and the bot was failed; else the
+        registration read after the cancels, which shows what a fill left."""
+        state = self._context.state
+        report = self._housekeeping.cancel_tagged()
+        if report.failed is not None:
+            if report.failed.kind in (
+                OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.RATE_LIMITED,
+                OrderOutcomeKind.KEY_REJECTED,
+            ):
+                fail_with(state, report.failed, f"cancel {report.client_order_id}")
+            return None
+        registration = self._housekeeping.register()
+        held = self._exposure.held(registration)
+        if not registration.registered or held is None or held.quantity != 0:
+            logger.info(
+                "Bot %s: the holding changed or could not be read while the resume cancelled the "
+                "ladder; the bot is resumed as one that holds [range-wait]",
+                state.bot_id,
+            )
+            return registration
+        logger.info(
+            "Bot %s: the resume finds nothing held and the price %s outside the range; "
+            "the bot waits for it [range-wait]",
+            state.bot_id,
+            price,
+        )
+        state.transition(event)
+        state.transition(BotLifecycleEvent.PRICE_OUTSIDE_RANGE)
+        return None
 
     def _proposal_for(
         self, price: Decimal, inventory: OwnerInventory

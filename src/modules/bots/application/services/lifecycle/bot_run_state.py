@@ -45,9 +45,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    PRICE_STALENESS_HALTS,
     BotLifecycleEvent,
     BotLifecycleState,
     is_declared,
+    may_hold_exposure,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -115,6 +117,22 @@ class BotRunState:
     @property
     def state(self) -> BotLifecycleState:
         return self._bot.state
+
+    @property
+    def may_hold_exposure(self) -> bool:
+        """Whether this bot may hold an order or a position now (`EPIC-044`, ADR 044 D2)."""
+        return may_hold_exposure(self._bot.state, self._bot.lifecycle.recovering_from)
+
+    def holds_in(self, states: frozenset[BotLifecycleState]) -> bool:
+        """Whether the bot is in one of `states` and may hold exposure (`EPIC-044`, ADR 044 D2):
+        the question a watch that protects exposure asks of the states it covers."""
+        return self.state in states and self.may_hold_exposure
+
+    @property
+    def exposure_watched(self) -> bool:
+        """Whether the watches that protect exposure apply now: the state holds or lays orders
+        (`PRICE_STALENESS_HALTS`) and may hold exposure (`EPIC-044`, ADR 044 D7)."""
+        return self.state in PRICE_STALENESS_HALTS and self.may_hold_exposure
 
     @property
     def bot_id(self) -> str:

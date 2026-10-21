@@ -1,6 +1,6 @@
 # EPIC-044 — A Grid started away from its range waits for the price, then lays its ladder
 
-- **Status:** 🟡 Phase 1 in progress (the decision record is proposed)
+- **Status:** 🟡 Phase 2 in progress (the decision is accepted; the state and the entry are in review)
 - **Repositories:** Elite
 - **Origin:** the owner, 2026-10-21, through the coordinating session: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"*, then *"không thời hạn chờ"*, then *"OK"* to always waiting with the logic mirrored for Short. Translated: if the price is out of the range the bot still starts, but only begins laying orders when the price is inside the range; no time limit; always wait, mirrored for Short.
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (Start with the price outside the range) and [`Docs/MODULES/bots/state-machines.md`](../../../Docs/MODULES/bots/state-machines.md); both change with the code slices.
@@ -11,7 +11,7 @@
 
 ## 1. Decisions already made
 1. The rule, for every direction, Spot and Futures, mainnet and testnet: start outside the range, place nothing, hold nothing, wait without a time limit, lay the ladder when the price is inside, exactly as a normal start would. No "start now". Stop works at once; stop loss and take profit do nothing while waiting (ADR D1, the owner's).
-2. Everything else is proposed in the ADR and waits for the reviewer's read and the coordinator: D2–D12, with owner questions O1–O4.
+2. The rest, D2–D12, was reviewed in three rounds on PR #679 (round 1: eight Should-fix points, all answered: `may_hold_exposure`, the entry decided in `AWAITING_RANGE` on a fresh book read, the failure split before `range_entered`, a flat Resume waits, `switch_off` halts, the replay walk, the list of state sets and a guard over them) and accepted on 2026-10-21; D8 (`switch_off` halts) is the coordinator's default for the owner, who may veto it. The owner answered O1–O3 as recommended (restart through `RECOVERING`; a refusal of the plan at entry halts; the backtest benchmark starts at the entry step). D9 depends on a separate bug: a Futures `bot resume` after a host restart is refused "unexpected open positions".
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-21, `849d973`) | When the epic is done |
@@ -25,15 +25,15 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-044A](incomplete/EPIC-044A_the_decision_record.md) | The decision record and this epic's scaffold (docs PR) | Elite | None | 🟢 | In progress |
-| [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | `AWAITING_RANGE`: the state, the entry, the informational checks, the restart row, with the red-before tests | Elite | 044A accepted | 🔴 | Planned |
+| [EPIC-044A](completed/EPIC-044A_the_decision_record.md) | The decision record and this epic's scaffold (docs PR) | Elite | None | 🟢 | Done (2026-10-21) |
+| [EPIC-044B](incomplete/EPIC-044B_the_state_and_the_entry.md) | `AWAITING_RANGE`: the state, the entry, the informational checks, the restart row, with the red-before tests | Elite | 044A accepted | 🔴 | In review |
 | [EPIC-044C](incomplete/EPIC-044C_the_waiting_bot_is_shown_and_told.md) | The badge, the Plan banner line, the table, `bot list`/`bot show`, the heartbeat and daily summary, the entry alert, with frames | Elite | 044B; `#677`, `#678`, `#674` merged | 🟡 | Planned |
 | [EPIC-044D](incomplete/EPIC-044D_the_backtest_waits_the_same_way.md) | The Grid's replay waits and enters by the same rule; live and backtest agree on the entry bar | Elite | 044B | 🟡 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| 1 — decision | The ADR is read by the reviewer and accepted by the coordinator; O1–O3 are answered (done 2026-10-21) | The reviewer's PR comment; the coordinator's acceptance. Not run |
+| 1 — decision | The ADR is read by the reviewer and accepted by the coordinator; O1–O3 are answered (done 2026-10-21; PASS in round 3) | The reviewer's PR comment; the coordinator's acceptance. Not run |
 | 2 — domain and lifecycle | For each of LONG, SHORT, NEUTRAL × below/above: start waits with zero orders, entry lays the expected ladder at the entry price; a restart while waiting stays waiting; Stop while waiting cancels nothing; SL/TP do nothing; a refusal at entry; mainnet and testnet alike | The tests of 044B red on `849d973`, green after; both gate logs |
 | 3 — surfaces | Every surface that shows a bot says it is waiting; one alert on entry | Frames in the CI artifact; the unit and integration tests of 044C |
 | 4 — backtest | The replay waits; the entry bar equals the live one | The parity test |

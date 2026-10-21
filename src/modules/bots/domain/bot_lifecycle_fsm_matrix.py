@@ -35,6 +35,12 @@ ladder is off, the base is kept, the exits are watched, and the bot waits for th
 to stay clear for the dwell, then resumes through the person's Resume path
 (`condition_cleared`). Its events and why each row is there: ADR 042 §2.1.
 
+`AWAITING_RANGE` **(added by `EPIC-044B`)** is a Grid that was started while the price was
+outside its range: it has placed nothing and holds nothing, and waits for the price to enter
+the range, when `range_entered` takes it through STARTING to lay its ladder like any start.
+Its events and why each row is there: ADR 044 §2.1 (`Tasks/epics/EPIC-044_grid_waits_for_the_range/`).
+A restart answers it with RECOVERING, which `may_hold_exposure` knows holds nothing.
+
 `halt` also answers a quiet price feed (`EPIC-035A`, `PRICE_FEED_STALE`), which
 can be heard in any state that holds or lays orders: STARTING and RECOVERING
 gained the cell for it, RUNNING and PAUSED already had it. STOPPING has one but
@@ -56,6 +62,7 @@ class BotLifecycleState(str, Enum):
     RECOVERING = "RECOVERING"
     HALTED = "HALTED"
     AWAITING_RECOVERY = "AWAITING_RECOVERY"
+    AWAITING_RANGE = "AWAITING_RANGE"
     STOPPING = "STOPPING"
     STOPPED = "STOPPED"
     ERROR = "ERROR"
@@ -82,6 +89,9 @@ class BotLifecycleEvent(str, Enum):
     HALT_TRANSIENT = "halt_transient"
     CONDITION_CLEARED = "condition_cleared"
     BUDGET_EXHAUSTED = "budget_exhausted"
+    PRICE_OUTSIDE_RANGE = "price_outside_range"
+    RANGE_ENTERED = "range_entered"
+    ENTRY_REFUSED = "entry_refused"
 
 
 class BotLifecycleTarget(str, Enum):
@@ -124,6 +134,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.STARTING, _E.SWITCH_OFF): _S.HALTED,
     (_S.STARTING, _E.FAULT): _S.ERROR,
     (_S.STARTING, _E.APP_RESTART): _S.HALTED,
+    (_S.STARTING, _E.PRICE_OUTSIDE_RANGE): _S.AWAITING_RANGE,
     # --- RUNNING ---
     (_S.RUNNING, _E.PAUSE): _S.PAUSED,
     (_S.RUNNING, _E.STOP): _S.STOPPING,
@@ -169,6 +180,19 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.AWAITING_RECOVERY, _E.FAULT): _S.ERROR,
     # A restart is not a person's confirmation and closes the order session (D9, O1 a).
     (_S.AWAITING_RECOVERY, _E.APP_RESTART): _S.HALTED,
+    # --- AWAITING_RANGE --- (`EPIC-044`, ADR 044 §2.1: started away from the range, nothing
+    # placed. No pause, resume or edit cell: it holds nothing to pause, and it is not at rest.
+    # `switch_off` halts it, as it halts AWAITING_RECOVERY: a wait must not outlive an
+    # Emergency Stop and then open the whole capital on the next in-range price.)
+    (_S.AWAITING_RANGE, _E.RANGE_ENTERED): _S.STARTING,
+    (_S.AWAITING_RANGE, _E.ENTRY_REFUSED): _S.HALTED,
+    (_S.AWAITING_RANGE, _E.STOP): _S.STOPPING,
+    (_S.AWAITING_RANGE, _E.HALT): _S.HALTED,
+    (_S.AWAITING_RANGE, _E.SWITCH_OFF): _S.HALTED,
+    (_S.AWAITING_RANGE, _E.FAULT): _S.ERROR,
+    # A restart closes the order session and drops the lease: the reconcile proves the
+    # exchange holds nothing for the bot before it waits again (D9).
+    (_S.AWAITING_RANGE, _E.APP_RESTART): _S.RECOVERING,
     # --- STOPPING --- (waits while the switch is off; never STOPPED early;
     # `stop` again is a retry, `EPIC-035C`)
     (_S.STOPPING, _E.STOP): _S.STOPPING,
@@ -218,7 +242,24 @@ RESUME_PROPOSES_STATES: frozenset[BotLifecycleState] = frozenset(
 )
 
 #: The states `reconcile_ok` may return to; `Bot` records one on entering RECOVERING.
-RECOVERABLE_STATES: frozenset[BotLifecycleState] = frozenset({_S.RUNNING, _S.PAUSED})
+RECOVERABLE_STATES: frozenset[BotLifecycleState] = frozenset(
+    {_S.RUNNING, _S.PAUSED, _S.AWAITING_RANGE}
+)
+
+
+def may_hold_exposure(
+    state: BotLifecycleState, recovering_from: BotLifecycleState | None = None
+) -> bool:
+    """Whether a bot in `state` may hold an order or a position (`EPIC-044`, ADR 044 D2).
+
+    False for AWAITING_RANGE and for RECOVERING whose `recovering_from` is AWAITING_RANGE:
+    the bot is outside its range by definition and has placed nothing. Every watch that exists
+    to protect exposure (the exit watch, the range-exit close, the stale-feed halt, the
+    rate-limit halt, the protective-stop supervision) asks here instead of naming states, so a
+    waiting bot is not closed, stopped or halted by a cause that needs a position."""
+    if state is _S.AWAITING_RANGE:
+        return False
+    return not (state is _S.RECOVERING and recovering_from is _S.AWAITING_RANGE)
 
 
 def next_target(

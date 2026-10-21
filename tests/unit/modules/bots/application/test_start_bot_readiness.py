@@ -185,24 +185,24 @@ _BELOW_THE_PRICE = {
 }
 
 
-def test_a_price_below_the_range_is_refused_and_the_screen_says_the_same() -> None:
-    """`EPIC-035L`, D4 (a): the market is at 121 and the range starts at 130, so
-    Start would market-buy the whole capital. The query the screen reads and the
-    handler at the click give one answer, and no order goes out."""
-    world = readiness_world(config=_BELOW_THE_PRICE)
+def test_a_price_below_the_range_starts_and_the_screen_says_the_same() -> None:
+    """`EPIC-044`, ADR 044 D1: the market is at 121 and the range starts at 130, so the bot
+    starts and waits; it no longer market-buys the ladder's base (`EPIC-035L` D4 (a), superseded).
+    The query the screen reads and the handler at the click give one answer."""
+    # The plan is judged at the bound the bot will enter at (130), where an order must clear the
+    # per-order cap: a capital of 800 does.
+    world = readiness_world(config={**_BELOW_THE_PRICE, "capital_quote": "800"})
     runner = _CountingRunner()
 
     reported = _query(world)
     result = _start(world, runner)
 
-    assert [i.code for i in reported.items] == ["PRICE_BELOW_RANGE"]
-    assert result.refusal is BotRefusal.PARAMETERS_REFUSED
-    assert result.message == reported.message()
-    assert "below the range's lower bound" in result.message
-    assert runner.started == []
+    assert reported.can_start, reported.message()
+    assert result.accepted
+    assert runner.started == [BOT]
 
 
-def test_a_price_above_the_range_warns_and_starts() -> None:
+def test_a_price_above_the_range_starts_and_waits() -> None:
     above = {**CONFIG, "lower": "60", "upper": "100", "stop_loss": "price:50"}
     above["take_profit"] = "price:110"
     world = readiness_world(config=above)

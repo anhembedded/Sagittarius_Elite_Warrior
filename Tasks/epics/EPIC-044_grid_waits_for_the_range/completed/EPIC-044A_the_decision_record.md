@@ -1,6 +1,6 @@
 # EPIC-044A — The decision for "a Grid waits for the range" is written, read by a reviewer and accepted
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-21)
 **Source:** the owner, 2026-10-21, through the coordinating session (quoted once in the epic README: *"trường hợp giá out range, thì bot vẫn start, nhưng chờ giá vào trong range thì bot mới bắt đầu init lệnh"* — if the price is out of the range the bot still starts but only begins laying orders once the price is inside).
 **Risk:** 🟢 — documents only; the decision it records is a real-money behaviour, which is why a reviewer reads it before code.
 **Complexity:** M — the rule touches the lifecycle, the start, the checks, six surfaces and the replay.
@@ -15,8 +15,8 @@ At `849d973` the Grid's answer to "started with the price outside the range" dep
 
 ## 2. Acceptance criteria
 - [x] The ADR states the rule, the facts it rests on (with the probe), the state and its rows, the entry rule, the checks, the surfaces, the replay, the alternatives and the open questions.
-- [ ] A reviewer other than the author has read it and said so on the pull request.
-- [ ] The coordinator has accepted D2–D12 or the owner has vetoed some, and O1–O3 are answered.
+- [x] A reviewer other than the author has read it and said so on the pull request: PASS in round 3 at `f9d6129` ([PR #679](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/679#issuecomment-6311648534)).
+- [x] The coordinator accepted D2–D12 for the owner (D8, `switch_off` halts, the owner may veto) and the owner answered O1–O3 as recommended, 2026-10-21.
 
 ## 3. Design
 See [the ADR](../DECISION_2026-10-21_a_grid_waits_for_the_range.md). The new state follows `AWAITING_RECOVERY` (`EPIC-042`): one table, one state, derived sets.
@@ -36,3 +36,6 @@ Documentation only: `python3 scripts/check_skill_prompt_references.py`, the boar
 
 ## 6. Docs touched
 `Docs/LEARNING/004_…`; the ADR. `SPEC-014`, `Docs/MODULES/bots/state-machines.md` and the vocabulary change with the code in 044B, not here (they would describe code that does not exist).
+
+## Implementation notes (written when done)
+The ADR went three review rounds on PR #679: round 1 found eight Should-fix points that would have produced wrong or unsafe code (the restart path switching the exit watches back on for a bot outside its range; `switch_off` leaving a wait to open the whole capital after an Emergency Stop; an entry that flickered per beat; a Resume laying a ladder off the range; the backtest walk; the incomplete list of state sets), round 2 one (an unbounded range-exit arming rule), round 3 passed. Every one is answered in the ADR. The decision's delivery is `EPIC-044B`–`D`.

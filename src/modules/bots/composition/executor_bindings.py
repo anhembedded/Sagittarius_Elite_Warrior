@@ -115,6 +115,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.futures_wiring impor
     grid_exposures,
     risk_watches,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.lazy_entry_readiness import (
+    LazyEntryReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -247,8 +250,7 @@ def _build_price_watch(container: IContainer) -> BotPriceWatch:
 
 
 def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
-    """The kinds the Bots tab offers (`EPIC-029F`), each with its backtest (`EPIC-040B`). Grid only
-    for now."""
+    """The kinds the Bots tab offers (`EPIC-029F`), each with its backtest (`EPIC-040B`)."""
     grid_backtester = GridKindBacktester(
         RunGridBacktestQueryHandler(container.resolve(IMarketDataSources))
     )
@@ -266,9 +268,8 @@ def grid_executor_deps(
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
     pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
-    """What every Grid executor is built from, as production wires it. A journey that needs its
-    bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
-    the exposure collaborators and the risk watch are the production ones)."""
+    """What every Grid executor is built from, as production wires it. A journey with its own
+    queue and pacer passes them and keeps every other binding (`EPIC-039H`)."""
     ports = container.resolve(IVenueTradingPorts)
     monotonic = container.resolve(IMonotonicClock)
     positions = SharedPositionReads(ports, monotonic)
@@ -292,6 +293,7 @@ def grid_executor_deps(
         ),
         positions=positions,
         marks=SharedMarkReads(ports, monotonic),
+        entry_readiness=LazyEntryReadiness(container),
     )
 
 
@@ -322,8 +324,7 @@ def _build_grid_budgets(container: IContainer) -> IGridBudgets:
 
 
 def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
-    """What the exchange says about a bot's symbol (`BOT-174`): the screen's load
-    and the Start and Resume gates read it through this one reader."""
+    """The one reader of what the exchange says of a bot's symbol (`BOT-174`)."""
     return ExchangeFactsReader(
         container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
     )

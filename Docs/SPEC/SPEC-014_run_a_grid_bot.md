@@ -97,12 +97,15 @@ sound, I start it, and I watch what it does."*
 5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
    Start**: the capital against the balance the account can spend, the minimum notional, trading's
    per-order cap, the open-order limit, the price band, break-even after fees (every grid loses), the
-   key's permission to trade, a stop loss or take profit on the wrong side of the range, **the price below
-   the range** (Start would market-buy the whole ladder's base: `PRICE_BELOW_RANGE`, `EPIC-035L`) and
+   key's permission to trade, a stop loss or take profit on the wrong side of the range and
    levels that round to one price on the venue's tick (`LEVELS_ROUND_TO_ONE_PRICE`, `EPIC-035S`). One
    that is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how
-   far an exit sits, some grids losing on each cycle, **the price above the range** (the bot starts
-   with nothing bought and waits for a fall: `PRICE_ABOVE_RANGE`). The field the number lives in carries the sentence
+   far an exit sits, some grids losing on each cycle. **A price outside the range is neither** (`EPIC-044`,
+   the owner's decision of 2026-10-21): the bot starts, places nothing and holds nothing, and waits
+   without a time limit until the price is inside the range, then lays its ladder exactly as a normal
+   start would, opening buy or short included; for every direction, on Spot and Futures
+   (`PRICE_BELOW_RANGE`, `PRICE_ABOVE_RANGE`: "Starts waiting for the price to enter X-Y (now Z)"). The
+   rest of the plan is judged at the nearest bound, where the bot will enter. The field the number lives in carries the sentence
    under it, "Blocks Start: The opening buy and the BUY levels need 995.48 USDT and Spot Testnet has
    800.00 USDT free; lower the capital to at most 803.63" (the balance is judged on the exchange's
    snapshot, step 6), or "Advice: …"; a constraint about the key, which is no
@@ -440,7 +443,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | From a new bot to a running bot through the three steps on the composed app; Save and start with edits; a capital above the account listed before the click | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | The lease's holder is readable without claiming | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | unit (contract suite, real and fake) |
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
-| Start with the price outside the range (below refused, above advised, the bounds themselves neither); levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
+| Start with the price outside the range waits for it, for every direction and both sides, and enters on the first price inside (the bounds included); a restart keeps the wait; Stop, the switch and the exits while waiting; levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_waits_for_the_range.py` · `test_a_waiting_grid_survives_a_restart.py` · `test_a_flat_resume_waits_for_the_range.py` · `test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | A suggested plan passes every blocking check for the current price (range holds the price, stale price exits move and are named, off exits stay off), and one `[grid-suggest]` line records it | `tests/unit/modules/bots/domain/grid/test_grid_suggestion.py` · `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |

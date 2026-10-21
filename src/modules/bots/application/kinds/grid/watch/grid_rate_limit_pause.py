@@ -90,7 +90,7 @@ class GridRateLimitPause:
         `after_task` then records when the pause ends."""
         self._context.gateway.note_rate_limit(limited.retry_after)
         state = self._context.state
-        if state.state not in _HALTED_BY_A_LIMIT:
+        if state.state not in _HALTED_BY_A_LIMIT or not state.may_hold_exposure:
             logger.warning(
                 "Bot %s: %s met a rate limit in %s; left as it is",
                 state.bot_id,

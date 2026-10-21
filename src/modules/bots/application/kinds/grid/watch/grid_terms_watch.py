@@ -36,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
-    PRICE_STALENESS_HALTS,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -83,7 +80,7 @@ class GridTermsWatch:
         """One beat: refresh when the interval has passed and the bot holds orders."""
         state = self._context.state
         now = self._context.monotonic.seconds()
-        if state.state not in PRICE_STALENESS_HALTS:
+        if not state.exposure_watched:
             self._next_at = now + TERMS_REFRESH_EVERY_SECONDS
             return
         if now < self._next_at:

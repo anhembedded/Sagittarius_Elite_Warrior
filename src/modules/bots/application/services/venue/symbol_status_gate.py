@@ -28,6 +28,7 @@ interval (`GridTermsWatch`), which keeps the filters it holds current.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
@@ -49,15 +50,27 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavai
 logger = logging.getLogger("App.Bots.GridExecutor")
 
 
+@dataclass(frozen=True, slots=True)
+class SymbolStatus:
+    """What the exchange says of the symbol now, said by nobody (`SymbolStatusGate.read`)."""
+
+    trades: bool
+    #: When it does not trade: why, in the user's words; `""` when it does.
+    detail: str = ""
+    #: The exchange no longer lists the symbol (a delisting, not a pause).
+    delisted: bool = False
+
+
 class SymbolStatusGate:
     """Answers whether the exchange accepts new orders on the bot's symbol."""
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
 
-    def admits(self) -> bool:
-        """Whether orders may be placed now; when not, the bot says why."""
-        state = self._context.state
+    def read(self) -> SymbolStatus:
+        """The symbol's status from the exchange, without halting, pausing or saying anything
+        about a bot: a Grid waiting for its range asks this every in-range beat (`EPIC-044`)."""
+        symbol = self._context.state.bot.definition.symbol
         try:
             self._context.terms_source.refresh()
         except SymbolCatalogUnreachableError:
@@ -66,21 +79,28 @@ class SymbolStatusGate:
             logger.warning(
                 "Bot %s: the symbol's status could not be read from the exchange; "
                 "going on with the last terms [symbol-status]",
-                state.bot_id,
+                self._context.state.bot_id,
             )
         except SymbolRulesUnavailableError:
-            self._delisted(
-                f"the exchange no longer lists {state.bot.definition.symbol}"
+            return SymbolStatus(
+                False, f"the exchange no longer lists {symbol}", delisted=True
             )
-            return False
         terms = self._context.terms
         if terms.trades:
-            return True
-        self._not_trading(
-            f"{state.bot.definition.symbol} is {terms.symbol_status} on the exchange; "
-            "resume once it is TRADING"
+            return SymbolStatus(True)
+        return SymbolStatus(
+            False,
+            f"{symbol} is {terms.symbol_status} on the exchange; resume once it is TRADING",
         )
-        return False
+
+    def admits(self) -> bool:
+        """Whether orders may be placed now; when not, the bot says why."""
+        status = self.read()
+        if status.delisted:
+            self._delisted(status.detail)
+        elif not status.trades:
+            self._not_trading(status.detail)
+        return status.trades
 
     def _not_trading(self, detail: str) -> None:
         state = self._context.state
