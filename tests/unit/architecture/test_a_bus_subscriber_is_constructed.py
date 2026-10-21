@@ -179,7 +179,8 @@ def _orphans(
 
 
 def test_every_bus_subscriber_is_reachable() -> None:
-    """The check `BUG-126` needed. One second, against the whole tree."""
+    """The check `BUG-126` needed, against the whole tree (about three seconds: each module is
+    read once, `BUG-244`)."""
     trees = _trees(*_REFERENCE_ROOTS)
     orphans = _orphans(trees, _REPO_ROOT / _DEFINITION_ROOT)
 
@@ -284,3 +285,28 @@ def test_each_module_is_read_once_however_many_subscribers_there_are(
         f"{len(reads)} module reads for {len(trees)} modules and 3 subscribers: "
         "the scan reads every module again for each subscriber"
     )
+
+
+def test_a_subscriber_named_outside_its_own_body_in_its_own_module_is_constructed() -> (
+    None
+):
+    """The defining module is read again without the class's own body (`BUG-244` kept that rule
+    when each module began to be read once): the class naming itself does not count, a line of
+    its module that builds it does."""
+    root = Path("/synthetic/src")
+    body_only = ast.parse(
+        "class Listener:\n"
+        "    def __init__(self, bus):\n"
+        "        bus.on(SomeEvent, self._handle)\n"
+        "    def again(self):\n"
+        "        return Listener(None)\n"
+    )
+    built_in_its_module = ast.parse(
+        "class Listener:\n"
+        "    def __init__(self, bus):\n"
+        "        bus.on(SomeEvent, self._handle)\n"
+        "listener = Listener(bus)\n"
+    )
+
+    assert [n for n, _ in _orphans({root / "a.py": body_only}, root)] == ["Listener"]
+    assert _orphans({root / "a.py": built_in_its_module}, root) == []
