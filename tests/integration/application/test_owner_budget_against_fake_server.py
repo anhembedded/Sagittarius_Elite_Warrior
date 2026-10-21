@@ -1,12 +1,11 @@
 """`EPIC-029A` — an owner budget end to end against the fake exchange.
 
-@details Every trading piece is real: the Spot adapters over `python-binance`
-to the fake server, `ExecuteOrderCommandHandler`, the registration handler
-with the real `SpotHistoryReader`, Emergency Stop, and the venue's emission
-path (`SpotUserDataStream` → `VenueEventEmitter`). The fake has no websocket,
-so each test drains its executionReports and hands them to the stream, the
-way the stream's own tests do. The caps allow a zero spacing so the ladder
-needs no wait (`testing-rule.md` §2); the spacing check has its own unit tests.
+@details Every trading piece is real: the Spot adapters over `python-binance` to the fake server,
+`ExecuteOrderCommandHandler`, the registration handler with the real `SpotHistoryReader`,
+Emergency Stop, and the venue's emission path (`SpotUserDataStream` → `VenueEventEmitter`). The
+fake has no websocket, so each test drains its executionReports and hands them to the stream, the
+way the stream's own tests do. The caps allow a zero spacing so the ladder needs no wait
+(`testing-rule.md` §2); the spacing check has its own unit tests.
 """
 
 from __future__ import annotations
@@ -140,6 +139,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -194,7 +194,7 @@ class _Venue:
             scopes,
             PreviewOrderQueryHandler(FakeVenueContexts(self.context)),
             TradingLimitPolicy(DEFAULT_TRADING_LIMITS),
-            SessionReadiness(scopes, RecordingPublisher()),
+            SessionReadiness(scopes, RecordingPublisher(), position_explainer()),
         )
         query = PreviewOrderQuery(
             venue=_SPOT,

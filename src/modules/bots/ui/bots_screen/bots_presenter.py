@@ -166,8 +166,9 @@ class BotsPresenter(CommandPresenter):
         self._clock = BotsClock(
             self, deps.instance, self._queries.bots, self._refresh_detail
         )
-        ask, status = self._dialogs.ask_arm_strategy, self._model.set_status
-        self.strategies = strategies_for(container, view.strategies, ask, status)
+        self.strategies = strategies_for(
+            container, self._dialogs, view.output_log.append, self._model.set_status
+        )
         for event_type, handler in self.strategies.subscriptions:
             self.subscribe(event_type, handler)
         self._connect()

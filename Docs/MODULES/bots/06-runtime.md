@@ -71,9 +71,22 @@ the measurements are in the task file's §5a.)
   read) calls `BotAccountReads.position` and reads the account itself. A failed read is raised and not
   kept. Measured on the fake exchange (`test_many_bots_on_one_venue_cost_on_the_fake_exchange.py`): an
   idle minute reads the positions 60 weight whether there are 1, 5 or 20 bots (it was 120, 600, 2,405),
-  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). What is
-  still per bot is symbol-scoped: the mark (two `premiumIndex` reads a beat), the open orders and the
-  open algo orders. A stop that left the open list is judged on the account's own read (`ProtectiveStopService._explain_absence`), never on the beat's, so a stop that ran just after a beat's read is told as triggered.
+  and the idle bot costs 115, 67 and 58 weight a minute at 1, 5 and 20 (it was 175 at each). A stop that left the open list is judged on the account's own read (`ProtectiveStopService._explain_absence`), never on the beat's, so a stop that ran just after a beat's read is told as triggered.
+- **The symbol's mark price, read once a beat for the bot's two watches** (`BOT-221`). The exit watch
+  (`GridMarkExit`) and the risk watch (`PositionRiskSnapshots`) of one bot each read the symbol's
+  `premiumIndex` every beat: two requests (weight 1 each). `SharedMarkReads.of(venue, symbol)` hands
+  both the same `BoundedAgeReading` (`bots/application/services/risk/`, the mechanism `VenuePositionReads`
+  also stands on), reached through `BotAccountReads.shared_mark` by `WatchedMarkSource`. It is
+  served for at most half a beat, dropped by every order or cancel the bot sends and every fill it
+  hears (`BotAccountReads.account_changed`, the same call that drops the positions), and a failed
+  read is raised and not kept. Two bots never hold one symbol of a venue (`other_active_bot`), so
+  today the sharers are the two watches of one bot, not several bots: an idle bot costs 103, 55 and 46
+  weight at 1, 5 and 20 (it was 115, 67, 58). **Not shared on purpose:** the mark a protective stop is placed on (`ExchangeMarkSource` reads it now: a placement is a confirmation); the open orders and open algo
+  orders (`BotAccountReads.protective_orders`, one read a beat, no second reader on the symbol, so
+  sharing saves nothing and would sit between the bot and the question whether its stop still stands);
+  and every confirmation. **Limit:** what an idle bot still costs is symbol-scoped and linear in the
+  bots; the next lever is `premiumIndex` without a symbol (weight 10 for every symbol, worth it only
+  above about ten bots on a venue, past today's cap).
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and waits for the pause in `AWAITING_RECOVERY`; a neighbour
   that only reads says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every waiting
@@ -244,6 +257,8 @@ the state line shows until the next Resume clears it, so the second press is exp
 not only in the `[recovering-resume]` log line.
 
 The opening is announced as opened *for* the bot that asked (`BOT-183`, ADR 038 O2: a host never resumes a bot by itself). `order_session_refusal` passes the bot id to `ITradingSession.ensure_ready` (`src/modules/trading/contracts/i_trading_session.py` → `ITradingSession.ensure_ready`), which carries it on `TradingSwitchChangedEvent.opened_for` (`src/modules/trading/application/session/session_readiness.py` → `SessionReadiness.ensure_ready`). `BotEventRouter.on_switch` hands it to every bot of the venue, and `GridFacts._apply_switch` reconciles a `RECOVERING` bot only when `opened_for` names that bot or is `None` (no opener known); any other `RECOVERING` bot logs `[recovering-waits]` and stays as it was. A person's action that belongs to no bot, a manual order (`ExecuteOrderCommandHandler`) or arming a strategy (`ArmStrategyCommandHandler`), passes the typed `OpenedByPerson.PERSON` (`src/modules/trading/contracts/session_opener.py` → `OpenedByPerson`, `SessionOpener`), which wakes no `RECOVERING` bot either (`BOT-197`, the owner's decision of 2026-10-20). The headless `run --resume-recovering` no longer relies on the event: it sends each `RECOVERING` bot its own `ResumeBotCommand` (`.../resume_recovering_for_host/handler.py` → `ResumeRecoveringForHostCommandHandler`), so it resumes them also when an earlier Resume already opened the session, which publishes no event. A `STOPPING` bot and the cancel a cut-short start owes act on any opening, as before: each finishes what its owner already asked for.
+
+**A position a host stop left under the bot's stop** (`BUG-250`). A closed session refuses every position of the account (`src/modules/trading/application/session/session_readiness.py` → `SessionReadiness`), and the default host stop leaves a Futures bot's position under its protective stop (`EPIC-038M`), so a restart's `RECOVERING` bot could not be resumed or stopped: the Resume's opening refused the bot's own position. A Resume and the operator's Stop therefore pass the venue's **position claims** to `ITradingSession.ensure_ready` (`src/modules/bots/application/kinds/grid/grid_position_claims.py` → `venue_position_claims`: one `OwnerPositionClaim`, `src/modules/trading/contracts/owner_position_claim.py`, per bot of the venue that is mid-run, naming its owner id, tag, symbol and run start, and **no quantity**: the file only says whose tagged orders count and from when, so it can never excuse an untagged position or add to what the history shows). Trading excuses a position only when a claim on its symbol is backed by the exchange's own history of that run's tagged orders, exactly (to the last quantity step: no tolerance, because both sides are exact decimals and a step of slack would admit a stray minimum-size order) (`src/modules/trading/application/session/position_explainer.py` → `PositionExplainer.unexplained`, the derivation a budget registration uses, which also counts fills that landed while the host was down). A symbol no claim names, a quantity the tagged history does not explain, and a history that cannot be read all still refuse, in words that name the symbol and both figures (`src/modules/trading/contracts/session_block_words.py` → `refusal_words`). The opening is venue-wide, so every waiting bot of the venue claims, not only the one asked; excusing a position resumes nobody, which still takes that bot's own Resume (ADR 038 O2). Start, Arm strategy and a manual order pass no claim and refuse every position as before; Spot, whose account holds no position, is never read.
 
 A deliberate action that trades opens the order session in one place (`.../order_session_opening.py` →
 `order_session_refusal`, `order_session_refusal_words`), with exactly three callers: Start, a Resume

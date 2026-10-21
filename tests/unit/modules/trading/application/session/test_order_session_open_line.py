@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -80,7 +81,9 @@ def _readiness(status: ExchangeConnectionStatus) -> SessionReadiness:
         user_data_stream=Mock(),
     )
     return SessionReadiness(
-        single_venue_scopes(context, TradingSessionState()), RecordingPublisher()
+        single_venue_scopes(context, TradingSessionState()),
+        RecordingPublisher(),
+        position_explainer(),
     )
 
 

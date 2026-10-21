@@ -17,6 +17,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_resul
     SessionBlockReason,
     SessionReadyResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.unexplained_position import (
+    PositionUnexplainedWhy,
+    UnexplainedPosition,
+)
 
 SESSION_BLOCK_WORDS: Mapping[SessionBlockReason, str] = {
     SessionBlockReason.TRADING_VENUE_DISABLED: "This venue cannot place orders.",
@@ -38,13 +42,47 @@ SESSION_BLOCK_WORDS: Mapping[SessionBlockReason, str] = {
     ),
 }
 
+#: `BUG-250` — what is said of one position an opening would not excuse. A complete table, one
+#: sentence a reason (`test_session_block_words`).
+UNEXPLAINED_POSITION_WORDS: Mapping[PositionUnexplainedWhy, str] = {
+    PositionUnexplainedWhy.NO_CLAIM_OFFERED: (
+        "{symbol} holds {exchange}; only a bot's own Resume or Stop can open the session over a "
+        "position, and this action offers none"
+    ),
+    PositionUnexplainedWhy.NO_CLAIM: "{symbol} holds {exchange} and no bot of this venue claims it",
+    PositionUnexplainedWhy.DIFFERS_FROM_HISTORY: (
+        "{symbol} holds {exchange} but the claiming bot's own orders account for {derived}"
+    ),
+    PositionUnexplainedWhy.HISTORY_UNVERIFIABLE: (
+        "{symbol} holds {exchange} and the order history that would explain it could not be read"
+    ),
+}
+
+
+def unexplained_position_words(position: UnexplainedPosition) -> str:
+    """One position the opening would not excuse, with its figures."""
+    return UNEXPLAINED_POSITION_WORDS[position.why].format(
+        symbol=position.symbol,
+        exchange=f"{position.exchange_quantity:f}",
+        derived="nothing"
+        if position.derived_quantity is None
+        else f"{position.derived_quantity:f}",
+    )
+
 
 def refusal_words(result: SessionReadyResult) -> str:
-    """The sentence for a refused `ensure_ready()`.
+    """The sentence for a refused `ensure_ready()`; for positions the opening would not excuse,
+    followed by each one's symbol and figures (`BUG-250`).
 
     @raise ValueError `result` was not a refusal: asking for the words of a
     success is a caller's mistake, never an empty string to show.
     """
     if result.block_reason is None:
         raise ValueError("the session opened; there is no refusal to word")
-    return SESSION_BLOCK_WORDS[result.block_reason]
+    words = SESSION_BLOCK_WORDS[result.block_reason]
+    if not result.unexplained_positions:
+        return words
+    detail = "; ".join(
+        unexplained_position_words(p) for p in result.unexplained_positions
+    )
+    return f"{words} ({detail})"

@@ -1,4 +1,4 @@
-"""`BOT-206` — the Plan dock's figures as a property table: a heading per group, a row per property.
+"""`BOT-206` — the Plan's figures as a property table: a heading per group, a row per property.
 
 A `QTreeView` over a `QStandardItemModel`, configured the one way every table is
 (`configure_item_view`, `ui-presentation-rule.md` §9). Two columns: the property, left, and its

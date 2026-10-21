@@ -49,7 +49,7 @@ around a chart).
 | :--- | :--- | :--- | :--- | :--- |
 | **Market** (Ctrl+1) | watch the live market | SPEC-002, SPEC-003 | chart, one tab per open symbol | right: Watchlist, Indicators (tabbed); bottom: Output (hidden) |
 | **Trade** (Ctrl+2) | trade one venue by hand and see the account | SPEC-004, 005, 006, 007, 012, 013 | chart of the traded symbol | right: Order entry, Account summary; bottom: Positions (Futures) or Assets (Spot), Open orders, Order history, Trade history, Equity (tabbed) |
-| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | two tabs (`EPIC-040E`): Live, the selected bot's chart (its levels, fills and price; `EPIC-029` D16), and Backtest, the sandbox of its parameters (a copy of the bot's saved plan, judged by the symbol's rules and never by the account, `EPIC-040`), under an identity strip that says whether the bot's venue account was read (`EPIC-034D`); the chart and Plan open once it was | left: Bots (the list), Strategies (a row per venue's armed strategy, `EPIC-033K` stage 3); right: Plan (the Venue field, which a draft that never ran may change between the Spot venues, `BOT-171`; one status banner: what blocks Start, how the last run ended or that it is ready, `BOT-209`; the kind's panel: parameters, a one-line hint under a field that has something to say; the kind's checks as a list, the ones that need attention first and the passed ones folded into one count; the bot's readiness steps and figures as one grouped property table, `BOT-206`); bottom: Orders, Ladder (a Grid bot's grids, one row each, from its saved parameters and run, `BOT-193`), Fills, Log (tabbed); the Plan dock shows the real bot on both tabs |
+| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | two tabs (`EPIC-040E`): Live, the selected bot's chart (its levels, fills and price; `EPIC-029` D16), and Backtest, the sandbox of its parameters (a copy of the bot's saved plan, judged by the symbol's rules and never by the account, `EPIC-040`), under an identity strip that says whether the bot's venue account was read (`EPIC-034D`); the chart and Plan open once it was; the Live tab is the Plan on the left and the chart on its right, the Backtest tab the sandbox's setup column on the left and its results on the right, one `PlanColumn` laid out the same way in both (`BOT-218`) | left: Bots (the list); the Live tab's Plan (the Venue field, which a draft that never ran may change between the Spot venues, `BOT-171`; one status banner: what blocks Start, how the last run ended or that it is ready, `BOT-209`; the kind's panel: parameters, a one-line hint under a field that has something to say; the kind's checks as a list, the ones that need attention first and the passed ones folded into one count; the bot's readiness steps and figures as one grouped property table, `BOT-206`); bottom: Orders, Ladder (a Grid bot's grids, one row each, from its saved parameters and run, `BOT-193`), Fills, Log (tabbed); the Backtest tab's column shows the sandbox's copy in the same banner, editor and checks list |
 | **Backtest** (the last mode: Ctrl+6, Ctrl+7 under developer mode) | test a strategy on stored history | SPEC-009 | result chart | left: Run setup; right: Metrics; bottom: Trades, Drawdown, Monthly returns, Monte Carlo (tabbed) |
 | **Data** (Ctrl+4) | keep history complete | SPEC-001, SPEC-008 | coverage table (symbol × timeframe) | bottom: Gaps, Output |
 | **Alerts** (Ctrl+5; the window numbers Ctrl+digit by position, `EPIC-036D2`) | read what the app told the owner, and whether a channel is failing | SPEC-016 | the alert history (time, severity in words, about, alert, delivery per channel) with a severity filter; above it the channel line and, while a channel fails, a notice | none |
@@ -57,10 +57,11 @@ around a chart).
 
 **Bots replaces a Strategies mode** (`EPIC-029`: the user asked for "a **Bots** tab", judged the
 six signal strategies "junk", put signal bots and DCA last, and wants the desks "manual only, with
-a takeover from a bot"). A strategy armed on a venue (SPEC-010) is listed in the Bots mode as
-its own row until `EPIC-029L` makes it a signal-bot kind (the Strategies panel, under Bots:
-Bots → Arm strategy… asks what to arm in a dialog, Disarm strategy disarms); Trade stays manual,
-its chart drawing what the venue has armed. Each bot kind
+a takeover from a bot"). A strategy armed on a venue (SPEC-010) is armed from the Bots mode until `EPIC-029L` makes it a
+signal-bot kind, with no panel of its own (`BOT-219`, the owner's choice A, 2026-10-21: Bots → Arm strategy…
+asks what to arm and on which venue in one dialog, which also lists what is armed; Bots → Disarm strategy…
+asks which armed venue, unless one is armed; each arm and disarm is told in the Bots channel of the
+Output pane); Trade stays manual, its chart drawing what the venue has armed. Each bot kind
 contributes its panel and its toolbar (`kind_panels`, SPEC-014: "each bot type has its own
 toolbar"); the kind's toolbar shows while a bot of that kind is selected and its commands stay in
 the Bots menu, disabled otherwise.
@@ -123,7 +124,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | Refresh &fills (the selected bot's fills, read again; enabled while a bot is selected; `EPIC-033K` stage 4) | — | — | — |
 | | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
 | | Retry ven&ue account (reads the selected bot's venue account again; enabled while it could not be read; `EPIC-034D`), Fi&x next item (does the first fix the Plan's list of what is left before Start offers: reads the account again, brings the field forward, or selects the bot that is still active; enabled while there is one; `EPIC-034H`) | — | — | — |
-| | Ar&m strategy…, D&isarm strategy (the Strategies panel's selected venue; `EPIC-033K` stage 3) | — | — | — |
+| | Ar&m strategy…, D&isarm strategy… (each asks which venue, `BOT-219`; `EPIC-033K` stage 3) | — | — | — |
 | | Export pl&an… (writes the bots as a `sew.bot-plan/1` file for `bot apply` on a server, through the query and the never-overwrite writer `bot export` uses; a dialog asks *Selected bot* or *All bots*, *Keep each bot's wanted state* or *All stopped*, defaulting to *All stopped* when a mainnet bot is in scope, then **Save…** or **Copy JSON**; enabled while a bot exists; on the toolbar beside Stop…, the same one action as the menu item, and common to every bot kind: nothing on its path names a kind; `BOT-176`, `BOT-179`) | — | Bots | — |
 | | Li&ve stream (checkable: Go live / Retry when checked, Cancel / Stop live when unchecked, on the selected bot's chart; `EPIC-034G`) | — | the chart's chip | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
@@ -222,7 +223,7 @@ Which former widgets become what:
 | session card | a status-bar tile (enabled / orders this session) plus the Enable / Disable / Emergency-stop actions on the toolbar; one `DeskSessionControls` behind every screen's actions, each for one venue (`EPIC-028M`) | `trading/ui/` |
 | manual order card | the desks' **order panel** (`trading/ui/desk/order_entry/`), in each desk's rail; Trade → New order… (F9, as in MT5) focuses it (`EPIC-033R`) | `EPIC-028H`/`028I`; the card left in `EPIC-028M` |
 | equity chart | a panel hosting the chart widget | `trading/ui/panels/` |
-| strategy card, last-signal card | a row per venue in the Bots mode's Strategies panel and the Arm strategy dialog; the last signal is shown nowhere (`BOT-158`) | `bots/ui/strategies/` |
+| strategy card, last-signal card | the Bots mode's Arm strategy dialog, which lists what is armed, and a line in the Output pane's Bots channel for each arm and disarm (`BOT-219`); the last signal is shown nowhere (`BOT-158`) | `bots/ui/strategies/` |
 | strategy parameters dialog | a `QDialog` | `strategy/ui/dialogs/` |
 | Dev Board system controls | gone with the Dev Board (`EPIC-033P`): the Market mode's View menu holds Spot or Futures market, Load older candles, Load range… and Back to live | `trading/ui/market/` |
 | indicator checklist | the Market mode's Indicators panel | `trading/ui/market/` (`EPIC-033H`): the mode also runs SPEC-003's check through `trading`'s account port, and `market_data` may not depend on `trading` |

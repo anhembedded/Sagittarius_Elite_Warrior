@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_position_claims import (
+    venue_position_claims,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_gate import (
     BotCommandGate,
 )
@@ -126,7 +129,14 @@ class StopBotForOperatorCommandHandler(
                     f"type --confirm-venue {venue.value}.",
                     command.bot_id,
                 )
-            opened = order_session_refusal(session, command.bot_id)
+            # `BUG-250`: the position a host stop left under the bot's stop is its own.
+            opened = order_session_refusal(
+                session,
+                command.bot_id,
+                venue_position_claims(
+                    venue, (stored.bot for stored in self._store.load_all().bots)
+                ),
+            )
             if opened is not None:
                 return opened
         return self._stop(command.bot_id, exposure)

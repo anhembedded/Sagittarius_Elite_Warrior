@@ -26,8 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
     BacktestWorkbenchPresenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
-    DEFAULT_INTERVAL,
     BacktestWorkbenchView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
+    DEFAULT_INTERVAL,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.sandbox_editing import (
     KindSources,

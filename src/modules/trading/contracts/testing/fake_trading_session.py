@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
     SessionOpener,
 )
@@ -74,6 +77,8 @@ class FakeTradingSession(ITradingSession):
         self.ready_requests = 0
         #: Who each `ensure_ready` call said it was for (`BOT-183`), in order.
         self.opened_for: list[SessionOpener] = []
+        #: The position claims each `ensure_ready` call carried (`BUG-250`), in order.
+        self.claims_given: list[tuple[OwnerPositionClaim, ...]] = []
         self.emergency_stops = 0
         #: `EPIC-025` PR 2.1f — the lease, kept the way the real state keeps
         #: it: **one symbol per owner**, so claiming a second releases the
@@ -155,9 +160,14 @@ class FakeTradingSession(ITradingSession):
         self.snapshot_reads += 1
         return self._snapshot
 
-    def ensure_ready(self, opened_for: SessionOpener = None) -> SessionReadyResult:
+    def ensure_ready(
+        self,
+        opened_for: SessionOpener = None,
+        claims: tuple[OwnerPositionClaim, ...] = (),
+    ) -> SessionReadyResult:
         self.ready_requests += 1
         self.opened_for.append(opened_for)
+        self.claims_given.append(claims)
         if self._ready_error is not None:
             raise self._ready_error
         if self._ready_result is None:

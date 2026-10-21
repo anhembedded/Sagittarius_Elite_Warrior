@@ -1,11 +1,11 @@
 """`EPIC-033K` — the Bots mode, laid out as HLD §11.2.1 lists it.
 
-The centre has two tabs (`EPIC-040E`): Live, the selected bot's chart, and
-Backtest, the sandbox of its parameters (`ui/backtest_workbench/`). Bots (the
-list) is docked on the left, Strategies (a row per venue's armed strategy,
-`EPIC-033K` stage 3) under it, Plan (the bot's figures, the kind's editor and its
-verdicts) on the right, and Orders, Ladder, Fills and Log are tabbed at the
-bottom. Every command is an action of the Bots menu (`bots_commands.py`);
+The centre has two tabs (`EPIC-040E`): Live, the selected bot's Plan (its figures, the kind's
+editor and its checks) beside its chart, and Backtest, the sandbox of its parameters
+(`ui/backtest_workbench/`), laid out the same way: the one `PlanColumn` on the left and what the
+plan does on the right (`BOT-218`). Bots (the list) is docked on the left and Orders, Ladder, Fills
+and Log are tabbed at the bottom; arming a strategy is two commands and the questions they ask,
+with no panel (`BOT-219`). Every command is an action of the Bots menu (`bots_commands.py`);
 nothing here is a push button.
 
 `apply_ui_mode` is the screen's FSM made visible (`bots_ui_fsm_matrix`): the
@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
+    QSplitter,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -60,10 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot_prec
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
-    STRATEGIES_DOCK,
-    StrategiesPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -74,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
+    OutputSourceView,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
     DisplayTimezonePreference,
@@ -82,7 +82,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc import LogListModel
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import (
+    OutputChannel,
+)
 
 from .widget_slot import held_in, replace_in
 
@@ -101,7 +104,6 @@ BOTS_SURFACE = Surface(
 )
 #: The panels HLD §11.2.1 lists for this mode, by their dock titles.
 BOTS_DOCK = "Bots"
-PLAN_DOCK = "Plan"
 ORDERS_DOCK = "Orders"
 #: `BOT-193`: the Grid bot's ladder, beside its orders.
 LADDER_DOCK = "Ladder"
@@ -128,7 +130,7 @@ class TabAvailability:
     reason: str = ""
 
 
-class BotsView(BaseView):
+class BotsView(OutputSourceView):
     """@brief The Bots mode: the bot's chart and backtest amid its list, plan and activity."""
 
     #: Whether the Backtest tab can be used, as the host last said (`EPIC-040E`).
@@ -140,6 +142,10 @@ class BotsView(BaseView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.model = BotsViewModel(self)
+        #: The mode's own channel of the Output pane: what strategies were armed and disarmed
+        #: (`BOT-219`).
+        self.output_log = LogListModel(self)
+        self._output = OutputChannel("bots", "Bots", self.output_log)
         self.bots = BotsTableModel(self)
         # By name, the order a user finds a bot in.
         self._bots_table = SpecTable(
@@ -154,10 +160,9 @@ class BotsView(BaseView):
         self.status.hide()
         self.plan = BotPlanPanel(self.model)
         self.identity = IdentityStrip(self.model)
-        self.strategies = StrategiesPanel()
         self.orders = BotOrdersPanel(self.model)
         self.ladder = BotLadderPanel(self.model)
-        # Asks for its minimum only, like the Strategies panel: the tallest bottom panel sets the
+        # Asks for its minimum only: the tallest bottom panel sets the
         # dock area's height, and the chart keeps the larger share (`BOT-193`).
         self._ladder_slot = MinimumHintSlot(self.ladder)
         self.fills = BotFillsPanel(self.model)
@@ -180,10 +185,19 @@ class BotsView(BaseView):
         self._backtest_slot = QVBoxLayout(self.backtest)
         self._backtest_slot.setContentsMargins(0, 0, 0, 0)
         self.backtest_enabled = True
+        #: The Plan beside the chart, as the sandbox's setup column sits beside its results
+        #: (`BOT-218`): the Plan belongs to the Live tab, so the Backtest tab shows none of it.
+        self.live = QSplitter()
+        self.live.setObjectName("splitBotsLive")
+        self.live.setChildrenCollapsible(False)
+        self.live.addWidget(self.plan)
+        self.live.addWidget(self.chart_area)
+        self.live.setStretchFactor(0, 0)
+        self.live.setStretchFactor(1, 1)
         #: Live and Backtest: one stock tab widget, each tab the full width (`EPIC-040E`).
         self.centre = QTabWidget()
         self.centre.setObjectName("tabBotsCentre")
-        self.centre.addTab(self.chart_area, LIVE_TAB)
+        self.centre.addTab(self.live, LIVE_TAB)
         self.centre.addTab(self.backtest, BACKTEST_TAB)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
@@ -287,7 +301,6 @@ class BotsView(BaseView):
         surface = self.surface
         surface.place_widget(Place.WORKSPACE, self.centre)
         self._place_left(bots)
-        surface.place_widget(Place.RAIL, self.plan, title=PLAN_DOCK)
         for widget, title in (
             (self.orders, ORDERS_DOCK),
             (self._ladder_slot, LADDER_DOCK),
@@ -299,33 +312,14 @@ class BotsView(BaseView):
         surface.dock_of(self.orders).raise_()
 
     def _place_left(self, bots: QWidget) -> None:
-        """Bots above Strategies, both in view, never tabbed.
-
-        The surface tabs a second panel of one side with the first, and
-        tabbed panels on two sides, made before the window first shows,
-        leave a stale tab bar drawn over the panels (Qt 6, `EPIC-033I`): the
-        bottom is this mode's one tabbed side. So Bots steps out of the left
-        side while Strategies is placed, and comes back above it. Both ask
-        for no more than their minimum, so they share the column evenly; the
-        person drags the splitter, and the layout is remembered.
-
-        The left column runs the mode's full height, beside the bottom
-        panels: under it they would add their minimum to the column's, and
-        the mode would no longer fit a 1024×700 window (measured: 550 px
-        against 500 with a Grid's backtest in front).
-        """
+        """Bots on the left, the column running the mode's full height beside the bottom panels:
+        under it they would add their minimum to the column's, and the mode would no longer fit a
+        1024×700 window (measured: 550 px against 500 with a Grid's backtest in front)."""
         surface = self.surface
         surface.setCorner(
             Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea
         )
         surface.place_widget(Place.NAVIGATOR, bots, title=BOTS_DOCK)
-        bots_dock = surface.dock_of(bots)
-        surface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, bots_dock)
-        strategies = MinimumHintSlot(self.strategies)
-        surface.place_widget(Place.NAVIGATOR, strategies, title=STRATEGIES_DOCK)
-        strategies_dock = surface.dock_of(strategies)
-        surface.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, bots_dock)
-        surface.splitDockWidget(bots_dock, strategies_dock, Qt.Orientation.Vertical)
 
     def _connect(self) -> None:
         self.model.bots_changed.connect(self._show_bots)

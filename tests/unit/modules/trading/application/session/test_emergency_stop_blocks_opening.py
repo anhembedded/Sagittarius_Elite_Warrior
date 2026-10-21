@@ -35,6 +35,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -46,7 +47,9 @@ def test_an_opener_arriving_between_step_1_and_step_3_is_refused() -> None:
     state = TradingSessionState()
     state.enable(set())
     readiness = SessionReadiness(
-        single_venue_scopes(venue_context(_FUTURES), state), RecordingPublisher()
+        single_venue_scopes(venue_context(_FUTURES), state),
+        RecordingPublisher(),
+        position_explainer(),
     )
     asked: list[SessionReadyResult] = []
     raw_client = quiet_raw_client()

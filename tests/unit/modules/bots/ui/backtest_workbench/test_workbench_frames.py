@@ -20,9 +20,11 @@ _CONTAINS = {
 _NOTES = {
     "futures_liquidated": ("Stopped by a liquidation", "forfeited"),
 }
-#: The page sits in the Bots centre between its docks, which leave a 1024-wide window less than
-#: 700 px; the page asks for less (`EPIC-040E`).
-_PAGE_WIDTH_ROOM = 640
+#: The page sits in the Bots centre beside the Bots dock, which leaves a 1024-wide window less than
+#: 700 px (the Plan dock took the right side until `BOT-218` made the Plan the Live tab's own pane,
+#: when the room was 640); the page asks for less, and the Bots mode's `fits_the_window` check at
+#: 1024×700 is what holds the whole.
+_PAGE_WIDTH_ROOM = 680
 _WORDS = {
     "idle_no_bot": "Select a bot to backtest its parameters.",
     "idle_no_market_numbers": "The market numbers for this symbol are still being read.",

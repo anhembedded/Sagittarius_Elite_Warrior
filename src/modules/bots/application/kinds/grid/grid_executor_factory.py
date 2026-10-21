@@ -56,6 +56,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     BotIdentity,
     BotOrderGateway,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_shared_reads import (
+    BotSharedReads,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_mark_reads import (
+    SharedMarkReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
     SharedPositionReads,
 )
@@ -167,6 +173,9 @@ class GridExecutorDeps:
     #: The venue's shared reading of its open positions, which the bots of a venue's idle watches
     #: take instead of one read each (`BOT-184`). `None`: every bot reads for itself.
     positions: SharedPositionReads | None = None
+    #: The shared reading of each symbol's mark price, which the exit watch and the risk watch of
+    #: a bot take instead of one read each (`BOT-221`). `None`: each reads for itself.
+    marks: SharedMarkReads | None = None
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -189,9 +198,14 @@ class GridExecutorFactory(IBotExecutorFactory):
             deps.pacers(
                 bot.definition.venue, grid_pacing(grid_budget(params, deps.caps))
             ),
-            deps.positions.of(bot.definition.venue)
-            if deps.positions is not None
-            else None,
+            BotSharedReads(
+                deps.positions.of(bot.definition.venue)
+                if deps.positions is not None
+                else None,
+                deps.marks.of(bot.definition.venue, symbol)
+                if deps.marks is not None
+                else None,
+            ),
         )
         halts = HaltRecoveryDirector(
             recovery_policy_of(GRID_RECOVERY_LAYER, bot.definition.venue)

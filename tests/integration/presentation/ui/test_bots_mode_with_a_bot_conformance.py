@@ -13,13 +13,11 @@ and ratcheted by the suite's own `ratchet_problems`.
 
 **What it measures.** The checks of the item: the menus (access keys, separators, mnemonics), the
 toolbars (actions only, each in a menu, reading as its menu item, no button repeating a command),
-the scroll areas and the size. **Not yet the tables' columns and the combo boxes' text**
-(`_NOT_YET_MEASURED`): with a bot selected the Bots table, the Ladder and the venue combo run past
-their edges at some sizes (`BUG-245`, found by this case's first run), and a column's width depends
-on the machine's font, which a ratchet read on two machines must not. They are not baselined and not
-marked as expected failures: the left-out checks name their open bug, and a test fails the day that
-report is fixed, so the checks come in with the fix. The overlap in the Backtest page's setup column
-(`BUG-246`) is read by no check yet.
+the scroll areas, the tables' columns and the combo boxes' text (`BUG-245`: with a bot selected the
+Bots table, the Ladder and the venue combo ran past their edges; the Ladder is measured with its
+tab in front, a tab behind another is not drawn), and the size. Known failures only shrink, as the
+suite's do. The wrapped text of the Plan column and the Backtest setup column (`BUG-246`) is read
+by `wrapped_text_problems`.
 
 Retire when: the conformance suite's own boot creates a bot.
 """
@@ -34,11 +32,11 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV, repo_root
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
@@ -72,10 +70,14 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
+    wrapped_text_in_every_tab,
+    wrapped_text_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_screenshots import (
     SCREENSHOT_DIR_ENV,
+    apply_scheme,
     is_blank,
+    restore_scheme,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     plain_text,
@@ -83,18 +85,10 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
 )
 
 _WAIT_MS = 15_000
+_MIDDLE_LIGHTNESS = 128
 #: The picker dialog's pin column.
 _PIN_COLUMN = 2
-#: The checks of `MODE_CHECKS` this case leaves out until their bug is fixed, each with that bug.
-_NOT_YET_MEASURED = {
-    "columns_shown_whole": "BUG-245",
-    "combo_text_shown_whole": "BUG-245",
-}
-#: Where `BUG-245`'s report is while it is open (`Tasks/bug_report/incomplete/`).
-_BUG_REPORTS = {
-    "BUG-245": "BUG-245_with_a_bot_selected_the_bots_table_the_ladder_and_the_venue_combo_run_past_their_edges.md"
-}
-#: The checks of `MODE_CHECKS` this case measures (`EPIC-040` F2): menus, toolbars and scroll areas.
+#: The checks of `MODE_CHECKS` this case measures (`EPIC-040` F2, `BUG-245`): menus, toolbars, scroll areas, columns and combos.
 _MEASURED = (
     "access_keys_unique",
     "menu_separators_between_groups",
@@ -104,6 +98,8 @@ _MEASURED = (
     "toolbar_text_matches_menu",
     "no_button_duplicates_a_command",
     "no_nested_scroll",
+    "columns_shown_whole",
+    "combo_text_shown_whole",
 )
 
 
@@ -160,6 +156,20 @@ def _select_a_grid_bot(desk: TradeDesk, boot: Boot) -> BotsPresenter:
     return presenter
 
 
+def _save_dark(window: QMainWindow, path: Path) -> None:
+    """The same tab in the dark scheme, for the owner to judge beside the light one."""
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    apply_scheme(app, "dark")
+    try:
+        _settle()
+        assert window.palette().window().color().lightness() < _MIDDLE_LIGHTNESS
+        assert window.grab().save(str(path)), path
+    finally:
+        restore_scheme(app)
+        _settle()
+
+
 def _tabs(presenter: BotsPresenter) -> dict[str, Callable[[], None]]:
     view = presenter.view
     return {"live": view.show_live, "backtest": view.show_backtest}
@@ -188,10 +198,32 @@ def test_the_bots_mode_conforms_with_a_bot_selected_on_each_tab(
             # Pictured as the person sees the tab, before the checks rearrange the layout.
             path = out_dir / f"{BOTS_ROUTE}~{tab}-with-a-bot@{label}.png"
             assert window.grab().save(str(path)), path
+            _save_dark(window, path.with_name(path.name.replace("@", "~dark@")))
             assert not QImage(str(path)).isNull()
             assert not is_blank(host.centralWidget().grab().toImage()), tab
             checks = {name: MODE_CHECKS[name](window, host) for name in _MEASURED}
             checks["fits_the_window"] = fit_problems(window, host, size)
+            view = presenter.view
+            plan = view.plan if tab == "live" else view.shown_backtest_page()
+            assert plan is not None
+            # The Plan is the Live tab's own: the Backtest tab shows none of it (`BOT-218`).
+            assert view.plan.isVisibleTo(view.centre) == (tab == "live")
+            checks["wrapped_text_shown_whole"] = wrapped_text_problems(window, plan)
+            if tab == "live":
+                # The Ladder is tabbed behind Orders: it is measured with its tab in front, after
+                # the checks of the layout as the person first sees it (raising it relayouts the
+                # bottom panels, and the Plan's labels with them).
+                presenter.view.show_ladder()
+                _settle()
+                checks["columns_shown_whole"] += MODE_CHECKS["columns_shown_whole"](
+                    window, host
+                )
+                # Each tabbed panel read with its tab in front (`BUG-248`).
+                checks["wrapped_text_shown_whole"] += wrapped_text_in_every_tab(
+                    window, host
+                )
+                presenter.view.surface.dock_of(presenter.view.orders).raise_()
+                _settle()
             report[f"{BOTS_ROUTE}~{tab}"] = checks
 
     problems = ratchet_problems(_baseline(), report, size)
@@ -257,17 +289,3 @@ def test_the_chart_menu_and_the_pickers_refusal_are_pictured(
         assert picker.grab().save(str(path)), path
         assert not is_blank(QImage(str(path)))
         picker.close()
-
-
-@pytest.mark.parametrize("check", sorted(_NOT_YET_MEASURED))
-def test_a_check_left_out_waits_for_a_bug_that_is_still_open(check: str) -> None:
-    """The checks of `_NOT_YET_MEASURED` come in with their bug's fix: when the report leaves
-    `incomplete/`, this fails, naming the check to add to `_MEASURED`. Nothing is baselined."""
-    bug = _NOT_YET_MEASURED[check]
-    report = repo_root() / "Tasks" / "bug_report" / "incomplete" / _BUG_REPORTS[bug]
-
-    assert check in MODE_CHECKS, f"{check} is no check of the suite any more"
-    assert report.is_file(), (
-        f"{bug} is not open any more: measure {check} in this case (add it to `_MEASURED`) "
-        "and drop it from `_NOT_YET_MEASURED`"
-    )

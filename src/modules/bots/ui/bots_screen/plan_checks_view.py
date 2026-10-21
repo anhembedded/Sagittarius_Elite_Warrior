@@ -1,10 +1,10 @@
-"""`BOT-209` — the Plan dock's checks: one row each, the ones that need attention first, the rest folded.
+"""`BOT-209` — the Plan's checks: one row each, the ones that need attention first, the rest folded.
 
 A `QTreeView` over a `QStandardItemModel`, configured the one way every table is
 (`configure_item_view`, `ui-presentation-rule.md` §9), under one heading, "Checks", whose value says
 how the plan stands ("1 blocking Start, 2 warnings"). A check is a row: the platform's stop sign or
 warning icon, its title, and its headline; the whole sentence with its numbers is the row's tooltip
-and accessible description, so a long explanation never lengthens the dock. The checks that passed
+and accessible description, so a long explanation never lengthens the Plan. The checks that passed
 are one row, "14 checks passed", that opens to list them; whether it is open survives a re-judging
 (a person opened it to look). Nothing to judge yet (the market is not read) hides the table.
 

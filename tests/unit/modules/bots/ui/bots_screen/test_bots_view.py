@@ -96,18 +96,17 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
     }
 
     assert surface.centralWidget() is view.centre
-    assert view.centre.widget(0) is view.chart_area
+    # `BOT-218`: the Plan is the Live tab's own pane beside the chart, never a dock.
+    assert view.centre.widget(0) is view.live
+    assert [view.live.widget(0), view.live.widget(1)] == [view.plan, view.chart_area]
     assert areas == {
         "Bots": _AREA.LeftDockWidgetArea,
-        # `EPIC-033K` stage 3: each venue's armed strategy, under Bots.
-        "Strategies": _AREA.LeftDockWidgetArea,
-        "Plan": _AREA.RightDockWidgetArea,
         "Orders": _AREA.BottomDockWidgetArea,
         "Ladder": _AREA.BottomDockWidgetArea,
         "Fills": _AREA.BottomDockWidgetArea,
         "Log": _AREA.BottomDockWidgetArea,
     }
-    assert view.surface.dock_of(view.plan).isAncestorOf(view.plan.properties.view)
+    assert view.plan.isAncestorOf(view.plan.properties.view)
     assert surface.isAncestorOf(view.table)
 
 

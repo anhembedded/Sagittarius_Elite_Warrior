@@ -15,13 +15,11 @@ panel is the one thing that scrolls.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
-    QScrollArea,
+    QSizePolicy,
     QStackedWidget,
-    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
@@ -44,8 +42,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_state_looks i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks_view import (
-    PlanChecksView,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_column import (
+    PlanColumn,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_grid import (
     PlanPropertyGrid,
@@ -63,9 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status impor
     StatusInputs,
     plan_status,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status_banner import (
-    PlanStatusBanner,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words import (
     step_rows,
 )
@@ -75,8 +70,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice impo
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state_badge import StateBadge
-
-from .widget_slot import replace_in
 
 EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
 #: The rows that come from the bot's ladder (`bot_ladder_facts.LADDER_ROWS`), not from `BotFacts`.
@@ -99,16 +92,24 @@ class BotPlanPanel(QStackedWidget):
         self.state = StateBadge("lblBotState", wrap=True)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbBotVenue")
+        # The column asks for the room of the longest venue line, so the chosen one is shown whole
+        # (`BUG-245`): a combo's own minimum is a few letters, but a layout keeps a `Minimum`
+        # policy at its size hint.
+        self.venue.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.venue.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed
+        )
+        #: The column the Backtest sandbox is laid out in too (`BOT-218`).
+        self.column = PlanColumn("scrollBotPlan", "bannerBotPlanStatus")
         #: Where the bot stands, in one sentence with the platform's message icon (`BOT-209`).
-        self.banner = PlanStatusBanner()
+        self.banner = self.column.banner
         self._kind_panel: QWidget | None = None
         #: What the Venue field shows now, so a tick that changes nothing does not
         #: close a drop-down the user has open.
         self._venue_shown: tuple[object, ...] = ()
         self.properties = PlanPropertyGrid(PROPERTY_GROUPS)
-        self.checks = PlanChecksView()
+        self.checks = self.column.checks
         self._venue_form = QFormLayout()
-        self._panel_slot = QVBoxLayout()
         self._build()
         self._connect()
         self._show_costs(False)
@@ -120,31 +121,17 @@ class BotPlanPanel(QStackedWidget):
         """The editor of the selected bot's kind: one built for this selection, deleted when the
         next is shown (`BUG-242`)."""
         self._kind_panel = panel
-        if panel is not None:
-            panel.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        replace_in(self._panel_slot, panel)
+        self.column.set_editor(panel)
 
     def _build(self) -> None:
-        empty = empty_page(EMPTY_TEXT, "lblBotsEmpty")
-        plan = QWidget()
-        column = QVBoxLayout(plan)
-        self._column = column
-        column.addWidget(self.title)
-        column.addWidget(self.state)
-        column.addWidget(self.banner)
+        column = self.column
+        column.head.addWidget(self.title)
+        column.head.addWidget(self.state)
         self._venue_form.addRow("Venue", self.venue)
-        column.addLayout(self._venue_form)
-        column.addWidget(self.properties.body)
-        column.addLayout(self._panel_slot)
-        column.addWidget(self.checks.body)
-        self._parameters_first = False
-        column.addStretch(1)
-        scroll = QScrollArea()
-        scroll.setObjectName("scrollBotPlan")
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(plan)
-        self.addWidget(empty)
-        self.addWidget(scroll)
+        column.intro.addLayout(self._venue_form)
+        column.figures.addWidget(self.properties.body)
+        self.addWidget(empty_page(EMPTY_TEXT, "lblBotsEmpty"))
+        self.addWidget(column)
 
     def _connect(self) -> None:
         model = self._model
@@ -162,11 +149,11 @@ class BotPlanPanel(QStackedWidget):
 
     def index_of_parameters(self) -> int:
         """Where the kind's parameters sit in the panel, top to bottom."""
-        return self._column.indexOf(self._panel_slot)
+        return self.column.index_of(self.column.editor)
 
     def index_of_figures(self) -> int:
         """Where the bot's figures sit, top to bottom."""
-        return self._column.indexOf(self.properties.body)
+        return self.column.index_of(self.column.figures)
 
     def _arrange(self) -> None:
         """A bot at rest is being designed: its parameters come right after the
@@ -175,23 +162,9 @@ class BotPlanPanel(QStackedWidget):
         `BOT-209`). A bot with a run is being watched: its figures come first, its
         parameters are read-only below them, and the checks last."""
         bot = self._model.selected
-        parameters_first = bot is not None and bot.state in RUN_STARTING_STATES
-        if parameters_first == self._parameters_first:
-            return
-        self._parameters_first = parameters_first
-        column = self._column
-        column.removeWidget(self.properties.body)
-        column.removeWidget(self.checks.body)
-        column.removeItem(self._panel_slot)
-        at = column.indexOf(self.banner) + 2
-        if parameters_first:
-            column.insertLayout(at, self._panel_slot)
-            column.insertWidget(at + 1, self.checks.body)
-            column.insertWidget(at + 2, self.properties.body)
-        else:
-            column.insertWidget(at, self.properties.body)
-            column.insertLayout(at + 1, self._panel_slot)
-            column.insertWidget(at + 2, self.checks.body)
+        self.column.put_editor_first(
+            bot is not None and bot.state in RUN_STARTING_STATES
+        )
 
     def _show_selection(self) -> None:
         bot = self._model.selected

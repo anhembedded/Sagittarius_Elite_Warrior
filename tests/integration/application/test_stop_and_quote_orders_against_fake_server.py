@@ -96,6 +96,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -150,7 +151,11 @@ def _execute(context: VenueContext, query: PreviewOrderQuery) -> ExecuteOrderRes
         single_venue_scopes(context, state),
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
-        SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
+        SessionReadiness(
+            single_venue_scopes(context, state),
+            RecordingPublisher(),
+            position_explainer(),
+        ),
     )
     return handler.execute(ExecuteOrderCommand(order_request=query, live=True))
 

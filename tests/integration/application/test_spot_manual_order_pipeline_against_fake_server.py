@@ -99,6 +99,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher im
     RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    position_explainer,
     single_venue_scopes,
     venue_context,
 )
@@ -186,7 +187,9 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(_LIMITS),
             SessionReadiness(
-                single_venue_scopes(context, session_state), RecordingPublisher()
+                single_venue_scopes(context, session_state),
+                RecordingPublisher(),
+                position_explainer(),
             ),
         )
         result = handler.execute(
@@ -261,7 +264,9 @@ def test_a_second_manual_buy_on_the_same_symbol_is_not_blocked_by_a_position_lim
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(no_interval),
             SessionReadiness(
-                single_venue_scopes(context, session_state), RecordingPublisher()
+                single_venue_scopes(context, session_state),
+                RecordingPublisher(),
+                position_explainer(),
             ),
         )
         command = ExecuteOrderCommand(

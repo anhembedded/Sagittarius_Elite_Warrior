@@ -1,4 +1,4 @@
-"""`BOT-209` — the Plan dock's status banner: one inline message at the top of the dock.
+"""`BOT-209` — the Plan's status banner: one inline message at the top of the Plan.
 
 The kit's `NoticeBar` (a styled-panel frame, the platform's message icon, a wrapped label; no
 colour of its own), given a `PlanStatus`. It takes no height while it says nothing. It has no
@@ -22,8 +22,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.notice_bar import (
 class PlanStatusBanner(NoticeBar):
     """@brief The one sentence that says where the selected bot stands."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(NoticeKind.INFORMATION, "bannerBotPlanStatus", parent=parent)
+    def __init__(
+        self, object_name: str = "bannerBotPlanStatus", parent: QWidget | None = None
+    ) -> None:
+        super().__init__(NoticeKind.INFORMATION, object_name, parent=parent)
         self.setVisible(False)
 
     def show_status(self, status: PlanStatus) -> None:

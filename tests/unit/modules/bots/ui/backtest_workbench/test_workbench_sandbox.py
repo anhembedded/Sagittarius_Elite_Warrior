@@ -52,7 +52,7 @@ def test_the_page_says_it_is_a_simulation_and_which_bot_it_copies(
 
     view = world.workbench.view
     assert view.banner.text().startswith("Simulation only.")
-    assert "a3f9c1" in view.source.text() and "not the bot's plan" in view.source.text()
+    assert "a3f9c1" in view.source.text and "not the bot's plan" in view.source.text
     assert view.editor is not None
     assert not view.reset_button.isEnabled()
 
@@ -106,7 +106,7 @@ def test_what_a_simulation_cannot_check_is_said_not_judged(
 ) -> None:
     world.workbench.follow(selection())
 
-    text = world.workbench.view.verdicts.text()
+    text = world.workbench.view.unchecked.text()
     assert "Not checked in a simulation" in text
 
 
@@ -135,7 +135,7 @@ def test_replace_my_edits_copies_the_new_bots_plan(
 
     qtbot.mouseClick(view.replace_button, Qt.MouseButton.LeftButton)
 
-    assert "b7e2d4" in view.source.text() and view.changed.text() == SAME
+    assert "b7e2d4" in view.source.text and view.changed.text() == SAME
     assert not view.question.isVisibleTo(view) and view.run_button.isEnabled()
 
 
@@ -150,7 +150,7 @@ def test_keep_my_edits_stays_on_the_old_bot_and_does_not_ask_again(
     qtbot.mouseClick(view.keep_button, Qt.MouseButton.LeftButton)
     world.workbench.follow(selection("b7e2d4"))
 
-    assert "a3f9c1" in view.source.text()
+    assert "a3f9c1" in view.source.text
     assert not view.question.isVisibleTo(view) and view.run_button.isEnabled()
 
 
@@ -185,8 +185,8 @@ def test_a_run_requested_anyway_still_does_not_replay_a_refused_plan(
 def test_the_page_says_whose_fees_a_run_charges(world: WorkbenchWorld) -> None:
     world.workbench.follow(selection())
 
-    assert "your account's fees" in world.workbench.view.source.text()
-    assert "maker 0.10%, taker 0.10%" in world.workbench.view.source.text()
+    assert "your account's fees" in world.workbench.view.source.text
+    assert "maker 0.10%, taker 0.10%" in world.workbench.view.source.text
 
 
 def _other_symbol_selection(bot_id: str) -> WorkbenchSelection:
@@ -214,7 +214,7 @@ def test_keeping_edits_across_another_bot_keeps_the_sandbox_with_its_own_markets
 
     sent = world.dispatcher.queries[-1].request
     assert sent.symbol == "BTCUSDT" and sent.terms == first.market.terms
-    assert "maker 0.10%" in view.source.text()
+    assert "maker 0.10%" in view.source.text
 
 
 def test_a_run_in_flight_when_the_question_opens_finishes_for_the_sandboxs_own_bot(
@@ -250,7 +250,7 @@ def test_replacing_the_edits_takes_the_new_bots_market_numbers(
 
     sent = world.dispatcher.queries[-1].request
     assert sent.symbol == "ETHUSDT" and sent.terms == other.market.terms
-    assert "maker 0.20%" in view.source.text()
+    assert "maker 0.20%" in view.source.text
 
 
 def test_the_same_bot_id_on_another_symbol_is_not_the_sandboxs_source(
@@ -262,7 +262,7 @@ def test_the_same_bot_id_on_another_symbol_is_not_the_sandboxs_source(
 
     world.workbench.follow(_other_symbol_selection("a3f9c1"))
 
-    assert "maker 0.10%" in world.workbench.view.source.text()
+    assert "maker 0.10%" in world.workbench.view.source.text
 
 
 def _kept_across(world: WorkbenchWorld, qtbot: Any, other: WorkbenchSelection) -> None:

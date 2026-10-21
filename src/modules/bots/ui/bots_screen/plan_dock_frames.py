@@ -1,4 +1,4 @@
-"""`BOT-209` — the Plan dock's status banner and checks, one frame per state worth looking at.
+"""`BOT-209` — the Plan's status banner and checks, one frame per state worth looking at.
 
 Offline, like `preview.py`: the screen is filled directly, the verdicts are the real planner's
 (`evaluate_grid` over an ETHUSDT Futures plan) and the readiness item is worded as the Futures rules

@@ -68,7 +68,7 @@ def test_a_resume_from_halted_opens_a_closed_session_and_claims_nothing() -> Non
     preconditions, session, bot = _world()
     assert session.snapshot().enabled is False
 
-    assert preconditions.open_session_for_resume(bot) is None
+    assert preconditions.open_session_for_resume(bot, (bot,)) is None
 
     assert session.snapshot().enabled is True
     assert session.budgets == {}
@@ -88,7 +88,7 @@ def test_a_resume_whose_session_will_not_open_is_refused_in_the_sessions_words()
         )
     )
 
-    refusal = preconditions.open_session_for_resume(bot)
+    refusal = preconditions.open_session_for_resume(bot, (bot,))
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY

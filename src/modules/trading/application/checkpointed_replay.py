@@ -34,8 +34,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     is_terminal,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
-    OwnerBudgetRegistration,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
+    OwnerPositionClaim,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
@@ -89,7 +89,7 @@ class Replayed[S]:
 
 
 def replay_owner_fills[S](
-    registration: OwnerBudgetRegistration,
+    claim: OwnerPositionClaim,
     history: IAccountHistoryReader,
     now: datetime,
     start: ReplayStart[S],
@@ -103,14 +103,14 @@ def replay_owner_fills[S](
         raise InventoryBeyondLookbackError(start.read_from)
     orders = tuple(
         record
-        for record in history.order_history(registration.symbol, start.read_from)
-        if tag_of(str(record.order.client_order_id)) == registration.tag
+        for record in history.order_history(claim.symbol, start.read_from)
+        if tag_of(str(record.order.client_order_id)) == claim.tag
     )
     owned = {record.exchange_order_id for record in orders} | start.open_order_ids
     state = start.state
     last_trade_id = start.last_trade_id
     replayed: set[int] = set()
-    for trade in history.trade_history(registration.symbol, start.read_from):
+    for trade in history.trade_history(claim.symbol, start.read_from):
         if trade.order_id not in owned or (
             last_trade_id is not None and trade.trade_id <= last_trade_id
         ):

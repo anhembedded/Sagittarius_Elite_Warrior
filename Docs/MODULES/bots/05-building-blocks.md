@@ -76,7 +76,7 @@ or `IBotKind` imports a kind (`tests/unit/architecture/test_backtest_outcome_is_
 **The workbench that draws it (`EPIC-040D`).** `bots/ui/backtest_workbench/backtest_workbench.py` →
 `BacktestWorkbench`, built from `WorkbenchPorts`, is one page for every kind: the interval (the charts' own `ChartToolbar`, limited to the intervals a
 backtest replays by its `offered_codes`) and the period, Run, Cancel (Stop while a sync runs), Sync candles and Run without funding, the sandbox's
-editor, the replay chart (`BotChart` with the kind's `IBotKind.overlay` plus the outcome's fills,
+editor (in the same `PlanColumn` as the Live Plan, `BOT-218`), the replay chart (`BotChart` with the kind's `IBotKind.overlay` plus the outcome's fills,
 `outcome_view.py` → `result_overlay`), the equity against buy and hold (`equity_pane.py` →
 `EquityPane`), the figures read-out and the fills table. The replay chart reads in the application's display time zone and offers its drop-down (`BOT-205`; `WorkbenchPorts.display_timezone`), like the Live chart it will sit beside; the equity pane's time axis follows the same setting (`BUG-243`; `equity_pane.py` → `EquityPane.follow_display_timezone`), without a drop-down of its own. It names no kind: it asks the catalog for the
 selected bot's kind and for a new instance of that kind's editor (`BotKindPanel`), and runs the
@@ -97,8 +97,12 @@ account reader (`test_backtest_workbench_reaches_no_order_or_account.py`). The p
 
 **The Bots screen hosts it (`EPIC-040E`).** The centre of the Bots mode is a stock `QTabWidget`
 (`bots/ui/bots_screen/bots_view.py` → `BotsView.centre`): **Live**, the selected bot's chart, and
-**Backtest**, the workbench; the bottom docks are Orders, Ladder, Fills and Log, and the Plan dock
-shows the real bot on both tabs (the sandbox has an editor of its own). The tab's content is
+**Backtest**, the workbench; the bottom docks are Orders, Ladder, Fills and Log. The Plan is the Live tab's own pane,
+a splitter with the chart on its right (`BotsView.live`), and the Backtest tab's setup column is the same class on the left of its
+results: `bots/ui/bots_screen/plan_column.py` → `PlanColumn`, one scroll holding a status banner, what sits under it, the figures, the
+kind's editor and the checks list (`BOT-218`). The Plan fills it with the real bot's name, venue and figures; the workbench fills it
+with the sandbox's source line as the banner, its question about discarding edits and the verdicts as the checks, with an editor of
+its own, so the Backtest tab shows none of the Live Plan. A layout saved while the Plan or the Strategies panel was a dock restores without them. Arming a strategy has no panel (`BOT-219`): `bots/ui/strategies/venue_strategies.py` → `VenueStrategies` holds the two commands, Arm strategy… asking what and on which venue in `arm_strategy_dialog.py` → `ArmStrategyDialog` (which lists what is armed) and Disarm strategy… asking which armed venue in `disarm_choice.py` → `venue_chooser`, and each `ArmedStrategyChangedEvent` is told in the Bots channel of the Output pane (`BotsView.output_log`). The tab's content is
 `bots/ui/bots_screen/backtest_workbenches.py` → `BacktestWorkbenches`: one workbench per venue,
 built when a bot of that venue first needs it and kept (its chart and sync read that venue's market,
 `BUG-172`, and a sandbox with edits survives the selection moving to another venue, so the question
@@ -215,7 +219,7 @@ a `support/ui_kit/state_badge.py` → `StateBadge`, and `connect_view.py` → `C
 icon and tone. The banner's message takes the tone of its severity in `support/ui_kit/notice_bar.py` → `NoticeBar`; each check
 takes the tone of its own in `plan_checks_view.py` → `PlanChecksView`.
 
-**The Plan dock says where the bot stands once, and lists what the kind says as checks (`BOT-209`).** Top to
+**The Plan says where the bot stands once, and lists what the kind says as checks (`BOT-209`).** Top to
 bottom for a bot at rest: the name and the state word, one status banner, the Venue field, the kind's editor, the
 checks list, the property table; a bot with a run has its figures first and the checks last. The banner
 (`plan_status_banner.py` → `PlanStatusBanner`, a `NoticeBar` from `support/ui_kit/notice_bar.py`, no button, since
