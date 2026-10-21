@@ -49,60 +49,7 @@ column. **Writing a test double** — read `CS-001` first.
 | [CS-007](CS-007_the_filter_nobody_read.md) | The filter nobody read | An exchange rule the parser silently skipped, so every check downstream judged an order without it | `test_every_spot_filter_is_read_or_declared_unread` + the `[exchange-filters]` WARNING in `spot_metadata_parser.py` |
 | [CS-008](CS-008_the_clock_the_fake_never_had.md) | The clock the fake never had | A fake exchange whose clock was the machine's, so a window built from the machine's time could never miss the exchange's stamps | `tests/integration/modules/bots/test_a_machine_clock_off_the_exchanges_on_the_fake_exchange.py` + `exchange_clock_skewed_by` in `tests/sanity/fake_exchange/history_log.py` |
 | [CS-009](CS-009_the_pace_the_journeys_never_ran.md) | The pace the journeys never ran | Journeys configured with no spacing, so the bot's own order budget was never met and each refusal was found by real money | `tests/unit/architecture/test_start_journeys_run_at_production_pacing.py` + `VirtualTime.stamp_jitter` |
-Status: Current
-
-# Case studies — why the gate was green while it was broken
-
-A bug report answers *what broke and what fixed it*. A case study answers **why nothing caught
-it**: the nets that were in place, and the reason each looked away.
-
-| Document | Question |
-| :--- | :--- |
-| [`Tasks/bug_report/`](../../Tasks/bug_report/README.md) | what broke, root cause, fix |
-| **`Docs/CASE_STUDIES/`** (this) | which check was silent, and what checks it now |
-| [`.claude/rules/pitfalls/`](../../.claude/rules/pitfalls/tests.md) | the one-line form, loading with the files it concerns |
-
-## Write one only when all three hold
-
-1. The defect reached the user through a **green gate**.
-2. An existing net — type checker, test, guard, review row — covered the area and missed it.
-3. The reason it missed **generalises**: the same blind spot is open elsewhere right now.
-
-Point 3 is the filter. `BUG-122` needs no case study — nothing was watching that line and nothing
-pretended to. `BUG-124` needs one: three nets each had a specific reason to be silent, and every
-reason is still true elsewhere.
-
-## Form
-
-**A short list, not an analysis** — the format is `.claude/templates/case-study.md`. One table — net · why silent · still open? — then bullets, one
-line each. Required sections: `## Why nothing caught it`, `## The fix`, `## Where else this is
-still open`. The guard fails a file over **35 lines**. Explaining at length is what the
-bug report is for.
-
-The check the case study installs ships in the **same commit**. A "What checks it now" that says
-"be careful" has not finished being written.
-
-## Read it when
-
-**Diagnosing a bug** — scan the index; if the symptom rhymes, start from that study's "still open"
-column. **Writing a test double** — read `CS-001` first.
-
-## Index
-
-| Id | Title | Class | Check that exists now |
-| :--- | :--- | :--- | :--- |
-| [CS-001](CS-001_a_double_that_could_not_disagree.md) | A double that could not disagree | A double shaped like the union of two interfaces, over an `Any` | `tests/unit/architecture/test_engine_port_calls_are_real.py` + the annotation in `welcome_presenter.py` |
-| [CS-002](CS-002_the_subscriber_nobody_built.md) | The subscriber nobody built | A class that subscribes at construction, that nothing constructs | `tests/unit/architecture/test_a_bus_subscriber_is_constructed.py` |
-| [CS-003](CS-003_the_port_nobody_bound.md) | The port nobody bound | A port something resolves and nothing binds, behind an `except` that hides it | `tests/unit/architecture/test_every_resolved_type_is_bound.py` |
-| [CS-004](CS-004_the_tests_the_gate_never_ran.md) | The tests the gate never ran | A suite under `src/`, cited as coverage, collected by nobody | `tests/unit/architecture/test_no_test_file_lives_under_src.py` |
-| [CS-005](CS-005_the_check_that_asked_the_wrong_question.md) | The check that asked the wrong question | A guard resolving repository paths against the filesystem, so its answer depended on whose disk ran it | `tests/unit/architecture/test_skill_prompt_references_ask_git.py` + `git ls-files` inside `scripts/check_skill_prompt_references.py` |
-| [CS-006](CS-006_the_comparison_that_compared_itself.md) | The comparison that compared itself | A "clean tree" `git worktree` comparison run with `PYTHONPATH` still pointing at the original checkout, so it silently imported the branch's own code both times | `scripts/verify_against_base.py` + `tests/unit/architecture/test_verify_against_base.py` |
-| [CS-007](CS-007_the_filter_nobody_read.md) | The filter nobody read | An exchange rule the parser silently skipped, so every check downstream judged an order without it | `test_every_spot_filter_is_read_or_declared_unread` + the `[exchange-filters]` WARNING in `spot_metadata_parser.py` |
-| [CS-008](CS-008_the_clock_the_fake_never_had.md) | The clock the fake never had | A fake exchange whose clock was the machine's, so a window built from the machine's time could never miss the exchange's stamps | `tests/integration/modules/bots/test_a_machine_clock_off_the_exchanges_on_the_fake_exchange.py` + `exchange_clock_skewed_by` in `tests/sanity/fake_exchange/history_log.py` |
 
 Ids are sequential, never reused. `tests/unit/architecture/test_case_study_index_is_consistent.py`
-fails on an unlisted file, a missing file, a duplicate id, a dead path citation, a missing section
-or an over-long file.
-, never reused. `tests/unit/architecture/test_case_study_index_is_consistent.py`
 fails on an unlisted file, a missing file, a duplicate id, a dead path citation, a missing section
 or an over-long file.
