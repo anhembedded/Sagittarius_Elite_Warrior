@@ -9,8 +9,9 @@ position, and trading excuses a position only when one of those runs' tagged his
 
 The claim names **whose** history to read, never what it says: it carries the owner id, the tag
 (the bot's id, `grid_registration`), the symbol and the run start, and no quantity. The bot's file
-is never an input to the check (`IBotStore`), so a hand-edited file can name a claim and the
-exchange still decides. Every bot of the venue that has started a run and is not at rest counts
+never supplies a quantity (`IBotStore`): a hand-edited file can name a claim, but only orders
+carrying the bot's tag count, and what the history adds up to must equal the account's position. The
+file does choose the evidence window (`run_started_at`), as a budget registration's does. Every bot of the venue that has started a run and is not at rest counts
 (`RUN_STARTING_STATES` are DRAFT and STOPPED): a RECOVERING, HALTED or PAUSED bot may own a
 position, and the session's opening is venue-wide, so the first Resume must have the positions of
 the venue's other waiting bots explained too. Excusing a position does not resume its bot: that

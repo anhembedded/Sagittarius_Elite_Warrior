@@ -167,8 +167,9 @@ class SessionReadiness:
         )
         # Every position is explained here: none on the account, or each by a claim's own history
         # (`BUG-250`), and those symbols are open, as the stream's reconcile will find them.
+        held_symbols = {position.symbol for position in positions}
         applied = session_state.enable(
-            {position.symbol for position in positions},
+            held_symbols,
             expected_generation=generation_before_reconciliation,
             spot_baseline_holdings=spot_baseline_holdings,
         )
@@ -184,6 +185,13 @@ class SessionReadiness:
                 reconciled_positions=positions,
                 reconciled_open_orders=open_orders,
             )
+
+        # `BUG-250` review Q2: an excused position's owner holds its symbol from the moment the
+        # session opens, not only once its own worker handles the switch-on event, so a manual
+        # order on that symbol is refused in between.
+        for claim in claims:
+            if claim.symbol in held_symbols:
+                session_state.claim_symbol(claim.symbol, claim.owner_id)
 
         scope.ports.user_data_stream.start()
         self._publisher.publish(

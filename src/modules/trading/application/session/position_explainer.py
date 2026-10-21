@@ -8,10 +8,14 @@ Resume (decision O2) is the one way back, so the refusal contradicted the policy
 A position is **explained**, and so excused, only by the exchange's own evidence: the position of
 each claim on its symbol is derived from the venue's history of the claim's tagged orders since its
 run started (`OwnerPositionDeriver`, the derivation a budget registration uses, which also counts
-fills that landed while the host was down), and the account's quantity must equal it within one
-quantity step. The claim carries no figure (`OwnerPositionClaim`): a bot's file that says it holds
-more changes nothing. Everything else is named with its figures:
+fills that landed while the host was down), and the account's quantity must **equal** it. Both are exact
+decimals, so there is no tolerance to absorb: one step of slack would admit a stray minimum-size
+order beside a bot with no fills (decided in the review of the fix). The claim carries no figure
+(`OwnerPositionClaim`): a bot's file never says how much it holds, it names whose tagged orders
+count and from when. Everything else is named with its figures:
 
+  · a position when no claim was offered at all (a Start, an arm, a manual order): said so, because
+    the bot that owns it may be waiting, and "no bot claims it" would be false;
   · a symbol no claim names (a stray, or a position opened by hand);
   · a claimed symbol whose tagged history explains another quantity, more or less;
   · a claimed symbol whose history could not be read, or reaches back further than the venue
@@ -44,9 +48,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
     OwnerPositionClaim,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
-    SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.unexplained_position import (
     PositionUnexplainedWhy,
@@ -85,6 +86,10 @@ class PositionExplainer:
         exchange: Decimal,
         claims: tuple[OwnerPositionClaim, ...],
     ) -> UnexplainedPosition | None:
+        if not claims:
+            return UnexplainedPosition(
+                symbol, exchange, PositionUnexplainedWhy.NO_CLAIM_OFFERED
+            )
         named = tuple(claim for claim in claims if claim.symbol == symbol)
         if not named:
             return UnexplainedPosition(
@@ -92,12 +97,7 @@ class PositionExplainer:
             )
         try:
             derived = self._derived(scope, named)
-            step = _step_of(scope, symbol)
-        except (
-            InventoryBeyondLookbackError,
-            AccountHistoryUnavailableError,
-            SymbolRulesUnavailableError,
-        ) as error:
+        except (InventoryBeyondLookbackError, AccountHistoryUnavailableError) as error:
             logger.info(
                 "Position on %s not excused: its history could not be verified (%s) "
                 "[position-claim]",
@@ -107,7 +107,7 @@ class PositionExplainer:
             return UnexplainedPosition(
                 symbol, exchange, PositionUnexplainedWhy.HISTORY_UNVERIFIABLE
             )
-        if abs(exchange - derived) > step:
+        if exchange != derived:
             logger.info(
                 "Position on %s not excused: the exchange holds %s, the claiming runs' "
                 "tagged orders account for %s [position-claim]",
@@ -150,13 +150,3 @@ def _held_by_symbol(positions: tuple[LivePosition, ...]) -> dict[str, Decimal]:
             held.get(position.symbol, Decimal(0)) + position.position_amt
         )
     return held
-
-
-def _step_of(scope: VenueTradingScope, symbol: str) -> Decimal:
-    """The symbol's quantity step, the tolerance of every position comparison.
-    @throws SymbolRulesUnavailableError The venue does not list the symbol, or its catalog could
-    not be fetched."""
-    metadata = scope.ports.metadata_provider.get_or_fetch(symbol)
-    if metadata is None:
-        raise SymbolRulesUnavailableError(symbol)
-    return metadata.step_size

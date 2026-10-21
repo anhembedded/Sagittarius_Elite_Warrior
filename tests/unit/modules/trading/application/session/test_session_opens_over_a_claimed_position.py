@@ -136,6 +136,9 @@ def test_without_a_claim_every_position_refuses_as_before() -> None:
     assert state.enabled is False
     assert result.account_was_read is True
     assert len(result.reconciled_positions) == 1
+    words = refusal_words(result)
+    assert "BTCUSDT holds 0.010" in words and "offers none" in words
+    assert "claims it" not in words, "the owner of the position may be a waiting bot"
 
 
 def test_a_claim_whose_history_explains_the_position_opens_the_session() -> None:
@@ -146,6 +149,9 @@ def test_a_claim_whose_history_explains_the_position_opens_the_session() -> None
     assert state.known_open_symbols == {"BTCUSDT"}, (
         "the symbol is open, as the stream finds it"
     )
+    assert state.lease_holder("BTCUSDT") == "bot-f0", (
+        "its owner holds it from the opening"
+    )
 
 
 def test_a_position_beyond_the_claims_history_refuses_with_its_figures() -> None:
@@ -153,6 +159,7 @@ def test_a_position_beyond_the_claims_history_refuses_with_its_figures() -> None
 
     assert result.block_reason is SessionBlockReason.UNEXPECTED_POSITIONS
     assert state.enabled is False
+    assert state.lease_holder("BTCUSDT") is None, "a refused opening leases nothing"
     words = refusal_words(result)
     assert words.startswith("The account has unexpected open positions")
     assert "BTCUSDT holds 0.510" in words and "account for 0.010" in words

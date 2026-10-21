@@ -45,6 +45,10 @@ SESSION_BLOCK_WORDS: Mapping[SessionBlockReason, str] = {
 #: `BUG-250` — what is said of one position an opening would not excuse. A complete table, one
 #: sentence a reason (`test_session_block_words`).
 UNEXPLAINED_POSITION_WORDS: Mapping[PositionUnexplainedWhy, str] = {
+    PositionUnexplainedWhy.NO_CLAIM_OFFERED: (
+        "{symbol} holds {exchange}; only a bot's own Resume or Stop can open the session over a "
+        "position, and this action offers none"
+    ),
     PositionUnexplainedWhy.NO_CLAIM: "{symbol} holds {exchange} and no bot of this venue claims it",
     PositionUnexplainedWhy.DIFFERS_FROM_HISTORY: (
         "{symbol} holds {exchange} but the claiming bot's own orders account for {derived}"

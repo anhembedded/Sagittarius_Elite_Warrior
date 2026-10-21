@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.position_explainer import (
     PositionExplainer,
@@ -22,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_una
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LiquidationPrice,
     LivePosition,
@@ -32,12 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position_claim import (
     OwnerPositionClaim,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
-    SymbolOrderMetadata,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
-    SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_history_reader import (
     FakeAccountHistoryReader,
@@ -51,7 +41,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.owner_position_world import (
     NOW,
     RUN,
-    STEP,
     TAG,
     traded,
 )
@@ -79,26 +68,15 @@ def _live(symbol: str, amount: str) -> LivePosition:
     )
 
 
-def _metadata(fails: Exception | None = None) -> Mock:
-    provider = Mock(spec=IMarketMetadataProvider)
-    provider.get_or_fetch.return_value = SymbolOrderMetadata(
-        "BTCUSDT", "TRADING", STEP, Decimal("0.1"), Decimal(5), 3, 1, NOW
-    )
-    provider.get_or_fetch.side_effect = fails
-    return provider
-
-
 def _judged(
     positions: tuple[LivePosition, ...],
     claims: tuple[OwnerPositionClaim, ...],
     *fills: tuple[object, object],
     explainer: PositionExplainer | None = None,
-    metadata: Mock | None = None,
     history: FakeAccountHistoryReader | None = None,
 ):  # type: ignore[no-untyped-def]
     context = venue_context(
         _FUTURES,
-        metadata_provider=metadata or _metadata(),
         history_reader=history  # type: ignore[arg-type]
         or FakeAccountHistoryReader(
             [o for o, _ in fills],  # type: ignore[misc]
@@ -134,18 +112,37 @@ def test_fills_that_landed_while_the_host_was_down_are_part_of_the_history() -> 
     assert found == ()
 
 
-def test_a_position_within_one_step_of_the_history_is_excused_and_one_beyond_it_is_not() -> (
-    None
-):
+def test_the_position_must_equal_the_history_to_the_last_step() -> None:
+    """Review of #680 (S1): both sides are exact decimals, so one step of slack would admit a
+    stray minimum-size order."""
     buy = traded(1, OrderSide.BUY, "0.010", "60000")
 
-    assert _judged((_live("BTCUSDT", "0.011"),), (_CLAIM,), buy) == ()
-    beyond = _judged((_live("BTCUSDT", "0.012"),), (_CLAIM,), buy)
-    assert [p.why for p in beyond] == [PositionUnexplainedWhy.DIFFERS_FROM_HISTORY]
-    assert (beyond[0].exchange_quantity, beyond[0].derived_quantity) == (
-        Decimal("0.012"),
-        Decimal("0.010"),
+    assert _judged((_live("BTCUSDT", "0.010"),), (_CLAIM,), buy) == ()
+    for held in ("0.011", "0.009"):
+        beyond = _judged((_live("BTCUSDT", held),), (_CLAIM,), buy)
+        assert [p.why for p in beyond] == [PositionUnexplainedWhy.DIFFERS_FROM_HISTORY]
+        assert beyond[0].derived_quantity == Decimal("0.010")
+
+
+def test_one_step_beside_a_claim_with_no_fills_is_a_stray_not_the_bots() -> None:
+    found = _judged((_live("BTCUSDT", "0.001"),), (_CLAIM,))
+
+    assert [(p.why, p.derived_quantity) for p in found] == [
+        (PositionUnexplainedWhy.DIFFERS_FROM_HISTORY, Decimal(0))
+    ]
+
+
+def test_several_claims_on_one_symbol_add_up() -> None:
+    """Review of #680 (S4): a HALTED bot with 0.004 and a RECOVERING one with 0.006."""
+    other = OwnerPositionClaim("bot-f1", "f1b2c3", "BTCUSDT", RUN)
+    held = traded(1, OrderSide.BUY, "0.004", "60000")
+    waiting = traded(
+        2, OrderSide.BUY, "0.006", "60000", client_order_id="SEW-f1b2c3-0000000002"
     )
+
+    assert _judged((_live("BTCUSDT", "0.010"),), (_CLAIM, other), held, waiting) == ()
+    short = _judged((_live("BTCUSDT", "0.010"),), (_CLAIM,), held, waiting)
+    assert [p.derived_quantity for p in short] == [Decimal("0.004")]
 
 
 def test_less_than_the_history_explains_is_not_excused_either() -> None:
@@ -186,11 +183,12 @@ def test_a_symbol_no_claim_names_is_a_stray_with_its_figures() -> None:
     ]
 
 
-def test_no_claims_names_every_position() -> None:
-    """A Start, an arm and a manual order pass no claim: every position of the account refuses."""
+def test_no_claims_names_every_position_as_not_offered() -> None:
+    """A Start, an arm and a manual order pass no claim: every position of the account refuses, and
+    the words do not say a bot does not claim it (it may be waiting)."""
     found = _judged((_live("BTCUSDT", "0.010"), _live("ETHUSDT", "0.300")), ())
 
-    assert [p.why for p in found] == [PositionUnexplainedWhy.NO_CLAIM] * 2
+    assert [p.why for p in found] == [PositionUnexplainedWhy.NO_CLAIM_OFFERED] * 2
 
 
 def test_the_claim_of_another_run_started_after_the_fills_explains_nothing() -> None:
@@ -234,16 +232,6 @@ def test_a_claim_whose_history_cannot_be_read_does_not_excuse_the_position() -> 
         (_live("BTCUSDT", "0.010"),),
         (_CLAIM,),
         history=_ReadsCounted(AccountHistoryUnavailableError("down")),
-    )
-
-    assert [p.why for p in found] == [PositionUnexplainedWhy.HISTORY_UNVERIFIABLE]
-
-
-def test_a_symbol_whose_rules_cannot_be_read_does_not_excuse_the_position() -> None:
-    found = _judged(
-        (_live("BTCUSDT", "0.010"),),
-        (_CLAIM,),
-        metadata=_metadata(SymbolRulesUnavailableError("BTCUSDT")),
     )
 
     assert [p.why for p in found] == [PositionUnexplainedWhy.HISTORY_UNVERIFIABLE]

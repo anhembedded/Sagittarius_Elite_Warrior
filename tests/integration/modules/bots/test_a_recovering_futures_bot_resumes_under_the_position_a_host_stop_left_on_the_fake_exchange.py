@@ -219,11 +219,12 @@ def test_more_than_the_bots_own_history_explains_on_its_symbol_still_refuses_the
         assert app.bot(btc).state is S.RECOVERING
 
 
-def test_a_start_still_refuses_while_a_position_stands_that_it_does_not_own(
+def test_a_start_beside_waiting_bots_opens_no_session_and_passes_no_claim(
     both_venues: FakeExchange,
 ) -> None:
-    """Only a bot acting on its own run excuses its position: a Start of another bot passes no
-    claim, so the account's positions still refuse it."""
+    """Only a bot acting on its own run excuses its position. A Start passes no claim (pinned by
+    `test_grid_start_preconditions`, its refusal's words by `test_session_opens_over_a_claimed_position`);
+    here the waiting bots refuse it first, and the session stays closed."""
     with _restarted_with_two_bots_left(both_venues) as (app, btc, _eth):
         other = create_bot(app, FUTURES, THIRD)
 
@@ -233,6 +234,9 @@ def test_a_start_still_refuses_while_a_position_stands_that_it_does_not_own(
 
         assert isinstance(refused, BotCommandResult)
         assert not refused.accepted
+        assert refused.refusal is BotRefusal.VENUE_RECOVERING, (
+            "refused before the session"
+        )
         assert app.scopes[FUTURES].session_state.enabled is False
         assert app.bot(btc).state is S.RECOVERING
 

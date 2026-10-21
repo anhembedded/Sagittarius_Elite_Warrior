@@ -156,8 +156,8 @@ class ITradingSession(ABC):
         holds, each named by its id, tag, symbol and run start and carrying no figure. Passed only
         by a bot acting on its own run (a Resume, a Stop): a closed session refuses every position
         of the account, and a position is excused only when a claim on its symbol is backed by the
-        exchange's own history of that run's tagged orders, within one quantity step. A Start, an
-        arm and a manual order pass none, so they refuse every position as before. On Spot, and on
+        exchange's own history of that run's tagged orders adds up to exactly the quantity held. A
+        Start, an arm and a manual order pass none, so they refuse every position as before. On Spot, and on
         an account with no position, the claims are never read.
         """
 

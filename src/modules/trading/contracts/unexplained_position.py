@@ -14,10 +14,13 @@ from enum import Enum
 class PositionUnexplainedWhy(str, Enum):
     """Why a position was not excused."""
 
-    #: No run on this venue claimed the symbol (a stray, or a claim nobody made).
+    #: The opening offered no claim at all (a Start, an arm, a manual order): only a bot's own
+    #: Resume or Stop excuses a position, and the position may well be a waiting bot's.
+    NO_CLAIM_OFFERED = "no_claim_offered"
+    #: Claims were offered and none names this symbol (a stray, or a position opened by hand).
     NO_CLAIM = "no_claim"
     #: A run claimed it, and its tagged history explains a different quantity: more, less, or
-    #: the opposite side, beyond one quantity step.
+    #: the opposite side, by any amount.
     DIFFERS_FROM_HISTORY = "differs_from_history"
     #: A run claimed it, but its history could not be read or reaches back too far: a position
     #: nobody can verify is not excused.
