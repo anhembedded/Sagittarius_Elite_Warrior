@@ -49,4 +49,5 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | The heartbeat's interval on the Options page | **Built** | `EPIC-036D9` |
 | The dead man's switch: a ping to an external monitor while the alert worker is alive | **Built** | `EPIC-036E1` (waits for the owner's kill test on the VPS) |
 | The heartbeat message (every 6 h) and the daily summary (once a day), from the bots' status report | **Built** | `EPIC-036E` (the per-bot health in the heartbeat waits for `EPIC-035W`) |
+| A last-send time and result per channel on the Options page; the dead man's switch URL field there (a masked field over `ISecretStore`, shaped like the Discord group). Dropped from `EPIC-036D` on its close, for the owner's veto | Planned | none yet (`EPIC-036D` record) |
 | Remote control from Discord | Planned | `EPIC-036F` |
