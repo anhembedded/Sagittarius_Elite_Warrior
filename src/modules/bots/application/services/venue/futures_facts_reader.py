@@ -39,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_rej
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_unavailable_error import (
     AccountControlUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
 )
@@ -79,6 +83,8 @@ class _AccountReading:
     margin: Decimal
     mode: PositionMode
     can_trade: bool | None
+    #: `None` when the summary is absent or Spot's (it names no mode).
+    asset_mode: AssetMode | None
 
 
 class FuturesFactsReader(IVenueFacts):
@@ -106,7 +112,9 @@ class FuturesFactsReader(IVenueFacts):
             return self._unavailable(bot, "the account's margin and mode were not read")
         try:
             facts = self._facts(
-                bot, ports, _AccountReading(margin, mode, status.can_trade)
+                bot,
+                ports,
+                _AccountReading(margin, mode, status.can_trade, _asset_mode_of(status)),
             )
         except (AccountControlRejectedError, AccountControlUnavailableError) as error:
             return self._unavailable(
@@ -163,6 +171,7 @@ class FuturesFactsReader(IVenueFacts):
             own_open_orders=own,
             foreign_open_orders=len(on_symbol) - own,
             can_trade=account.can_trade,
+            asset_mode=account.asset_mode,
         )
 
     def _unavailable(self, bot: Bot, reason: str) -> ExchangeUnavailable:
@@ -180,6 +189,11 @@ def _connection_problem(bot: Bot, status: ExchangeConnectionStatus) -> str | Non
     source = AccountSource.for_venue(bot.definition.venue)
     kind = status.failure or ConnectionFailureKind.NETWORK
     return failure_state(ConnectFailure(source, kind, "the account"))
+
+
+def _asset_mode_of(status: ExchangeConnectionStatus) -> AssetMode | None:
+    summary = status.summary
+    return summary.asset_mode if isinstance(summary, FuturesAccountSummary) else None
 
 
 def _available_margin_of(status: ExchangeConnectionStatus) -> Decimal | None:

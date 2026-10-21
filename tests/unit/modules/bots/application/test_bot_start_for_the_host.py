@@ -142,6 +142,7 @@ def test_a_halted_or_awaiting_bot_is_refused_with_the_way_back_in_words(
     assert result.refusal is BotRefusal.INVALID_TRANSITION
     assert state.value in result.message
     assert "run --resume-halted" in result.message and "Bots tab" in result.message
+    assert f"`bot confirm-resume {result.bot_id}`" in result.message
     assert host.runner.started == []
 
 

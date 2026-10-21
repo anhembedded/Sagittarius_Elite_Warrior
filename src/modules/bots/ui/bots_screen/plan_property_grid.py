@@ -197,6 +197,13 @@ class PlanPropertyGrid:
     def shown_title(self, key: str) -> str:
         return displayed_text_at(self.view, self._proxy_index(key, PROPERTY_COLUMN))
 
+    def set_group_title(self, group_key: str, title: str) -> None:
+        """Change a group's heading (the plan's, while its figures are not saved)."""
+        self._groups[group_key].setText(title)
+
+    def shown_group_title(self, group_key: str) -> str:
+        return displayed_text_at(self.view, self._group_index(group_key))
+
     def row_keys(self) -> tuple[str, ...]:
         """Every row key, in the order the table lists them."""
         return tuple(self._rows)

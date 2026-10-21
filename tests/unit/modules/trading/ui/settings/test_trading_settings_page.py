@@ -243,6 +243,8 @@ def test_check_connections_words_each_venues_answer(page) -> None:
     assert "allowlist" in spot.state
     assert page.row(_SPOT_MAINNET).state.startswith("No key")
     assert "Spot Testnet could not be connected" in page.status_text
+    assert "State column" not in page.status_text
+    assert "See its state under the key." in page.status_text
 
 
 def test_the_buttons_are_off_while_an_action_runs_and_a_stale_answer_is_dropped(

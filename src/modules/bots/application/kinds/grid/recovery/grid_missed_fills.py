@@ -152,7 +152,9 @@ class GridMissedFills:
         missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
         if missed <= 0 or record is None:
             return None
-        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
+        trades = self._context.gateway.orders_trades(
+            frozenset({record.exchange_order_id}), since
+        )[record.exchange_order_id]
         return MissedFill(saved, record, missed, trades)
 
     def _apply_missed(

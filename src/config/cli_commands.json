@@ -614,7 +614,7 @@
           },
           "resume": {
             "modules": ["bots", "operations"],
-            "help": "Ask the running host (main.py run) to resume one PAUSED or RECOVERING bot, as the Bots tab's Resume does. A HALTED bot is refused (its resume proposes a ladder a person must read): use run --resume-halted or the Bots tab. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to resume one PAUSED, RECOVERING, HALTED or AWAITING_RECOVERY bot, as the Bots tab's Resume does. A HALTED or AWAITING_RECOVERY bot's resume only proposes a ladder and places nothing: read it in the host's log, then bot confirm-resume lays it (run --resume-halted answers it in advance at start). Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
@@ -629,7 +629,44 @@
                   "spot_mainnet",
                   "futures_mainnet"
                 ],
-                "help": "Type the mainnet venue to resume a RECOVERING bot on it: that resume reopens the venue's order session and uses real money. Not needed for a PAUSED bot or a testnet bot"
+                "help": "Type the mainnet venue to resume a RECOVERING, HALTED or AWAITING_RECOVERY bot on it: that resume reopens the venue's order session and uses real money. Not needed for a PAUSED bot or a testnet bot"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "confirm-resume": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to lay the ladder a HALTED or AWAITING_RECOVERY bot's resume proposed, as the Bots tab's Confirm resume does. The second of two steps: bot resume proposes and places nothing, you read the proposal in the host's log, this lays it. Refused in words when no proposal is held. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to lay the ladder on it: the confirmation places orders with real money. Not needed on a testnet"
               },
               {
                 "name": "--wait",
@@ -651,7 +688,7 @@
           },
           "start": {
             "modules": ["bots", "operations"],
-            "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use run --resume-halted or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use bot resume then bot confirm-resume, run --resume-halted, or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {

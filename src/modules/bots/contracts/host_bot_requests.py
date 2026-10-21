@@ -69,11 +69,24 @@ class PauseBotForHostCommand:
 
 @dataclass(frozen=True, slots=True)
 class ResumeBotForHostCommand:
-    """Resume this bot, which is PAUSED or RECOVERING (`EPIC-038J`).
+    """Resume this bot, which is PAUSED, RECOVERING, HALTED or AWAITING_RECOVERY (`EPIC-038J`).
 
-    A HALTED bot is refused: its resume proposes a ladder that a person reads and confirms
-    (decision D13), and a file cannot. `confirmed_venue` is what the operator typed, judged
-    for a RECOVERING mainnet bot, whose resume reopens the order session (decision O8).
+    A HALTED or AWAITING_RECOVERY bot's resume only proposes a ladder and places nothing
+    (decision D13); `ConfirmBotResumeForHostCommand` is the person's second step (`EPIC-045G`,
+    owner decision O1). `confirmed_venue` is what the operator typed, judged for a mainnet bot
+    whose resume reopens the order session (decision O8).
+    """
+
+    bot_id: str
+    confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConfirmBotResumeForHostCommand:
+    """Lay the ladder this bot's last resume proposed (`EPIC-045G`), as the Bots tab's Confirm resume does.
+
+    `confirmed_venue` is what the operator typed: the confirmation places orders, so a mainnet bot
+    needs its venue typed here as well as at the resume (decision O8).
     """
 
     bot_id: str

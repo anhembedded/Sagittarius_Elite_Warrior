@@ -14,7 +14,7 @@ start treats every position as foreign, which is right because a start owns none
 @par Extension cases
   · Cross margin - a second `MarginType` already reads through `symbol_setting`; a rule is
     added to `FUTURES_RULES`;
-  · Multi-Assets mode - a new field with a default and one rule;
+  · Multi-Assets mode - built (`asset_mode`, `BUG-260`): a field with a default and one rule;
   · a foreign/own split of the position - `039D` adds a field and the rule reads it.
 """
 
@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeChecking,
     ExchangeSnapshot,
     ExchangeUnavailable,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     PositionMode,
@@ -61,6 +64,10 @@ class FuturesFacts:
     foreign_open_orders: int
     #: The account's own flag; `None` when the exchange did not say.
     can_trade: bool | None
+    #: Which margin the account's balance counts (`BUG-260`): Single-Asset mode the contract's own
+    #: asset, Multi-Assets mode every asset in USD (and no isolated margin). `None`: the summary
+    #: did not say, so no rule speaks for it.
+    asset_mode: AssetMode | None = None
 
     def __post_init__(self) -> None:
         if self.available_margin < 0:

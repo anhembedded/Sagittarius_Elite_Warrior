@@ -23,11 +23,24 @@ class OffLadderOrders:
     def __init__(self) -> None:
         self._ids: set[str] = set()
         self._exits: set[str] = set()
+        self._openings: set[str] = set()
 
     def add(self, client_order_id: str | None) -> None:
         """Count `client_order_id`'s fills from now on (`None`: nothing sent)."""
         if client_order_id:
             self._ids.add(client_order_id)
+
+    def add_opening(self, client_order_id: str | None) -> None:
+        """As `add`, for a market order of the start's opening, whose fills the start books itself
+        from the exchange's record once it has counted them (`BUG-258`)."""
+        if client_order_id:
+            self._ids.add(client_order_id)
+            self._openings.add(client_order_id)
+
+    @property
+    def openings(self) -> frozenset[str]:
+        """The opening slices sent so far."""
+        return frozenset(self._openings)
 
     def add_exit(self, client_order_id: str | None) -> None:
         """As `add`, for a market order that closes (an exit slice): its fill may reduce the
