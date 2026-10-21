@@ -205,6 +205,6 @@ def test_a_send_that_raises_still_paces_the_retry_and_stays_open() -> None:
         quantity=Decimal("0.001"),
         price=Decimal(59000),
     )
-    facts = state.owner_books.facts(_TAG, _OWNER, probe, datetime.now(UTC))
+    facts = state.owner_book_reads.facts(_TAG, _OWNER, probe, datetime.now(UTC))
     assert facts is not None
     assert facts.open_order_count == 1

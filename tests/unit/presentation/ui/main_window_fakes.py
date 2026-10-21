@@ -63,6 +63,7 @@ def screen(
     is_default: bool = False,
     location: NavLocation = NavLocation.TOP_SECTION,
     shown: bool = True,
+    access_key: str = "",
 ) -> ScreenDescriptor:
     presenter_type = ShownPresenter if shown else PlainPresenter
     return ScreenDescriptor(
@@ -70,7 +71,11 @@ def screen(
         presenter_class=lambda view, container: presenter_type(route, log),
         view_factory=lambda: QLabel(title),
         nav=NavMetadata(
-            title=title, icon="circle", item_sequence=item_sequence, location=location
+            title=title,
+            icon="circle",
+            item_sequence=item_sequence,
+            location=location,
+            access_key=access_key,
         ),
         is_default=is_default,
     )
@@ -111,3 +116,34 @@ def presenter(window: MainWindow, route: str) -> ShownPresenter:
 
 def view(window: MainWindow, route: str) -> QWidget:
     return window.hosts[route].view
+
+
+def three_screens_declaring_keys(log: DisposeLog) -> ScreenRegistry:
+    """The same three modes, each declaring a letter the window's old rule (the first free
+    letter, in mode order) would not have given it (`BOT-210`)."""
+    registry = ScreenRegistry()
+    registry.register(
+        screen(
+            "settings",
+            "Settings",
+            log,
+            item_sequence=10,
+            location=NavLocation.BOTTOM_ACTION,
+            shown=False,
+            access_key="s",
+        )
+    )
+    registry.register(
+        screen("trading.spot", "Spot", log, item_sequence=17, access_key="p")
+    )
+    registry.register(
+        screen(
+            "trading.futures",
+            "Futures",
+            log,
+            item_sequence=16,
+            is_default=True,
+            access_key="t",
+        )
+    )
+    return registry

@@ -164,7 +164,7 @@ class RegisterOwnerBudgetCommandHandler(
             return OwnerBudgetRegistrationResult(
                 OwnerBudgetRefusal.ABOVE_GLOBAL_CAP, exceeded_cap=cap
             )
-        holder = scope.session_state.owner_books.holder_of(registration.tag)
+        holder = scope.session_state.owner_book_reads.holder_of(registration.tag)
         if holder is not None and holder != registration.owner_id:
             return _refused(OwnerBudgetRefusal.TAG_HELD_BY_ANOTHER_OWNER)
         return None

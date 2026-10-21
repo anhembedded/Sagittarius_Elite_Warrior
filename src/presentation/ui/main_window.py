@@ -66,6 +66,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
     apply_icons,
     exclusive_groups,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.mode_access_keys import mode_labels
 from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
     ModePerspectives,
 )
@@ -100,9 +101,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_source import IStatusSource
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter
-from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
-    assign_access_keys,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_confirmation import (
     MessageBoxConfirmer,
 )
@@ -218,8 +216,8 @@ class MainWindow(OptionsShell):
         self.add_status_widget(label)
 
     def _add_modes(self, screens: Sequence[ScreenDescriptor]) -> None:
-        titles = [screen.nav.title for screen in screens if screen.nav is not None]
-        texts = assign_access_keys(titles, _VIEW_MENU_KEYS)
+        navs = [screen.nav for screen in screens if screen.nav is not None]
+        texts = mode_labels(navs, _VIEW_MENU_KEYS)
         icon_colour = QApplication.palette().color(QPalette.ColorRole.WindowText)
         for screen, text in zip(screens, texts, strict=True):
             view = screen.view_factory()

@@ -162,7 +162,7 @@ def test_the_inventory_is_derived_from_the_venue() -> None:
 
     assert result.registered
     assert result.inventory == OwnerInventory(Decimal("0.001998"), Decimal(100))
-    assert state.owner_books.holder_of("a3f9c1") == "bot-1"
+    assert state.owner_book_reads.holder_of("a3f9c1") == "bot-1"
 
 
 def test_resting_orders_of_the_owner_are_adopted_and_others_ignored() -> None:
@@ -174,9 +174,9 @@ def test_resting_orders_of_the_owner_are_adopted_and_others_ignored() -> None:
 
     _register(handler)
 
-    shares = state.owner_books.shares()
+    shares = state.owner_book_reads.shares()
     assert [share.tag for share in shares] == ["a3f9c1"]
-    facts = state.owner_books.facts("a3f9c1", "bot-1", _resting(9), _NOW)
+    facts = state.owner_book_reads.facts("a3f9c1", "bot-1", _resting(9), _NOW)
     assert facts is not None
     assert (facts.open_order_count, facts.open_sell_quantity) == (2, Decimal("0.002"))
     assert facts.orders_in_window == 0
@@ -219,7 +219,7 @@ def test_a_tag_another_owner_holds_is_refused() -> None:
     result = _register(_handler(state), owner_id="bot-2")
 
     assert result.refusal is OwnerBudgetRefusal.TAG_HELD_BY_ANOTHER_OWNER
-    assert state.owner_books.holder_of("a3f9c1") == "bot-1"
+    assert state.owner_book_reads.holder_of("a3f9c1") == "bot-1"
 
 
 def test_a_run_past_the_history_is_refused() -> None:
@@ -242,7 +242,7 @@ def test_open_orders_that_cannot_be_read_are_refused() -> None:
     handler = _handler(state, factory=_factory(error=ConnectionError("down")))
 
     assert _register(handler).refusal is OwnerBudgetRefusal.INVENTORY_UNAVAILABLE
-    assert state.owner_books.holder_of("a3f9c1") is None
+    assert state.owner_book_reads.holder_of("a3f9c1") is None
 
 
 class _DisablingHistory(FakeAccountHistoryReader):
@@ -263,7 +263,7 @@ def test_a_disable_during_the_reads_wins_and_installs_nothing() -> None:
     result = _register(_handler(state, _DisablingHistory(state)))
 
     assert result.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF
-    assert state.owner_books.holder_of("a3f9c1") is None
+    assert state.owner_book_reads.holder_of("a3f9c1") is None
 
 
 def _filled_sell(quantity: str) -> Order:
@@ -305,7 +305,7 @@ def test_a_fill_between_the_history_read_and_the_install_is_counted() -> None:
 
     assert result.registered
     assert result.inventory.quantity == 0
-    assert state.owner_books.shares()[0].inventory.quantity == 0
+    assert state.owner_book_reads.shares()[0].inventory.quantity == 0
 
 
 def test_a_fill_the_history_already_counted_is_not_counted_twice() -> None:

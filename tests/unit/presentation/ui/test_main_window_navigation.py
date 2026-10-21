@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.main_window_fakes impo
     engine,
     presenter,
     three_screens,
+    three_screens_declaring_keys,
 )
 
 
@@ -39,6 +40,25 @@ def window(qtbot, log: DisposeLog) -> MainWindow:
     built = MainWindow(engine(), three_screens(log), venue_text="SPOT TESTNET")
     qtbot.addWidget(built)
     return built
+
+
+def test_the_window_gives_each_mode_the_access_key_it_declares(
+    qtbot, log: DisposeLog
+) -> None:
+    """`BOT-210`: the window uses what a mode declares, not the first free letter in mode order
+    (which would give `&Futures`, `&Spot`, `S&ettings`); the check is at the window, so a window
+    that went back to the old rule turns it red."""
+    built = MainWindow(engine(), three_screens_declaring_keys(log), venue_text="X")
+    qtbot.addWidget(built)
+
+    texts = [
+        action.text()
+        for action in built.menu("&View").actions()
+        if action.isCheckable()
+        and action.text().replace("&", "") in {"Futures", "Spot", "Settings"}
+    ]
+
+    assert texts == ["Fu&tures", "S&pot", "&Settings"]
 
 
 def test_every_navigable_screen_is_a_mode_in_registry_order(window: MainWindow) -> None:
