@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.remov
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_public_address import (
+    GetPublicAddressQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
     ListVenueKeysQuery,
     ListVenueKeysQueryHandler,
@@ -62,6 +65,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_permissions import (
     KeyPermissions,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.public_address_lookup import (
+    PublicAddressFailure,
+    PublicAddressLookup,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
@@ -203,6 +210,24 @@ class _ConnectionStatuses:
         return self.by_venue.get(query.venue) or status_of(query.venue)
 
 
+PUBLIC_IP = "93.184.216.34"
+
+
+class _PublicAddresses:
+    """`GetPublicAddressQuery`'s answer, as a test sets it, and how often it was asked."""
+
+    def __init__(self) -> None:
+        self.answer = PublicAddressLookup.found(PUBLIC_IP)
+        self.asked = 0
+
+    def fail(self, failure: PublicAddressFailure) -> None:
+        self.answer = PublicAddressLookup.failed(failure)
+
+    def execute(self, query: GetPublicAddressQuery) -> PublicAddressLookup:
+        self.asked += 1
+        return self.answer
+
+
 def status_of(
     venue: TradingVenue, failure: ConnectionFailureKind | None = None
 ) -> ExchangeConnectionStatus:
@@ -229,6 +254,7 @@ class KeyPage:
     secrets_file: Path
     providers: dict[TradingVenue, IExchangeCredentialsProvider]
     statuses: _ConnectionStatuses
+    addresses: _PublicAddresses
     typed: list[tuple[str, str] | None] = field(default_factory=list)
     hints: list[str] = field(default_factory=list)
 
@@ -259,6 +285,9 @@ class KeyPage:
 
     def click_check(self) -> None:
         self.presenter._settings_view_model.checkConnectionsRequested.emit()
+
+    def click_show_public_ip(self) -> None:
+        self.presenter._settings_view_model.showPublicIpRequested.emit()
 
     @property
     def status_text(self) -> str:
@@ -297,12 +326,14 @@ def build_page(tmp_path: Path, request: Any) -> KeyPage:
     )
     probe = ScriptedKeyProbe()
     statuses = _ConnectionStatuses()
+    addresses = _PublicAddresses()
     dispatcher = _Dispatcher(
         {
             EnrolKeyCommand: EnrolKeyCommandHandler(probe, contexts),
             RemoveKeyCommand: RemoveKeyCommandHandler(contexts),
             ListVenueKeysQuery: ListVenueKeysQueryHandler(contexts),
             GetExchangeConnectionStatusQuery: statuses,
+            GetPublicAddressQuery: addresses,
         }
     )
     notifier = RecordingNotifier()
@@ -328,6 +359,7 @@ def build_page(tmp_path: Path, request: Any) -> KeyPage:
         secrets_file=secrets_file,
         providers=providers,
         statuses=statuses,
+        addresses=addresses,
     )
 
     def ask_for_key(hint: str) -> tuple[str, str] | None:
