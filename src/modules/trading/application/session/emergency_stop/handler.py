@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.resolve_unknown_outcome import (
     place_resolving_unknown,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book_reads import (
     OwnerShare,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
@@ -149,7 +149,7 @@ class EmergencyStopCommandHandler(
     ) -> EmergencyStopResult:
         # `EPIC-029` ADR D6 r2 — read before step 1 clears the books: each
         # bot's share of the Spot liquidation goes out under its own tag.
-        owner_shares = scope.session_state.owner_books.shares()
+        owner_shares = scope.session_state.owner_book_reads.shares()
         trading_disabled = self._disable_trading(scope)
 
         trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)

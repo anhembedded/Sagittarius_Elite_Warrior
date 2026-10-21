@@ -43,7 +43,7 @@ def reconcile_position_state(
     """
     owner_left = not has_position and session_state.owner_books.take_departure(symbol)
     disagreed = session_state.reconcile_position(symbol, has_position=has_position)
-    if disagreed and session_state.owner_books.has_owner_on(symbol):
+    if disagreed and session_state.owner_book_reads.has_owner_on(symbol):
         # `BUG-203` - a budgeted owner's order never marks the symbol open (`ExecuteOrderHandler`),
         # so the exchange's first report of the owner's own position is how the session learns
         # it: a fact being learned, not a belief that was wrong.
@@ -80,9 +80,9 @@ def cross_check_owner_positions(
     "fixed" by trusting the bot's record and never written over the book: the
     caller publishes the divergences it gets back for the guard (`EPIC-039F`).
     Like `reconcile_position_state`, it runs on the websocket thread; the
-    comparison itself is `OwnerBooks`' own lock-guarded `cross_check`.
+    comparison itself is `OwnerBookReads`' own lock-guarded `cross_check`.
     """
-    divergences = session_state.owner_books.cross_check(symbol, exchange_quantity)
+    divergences = session_state.owner_book_reads.cross_check(symbol, exchange_quantity)
     for divergence in divergences:
         # `BUG-203` - DEBUG, not WARNING: the report can outrun the fill that explains it, so
         # this is a snapshot nobody has confirmed yet, one line per fill of a burst. The owner's

@@ -71,7 +71,7 @@ def test_a_stream_gap_buffer_replays_uncounted_fills_into_the_position_book() ->
         lambda trade_id: trade_id == 11,
     )
 
-    position = books.position_of(TAG, "bot-f0")
+    position = books.reads.position_of(TAG, "bot-f0")
     assert position is not None
     assert position.quantity == Decimal("0.030")  # 0.010 derived + 0.020 replayed, once
 
@@ -87,7 +87,7 @@ def test_a_fill_of_another_symbol_or_tag_moves_no_position() -> None:
         5,
     )
 
-    position = books.position_of(TAG, "bot-f0")
+    position = books.reads.position_of(TAG, "bot-f0")
     assert position is not None and position.quantity == Decimal(0)
 
 
@@ -105,23 +105,23 @@ def test_a_futures_owner_has_no_share_in_the_spot_liquidation() -> None:
     books.install(TAG, OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP))
     books.install("b00000", OwnerBook(spot, EMPTY_INVENTORY))
 
-    assert [share.tag for share in books.shares()] == ["b00000"]
+    assert [share.tag for share in books.reads.shares()] == ["b00000"]
 
 
 def test_a_position_is_read_only_by_the_owner_that_holds_the_tag() -> None:
     books = OwnerBooks()
     books.install(TAG, OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP))
 
-    assert books.position_of(TAG, "someone-else") is None
-    assert books.position_of("zzzzzz", "bot-f0") is None
+    assert books.reads.position_of(TAG, "someone-else") is None
+    assert books.reads.position_of("zzzzzz", "bot-f0") is None
 
 
 def test_the_cross_check_reaches_every_futures_owner_on_the_symbol_only() -> None:
     books = OwnerBooks()
     books.install(TAG, OwnerPositionBook(REGISTRATION, EMPTY_POSITION, STEP))
 
-    assert books.cross_check("ETHUSDT", Decimal(5)) == ()
-    (found,) = books.cross_check("BTCUSDT", Decimal(5))
+    assert books.reads.cross_check("ETHUSDT", Decimal(5)) == ()
+    (found,) = books.reads.cross_check("BTCUSDT", Decimal(5))
 
     assert found.kind is PositionDivergenceKind.POSITION_MISMATCH
-    assert books.cross_check("BTCUSDT", Decimal(5)) == ()  # reported once
+    assert books.reads.cross_check("BTCUSDT", Decimal(5)) == ()  # reported once

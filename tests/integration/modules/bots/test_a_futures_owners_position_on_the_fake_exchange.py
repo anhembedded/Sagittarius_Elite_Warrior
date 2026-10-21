@@ -117,7 +117,7 @@ def _market_by_hand(app: BootedFutures, side: OrderSide, quantity: str) -> None:
 
 
 def _book_position(app: BootedFutures) -> Decimal:
-    position = app.scope.session_state.owner_books.position_of(_TAG, _OWNER)
+    position = app.scope.session_state.owner_book_reads.position_of(_TAG, _OWNER)
     assert position is not None
     return position.quantity
 
@@ -174,7 +174,7 @@ def test_a_position_older_than_the_run_is_foreign_and_refuses_registration(
             f"{SYMBOL} already has a long position of 0.05 that this bot did not "
             "open; close it or pick another symbol"
         )
-        assert app.scope.session_state.owner_books.holder_of(_TAG) is None
+        assert app.scope.session_state.owner_book_reads.holder_of(_TAG) is None
 
 
 def test_a_mismatch_with_position_risk_is_reported_not_overwritten(
