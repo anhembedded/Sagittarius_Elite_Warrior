@@ -72,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeReadinessReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_mark_reads import (
+    SharedMarkReads,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.shared_position_reads import (
     SharedPositionReads,
 )
@@ -266,17 +269,17 @@ def grid_executor_deps(
     """What every Grid executor is built from, as production wires it. A journey that needs its
     bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
     the exposure collaborators and the risk watch are the production ones)."""
-    positions = SharedPositionReads(
-        container.resolve(IVenueTradingPorts), container.resolve(IMonotonicClock)
-    )
+    ports = container.resolve(IVenueTradingPorts)
+    monotonic = container.resolve(IMonotonicClock)
+    positions = SharedPositionReads(ports, monotonic)
     return GridExecutorDeps(
-        ports=container.resolve(IVenueTradingPorts),
+        ports=ports,
         store=container.resolve(IBotStore),
         clock=container.resolve(IBotClock),
         caps=container.resolve(OwnerBudgetCaps),
         queues=queues,
         pacers=pacers if pacers is not None else VenueOrderPacers().of,
-        monotonic=container.resolve(IMonotonicClock),
+        monotonic=monotonic,
         retries=container.resolve(IBotRetryScheduler),
         prices=container.resolve(IFreshPriceReader),
         events=container.resolve(IEventPublisher),
@@ -285,12 +288,10 @@ def grid_executor_deps(
         user_streams=container.resolve(IUserStreamStatus),
         exposures=_grid_exposures(container),
         risk_watch=risk_watches(
-            container.resolve(IVenueTradingPorts),
-            container.resolve(IBotClock),
-            _FUTURES_THRESHOLDS,
-            positions,
+            ports, container.resolve(IBotClock), _FUTURES_THRESHOLDS, positions
         ),
         positions=positions,
+        marks=SharedMarkReads(ports, monotonic),
     )
 
 

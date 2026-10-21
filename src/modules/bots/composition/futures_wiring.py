@@ -69,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futur
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.mark_source_futures import (
     ExchangeMarkSource,
+    WatchedMarkSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_brackets import (
     SymbolBrackets,
@@ -124,14 +125,14 @@ def futures_exposure(
     def build(context: GridRunContext) -> GridExposure:
         reads = FuturesStartReads(context, ports, brackets, thresholds)
         checks = FuturesStartChecks(context, gate, guard, reads)
-        marks = ExchangeMarkSource(context, ports)
-        protection = ProtectiveStopService(context, marks)
+        # The protective stop is placed on a mark read now, not on the watches' shared one.
+        protection = ProtectiveStopService(context, ExchangeMarkSource(context, ports))
         return GridExposure(
             PositionOpening(context, checks),
             ProtectedCloser(context, PositionExposureCloser(context), protection),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),
-            exit_marks=marks,
+            exit_marks=WatchedMarkSource(context, ports),
             protection=protection,
         )
 
@@ -167,7 +168,7 @@ def risk_watches(
             RiskWatchParts(
                 guard,
                 PositionRiskSnapshots(
-                    context, positions, ExchangeMarkSource(context, ports)
+                    context, positions, WatchedMarkSource(context, ports)
                 ),
                 PositionRechecks(context),
                 clock,
