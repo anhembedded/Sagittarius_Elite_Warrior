@@ -115,7 +115,8 @@ def multi_assets_mode(context: FuturesRuleContext) -> RuleOutcome:
                 MULTI_ASSETS_MODE,
                 f"{facts.venue_title} is in Multi-Assets Mode, which does not allow isolated "
                 "margin, and this app trades isolated only. Turn off Multi-Assets Mode in "
-                "Binance Futures preferences (the app never changes it)",
+                "Binance Futures preferences (the app never changes it; a change shows here within "
+                "five minutes)",
                 BotRefusal.VENUE_NOT_READY,
             ),
         )

@@ -220,7 +220,7 @@ dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not
 `leverage` multiplies it (decision O2); with leverage above 1 it needs a stop loss (O3).
 
 1. **Start** is refused, before any order, for what stands in its way, each in the exchange's words
-   and its own: the account in Hedge Mode, a position the bot did not open, too little margin, a
+   and its own: the account in Hedge Mode or in Multi-Assets Mode (isolated margin is refused there; `BUG-260`), a position the bot did not open, too little margin, a
    leverage the symbol's bracket does not allow, a venue whose leverage or margin type cannot be made
    the bot's (the symbol keeps an order of the user's), a plan liquidated inside its range or with no
    exit on its losing side.

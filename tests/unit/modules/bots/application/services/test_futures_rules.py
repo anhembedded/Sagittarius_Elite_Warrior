@@ -161,7 +161,7 @@ def test_a_snapshot_with_no_facts_is_one_item_not_an_empty_account() -> None:
 
 
 def test_the_rules_are_one_function_each_in_the_table() -> None:
-    assert len(FUTURES_RULES) == len({rule.__name__ for rule in FUTURES_RULES})
+    assert len(FUTURES_RULES) == len({rule.__name__ for rule in FUTURES_RULES}) == 5
 
 
 def test_the_profile_picks_the_rules_and_the_other_rules_never_run() -> None:
@@ -212,7 +212,12 @@ def test_single_asset_mode_and_an_unread_mode_leave_the_plan_alone() -> None:
 
 def test_single_asset_margin_names_the_asset_it_counts() -> None:
     (item,) = judge_futures(
-        FuturesLoaded(_facts(available_margin=Decimal(1_000))), NEEDS, START
+        FuturesLoaded(
+            _facts(available_margin=Decimal(1_000), asset_mode=AssetMode.SINGLE_ASSET)
+        ),
+        NEEDS,
+        START,
     ).items
 
-    assert "USDT" in item.reason
+    assert item.code == MARGIN_SHORT
+    assert "1000.00 USDT" in item.reason
