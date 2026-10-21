@@ -262,3 +262,14 @@ def test_a_start_inside_the_range_is_unchanged() -> None:
     case = started(a_wait("spot", "LONG", INSIDE))
 
     assert case.world.state() is S.RUNNING
+
+
+def test_a_stop_asked_before_the_in_range_price_is_heard_stops_the_entry() -> None:
+    """A Stop racing a queued in-range tick: no transition, no leverage write, no order."""
+    case = started(a_wait("spot", "LONG", BELOW))
+    case.world.executor._context.stop_requested.set()
+
+    case.price_is(INSIDE)
+
+    assert case.world.state() is S.AWAITING_RANGE
+    assert case.world.book.requests == []

@@ -9,9 +9,13 @@ not close, stop or halt it.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_futures import (
+    ProtectiveStopService,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
     PriceTick,
 )
@@ -26,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
     GridRuntime,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
@@ -202,3 +209,60 @@ def test_the_same_drift_still_halts_a_recovering_bot_that_was_running() -> None:
     world.executor.resume()
 
     assert world.runtime().reason is GridReason.SETTINGS_DRIFT
+
+
+def _meets_a_rate_limit(world: GridWorld) -> None:
+    def meets_the_limit() -> None:
+        raise ExchangeRateLimitedError(
+            timedelta(seconds=60), banned=False, raw_message="slow down"
+        )
+
+    world.executor._post("a read", meets_the_limit)
+
+
+def test_a_rate_limit_met_while_recovering_into_the_wait_does_not_halt_the_bot() -> (
+    None
+):
+    """The bot holds nothing, so a pause has nothing to protect it from (ADR 044 D7)."""
+    world = _recovering_into_the_wait()
+
+    _meets_a_rate_limit(world)
+
+    assert world.state() is S.RECOVERING
+
+
+def test_the_same_rate_limit_halts_a_recovering_bot_that_was_running() -> None:
+    """The control: the guard is for the wait only."""
+    world = grid_world(
+        state=S.RECOVERING, recovering_from=S.RUNNING, runtime=GridRuntime(())
+    )
+
+    _meets_a_rate_limit(world)
+
+    assert world.state() is not S.RECOVERING
+
+
+@pytest.mark.parametrize(
+    ("recovering_from", "reads"),
+    [(S.AWAITING_RANGE, 0), (S.RUNNING, 1)],
+    ids=["into-the-wait", "was-running"],
+)
+def test_the_protective_stop_is_supervised_only_for_a_bot_that_may_hold_a_position(
+    recovering_from: S, reads: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world, _gate = a_position_world(
+        state=S.RECOVERING,
+        recovering_from=recovering_from,
+        config={**CONFIG, "direction": "LONG", "leverage": "1"},
+        marks=Marks("95"),
+        last_price=_BELOW,
+    )
+    context = world.executor._context
+    seen: list[int] = []
+    monkeypatch.setattr(
+        context.gateway.account_reads, "watched_position", lambda: seen.append(1)
+    )
+
+    ProtectiveStopService(context, Marks("95")).supervise()
+
+    assert len(seen) == reads

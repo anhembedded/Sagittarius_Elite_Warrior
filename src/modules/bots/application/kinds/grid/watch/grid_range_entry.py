@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_orde
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stop_request import (
+    stop_asked,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_status_gate import (
     SymbolStatusGate,
 )
@@ -68,6 +71,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
     OwnerBudgetRefusal,
+    OwnerBudgetRegistrationResult,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -165,6 +169,8 @@ class GridRangeEntry:
         ladder = plan(params, self._context.terms, fresh, self._context.level_sizing)
         if self._refused_by_sizing(ladder) or not self._ready_to_lay():
             return
+        if stop_asked(self._context):
+            return
         self._enter(fresh, trigger, ladder)
 
     def _ready_to_lay(self) -> bool:
@@ -203,13 +209,31 @@ class GridRangeEntry:
             self._limited(limited)
             return False
         if registration.registered:
-            return True
+            return not self._holds_something(registration)
         text = refusal_text(registration)
         if registration.refusal in _TRANSIENT_REFUSALS:
             self._defer(f"the owner budget was not registered: {text}")
         else:
             self._refuse(f"the owner budget was refused: {text}")
         return False
+
+    def _holds_something(self, registration: OwnerBudgetRegistrationResult) -> bool:
+        """A bot that waits holds nothing (ADR 044 D1). One that does - an order filled while it
+        was resumed into the wait - is halted, not given a second ladder on top of what it holds,
+        and the Resume that follows sizes its ladder to it."""
+        held = registration.position or registration.inventory
+        if held is None or held.quantity == 0:
+            return False
+        detail = (
+            f"the bot holds {held.quantity} {self._context.base_asset} although it waited for "
+            "its range; nothing was laid, resume to plan a ladder over it"
+        )
+        logger.warning(
+            "Bot %s: %s [range-entry-refused]", self._context.state.bot_id, detail
+        )
+        self._forget()
+        halt_with(self._context.state, GridReason.ENTRY_REFUSED, detail)
+        return True
 
     def _refused_by_sizing(self, ladder: GridPlan) -> bool:
         context = self._context

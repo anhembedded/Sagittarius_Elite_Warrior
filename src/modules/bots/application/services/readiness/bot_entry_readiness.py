@@ -24,9 +24,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 
-#: Refusals that say the world could not be read, not that the plan is wrong.
+#: Refusals that are the state of the world, not of the plan, and pass by themselves: the venue or
+#: the exchange could not be read, a bot of the venue is still RECOVERING (a restart resumes them
+#: one after another), or the symbol is held for the moment. Anything else - the balance, a refused
+#: verdict, the budget - is the plan's own, and halts the waiting bot.
 _PASSES_BY_ITSELF = frozenset(
-    {BotRefusal.VENUE_NOT_READY, BotRefusal.EXCHANGE_NOT_READ}
+    {
+        BotRefusal.VENUE_NOT_READY,
+        BotRefusal.EXCHANGE_NOT_READ,
+        BotRefusal.VENUE_RECOVERING,
+        BotRefusal.VENUE_FULL,
+        BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL,
+        BotRefusal.SYMBOL_LEASED,
+    }
 )
 
 

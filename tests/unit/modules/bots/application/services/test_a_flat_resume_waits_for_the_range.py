@@ -113,3 +113,41 @@ def test_the_automatic_recovery_of_a_flat_bot_waits_when_the_price_left_the_rang
 
     assert world.state() is S.AWAITING_RANGE
     assert world.book.open == {}
+
+
+def test_an_order_that_fills_while_the_resume_cancels_the_ladder_is_resumed_as_a_holding_bot() -> (
+    None
+):
+    """A halt leaves the ladder resting; the flat reading precedes the cancels, and an order can
+    fill during them. The bot must then not wait with its protections off (review of #682)."""
+    before = grid_world(config=_WITH_NO_EXITS)
+    before.executor.start()
+    world = grid_world(
+        state=S.HALTED,
+        runtime=before.runtime(),
+        last_price=_BELOW,
+        config=_WITH_NO_EXITS,
+    )
+    world.book.open = dict(before.book.open)
+    world.derive("0")
+    world.book.cancel_probe = lambda: world.derive("5")
+
+    world.executor.resume()
+
+    assert world.state() is not S.AWAITING_RANGE
+    assert world.executor.proposal is not None, "it is resumed as a bot that holds 5"
+
+
+def test_a_waiting_bot_that_holds_something_when_the_price_enters_is_halted_not_given_a_second_ladder() -> (
+    None
+):
+    """Defence in depth for every path into the wait: a waiting bot holds nothing."""
+    world = grid_world(state=S.AWAITING_RANGE, last_price=_BELOW, config=_WITH_NO_EXITS)
+    world.derive("5")
+    quote_at(world, _INSIDE)
+    world.monotonic.advance(10)
+
+    world.executor.facts.on_tick(PriceTick.at(_INSIDE))
+
+    assert world.state() is S.HALTED
+    assert world.book.requests == []

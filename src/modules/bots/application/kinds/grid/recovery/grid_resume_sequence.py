@@ -80,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRegistrationResult,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -138,8 +141,10 @@ class GridResumeSequence:
             and held.quantity == 0
             and self._outside_range(price)
         ):
-            self._wait_for_the_range(price, event)
-            return None
+            again = self._wait_if_still_flat(price, event)
+            if again is None:
+                return None
+            registration, held = again, self._exposure.held(again)
         sizes = self._context.params.direction is TradeDirection.LONG
         if not registration.registered or held is None or not sizes:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
@@ -177,9 +182,16 @@ class GridResumeSequence:
             RangePosition.INSIDE
         )
 
-    def _wait_for_the_range(self, price: Decimal, event: BotLifecycleEvent) -> None:
+    def _wait_if_still_flat(
+        self, price: Decimal, event: BotLifecycleEvent
+    ) -> OwnerBudgetRegistrationResult | None:
         """A bot that holds nothing is resumed into a wait, not a ladder off its range: its tagged
-        orders are cancelled as for any resume, then it starts waiting (ADR 044 D5)."""
+        orders are cancelled as for any resume, the holding is read again (a halt leaves the
+        ladder resting, and an order may fill while it is cancelled), and only a bot that still
+        holds nothing starts waiting (ADR 044 D5).
+
+        @return `None` when the bot waits, or a cancel failed and the bot was failed; else the
+        registration read after the cancels, which shows what a fill left."""
         state = self._context.state
         report = self._housekeeping.cancel_tagged()
         if report.failed is not None:
@@ -189,7 +201,16 @@ class GridResumeSequence:
                 OrderOutcomeKind.KEY_REJECTED,
             ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
-            return
+            return None
+        registration = self._housekeeping.register()
+        held = self._exposure.held(registration)
+        if not registration.registered or held is None or held.quantity != 0:
+            logger.info(
+                "Bot %s: the holding changed or could not be read while the resume cancelled the "
+                "ladder; the bot is resumed as one that holds [range-wait]",
+                state.bot_id,
+            )
+            return registration
         logger.info(
             "Bot %s: the resume finds nothing held and the price %s outside the range; "
             "the bot waits for it [range-wait]",
@@ -198,6 +219,7 @@ class GridResumeSequence:
         )
         state.transition(event)
         state.transition(BotLifecycleEvent.PRICE_OUTSIDE_RANGE)
+        return None
 
     def _proposal_for(
         self, price: Decimal, inventory: OwnerInventory
