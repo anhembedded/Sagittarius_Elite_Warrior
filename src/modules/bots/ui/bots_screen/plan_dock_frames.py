@@ -4,7 +4,7 @@ Offline, like `preview.py`: the screen is filled directly, the verdicts are the 
 (`evaluate_grid` over an ETHUSDT Futures plan) and the readiness item is worded as the Futures rules
 word it, so every sentence on a frame is the one a person would read:
 
-  blocked_by_held_position · thin_step_warning · ready_draft · running_bot
+  blocked_by_held_position · thin_step_warning · ready_draft · running_bot · unsaved_design
 
 Run one with `python -m Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_dock_frames
 <frame> [--png path] [--size WxH]` (offscreen with `--png`, a window otherwise).
@@ -36,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
-    grid_ladder_of,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureLimits,
     VenueProfile,
@@ -66,8 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
     StartConditions,
     availability,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
-    bot_facts,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import (
+    DetailInputs,
+    detail_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
     ReadinessState,
@@ -209,14 +207,20 @@ def _readiness(*run_items: ReadinessItem) -> BotReadiness:
 
 
 def _screen(
-    bot: BotSnapshot, readiness: BotReadiness | None, state: ReadinessState
+    bot: BotSnapshot,
+    readiness: BotReadiness | None,
+    state: ReadinessState,
+    design: Mapping[str, str] | None = None,
 ) -> BotsView:
+    """`design`: the parameters on screen when they are not the saved ones (`BUG-261`); the
+    figures are then the detail's own, as the screen computes them."""
     view = BotsView()
     view.model.set_bots((bot,))
     view.model.set_selected(bot)
-    view.model.set_facts(bot_facts(bot, _NOW))
-    view.model.set_ladder(grid_ladder_of(bot, _NOW))
-    verdicts = _verdicts(bot.config)
+    detail = detail_for(DetailInputs(bot, None, None, _NOW, edited=design))
+    view.model.set_facts(detail.facts)
+    view.model.set_ladder(detail.ladder)
+    verdicts = _verdicts(design or bot.config)
     view.model.set_judgement(plan_checks_of(verdicts))
     view.model.set_availability(
         {
@@ -226,7 +230,7 @@ def _screen(
     )
     panel = GridPanel()
     panel.set_profile(_profile())
-    panel.set_config(bot.config)
+    panel.set_config(design or bot.config)
     panel.show_verdicts(verdicts)
     view.set_kind_panel(panel)
     if readiness is not None:
@@ -277,6 +281,17 @@ def _ready_draft() -> BotsView:
     )
 
 
+def _unsaved_design() -> BotsView:
+    """`BUG-261`: a new Grid designed in the editor and not saved. The saved config holds no figure,
+    yet the Plan group shows the design's capital, step, edges and exits, under "Plan (not saved)"."""
+    return _screen(
+        _bot(BotLifecycleState.DRAFT, {}),
+        _readiness(),
+        ReadinessState.READY,
+        design=_FINE,
+    )
+
+
 def _running_bot() -> BotsView:
     """A running Futures bot: no readiness, no banner; the figures first, the checks last."""
     progress = BotProgress(
@@ -312,6 +327,7 @@ FRAMES: Mapping[str, Callable[[], BotsView]] = {
     "thin_step_warning": _thin_step_warning,
     "ready_draft": _ready_draft,
     "running_bot": _running_bot,
+    "unsaved_design": _unsaved_design,
 }
 
 

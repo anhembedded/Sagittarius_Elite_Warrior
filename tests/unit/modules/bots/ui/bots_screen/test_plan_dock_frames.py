@@ -44,12 +44,13 @@ def _plan_labels(view: BotsView) -> list[str]:
     ]
 
 
-def test_the_four_frames_exist() -> None:
+def test_the_frames_exist() -> None:
     assert set(FRAMES) == {
         "blocked_by_held_position",
         "thin_step_warning",
         "ready_draft",
         "running_bot",
+        "unsaved_design",
     }
 
 
@@ -225,3 +226,15 @@ def _rows_not_cut(view: QTreeView) -> list[str]:
             if text and rect.height() < needed:
                 problems.append(f"{text!r}: {rect.height()} px for {needed} px of text")
     return problems
+
+
+def test_the_unsaved_design_frame_fills_the_plan_figures_under_its_heading(
+    qtbot,
+) -> None:
+    """`BUG-261`: the saved config holds nothing; the design on screen fills the group."""
+    view = _open(qtbot, "unsaved_design")
+    grid = view.plan.properties
+
+    assert grid.shown_group_title("plan") == "Plan (not saved)"
+    assert grid.shown_value("capital") != "—"
+    assert grid.shown_value("lower_edge") != "—"

@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_gri
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     COST_KEYS,
     LIQUIDATION_KEY,
+    PLAN_GROUP,
+    PLAN_TITLE,
+    PLAN_UNSAVED_TITLE,
     PROPERTY_GROUPS,
     PROPERTY_KEYS,
     READINESS_GROUP,
@@ -226,6 +229,9 @@ class BotPlanPanel(QStackedWidget):
         self.properties.set_values(
             {key: getattr(facts, key) if facts else "" for key in _FACT_KEYS},
             facts.tones if facts else {},
+        )
+        self.properties.set_group_title(
+            PLAN_GROUP, PLAN_UNSAVED_TITLE if facts and facts.unsaved else PLAN_TITLE
         )
         self._show_costs(facts is not None and facts.shows_costs)
 
