@@ -5,7 +5,8 @@ build them here from the bot's record (`BotSnapshot`): no exchange call, no host
 Qt, because a headless host installs none. The wording is `grid_ladder_texts.py`.
 
 Every figure says what it is (`PRO-016` section 2):
-  · **designed** — from the bot's *current saved parameters*, read now: the levels, the step
+  · **designed** — from the parameters the bot is given, read now (the saved ones for `bot show`;
+    the design on screen for the Bots tab, which says when it is not saved): the levels, the step
     between neighbours and the net after fees. A bot edited with `bot edit` shows the edited
     ladder, never a cached one. The prices are the raw levels (`grid_spacing.raw_levels`); the tick
     rounding needs the exchange's filters, which the record does not hold, so a row may differ from
@@ -168,8 +169,8 @@ class LadderUnavailable:
 
 NO_LADDER_FOR_KIND = "This kind of bot has no ladder."
 RUN_DIFFERS_NOTE = (
-    "The saved run's ladder is not the one the saved parameters make (they were "
-    "edited after the run began), so what each grid is doing is not shown."
+    "The saved run's ladder is not the one these parameters make (they differ from the "
+    "ones the run began with), so what each grid is doing is not shown."
 )
 
 
@@ -185,7 +186,7 @@ def grid_ladder_of(bot: BotSnapshot, now: datetime) -> GridLadder | LadderUnavai
     try:
         params = GridParams.from_config(bot.config)
     except GridParamsError as exc:
-        return LadderUnavailable(f"The saved parameters make no ladder yet: {exc}.")
+        return LadderUnavailable(f"The parameters make no ladder yet: {exc}.")
     levels = raw_levels(params.lower, params.upper, params.grid_count, params.spacing)
     progress = bot.progress
     maker_fee = progress.maker_fee if progress is not None else None

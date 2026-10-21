@@ -16,11 +16,14 @@ The Plan group listed Venue and Symbol and dashes, while "Ready to start" and th
 ## Root cause
 `detail_for` (`bot_detail.py:135`, at `68e1227`) judged `config = inputs.edited or bot.config` but built the figures from the saved bot: `bot_facts(bot, …)` reads `bot.config` for the capital (`bot_facts.py:151`) and `grid_ladder_of(bot, …)` the saved parameters for the step, the profit per cycle, the edges and the exits. A bot not yet saved with its design has none, hence "—". The gate was green because no test held the figures to the edited parameters.
 
+## Review round 1
+The ladder's own words no longer say "saved parameters" for a draft, the Ladder dock's summary says "Not saved:" while the design is, `edit()` clears an edit typed back to what is saved, the Liquidation row carries the guard's estimate for a design (the record holds none), and the docs (module design, SPEC-014, docstrings) say the tab shows the design on screen and `bot show` the saved one.
+
 ## Fix
 `detail_for` builds the figures from the bot with the edited config (`shown`) and marks them (`BotFacts.unsaved`); the panel's group heading reads "Plan (not saved)" (`PlanPropertyGrid.set_group_title`); the row "Saved grid step" is now "Grid step, top to bottom", since it may be a draft's. The Backtest tab shares `PlanColumn` but not this table: it shows its own sandbox figures from the edited parameters and is unchanged.
 
 ## Regression test
-`tests/unit/modules/bots/ui/bots_screen/test_the_plan_group_shows_the_draft_not_the_saved_config.py` (red before: capital "—") and `test_plan_property_grid.py` (heading). Frames, light and dark (a dark Fusion palette stands in for the Windows scheme on the offscreen platform): `images/BUG-261-plan-not-saved-light.png`, `images/BUG-261-plan-not-saved-dark.png`, rendered from `plan_dock_frames.py` → frame `unsaved_design`.
+`tests/unit/modules/bots/ui/bots_screen/test_the_plan_group_shows_the_draft_not_the_saved_config.py` (red before: capital "—") and `test_plan_property_grid.py` (heading). Frames, light and dark (a dark Fusion palette stands in for the Windows scheme on the offscreen platform): `BUG-261_assets/plan-not-saved-light.png`, `BUG-261_assets/plan-not-saved-dark.png`, rendered from `plan_dock_frames.py` → frame `unsaved_design`.
 
 ## Verification
 Commit tier and `tests/unit/modules/bots/ui` green locally; the frames show Capital 2000, step 0.93% to 1.14%, edges, exits and "Plan (not saved)". Not run on Windows.

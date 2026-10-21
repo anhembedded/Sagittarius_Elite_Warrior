@@ -89,6 +89,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks impor
     PlanChecks,
     plan_checks_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_liquidation import (
+    liquidation_lines,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
@@ -126,7 +129,8 @@ class BotDetail:
     #: Why no grid is drawn on the chart of a bot at rest ("Grid not drawn: …"),
     #: empty when one is (`EPIC-035N`).
     overlay_note: str = ""
-    #: The ladder the saved parameters make, with what the saved run records (`BOT-193`).
+    #: The ladder the parameters on screen make (the saved ones when nothing is edited), with what
+    #: the saved run records (`BOT-193`, `BUG-261`).
     ladder: GridLadder | LadderUnavailable | None = None
 
 
@@ -174,7 +178,15 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     # `BUG-261`: the plan figures read the design on screen, as the checks and the chart do.
     shown = bot if inputs.edited is None else replace(bot, config=config)
     return BotDetail(
-        facts=replace(bot_facts(shown, inputs.now), unsaved=inputs.edited is not None),
+        facts=replace(
+            bot_facts(shown, inputs.now),
+            unsaved=inputs.edited is not None,
+            liquidation_estimate=(
+                "; ".join(line.text for line in liquidation_lines(verdicts))
+                if inputs.edited is not None
+                else ""
+            ),
+        ),
         verdicts=verdicts,
         checks=plan_checks_of(verdicts),
         availability={

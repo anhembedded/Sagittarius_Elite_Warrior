@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -78,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
     plan_checks_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_liquidation import (
+    liquidation_lines,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
@@ -218,9 +222,19 @@ def _screen(
     view.model.set_bots((bot,))
     view.model.set_selected(bot)
     detail = detail_for(DetailInputs(bot, None, None, _NOW, edited=design))
-    view.model.set_facts(detail.facts)
-    view.model.set_ladder(detail.ladder)
     verdicts = _verdicts(design or bot.config)
+    facts = detail.facts
+    if design is not None:
+        # `detail_for` judges with the kind's inputs, which a frame has no catalog for: the
+        # frame's own verdicts say the liquidation estimate the screen would.
+        facts = replace(
+            facts,
+            liquidation_estimate="; ".join(
+                line.text for line in liquidation_lines(verdicts)
+            ),
+        )
+    view.model.set_facts(facts)
+    view.model.set_ladder(detail.ladder)
     view.model.set_judgement(plan_checks_of(verdicts))
     view.model.set_availability(
         {

@@ -74,3 +74,60 @@ def test_without_an_edit_the_figures_are_the_saved_ones_and_not_marked() -> None
 
     assert detail.facts.capital == "1000"
     assert detail.facts.unsaved is False
+
+
+def test_a_design_typed_back_to_what_is_saved_is_not_marked_unsaved(
+    open_bots_screen,
+) -> None:
+    """`BUG-261` review: `edit()` kept a config equal to the saved one as an edit."""
+    from datetime import UTC, datetime
+
+    from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
+        BotKindCatalog,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
+        BotRunFactsReader,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
+        SelectedBot,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+        DEFAULT_OWNER_BUDGET_CAPS,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+        FakeVenueTradingPorts,
+        fake_venue_ports,
+    )
+    from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.bots_screen.bots_screen_fixtures import (
+        stored,
+    )
+
+    screen = open_bots_screen([stored("a00001", BotLifecycleState.DRAFT)])
+    screen.settle()
+    selected = SelectedBot(
+        BotKindCatalog(()),
+        lambda: datetime(2026, 10, 4, tzinfo=UTC),
+        BotRunFactsReader(
+            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
+            DEFAULT_OWNER_BUDGET_CAPS,
+        ),
+    )
+    bot = screen.view.model.bots[0]
+    selected.select(bot)
+
+    selected.edit({**bot.config, "capital_quote": "1"})
+    assert selected.edited is not None
+    selected.edit(dict(bot.config))
+
+    assert selected.edited is None
+
+
+def test_the_ladder_and_the_liquidation_row_of_a_design_say_what_they_are() -> None:
+    """The ladder's words name no 'saved' parameters for a draft; the liquidation row carries
+    the guard's estimate where the record holds none."""
+    detail = detail_for(
+        DetailInputs(_unsaved_grid(), None, None, NOW, edited={**_DESIGN, "upper": ""})
+    )
+
+    assert "saved parameters" not in getattr(detail.ladder, "reason", "")
+    assert detail.facts.liquidation_estimate == ""  # no guard facts for Spot
