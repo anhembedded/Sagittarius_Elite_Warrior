@@ -142,7 +142,9 @@ class TradingSessionService(ITradingSession):
         return _answered(response, OwnerBudgetRegistrationResult)  # type: ignore[return-value]
 
     def owner_position_agrees_with_the_stream(self, owner_id: str, tag: str) -> bool:
-        return self._session_state.owner_books.agrees_with_last_report(tag, owner_id)
+        return self._session_state.owner_book_reads.agrees_with_last_report(
+            tag, owner_id
+        )
 
     def earlier_runs_inventory(
         self, request: EarlierRunsRequest

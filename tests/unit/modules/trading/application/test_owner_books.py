@@ -64,7 +64,7 @@ def _installed() -> OwnerBooks:
 
 
 def _inventory(books: OwnerBooks) -> OwnerInventory:
-    return books.shares()[0].inventory
+    return books.reads.shares()[0].inventory
 
 
 def test_a_tagged_fill_on_another_symbol_moves_no_inventory() -> None:
@@ -141,6 +141,6 @@ def test_an_end_held_during_a_registration_releases_the_adopted_order() -> None:
 
     books.install(_TAG, book, held)
 
-    facts = books.facts(_TAG, "bot-1", _buy(), datetime(2026, 10, 3, tzinfo=UTC))
+    facts = books.reads.facts(_TAG, "bot-1", _buy(), datetime(2026, 10, 3, tzinfo=UTC))
     assert facts is not None
     assert facts.open_order_count == 0

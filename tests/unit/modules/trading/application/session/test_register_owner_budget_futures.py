@@ -149,8 +149,8 @@ def test_a_futures_budget_registers_with_the_position_the_fills_derive() -> None
         Decimal("0.020"),
         Decimal(60500),
     )
-    assert state.owner_books.position_of(TAG, "bot-f0") == result.position
-    assert state.owner_books.shares() == ()  # no Spot inventory to liquidate
+    assert state.owner_book_reads.position_of(TAG, "bot-f0") == result.position
+    assert state.owner_book_reads.shares() == ()  # no Spot inventory to liquidate
 
 
 def test_a_position_that_no_tagged_fill_explains_is_foreign_and_refuses() -> None:
@@ -162,7 +162,7 @@ def test_a_position_that_no_tagged_fill_explains_is_foreign_and_refuses() -> Non
         "BTCUSDT already has a long position of 0.05 that this bot did not open; "
         "close it or pick another symbol"
     )
-    assert state.owner_books.holder_of(TAG) is None
+    assert state.owner_book_reads.holder_of(TAG) is None
 
 
 def test_a_short_the_user_opened_is_described_as_short() -> None:
@@ -202,7 +202,7 @@ def test_a_disagreement_beyond_the_owners_own_fills_registers_and_is_reported() 
         Decimal("0.010"),
         Decimal("0.050"),
     )
-    held = state.owner_books.position_of(TAG, "bot-f0")
+    held = state.owner_book_reads.position_of(TAG, "bot-f0")
     assert held is not None and held.quantity == Decimal("0.010")
 
 
@@ -227,7 +227,7 @@ def test_a_position_read_that_fails_refuses_the_registration() -> None:
     result, state = _register(positions_error=ConnectionError("down"))
 
     assert result.refusal is OwnerBudgetRefusal.INVENTORY_UNAVAILABLE
-    assert state.owner_books.holder_of(TAG) is None
+    assert state.owner_book_reads.holder_of(TAG) is None
 
 
 def test_a_symbol_the_venue_does_not_list_refuses_the_registration() -> None:

@@ -121,6 +121,8 @@ class TradingSessionState:
         #: `_switch_epoch` (bumped by both) lets a registration that read
         #: the venue's history meanwhile tell that its session is gone.
         self.owner_books = OwnerBooks()
+        #: `BOT-207` — what is asked of those books, over the same state and lock.
+        self.owner_book_reads = self.owner_books.reads
         self._switch_epoch = 0
         #: `EPIC-034C` — Emergency Stops running now (a count, so two overlapping
         #: ones cannot clear each other's mark). While any runs the session is
