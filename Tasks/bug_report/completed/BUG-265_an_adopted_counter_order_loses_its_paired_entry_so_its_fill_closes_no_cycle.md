@@ -15,7 +15,7 @@ Expected: `completed_cycles` 1, `realised_profit` 10. Actual: `completed_cycles`
 Cycles and Grid profit one short per such order; `FilledOrder.cycle_profit` is `None` for the completing fill. Total PnL (`realised_total + unrealised + funding`) is identical, so a check of Total PnL against the exchange cannot see it.
 
 ## Root cause
-`GridReconciler._level_order` builds the adoptee as `LevelOrder(id, side, price, quantity)` with no `paired_buy_price`, and `grid_reactions.adopted` then drops the held order for the level, the one record that still carried the pairing (read at ``d11a20f3`). `completes_a_cycle` is side-based on a LONG grid, but `book_cycle` returns the runtime unchanged when `paired_buy_price` is `None`, silently.
+`GridReconciler._level_order` builds the adoptee as `LevelOrder(id, side, price, quantity)` with no `paired_buy_price`, and `grid_reactions.adopted` then drops the held order for the level, the one record that still carried the pairing (read at `d11a20f3`). `completes_a_cycle` is side-based on a LONG grid, but `book_cycle` returns the runtime unchanged when `paired_buy_price` is `None`, silently.
 
 ## Fix
 `adopted` moves the dropped held order's `paired_buy_price` and `paired_buy_fee_quote` onto the adopted order. With no held order nothing is invented: the exchange's list says nothing of a pairing, and an adopted opening-ladder SELL is not a cycle's completion. That case still closes no cycle; whether the pairing can be derived from the saved entry fill is open and not guessed here.
