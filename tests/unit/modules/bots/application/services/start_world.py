@@ -104,12 +104,14 @@ class StartWorld:
     preconditions: GridStartPreconditions
     runner: BotRunner
     queues: list[ClosableInlineQueue]
+    activity: SimulatedActivity
 
 
 def start_world(
     cap: Decimal = CAP, venue: TradingVenue = TradingVenue.SPOT_TESTNET
 ) -> StartWorld:
     book = SimulatedBook()
+    activity = SimulatedActivity(book)
     # Closed, as a fresh app boots: Start opens the session itself (`EPIC-034C`).
     session = FakeTradingSession()
     derive_inventory_from(book, session)
@@ -127,7 +129,7 @@ def start_world(
                 },
                 notional_limit=cap,
             ),
-            account_activity=SimulatedActivity(book),
+            account_activity=activity,
         )
     )
     store = FakeBotStore()
@@ -163,4 +165,6 @@ def start_world(
     runner = BotRunner(
         store, clock, preconditions, executors, free_loss_cap_hold.FreeLossCapHold()
     )
-    return StartWorld(store, clock, session, book, preconditions, runner, queues)
+    return StartWorld(
+        store, clock, session, book, preconditions, runner, queues, activity
+    )

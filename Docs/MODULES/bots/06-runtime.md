@@ -22,7 +22,7 @@ count, and a file the store refused counts on every venue and symbol), then asks
 retires the earlier run's worker, so no task of that run can save over the new one, applies `start`
 (`STARTING`, not yet saved), and asks the Grid's preconditions (`.../grid_start_preconditions.py` →
 `GridStartPreconditions.check`) to re-read the parameters, claim the symbol, open the order session
-(`.../order_session_opening.py` → `order_session_refusal`) and register the owner budget. A refusal
+(`.../order_session_opening.py` → `order_session_refusal`) and register the owner budget. Before the lease, `GridStartPreconditions` reads the symbol's open orders and refuses when one carries a bot tag no bot of the store holds (`.../grid_start_preconditions.py` → `GridStartPreconditions.check`; `.../other_owner_orders.py` → `other_owner_tags`; `BUG-259`): another copy of the app trades the account. A refusal
 goes back to the caller with nothing saved and nothing queued. Only once they pass does the runner
 save the bot `STARTING` and queue `start` on a fresh worker. On the worker the executor plans and
 places the ladder (`.../grid_executor.py` → `GridExecutor._run_start`; `.../grid_start_sequence.py` →
@@ -335,6 +335,8 @@ quantity the exchange accepted, never the one asked for.
 
 [`diagrams/06-resume-recovering.puml`](diagrams/06-resume-recovering.puml) — *how does the owner's
 Resume bring a `RECOVERING` bot back, or halt it?*
+
+`BUG-259`: a Resume from `HALTED` or `AWAITING_RECOVERY`, which lays a ladder as a Start does, first reads the symbol's open orders and refuses when they carry a bot tag no bot of this data root holds (`.../grid_start_preconditions.py` → `GridStartPreconditions.open_session_for_resume`, `GridStartPreconditions._other_owners_refusal`); a `RECOVERING` bot only reconciles its own orders and is not asked.
 
 `BUG-204`, the desktop's way out: the use case (`.../resume_bot/handler.py` →
 `ResumeBotCommandHandler`) asks for the real-money
