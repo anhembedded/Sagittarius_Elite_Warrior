@@ -13,7 +13,9 @@ bots and money rather than about being a host:
   · `ResumeHaltedBots` - `--resume-halted`: a person's Resume and Confirm for every HALTED
     or AWAITING_RECOVERY bot, answered in advance on the command line (`EPIC-042E`);
   · `StartPlannedBots` - `--start-planned`: start what the plan wants running and
-    is at rest, through the same Start the screen dispatches;
+    is at rest, through the same Start the screen dispatches; a mainnet bot whose venue the
+    operator did not type is skipped with a WARNING and an alert, and the rest start
+    (`EPIC-045F`);
   · `ResumeRecoveringBots` - `--resume-recovering`: each RECOVERING bot's own Resume, the one
     the GUI sends, which opens its venue's order session and reconciles it with the exchange.
 
@@ -33,11 +35,17 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.planned_bot_not_started_event import (
+    PlannedBotNotStartedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     ResumeHaltedForHostCommand,
@@ -194,10 +202,12 @@ class StartPlannedBots(IHostStep):
         plan: IBotPlan,
         dispatcher: ICommandDispatcher,
         confirmed_venue: str | None,
+        events: IEventPublisher,
     ) -> None:
         self._plan = plan
         self._dispatcher = dispatcher
         self._confirmed_venue = confirmed_venue
+        self._events = events
 
     def run(self) -> None:
         if not self._plan.exists():
@@ -218,12 +228,42 @@ class StartPlannedBots(IHostStep):
                 logger.warning(
                     "[start-planned] the plan wants bot %s running; no such bot", bot_id
                 )
+            elif bot.is_at_rest and self._unconfirmed_mainnet(bot):
+                self._skip(bot)
             elif bot.is_at_rest:
                 self._start(bot_id)
             else:
                 logger.info(
                     "[start-planned] bot %s is %s; not started", bot_id, bot.state
                 )
+
+    def _unconfirmed_mainnet(self, bot: BotStatusEntry) -> bool:
+        """Decision O8: real money starts only for the venue the operator typed."""
+        return TradingVenue(bot.venue).is_mainnet and bot.venue != self._confirmed_venue
+
+    def _skip(self, bot: BotStatusEntry) -> None:
+        """`EPIC-045F` (ADR 045 D7): leave this bot, tell a person, and go on with the rest of the
+        plan. The old refusal exited 2 before boot, which systemd does not restart, and left every
+        other bot unattended."""
+        reason = (
+            f"--start-planned did not start bot {bot.bot_id} on {bot.venue}: that real-money "
+            "venue was not confirmed on this run"
+            + (
+                f" (this run confirms {self._confirmed_venue})"
+                if self._confirmed_venue
+                else " (no --confirm-venue was given)"
+            )
+            + "."
+        )
+        logger.warning(
+            "[start-planned] bot %s on %s was not started: its venue was not confirmed; "
+            "`bot start %s --confirm-venue %s` starts it",
+            bot.bot_id,
+            bot.venue,
+            bot.bot_id,
+            bot.venue,
+        )
+        self._events.publish(PlannedBotNotStartedEvent(bot.bot_id, bot.venue, reason))
 
     def _start(self, bot_id: str) -> None:
         result = cast(
@@ -243,33 +283,6 @@ class StartPlannedBots(IHostStep):
             refusal,
             result.message,
         )
-
-
-def mainnet_start_refusal(
-    bots: tuple[BotStatusEntry, ...], plan: IBotPlan, confirmed_venue: str | None
-) -> str | None:
-    """Why the whole `--start-planned` must be refused, or `None` (decision O8).
-
-    A planned bot at rest on a mainnet venue is started with real money; the operator
-    must have typed that venue. Judged for every planned bot before any is started, so
-    one unconfirmed mainnet bot leaves all the others unstarted too: a half-started
-    plan is the worse surprise.
-    """
-    if not plan.exists():
-        return None
-    wanted = plan.wants_running()
-    return _unconfirmed_mainnet_refusal(
-        "--start-planned would start",
-        [
-            bot
-            for bot in bots
-            if bot.bot_id in wanted
-            and bot.is_at_rest
-            and TradingVenue(bot.venue).is_mainnet
-            and bot.venue != confirmed_venue
-        ],
-        "the plan holds",
-    )
 
 
 def mainnet_resume_refusal(

@@ -29,6 +29,9 @@ class AlertKind(Enum):
     #: A Grid that waited for its range has entered it and laid its ladder (`EPIC-044C`); INFO:
     #: it is what the owner asked for, told once per entry.
     BOT_RANGE_ENTERED = "bot_range_entered"
+    #: The host skipped a bot its applied plan wants running, because it needs a venue confirmation
+    #: the unit does not carry (`EPIC-045F`): the other bots run, this one waits for `bot start`.
+    PLANNED_BOT_NOT_STARTED = "planned_bot_not_started"
     RATE_LIMITED = "rate_limited"
     #: A Futures bot's position is inside the warning distance to liquidation (`EPIC-036B1`);
     #: the critical distance halts the bot and arrives as the halt.

@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps import (
     StartPlannedBots,
 )
+from Sagittarius_Elite_Warrior.tests.integration.golden.fakes.recording_event_publisher import (
+    RecordingEventPublisher,
+)
 
 from .grid_fake_exchange import (
     GRID,
@@ -108,7 +111,10 @@ def test_apply_creates_the_bots_and_start_planned_starts_only_the_ones_that_want
         assert host_plan.exists() and host_plan.problem() is None
         assert host_plan.wants_running() == frozenset({ids["runs"]})
         StartPlannedBots(
-            host_plan, app.engine.container.resolve(ICommandDispatcher), None
+            host_plan,
+            app.engine.container.resolve(ICommandDispatcher),
+            None,
+            RecordingEventPublisher(),
         ).run()
 
         assert app.bot(ids["runs"]).state is S.RUNNING
@@ -143,6 +149,7 @@ def test_a_running_bots_range_edit_is_refused_by_the_lifecycle_table_on_the_real
             app.engine.container.resolve(IBotPlan),
             app.engine.container.resolve(ICommandDispatcher),
             None,
+            RecordingEventPublisher(),
         ).run()
         assert app.bot(bot_id).state is S.RUNNING
 
@@ -182,6 +189,7 @@ def test_a_planned_bot_the_kind_refuses_is_not_started_and_the_step_says_so(
                 app.engine.container.resolve(IBotPlan),
                 app.engine.container.resolve(ICommandDispatcher),
                 None,
+                RecordingEventPublisher(),
             ).run()
 
             assert app.bot(_ids_by_name(app)["bad"]).state is S.DRAFT

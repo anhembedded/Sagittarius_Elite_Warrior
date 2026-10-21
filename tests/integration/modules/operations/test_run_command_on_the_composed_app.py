@@ -77,21 +77,41 @@ def _seed_mainnet_bot(data_root: Path, bot_id: str) -> None:
     )
 
 
-def test_an_unconfirmed_mainnet_start_planned_is_refused_with_two_and_nothing_boots(
+def test_an_unconfirmed_mainnet_start_planned_boots_the_host_skips_the_bot_and_says_how_to_start_it(
     data_root: Path,
 ) -> None:
+    """`EPIC-045F`: this was exit 2 before boot, which systemd does not restart, so every other bot
+    was left unattended. The host now serves, warns about the bot it left and starts nothing for it."""
     _seed_mainnet_bot(data_root, "aaaaaa")
     app = app_on(data_root)
     app.container.singleton(IBotPlan, Plan("aaaaaa"))  # type: ignore[type-abstract]
     source = Source()
+    original_install = source.install
+
+    def install_then_fire(on_signal: Callable[[], None]) -> None:
+        original_install(on_signal)
+        source.fire()
+
+    source.install = install_then_fire  # type: ignore[method-assign]
 
     outcome = RunCommand(
         app, RunOptions(start_planned=True, skip_preflight=True), source
     ).execute()
 
-    assert outcome is not None and outcome.code is ExitCode.USAGE
-    assert "--confirm-venue spot_mainnet" in outcome.message
-    assert source.installed is False, "no host was built, no signal was taken"
+    assert outcome is None, "the host ran and stopped on the signal"
+    assert source.installed is True
+    step = next(
+        s
+        for s in RunCommand(
+            app, RunOptions(start_planned=True, skip_preflight=True), Source()
+        )._steps()
+        if s.name == "start-planned"
+    )
+    with heard() as step_lines:
+        step.run()
+    text = "\n".join(step_lines)
+    assert "bot aaaaaa on spot_mainnet was not started" in text, text
+    assert "bot start aaaaaa --confirm-venue spot_mainnet" in text
     stored = JsonBotStore(data_root / "bots").load(BotId("aaaaaa"))
     assert stored.bot.state is BotLifecycleState.STOPPED, "nothing was started"
 
