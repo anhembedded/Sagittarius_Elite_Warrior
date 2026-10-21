@@ -94,6 +94,8 @@ def test_an_unconfirmed_mainnet_start_planned_boots_the_host_skips_the_bot_and_s
 
     source.install = install_then_fire  # type: ignore[method-assign]
 
+    # The stop fires at install, so `RunHost` skips the trading steps: this half proves the run is no
+    # longer refused (no exit 2) and boots; the step itself is run below, on the same container.
     outcome = RunCommand(
         app, RunOptions(start_planned=True, skip_preflight=True), source
     ).execute()

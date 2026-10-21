@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.recording_
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_catalog import (
     KIND_PROFILES,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_group import AlertGroup
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.planned_bot_not_started_event import (
@@ -45,4 +46,5 @@ def test_a_skipped_bot_is_one_warning_that_names_the_command_that_starts_it() ->
 def test_the_kind_is_a_bot_event_so_it_follows_the_bot_alert_routing() -> None:
     profile = KIND_PROFILES[AlertKind.PLANNED_BOT_NOT_STARTED]
 
+    assert profile.group is AlertGroup.BOT_EVENTS
     assert profile.severity is Severity.WARNING

@@ -175,7 +175,7 @@ def test_start_planned_with_nothing_startable_is_not_fatal_and_tells_each_skippe
         assert len(events.events) == 1
 
 
-def test_start_planned_starts_the_mainnet_bot_whose_venue_the_run_confirmed(
+def test_start_planned_does_not_skip_the_mainnet_bot_whose_venue_the_run_confirmed(
     exchange: FakeExchange,
 ) -> None:
     with booted(exchange) as app:
