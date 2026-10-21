@@ -27,7 +27,6 @@ says so (`alerts_words.channel_line`, `alerts_words.telegram_channel_line`).
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from enum import Enum
 from typing import TYPE_CHECKING, cast
 
@@ -70,12 +69,11 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_v
     AlertsSettingsViewModel,
     BotModeRow,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.bot_mode_list import (
+    BotModeList,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.channel_states import (
     ChannelStates,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
-    BotStatusReport,
-    GetBotStatusReportQuery,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -126,16 +124,19 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             SendTestToConfiguredChannels
         )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
-        self._modes: IBotAlertModes = container.resolve(IBotAlertModes)
-        self._dispatcher: ICommandDispatcher = container.resolve(ICommandDispatcher)
         self._tracker: ActionOwnershipTracker[_Kind, None, None] = (
             ActionOwnershipTracker()
         )
         self._relay = AlertsActionRelay(self._on_action_done)
 
         self._settings_view_model = AlertsSettingsViewModel()
+        self._bots = BotModeList(
+            container.resolve(IBotAlertModes),
+            container.resolve(ICommandDispatcher),
+            self._settings_view_model,
+        )
         self._reload()
-        self._begin(_Kind.BOTS, self._list_bots)
+        self._begin(_Kind.BOTS, self._bots.read)
 
         view_model = self._settings_view_model
         view_model.save_requested.connect(self._on_save_requested)
@@ -193,56 +194,18 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             can_remove=telegram.stored,
         )
 
-    def _list_bots(self) -> tuple[BotModeRow, ...]:
-        """`BOT-191`: the bots the page can set, each with what it may tell now. Runs on the
-        pool: the report reads every bot's file."""
-        report = cast(
-            BotStatusReport,
-            self._dispatcher.dispatch(
-                GetBotStatusReportQuery, GetBotStatusReportQuery()
-            ),
-        )
-        modes = self._modes.modes()
-        return tuple(
-            BotModeRow(
-                entry.bot_id,
-                entry.name,
-                modes.get(entry.bot_id, BotAlertMode.ON).value,
-            )
-            for entry in report.bots
-        )
-
-    def _publish_bot_rows(self, rows: tuple[BotModeRow, ...]) -> None:
-        read_only = self._modes.read_only
-        note = (
-            alerts_words.READ_ONLY_NOTE
-            if read_only
-            else ("" if rows else alerts_words.NO_BOTS)
-        )
-        self._settings_view_model.set_bot_rows(rows, note, editable=not read_only)
-
-    def _show_modes_again(self) -> None:
-        """Memory only: the same bots, each with the mode really kept now."""
-        modes = self._modes.modes()
-        self._publish_bot_rows(
-            tuple(
-                replace(row, mode=modes.get(row.bot_id, BotAlertMode.ON).value)
-                for row in self._settings_view_model.bot_rows
-            )
-        )
-
     # -- user requests ------------------------------------------------------
 
     @Slot(str, str)
     @safe_ui_action
     def _on_bot_mode_requested(self, bot_id: str, value: str) -> None:
-        if self._settings_view_model.is_working or self._modes.read_only:
+        if self._settings_view_model.is_working or self._bots.read_only:
             return
         try:
             mode = BotAlertMode(value)
         except ValueError:
             return
-        self._begin(_Kind.MODE, lambda: self._after_mode(bot_id, mode))
+        self._begin(_Kind.MODE, lambda: self._bots.keep(bot_id, mode))
 
     @Slot(str)
     @safe_ui_action
@@ -302,10 +265,6 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is told in words, not lost to a pool thread
             self._relay.hand_over((action_id, kind, None, None, type(exc).__name__))
 
-    def _after_mode(self, bot_id: str, mode: BotAlertMode) -> BotAlertMode:
-        self._modes.set_mode(bot_id, mode)
-        return mode
-
     def _on_action_done(self, payload: tuple) -> None:
         """Runs on the UI thread with what the worker reported. The fence
         (`is_current_pending`) is defence in depth: the buttons are off while an
@@ -322,7 +281,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if state is not None:
             self._publish_state(state)
         if kind is _Kind.MODE:
-            self._show_modes_again()
+            self._bots.show_again()
         if failed:
             self._on_action_failed(kind, error_type)
         else:
@@ -337,7 +296,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     def _show_result(self, kind: _Kind, result: object) -> None:
         """What each action's answer is told as; `result` is what that kind's work returned."""
         if kind is _Kind.BOTS:
-            self._publish_bot_rows(cast(tuple[BotModeRow, ...], result))
+            self._bots.show(cast(tuple[BotModeRow, ...], result))
         elif kind is _Kind.SAVE:
             self._on_webhook_saved(cast(WebhookSave, result))
         elif kind is _Kind.REMOVE:
