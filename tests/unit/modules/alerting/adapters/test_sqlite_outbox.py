@@ -267,3 +267,50 @@ def test_the_retry_horizon_is_the_latest_wait_among_a_channels_retrying_rows(
 
     assert outbox.retry_horizon("phone") == NOW + timedelta(minutes=10)
     assert outbox.retry_horizon("backup") is None
+
+
+def test_the_newest_alert_of_a_kind_is_found_without_reading_the_history(
+    tmp_path: Path,
+) -> None:
+    outbox = _outbox(tmp_path)
+    older = an_alert(AlertKind.HEARTBEAT, at=NOW, reason="a")
+    newer = an_alert(AlertKind.HEARTBEAT, at=NOW + timedelta(hours=6), reason="b")
+    for alert in (
+        older,
+        an_alert(AlertKind.BOT_HALTED, at=NOW + timedelta(hours=9)),
+        newer,
+    ):
+        outbox.enqueue(alert, (), alert.at)
+
+    assert outbox.latest_alert_at(AlertKind.HEARTBEAT) == newer.at
+    assert outbox.latest_alert_at(AlertKind.DAILY_SUMMARY) is None
+
+
+def test_an_alert_is_found_by_its_dedup_key(tmp_path: Path) -> None:
+    outbox = _outbox(tmp_path)
+    alert = an_alert(AlertKind.DAILY_SUMMARY, reason="daily-2026-10-20")
+    outbox.enqueue(alert, (), NOW)
+
+    assert outbox.has_alert_keyed(alert.dedup_key)
+    assert not outbox.has_alert_keyed(alert.dedup_key + "x")
+
+
+def test_counts_since_add_up_every_repeat_of_an_alert_and_skip_older_ones(
+    tmp_path: Path,
+) -> None:
+    outbox = _outbox(tmp_path)
+    halted = an_alert(AlertKind.BOT_HALTED, at=NOW)
+    alert_id = outbox.enqueue(halted, (), NOW)
+    outbox.bump(alert_id, NOW + timedelta(minutes=1))
+    outbox.bump(alert_id, NOW + timedelta(minutes=2))
+    old = an_alert(AlertKind.RATE_LIMITED, at=NOW - timedelta(days=2), reason="o")
+    outbox.enqueue(old, (), old.at)
+    for number in range(600):
+        fill = an_alert(AlertKind.ORDER_FILLED, at=NOW, reason=str(number))
+        outbox.enqueue(fill, (), NOW)
+
+    counts = outbox.alert_counts_since(NOW - timedelta(hours=24))
+
+    assert counts[AlertKind.BOT_HALTED] == 3
+    assert counts[AlertKind.ORDER_FILLED] == 600
+    assert AlertKind.RATE_LIMITED not in counts

@@ -160,8 +160,24 @@ The first tick is at start. The URL is read from the secret store at each ping a
 exception (`dead_mans_switch.py` → `DeadMansSwitch`, `DeadMansSwitch._ping`; the beacon logs an
 escaped exception by its type name, `threaded_delivery_host.py` → `ThreadedDeliveryHost._run_beacon`).
 The ping proves the process and its alert worker are alive, not that each bot is healthy: that is the
-heartbeat's body (`EPIC-036E`, after `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
+heartbeat's body (`EPIC-036E`, `heartbeat_service.py` → `HeartbeatService`; its per-bot health waits for `EPIC-035W`). A clean stop sends nothing, so the monitor fires after
 its grace, which is wanted while resting orders stay on the exchange.
+
+## Built: the heartbeat and the daily summary (`EPIC-036E`)
+Once a second the housekeeping thread calls `HeartbeatService.tick` and then the hub's flush
+(`alerting_bindings.py` → `_housekeeping_of`; `heartbeat_service.py` → `HeartbeatService.tick`).
+The first tick of a process asks the outbox when a heartbeat was last sent
+(`SqliteOutbox.latest_alert_at`); a summary is looked up by its key for the day
+(`has_alert_keyed`), and a process started after the day's summary time marks that day done, so
+a summary is missed rather than sent late. A heartbeat is
+due when none was sent or `heartbeat_every` has passed; it asks the bots' status report through
+`ICommandDispatcher` and publishes one INFO `HEARTBEAT` (`HeartbeatService._send_heartbeat`). A
+report that cannot be read still produces a heartbeat that says so, with only the error's type. The
+summary adds the last day's alerts counted by the outbox
+(`SqliteOutbox.alert_counts_since`, `heartbeat_text.py` → `summary_text`) and is keyed by its date, so it never meets the quiet-hours
+digest, which is keyed by its instant. Both go through `IAlertPublisher.publish`, so routing,
+loudness (silent by default) and quiet hours treat them like any other INFO alert, except that the
+summary is never held (`QuietHoursHold.holds`): held, it would arrive as a title in the digest.
 
 ## Built: an early warning — the position nears liquidation, the stream stays down
 
@@ -246,6 +262,19 @@ a rate limit that is a plain `HALTED` (a pause too long to wait, or a used-up bu
 CRITICAL halt, whose `Reason:` line says to resume by hand. A rejected key and a storage pause are
 CRITICAL because orders may rest that this app cannot manage. A stop does not end these conditions,
 only a return to `RUNNING`, so no "Recovered" is sent while the cause stands.
+
+## Built: the Alerts screen reads the history (`EPIC-036D2`)
+
+*Which thread reads the outbox, and how often?* The Alerts mode is built at start with every
+mode (SPEC-011 §4). Its presenter asks for a read when it is built, every `REFRESH_INTERVAL_MS`
+(15 s, a `QTimer` on the UI thread) and when Refresh is pressed; the read runs on the pool
+(`alerts_presenter.py` → `AlertsPresenter.refresh`, `AlertsPresenter._read_history_on_pool`) because
+`IOutbox.history` queries the database. One read is out at a time: a timer tick or a click while
+one runs is ignored. The answer is handed to the UI thread by `AlertsActionRelay` and applied only
+if the tracker says it is still the current one (`AlertsPresenter._on_read_done`); after
+`AlertsPresenter.shutdown` none is delivered. A failed read keeps the last list and shows the
+exception's type name only. The read takes the outbox's short lock like any other caller and holds
+none across the view.
 
 ## Planned
 

@@ -242,3 +242,22 @@ def test_a_critical_held_behind_a_wait_fails_over_only_past_five_minutes(
 
     assert _held_critical_failover(tmp_path / "at", five + timedelta(seconds=1)) == 0
     assert _held_critical_failover(tmp_path / "over", five + timedelta(seconds=2)) == 1
+
+
+def test_the_lane_is_told_how_long_the_channel_still_waits(tmp_path: Path) -> None:
+    """A pacing wait is a fraction of a second; a lane that slept its whole poll interval would turn
+    four sends per two seconds into four per five (`EPIC-036C2`)."""
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    rig.channels["phone"].default = DeliveryResult.retry_later(
+        timedelta(seconds=2), "pacing"
+    )
+    rig.hub.publish(an_alert())
+    rig.delivery.run_due("phone")
+
+    assert rig.delivery.pause_remaining("phone") == timedelta(seconds=2)
+
+    rig.clock.advance(timedelta(milliseconds=500))
+    assert rig.delivery.pause_remaining("phone") == timedelta(milliseconds=1500)
+
+    rig.clock.advance(timedelta(seconds=2))
+    assert rig.delivery.pause_remaining("phone") is None

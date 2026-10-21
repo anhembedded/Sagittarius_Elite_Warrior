@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🟡 In progress (7/11) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2` and `036B` done 2026-10-20
+- **Status:** 🟡 In progress (11/14) — `036A` done 2026-10-13; `036G` and `036D1` done 2026-10-16; `036E1`, `036B1`, `036B2`, `036B` `036E`, `036C1`, `036C2` and `036D2` done 2026-10-20
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -28,13 +28,14 @@ gantt
     036B Alert sources, the rest          :done, b, after b2, 1d
 
     section Phase 2 - Real channels
-    036C Discord and Telegram migration   :c, after g, 5d
+    036C1 Telegram channel and migration  :done, c1, after b, 1d
+    036C Discord embed, pacing, rotate    :c, after c1, 4d
 
     section Phase 3 - Visible and watched
     036D1 Options page: Discord webhook  :done, d1, after g, 1d
     036D UI, the rest                     :d, after c, 5d
     036E1 Dead man's switch               :done, e1, after g, 1d
-    036E Heartbeat and daily summary      :e, after c, 3d
+    036E Heartbeat and daily summary      :done, e, after g, 1d
 
     section Phase 4 - Remote control
     036F Remote control from Discord      :f, after e, 8d
@@ -51,11 +52,14 @@ gantt
 | EPIC-036B1 | [Early warnings: liquidation, user-data stream](completed/EPIC-036B1_early_warnings_liquidation_and_user_stream.md) | `claude/epic-036b1-early-warnings` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036B2 | [Reason alerts: rate limit, key, storage, price feed](completed/EPIC-036B2_reason_alerts_rate_limit_key_storage_price_feed.md) | `claude/epic-036b2-system-sources` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036B | [Alert sources, the rest](completed/EPIC-036B_alert_sources.md) | `claude/epic-036b-system-alert-source` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036C1 | [Telegram channel and token migration](completed/EPIC-036C1_telegram_alert_channel_and_token_migration.md) | `claude/epic-036c-telegram-channel` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036C2 | [Channels keep under their rate limit](completed/EPIC-036C2_channels_keep_under_their_rate_limit.md) | `claude/epic-036c2-pacing-and-embed` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D1 | [Options page: the Discord webhook, Send test](completed/EPIC-036D1_options_alerts_page_discord_webhook.md) | `claude/alerts-options-page-036d1` | 🟡 | ✅ Done (2026-10-16), awaiting merge of this record | — |
-| EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-036D2 | [The Alerts mode: history and channel status](completed/EPIC-036D2_alerts_screen_history_and_channel_status.md) | `claude/epic-036d-alerts-history` | 🟢 | ✅ Done (2026-10-20), awaiting merge | — |
+| EPIC-036D | [UI, the rest](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🟡 Partly done (036D2) | — |
 | EPIC-036E1 | [Dead man's switch](completed/EPIC-036E1_dead_mans_switch.md) | `claude/epic-036e1-dead-mans-switch` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
-| EPIC-036E | [Heartbeat and daily summary](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | — | 🟡 | 🔵 Planned; waits for 035W | — |
+| EPIC-036E | [Heartbeat and daily summary](completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | `claude/epic-036e-heartbeat-and-daily-summary` | 🟡 | ✅ Done (2026-10-20), awaiting merge | — |
 | EPIC-036F | [Remote control from Discord](incomplete/EPIC-036F_remote_control_from_discord.md) | — | 🔴 | 🔵 Planned; waits for 035X and the owner's library approval | — |
 
 ---
@@ -78,7 +82,7 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :-: |
-| The health snapshot of [`EPIC-035W`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) (the owner asked that it not be started yet) | 036E | Land 035W first, or 036E ships without the heartbeat body and adds it after | 🟡 Open |
+| The health snapshot of [`EPIC-035W`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) (the owner asked that it not be started yet) | 036E | Resolved 2026-10-20: 036E shipped without waiting; the heartbeat prints the status report's `health` slot verbatim once 035W fills it | ✅ Closed |
 | The owner's answers on O1 (the webhook as a systemd credential, D3) and O2 (the host's warning, D5) of the [2026-10-15 decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md) | 036G | The owner: both accepted 2026-10-16 | ✅ Closed |
 | The audit journal of [`EPIC-035X`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | 036F | Land 035X first | 🟡 Open |
 | A Discord gateway library is a new dependency (`requirements.txt`, `ONBOARDING.md` §7) | 036F | The owner approves the library when 036F starts | 🟡 Open |

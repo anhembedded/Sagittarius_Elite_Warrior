@@ -4,7 +4,7 @@ test needs no sleep."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import time, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 
@@ -73,3 +73,50 @@ class EarlyWarningPolicy:
 
 
 DEFAULT_EARLY_WARNINGS = EarlyWarningPolicy()
+
+
+@dataclass(frozen=True, slots=True)
+class PacingPolicy:
+    """`EPIC-036C2`: how many messages a channel sends in a period, so it keeps under the
+    platform's rate limit instead of learning it from a 429 (research 036 §1: a client that keeps
+    getting 429 is banned by IP, and a ban loses every alert).
+
+    The figures are the platforms' documented limits taken with a margin, not measured rates: an
+    implementation constant the owner may change. A burst above them is not lost, only spread
+    (a wait is not an attempt)."""
+
+    max_sends: int
+    per: timedelta
+
+    def __post_init__(self) -> None:
+        if self.max_sends < 1 or self.per <= timedelta(0):
+            raise ValueError(
+                "A pacing policy needs at least one send per positive period"
+            )
+
+
+#: Discord documents about 5 requests per 2 s per webhook; one fewer keeps a margin.
+DISCORD_PACING = PacingPolicy(max_sends=4, per=timedelta(seconds=2))
+
+#: Telegram asks bots to avoid more than one message per second in a chat.
+TELEGRAM_PACING = PacingPolicy(max_sends=1, per=timedelta(seconds=1))
+
+
+@dataclass(frozen=True, slots=True)
+class HeartbeatPolicy:
+    """`EPIC-036E`: how often the owner hears from the bots when nothing is wrong.
+
+    The heartbeat every six hours is decision N4. The hour of the daily summary is a chosen
+    constant, not a measured one (an implementation constant the owner may change, recorded in
+    the task, not an owner decision):
+    01:00 UTC, which is the start of the working day for the owner's own time zone. A UI to
+    change both belongs to `EPIC-036D`.
+    """
+
+    heartbeat_every: timedelta = timedelta(hours=6)
+    summary_at: time = time(1, 0)
+    #: How far back the summary counts the alerts raised.
+    summary_window: timedelta = timedelta(hours=24)
+
+
+DEFAULT_HEARTBEAT = HeartbeatPolicy()

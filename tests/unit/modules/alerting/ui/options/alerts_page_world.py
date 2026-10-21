@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
     ChannelSecrets,
     DescriptorChannelCatalogBuilder,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
+    IAlertClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
     IBotAlertModes,
 )
@@ -133,6 +136,7 @@ class _Resolver:
         self._ports: dict[type, object] = {
             ChannelSecrets: ChannelSecrets(store),
             IWebhookTransport: transport,
+            IAlertClock: FakeAlertClock(),
         }
 
     def resolve[T](self, abstract: type[T]) -> T:

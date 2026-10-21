@@ -6,13 +6,9 @@ Status: Current
 
 ## 0. Read this first: what is not supported yet
 
-**This host is not supported for unattended money.** A bot that halts, errs, whose stop gives up, hits its stop loss or take profit, or leaves its range, a Futures position that comes inside its liquidation warning distance (a WARNING, `EPIC-036B1`), a user-data stream that stays down for more than a minute (the notice before the bots on that venue halt, told once for the venue and again at most every 10 minutes), a bot that has waited fifteen minutes out an exchange rate limit (a WARNING: it resumes by itself when the pause ends; a pause too long to wait is the ordinary bot halt), a bot halted by a rejected API key (CRITICAL: its orders may still rest), paused because its state file cannot be saved (CRITICAL) or that has waited fifteen minutes for a quiet price feed to return (CRITICAL; many bots on one venue are one message; `EPIC-036B2`), a background task that died, a data sync that failed (CRITICAL, one message per failing source and a count when it repeats; `EPIC-036B`; the old Telegram path no longer carries these until `EPIC-036C` moves it), and every order that fills whole (a silent message, with the cycle's profit on the fill that closes a cycle; `BOT-189`), reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until this has merged, the rest reaches nobody. A host that dies or powers off reaches you only once you store a check-in URL for the dead man's switch (§3b, [`EPIC-036E1`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036E1_dead_mans_switch.md)); the heartbeat message that would show each bot's health is [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md):
+**This host is not supported for unattended money.** A bot that halts, errs, whose stop gives up, hits its stop loss or take profit, or leaves its range, a Futures position that comes inside its liquidation warning distance (a WARNING, `EPIC-036B1`), a user-data stream that stays down for more than a minute (the notice before the bots on that venue halt, told once for the venue and again at most every 10 minutes), a bot that has waited fifteen minutes out an exchange rate limit (a WARNING: it resumes by itself when the pause ends; a pause too long to wait is the ordinary bot halt), a bot halted by a rejected API key (CRITICAL: its orders may still rest), paused because its state file cannot be saved (CRITICAL) or that has waited fifteen minutes for a quiet price feed to return (CRITICAL; many bots on one venue are one message; `EPIC-036B2`), a background task that died, a data sync that failed (CRITICAL, one message per failing source and a count when it repeats; `EPIC-036B`; the old Telegram path no longer carries these until `EPIC-036C` moves it), and every order that fills whole (a silent message, with the cycle's profit on the fill that closes a cycle; `BOT-189`), reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until this has merged, the rest reaches nobody. A host that dies or powers off reaches you only once you store a check-in URL for the dead man's switch (§3b, [`EPIC-036E1`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036E1_dead_mans_switch.md)); and while the app is up, a silent heartbeat every six hours (each active bot's state, reason and resting orders) and one daily summary after 01:00 UTC (bots by state, each run's earnings, the alerts of the last day) reach the same Discord channel ([`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md)). The heartbeat shows the per-bot health snapshot (feed age, stream state) only once `EPIC-035W` supplies it. The owner's own proof is still missing for several of these (a real halt, the kill test, a received heartbeat, none of which has run on the VPS; the task records say which).
 
-| Missing | What it leaves you without | Task |
-| :--- | :--- | :--- |
-| The heartbeat and the daily summary | a quiet host that is still alive: nothing shows each bot's health every few hours, and no one summary a day reaches Discord | [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
-
-Until then, use the host on a **testnet** venue. The host says whether a channel is configured: with no webhook stored, every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`. With a webhook stored, the start says `an alert channel carries bot events` instead.
+Until they have run, use the host on a **testnet** venue. The host says whether a channel is configured: with no webhook stored, every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`. With a webhook stored, the start says `an alert channel carries bot events` instead.
 
 Also true today, whatever the alerts:
 
@@ -193,6 +189,29 @@ Then `sudo systemctl restart sew-run`; systemd copies a credential at start.
 6. **If the monitor itself cannot be reached** the host logs `[dead-mans-switch] ping failed (n in a row)` and, after three in a row, sends one **Alert channel failing: dead_mans_switch** message to Discord, so a wrong URL (HTTP 404) or a service outage is not silent. It never delays another alert.
 
 A stop on purpose is also silence: the check fires after its grace, which is what you want while resting orders stay on the exchange (decision O1). **Pause the check in the monitor before a planned upgrade** (§8). A restart (`RestartSec=10`) is inside the grace and fires nothing. The Windows service reads the same name from its secret store; that route is unverified on a real service, as for the webhook (§0, §9).
+
+## 3b2. A second channel: Telegram
+
+`EPIC-036C1`. With a Telegram bot token and a chat id stored, every alert also goes to that chat; with both channels configured a CRITICAL goes to both (N8), and a silent message arrives without a push.
+
+1. **Make the bot and find the chat.** Talk to @BotFather (`/newbot`) for the token, **open your bot in Telegram and press Start** (a bot may not write first), and get your chat id (for example from @userinfobot, or `getUpdates` after sending the bot a message). A group's id is negative; a public channel can be `@name`.
+2. **Store both** the way §3 and §3b do, one file each, pasted without echo:
+
+```bash
+[ -e /etc/sew/credentials/alerting_telegram_bot_token ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_bot_token
+read -rsp "Bot token: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_bot_token > /dev/null; unset v
+```
+
+```bash
+[ -e /etc/sew/credentials/alerting_telegram_chat_id ] || sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_telegram_chat_id
+read -rsp "Chat id: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_telegram_chat_id > /dev/null; unset v
+```
+
+Then `sudo systemctl restart sew-run`, and prove it: `alert test` sends one message to every configured channel and says, per channel, what happened. A refusal is turned into what to do: "chat not found" and a bot never started both read "Open the bot on Telegram and press Start, then check the chat id". Read the start line `journalctl -u sew-run | grep alert-channel`: `telegram is on` or `telegram is off: ...` (never the values).
+
+**On a desktop** an old install that kept the token in `user_config.json` (`notifications.telegram.bot_token`, `.chat_id`) is moved to the keyring at the next start and those two keys are cleared; the log says `[alert-migration] telegram: moved ...`, or why not (no keyring, or another store answered first), in which case the file is left as it was. On a server nothing is migrated automatically: provision the two credentials above.
 
 ## 3c. Rotate a key, the webhook or the check-in URL
 

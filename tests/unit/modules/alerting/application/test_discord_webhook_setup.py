@@ -256,3 +256,33 @@ def test_a_write_that_cannot_be_read_back_is_not_blamed_on_another_store() -> No
             return None
 
     assert setup_over(WriteOnly()).save(URL) is WebhookSave.STORE_UNAVAILABLE
+
+
+def test_rotating_the_webhook_replaces_the_stored_secret_and_shows_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Rotation is Save over a stored webhook (`EPIC-036C`): the new one replaces the old, the
+    state moves to the new token's last characters, and neither URL appears in a log line or in
+    what the page is given."""
+    store = InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: URL})
+    setup = setup_over(store, running=True)
+
+    with caplog.at_level(logging.DEBUG, logger="App.Alerting"):
+        outcome = setup.save(OTHER_URL)
+        state = setup.state()
+
+    assert outcome is WebhookSave.SAVED
+    assert store.secrets == {DISCORD_WEBHOOK_SECRET: OTHER_URL}
+    assert state.hint == OTHER_URL[-4:]
+    shown = f"{state!r} {caplog.text}"
+    for part in (URL, OTHER_URL, "top_secret", "another_Secret"):
+        assert part not in shown
+
+
+def test_a_rotation_to_something_that_is_not_a_webhook_keeps_the_old_one() -> None:
+    store = InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: URL})
+
+    outcome = setup_over(store).save("https://example.com/hook")
+
+    assert outcome is WebhookSave.NOT_A_DISCORD_WEBHOOK
+    assert store.secrets == {DISCORD_WEBHOOK_SECRET: URL}

@@ -23,8 +23,12 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
   - early warnings (`EPIC-036B1`): a Futures bot inside its liquidation warning distance
     (`LIQUIDATION_RISK`) and a venue's user-data stream down past a grace (`USER_STREAM_DOWN`),
     each once per condition with a cool-down;
+  - the heartbeat every six hours and the daily summary (`EPIC-036E`), sent from the housekeeping
+    thread out of the bots' status report;
   - the fill source (`BOT-189`): one INFO, silent message for every order that filled whole, the
     cycle's profit on the fill that closes a cycle, bounded per channel by `FillBacklog`;
+  - Telegram beside it (`EPIC-036C1`), configured when its bot token and chat id are stored, with
+    the old config-file token moved into the secret store at boot;
   - one channel, Discord, configured when its webhook is stored
     (`composition/channel_bindings.py` is where a channel is added);
   - `alert test`, the command-line Send test;
@@ -85,6 +89,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.liquidat
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.stream_alert_source import (
     StreamAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.telegram_config_migration import (
+    TelegramConfigMigration,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.cli.alert_cli_handler import (
     AlertCliHandler,
 )
@@ -95,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock impo
     IAlertClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.alerting.ui.history.alerts_screen import (
+    alerts_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.account_loss_cap_tripped_event import (
     AccountLossCapTrippedEvent,
 )
@@ -155,12 +165,14 @@ class AlertingModule(BoundedContextModule):
 
     def contribute(self, registry: IContributionRegistry) -> None:
         """The Alerts page of Tools → Options: the Discord webhook and its Send test
-        (`EPIC-036D1`). A `Deferred`, so no widget module is imported at boot."""
+        (`EPIC-036D1`), and the Alerts screen: what was sent (`EPIC-036D2`). Both are
+        `Deferred`, so no widget module is imported at boot."""
         registry.contribute_options_page(
             OptionsPageContribution(
                 contributor_id=self.module_id, order=30, factory=_OPTIONS_PAGE
             )
         )
+        registry.contribute_screen(alerts_screen())
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`alert test`: the Send test a headless host has instead of a page."""
@@ -188,6 +200,9 @@ class AlertingModule(BoundedContextModule):
         if container.resolve(IInstanceAccess).read_only:
             logger.info("[alerting] not started: this copy is read-only")
             return
+        # Before the host builds the channel catalog: a token moved out of the config file
+        # is then the one the Telegram channel finds (`EPIC-036C1`).
+        container.resolve(TelegramConfigMigration).run()
         host = container.resolve(ThreadedDeliveryHost)
         host.start()
         self._host = host

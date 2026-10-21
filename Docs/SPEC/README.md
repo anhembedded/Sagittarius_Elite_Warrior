@@ -61,6 +61,7 @@ is why, the spec is what. Neither file is a copy of the other — the SPEC names
 | [SPEC-013](SPEC-013_see_my_account_on_a_desk.md) | See my account on a desk: summary, orders, histories, positions or assets, equity | trader | ✅ |
 | [SPEC-014](SPEC-014_run_a_grid_bot.md) | Create, judge, run and stop a Spot Grid bot | trader | ✅ |
 | [SPEC-015](SPEC-015_run_the_bots_headless.md) | Run the bots headless: `main.py run`, stopped cleanly by a signal | operator | 🟡 |
+| [SPEC-016](SPEC-016_see_what_the_app_told_me.md) | See what the app told me, and whether it is getting through | trader, operator | 🟡 |
 
 Planned, and numbered here so the ids are reserved rather than invented twice:
 

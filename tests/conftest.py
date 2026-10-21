@@ -172,6 +172,7 @@ def real_contributions(container, *, dev_mode: bool = False):
 
         return assemble_contributions(container, dev_mode=dev_mode)
 
+    from Sagittarius_Elite_Warrior.src.modules.alerting.module import AlertingModule
     from Sagittarius_Elite_Warrior.src.modules.backtesting.module import (
         BacktestingModule,
     )
@@ -197,6 +198,7 @@ def real_contributions(container, *, dev_mode: bool = False):
         trading_module,
         backtesting_module,
         BotsModule(),
+        AlertingModule(),
     ):
         module.contribute(contributions)
     # The shell's own mode, as `assemble_contributions()` adds it.

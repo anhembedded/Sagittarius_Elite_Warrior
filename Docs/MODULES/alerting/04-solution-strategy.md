@@ -36,7 +36,9 @@ from a systemd credential file. The journey, drawn: [`06-runtime.md`](06-runtime
 | The Options page's per-bot choice (All messages, Critical only, None) | **Real, new** (`BOT-191`) | Applies to the next alert without a restart; a bot set to Critical only sends no fill message and still sends its halts |
 | The Options page's Discord webhook, Save, Remove and Send test | **Real, new** (`EPIC-036D1`) | The one place a desktop owner configures the channel; a first save or a removal takes effect after a restart ([`06-runtime.md`](06-runtime.md)) |
 | `DeadMansSwitch`, `WorkerLiveness` | **Real, new** (`EPIC-036E1`) | A POST to an external monitor's check-in URL every 5 minutes while the worker makes progress; off until the credential `alerting_deadman_ping_url` holds an `https` URL ([`06-runtime.md`](06-runtime.md)) |
-| Telegram, stream and system sources, the rest of the UI, the heartbeat message, the daily summary, remote control | **Absent** | `EPIC-036C`, `036B`, `036D`, `036E`, `036F` |
+| `HeartbeatService` | **Real, new** (`EPIC-036E`) | A silent INFO heartbeat every 6 h and one daily summary after 01:00 UTC, from the bots' status report; the same routing, loudness and quiet hours as any alert |
+| `TelegramChannel`, `TelegramConfigMigration` | **Real, new** (`EPIC-036C1`) | A second channel read from the secret store (`alerting_telegram_bot_token`, `alerting_telegram_chat_id`); an old config-file token is moved there once at boot |
+| Embeds and pacing, the rest of the UI, remote control | **Absent** | `EPIC-036C`, `036D`, `036F` |
 
 ## How it is proven
 

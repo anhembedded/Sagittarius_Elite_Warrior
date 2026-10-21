@@ -17,26 +17,18 @@ from __future__ import annotations
 import re
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
-from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
-from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
-    AlertSubject,
-    SubjectScope,
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.alert_text import (
+    SEVERITY_MARK,
+    subject_line,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
-from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 
 #: Discord's message flag that delivers without a notification (`1 << 12`).
 SUPPRESS_NOTIFICATIONS = 4096
 
 #: Discord refuses a message `content` longer than this.
 MAX_CONTENT = 2000
-
-#: The marks the owner's eye finds first on a phone.
-_SEVERITY_MARK = {
-    Severity.CRITICAL: "\N{LARGE RED CIRCLE}",
-    Severity.WARNING: "\N{LARGE ORANGE CIRCLE}",
-    Severity.INFO: "\N{LARGE BLUE CIRCLE}",
-}
 
 #: A webhook URL as Discord issues it: its own host (or a client channel's), the
 #: API path, an id and a token. Anything else is not sent to. ASCII classes only
@@ -63,8 +55,8 @@ def discord_payload(alert: Alert, loudness: Loudness) -> dict[str, JsonValue]:
 
 
 def _content(alert: Alert) -> str:
-    head = f"{_SEVERITY_MARK[alert.severity]} **{alert.severity.name} · {alert.title}**"
-    lines = [head, _subject_line(alert.subject)]
+    head = f"{SEVERITY_MARK[alert.severity]} **{alert.severity.name} · {alert.title}**"
+    lines = [head, subject_line(alert.subject)]
     if alert.detail:
         lines.append(alert.detail)
     lines.append(f"{alert.at:%Y-%m-%d %H:%M:%S} UTC")
@@ -72,12 +64,3 @@ def _content(alert: Alert) -> str:
     if len(text) <= MAX_CONTENT:
         return text
     return text[: MAX_CONTENT - 1] + "\N{HORIZONTAL ELLIPSIS}"
-
-
-def _subject_line(subject: AlertSubject) -> str:
-    if subject.scope is SubjectScope.BOT:
-        name = subject.bot_name or subject.bot_id
-        return f"Bot {name} ({subject.bot_kind}) · {subject.venue} {subject.symbol}".rstrip()
-    if subject.scope is SubjectScope.VENUE:
-        return f"Venue {subject.venue}"
-    return "The app"

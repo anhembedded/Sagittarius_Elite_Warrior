@@ -16,6 +16,7 @@ logger = logging.getLogger("App.AssetValidator")
 _DEFAULT_ICONS_DIR = Path(__file__).parent / "icons"
 
 REQUIRED_UI_ICONS: list[str] = [
+    "bell",
     "bar-chart-2",
     "bot",
     "briefcase",
