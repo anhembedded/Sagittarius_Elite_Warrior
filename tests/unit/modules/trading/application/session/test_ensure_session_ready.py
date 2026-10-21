@@ -198,6 +198,7 @@ def test_blocked_when_connection_not_reachable() -> None:
 
     assert result.block_reason is SessionBlockReason.CONNECTION_NOT_READY
     assert result.account_was_read is False  # positions were never read
+    assert result.connection_failure is ConnectionFailureKind.NETWORK
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
