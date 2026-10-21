@@ -143,7 +143,7 @@ def trade_commands(
                 consequence=emergency_stop_consequence(venues),
                 accept_text="Stop everything",
             ),
-            icon="alert-triangle",
+            icon="triangle-alert",
         ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,

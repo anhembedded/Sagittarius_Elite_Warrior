@@ -90,7 +90,7 @@ def data_commands(route: str) -> tuple[CommandContribution, ...]:
         command(REPAIR_GAP, "&Repair gap", on_toolbar=True, icon="rotate-ccw"),
         command(REPAIR_ALL_GAPS, "Repair a&ll gaps"),
         command(INSPECT_CANDLES, "&Inspect candles"),
-        command(STOP, "St&op", on_toolbar=True, icon="square"),
+        command(STOP, "St&op", on_toolbar=True, icon="octagon"),
         command(SCAN_STATUS, "Scan s&tatus", on_toolbar=True, icon="info"),
         command(SCAN_ALL, "Scan &all shards"),
         command(SYNC_ALL_GAPS, "Sync all &gaps"),

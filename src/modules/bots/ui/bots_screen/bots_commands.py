@@ -65,7 +65,7 @@ _LIFECYCLE: tuple[tuple[BotAction, str, bool, str | None], ...] = (
     (BotAction.PAUSE, "&Pause", True, "pause"),
     (BotAction.RESUME, "&Resume", True, "play"),
     (BotAction.CONFIRM_RESUME, "&Confirm resume", True, "circle-check-big"),
-    (BotAction.STOP, "St&op…", True, "square"),
+    (BotAction.STOP, "St&op…", True, "octagon"),
     (BotAction.DELETE, "&Delete bot", False, None),
 )
 
