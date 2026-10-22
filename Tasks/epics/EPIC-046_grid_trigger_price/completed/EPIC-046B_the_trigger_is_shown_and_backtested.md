@@ -43,7 +43,7 @@ ADR D5's last part. One sentence whichever side of the range the price is on: th
 ## 5. Testing
 Unit: `test_grid_ladder_texts.py` (LONG, SHORT, no price heard, no trigger), `test_a_waiting_bot_is_listed_with_its_range_and_price.py` (through the real read model and `bot list`; red with the read model's trigger removed), `test_a_grid_that_enters_its_range_tells_it_once.py` (LONG and SHORT on the simulated venue), `test_a_bot_that_enters_its_range_is_told.py` (both sides, and none).
 
-Chart: `test_grid_overlay.py` (LONG ≤, SHORT ≥, none), `test_the_trigger_line_is_drawn_until_the_ladder_is_laid.py` (every state, RECOVERING by the state it returns to), `test_the_trigger_line_has_its_own_style.py` (its colour and dash are no other line's), `test_the_plan_of_a_triggered_grid.py` (the real `detail_for`: drawn for a draft, left out for a running bot, red without the wiring; the exit rows start from the trigger).
+Chart: `test_grid_overlay.py` (LONG ≤, SHORT ≥, none), `test_the_trigger_line_is_drawn_until_the_ladder_is_laid.py` (every state, RECOVERING by the state it returns to, a halted bot by what its record holds), `test_the_trigger_line_has_its_own_style.py` (its colour and dash are no other line's), `test_the_plan_of_a_triggered_grid.py` (the real `detail_for`: drawn for a draft, left out for a running bot, red without the wiring; the exit rows start from the trigger).
 
 ## 6. Docs touched
 `Docs/SPEC/SPEC-014_run_a_grid_bot.md` (§3 step 5, §8), `Docs/MODULES/bots/05-building-blocks.md` (what shows a waiting Grid), `Docs/MODULES/alerting/05-building-blocks.md` (`on_range_entered`), `Docs/LEARNING/005_a_trigger_price_is_a_limit_order_on_the_entry.md` and its index row.
@@ -51,4 +51,5 @@ Chart: `test_grid_overlay.py` (LONG ≤, SHORT ≥, none), `test_the_trigger_lin
 ## Implementation notes (written when done)
 - The new fields on the frozen `PricePosition` and on the event have defaults, so no other constructor changes.
 - **The owner's Loss-at-stop question.** The rows already start from the trigger: `exit_estimates_for` plans through `entry_plan`, which plans at `entry_price` since #724. Replaying the screenshot's plan (2306.26–2784.15, geometric, SL 3 %, TP 2887, trigger 2329): of the grid counts 6 to 15, only an 11-grid plan planned at the trigger gives "filling 1 BUY" and "filling 10 SELL". From 2329 down to the stop at 2237.07 only L0 (2306.26) fills, and every level above 2329 sells on the way to 2887. The figures are right.
+- Review of #725: a halted bot, one awaiting recovery or one in error is resumed over what it holds and never asks the trigger, so the line goes while its record holds inventory or a resting order (`RESUMED_BY_WHAT_IT_HOLDS`).
 - The decision record is marked Accepted: the owner said "ok" to D1–D6 after #724 merged.

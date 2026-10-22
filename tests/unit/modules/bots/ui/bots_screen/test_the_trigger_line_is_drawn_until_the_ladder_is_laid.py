@@ -12,6 +12,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
+    BotProgress,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -91,3 +94,36 @@ def test_a_recovering_bot_is_judged_by_the_state_it_returns_to() -> None:
 
 def test_no_overlay_stays_none() -> None:
     assert shown_for(None, _bot(S.RUNNING)) is None
+
+
+def _holding(inventory: str = "0", open_orders: int = 0) -> BotProgress:
+    return BotProgress(
+        realised_profit=Decimal(0),
+        completed_cycles=0,
+        open_orders=open_orders,
+        inventory=Decimal(inventory),
+        average_cost=None,
+        reason="",
+        reason_detail="",
+    )
+
+
+@pytest.mark.parametrize(
+    "state", [S.HALTED, S.AWAITING_RECOVERY, S.ERROR], ids=lambda s: s.value
+)
+@pytest.mark.parametrize(
+    ("progress", "drawn"),
+    [
+        (_holding("0.5"), False),
+        (_holding(open_orders=3), False),
+        (_holding(), True),
+    ],
+    ids=["holds-inventory", "holds-orders", "holds-nothing"],
+)
+def test_a_halted_bot_is_judged_by_what_its_record_holds(
+    state: S, progress: BotProgress, drawn: bool
+) -> None:
+    """Review of #725: its Resume plans over what it holds and asks the trigger only when flat."""
+    bot = replace(_bot(state), progress=progress)
+
+    assert (OverlayRole.TRIGGER in _roles(shown_for(_OVERLAY, bot))) is drawn

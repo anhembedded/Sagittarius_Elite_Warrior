@@ -56,7 +56,7 @@ price is part of that level's label ("L6 · range top"), else its own "range top
 and SL/TP keep their own roles and styles (`BUG-207`). A plan with a trigger price adds one
 `OverlayRole.TRIGGER` line, "Trigger ≤ T" (≥ for a SHORT), dash-dot in a colour no other line has;
 the Bots screen leaves it out once the bot has laid its ladder
-(`bots/ui/bots_screen/plan_trigger_line.py` → `shown_for`, `TRIGGER_LATCHED_STATES`; `EPIC-046B`).
+(`bots/ui/bots_screen/plan_trigger_line.py` → `shown_for`, `TRIGGER_LATCHED_STATES`, `RESUMED_BY_WHAT_IT_HOLDS`: a halted bot keeps the line only while its record holds nothing; `EPIC-046B`).
 
 **The kind's backtest.** `IBotKind.backtester` answers the kind's `IKindBacktester`
 (`bots/contracts/i_kind_backtester.py` → `IKindBacktester`, `KindBacktestRequest`), or `None`

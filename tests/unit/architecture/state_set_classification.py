@@ -104,6 +104,10 @@ STATE_SETS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     ),
     # --- display ---
     # `EPIC-046B`: RECOVERING is decided by the state it returns to, in `trigger_latched`.
+    _M + "ui/bots_screen/plan_trigger_line.py::RESUMED_BY_WHAT_IT_HOLDS": _row(
+        "HALTED AWAITING_RECOVERY ERROR",
+        "DRAFT STARTING RUNNING PAUSED RECOVERING AWAITING_RANGE STOPPING STOPPED",
+    ),
     _M + "ui/bots_screen/plan_trigger_line.py::TRIGGER_LATCHED_STATES": _row(
         "STARTING RUNNING PAUSED STOPPING",
         "DRAFT RECOVERING HALTED AWAITING_RECOVERY AWAITING_RANGE STOPPED ERROR",

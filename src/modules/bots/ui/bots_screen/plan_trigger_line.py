@@ -3,8 +3,10 @@
 The overlay is the plan's (`grid_overlay`), so it always carries the trigger line. Once the bot
 has laid its ladder the trigger is never asked again, as a filled limit order is not redrawn: the
 Bots screen leaves the line out for a bot whose state holds a laid ladder, and for a RECOVERING
-bot that returns to one. A bot at rest, waiting, halted or in error keeps the line, because its
-next Start, or a Resume of it while it holds nothing, asks the trigger again.
+bot that returns to one. A halted bot, one awaiting recovery or one in error is judged by its
+record: while it holds inventory, a position or a resting order its Resume plans over what it
+holds and never asks the trigger, so the line goes (review of #725); while it holds nothing the
+Resume is a fresh entry and asks it, so the line stays. A bot at rest or waiting keeps the line.
 """
 
 from __future__ import annotations
@@ -30,10 +32,25 @@ TRIGGER_LATCHED_STATES: frozenset[BotLifecycleState] = frozenset(
 )
 
 
+#: The states whose Resume asks the trigger only when the record holds nothing (ADR 046 D3).
+RESUMED_BY_WHAT_IT_HOLDS: frozenset[BotLifecycleState] = frozenset(
+    {_S.HALTED, _S.AWAITING_RECOVERY, _S.ERROR}
+)
+
+
 def trigger_latched(bot: BotSnapshot) -> bool:
     if bot.state is _S.RECOVERING:
         return bot.recovering_from in TRIGGER_LATCHED_STATES
+    if bot.state in RESUMED_BY_WHAT_IT_HOLDS:
+        return _holds_something(bot)
     return bot.state in TRIGGER_LATCHED_STATES
+
+
+def _holds_something(bot: BotSnapshot) -> bool:
+    progress = bot.progress
+    return progress is not None and (
+        progress.inventory != 0 or progress.open_orders > 0
+    )
 
 
 def shown_for(overlay: BotOverlay | None, bot: BotSnapshot) -> BotOverlay | None:
