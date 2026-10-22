@@ -105,6 +105,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def grid_budgets(
@@ -185,3 +186,19 @@ def risk_watches(
         )
 
     return build
+
+
+def build_grid_exposures(
+    container: IContainer, thresholds: FuturesGridThresholds
+) -> GridExposures:
+    """The exposure collaborators of each venue profile (`EPIC-039H`)."""
+    return grid_exposures(
+        container.resolve(IVenueProfiles),
+        futures_exposure(
+            container.resolve(IVenueTradingPorts),
+            container.resolve(IVenueSettingsGate),
+            container.resolve(SymbolBrackets),
+            thresholds,
+            lambda: container.resolve(IMarketDataSources),
+        ),
+    )

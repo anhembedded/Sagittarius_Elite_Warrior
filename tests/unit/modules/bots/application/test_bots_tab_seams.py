@@ -267,6 +267,9 @@ def test_too_few_daily_candles_leave_the_suggestions_out() -> None:
     assert market.terms is not None
     assert market.market is not None and market.market.daily_atr is None
     assert (market.atr_range, market.bollinger) == (None, None)
+    assert "needs 15" in market.market.daily_atr_unavailable, (
+        "the Plan names why, as the Start does"
+    )
 
 
 def test_a_venue_that_is_not_enabled_is_named_as_the_problem() -> None:

@@ -70,7 +70,11 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
         hlc = reading.candles
         return PlannerMarket(
             terms=terms,
-            market=replace(view, daily_atr=reading.value),
+            market=replace(
+                view,
+                daily_atr=reading.value,
+                daily_atr_unavailable=reading.unavailable,
+            ),
             atr_range=_atr_suggestion(hlc),
             bollinger=_bollinger_suggestion(hlc),
         )

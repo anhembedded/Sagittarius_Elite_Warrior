@@ -169,3 +169,7 @@ def test_unreadable_candles_fall_back_too_never_raise(
     reading = _start_reads(unregistered, 0).daily_atr_reading()
 
     assert reading.value is None and "could not be read" in reading.unavailable
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1 and warnings[0].exc_info, (
+        "a broken store is a WARNING with its traceback"
+    )

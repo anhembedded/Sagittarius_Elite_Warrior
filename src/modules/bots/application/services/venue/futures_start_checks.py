@@ -169,7 +169,13 @@ class FuturesStartReads:
             reading = self._daily_atr.read(
                 definition.venue, definition.symbol, self._context.state.now()
             )
-        except Exception as exc:  # noqa: BLE001 - converted at the seam: the stored candles could not be read, so the owner's flat floor stands alone and the log says why, never a raise and never a guessed ATR
+        except Exception as exc:
+            logger.warning(
+                "Bot %s: the stored daily candles could not be read; the stop-to-liquidation "
+                "floor falls back to the flat share [plan-risk]",
+                self._context.state.bot_id,
+                exc_info=True,
+            )
             reading = DailyAtr(
                 (), None, f"the stored daily candles could not be read: {exc}"
             )

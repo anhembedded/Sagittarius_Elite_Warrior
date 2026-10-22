@@ -39,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exec
     GridExecutorDeps,
     GridExecutorFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exposures import (
-    GridExposures,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_kind_backtester import (
     GridKindBacktester,
 )
@@ -110,9 +107,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.use
     UserStreamStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.futures_wiring import (
-    futures_exposure,
+    build_grid_exposures,
     grid_budgets,
-    grid_exposures,
     risk_watches,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.lazy_entry_readiness import (
@@ -268,7 +264,8 @@ def grid_executor_deps(
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
     pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
-    """What every Grid executor is built from; a journey may pass its own queue and pacer (`EPIC-039H`)."""
+    """What every Grid executor is built from, as production wires it. A journey with its own
+    queue and pacer passes them and keeps every other binding (`EPIC-039H`)."""
     ports = container.resolve(IVenueTradingPorts)
     monotonic = container.resolve(IMonotonicClock)
     positions = SharedPositionReads(ports, monotonic)
@@ -286,27 +283,13 @@ def grid_executor_deps(
         settings_gate=container.resolve(IVenueSettingsGate),
         budgets=container.resolve(IGridBudgets),
         user_streams=container.resolve(IUserStreamStatus),
-        exposures=_grid_exposures(container),
+        exposures=build_grid_exposures(container, _FUTURES_THRESHOLDS),
         risk_watch=risk_watches(
             ports, container.resolve(IBotClock), _FUTURES_THRESHOLDS, positions
         ),
         positions=positions,
         marks=SharedMarkReads(ports, monotonic),
         entry_readiness=LazyEntryReadiness(container),
-    )
-
-
-def _grid_exposures(container: IContainer) -> GridExposures:
-    """The exposure collaborators of each venue profile (`EPIC-039H`)."""
-    return grid_exposures(
-        container.resolve(IVenueProfiles),
-        futures_exposure(
-            container.resolve(IVenueTradingPorts),
-            container.resolve(IVenueSettingsGate),
-            container.resolve(SymbolBrackets),
-            _FUTURES_THRESHOLDS,
-            lambda: container.resolve(IMarketDataSources),
-        ),
     )
 
 
