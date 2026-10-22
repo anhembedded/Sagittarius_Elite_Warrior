@@ -52,12 +52,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     GRID_PROFIT_LEGEND,
     NO_VALUE,
+    REALISED_HEAD,
+    REALISED_LEGEND,
     TOTAL_PNL_HEAD,
     TOTAL_PNL_LEGEND,
     cycles_text,
     grid_profit_text,
     plain_money,
     plain_price,
+    realised_text,
     total_pnl_text,
 )
 
@@ -68,7 +71,7 @@ SCHEMA_VERSION = 1
 _NAME_WIDTH = 24
 _STATE_WIDTH = 10
 #: `BOT-192`: the Bots tab's own figures, as columns of the list.
-_EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", TOTAL_PNL_HEAD)
+_EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", REALISED_HEAD, TOTAL_PNL_HEAD)
 #: `BOT-193`: the ladder's steps, in a word of the Bots tab's Plan row (`Grid step`).
 _STEP_HEAD = "GRID STEP"
 _STEP_WIDTH = 30
@@ -138,7 +141,12 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
     legend = ReportSection(
-        None, (ReportRow.of(TOTAL_PNL_LEGEND), ReportRow.of(GRID_PROFIT_LEGEND))
+        None,
+        (
+            ReportRow.of(TOTAL_PNL_LEGEND),
+            ReportRow.of(REALISED_LEGEND),
+            ReportRow.of(GRID_PROFIT_LEGEND),
+        ),
     )
     return (
         *_recorded_note(status),
@@ -164,13 +172,13 @@ def _show_layout(
 
 def _row(
     leading: tuple[str, str, str, str, str],
-    earnings: tuple[str, str, str],
+    earnings: tuple[str, str, str, str],
     grid_step: str,
     reason: str,
 ) -> ReportRow:
     """One line of the list: id, name, state, venue, symbol; then the run's earnings; then why."""
     bot_id, name, state, venue, symbol = leading
-    grid_profit, cycles, total = earnings
+    grid_profit, cycles, realised, total = earnings
     return ReportRow(
         (
             ReportCell(bot_id, 6),
@@ -180,6 +188,7 @@ def _row(
             ReportCell(symbol, 10),
             ReportCell(grid_profit, 14),
             ReportCell(cycles, 8),
+            ReportCell(realised, 14),
             ReportCell(total, 14),
             ReportCell(grid_step, _STEP_WIDTH),
             ReportCell(reason),
@@ -193,6 +202,7 @@ def _bot_row(bot: BotStatusEntry) -> ReportRow:
         (
             grid_profit_text(bot.earnings, plain_money),
             cycles_text(bot.earnings),
+            realised_text(bot.earnings, plain_money),
             total_pnl_text(bot.earnings, plain_money),
         ),
         _step_cell(bot),
@@ -208,7 +218,7 @@ def _step_cell(bot: BotStatusEntry) -> str:
 def _unreadable_row(bot: UnreadableBotEntry) -> ReportRow:
     return _row(
         (bot.bot_id, "-", bot.state, "-", "-"),
-        ("-", "-", "-"),
+        ("-", "-", "-", "-"),
         "-",
         f"{bot.path}: {bot.reason}",
     )

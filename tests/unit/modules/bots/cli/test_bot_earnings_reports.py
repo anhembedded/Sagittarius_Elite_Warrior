@@ -213,9 +213,18 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
     bots = {bot["bot_id"]: bot for bot in _json(ListBotsVerb(), capsys)}
 
     head = next(line for line in out.splitlines() if line.startswith("ID"))
-    assert all(word in head for word in ("GRID PROFIT", "CYCLES", "TOTAL PNL"))
+    assert all(
+        word in head for word in ("GRID PROFIT", "CYCLES", "REALISED", "TOTAL PNL")
+    )
+    # `BOT-231`: Realised sits between Cycles and the total.
+    assert head.index("CYCLES") < head.index("REALISED") < head.index("TOTAL PNL")
     row = next(line for line in out.splitlines() if line.startswith("aaaaaa"))
     assert "1,234.50" in row and "1,230.25" in row
+    assert row.split().count("1,230.25") == 2, "Realised and the total both print it"
+    assert (
+        "REALISED is everything sold so far, measured against the average cost" in out
+    )
+    assert "includes GRID PROFIT's cycles" in out and "not an addition" in out
     assert bots["aaaaaa"]["earnings"] == {
         "realised": "1230.25",
         "held": "0",

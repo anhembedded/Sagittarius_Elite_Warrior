@@ -254,14 +254,30 @@ def test_the_cost_rows_are_on_screen_for_futures_and_not_for_spot(qtbot) -> None
     assert _row_shown(spot, "grid_profit") and _row_shown(futures, "grid_profit")
 
 
-def test_the_bots_table_shows_grid_profit_and_cycles_before_the_total(qtbot) -> None:
+def test_the_bots_table_shows_realised_between_cycles_and_the_total(qtbot) -> None:
+    """`BOT-231`: the money sold so far (net of fees) is a column, beside Grid profit it contains."""
     model = BotsTableModel()
     model.set_rows([_running(_PRICED)])
     keys = [spec.key for spec in BotsTableModel.COLUMNS]
 
-    assert keys[-3:] == ["grid_profit.signed", "cycles", "profit.signed"]
-    cells = [model.index(0, keys.index(key)).data() for key in keys[-3:]]
-    assert cells == [Decimal("12.5"), 3, Decimal(30)]
+    assert keys[-4:] == [
+        "grid_profit.signed",
+        "cycles",
+        "realised.signed",
+        "profit.signed",
+    ]
+    assert BotsTableModel.COLUMNS[-2].title == "Realised"
+    cells = [model.index(0, keys.index(key)).data() for key in keys[-4:]]
+    assert cells == [Decimal("12.5"), 3, _PRICED.pnl.realised, Decimal(30)]
+    assert _PRICED.pnl.realised != Decimal("12.5"), "must differ from grid profit"
+
+
+def test_the_realised_cell_is_blank_while_the_pnl_is_not_judged(qtbot) -> None:
+    model = BotsTableModel()
+    unjudged = replace(_PRICED, pnl=None)
+    model.set_rows([_running(unjudged)])
+
+    assert model.index(0, model.column("realised.signed")).data() is None
 
 
 def test_each_earnings_figure_says_whether_it_is_a_profit_or_a_loss() -> None:

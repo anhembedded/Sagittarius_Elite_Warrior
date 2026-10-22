@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     LadderRow,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    REALISED_COLUMN_TITLE,
     TOTAL_PNL_TITLE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -77,6 +78,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         ColumnSpec("state", "State", ColumnKind.STATUS),
         ColumnSpec(signed_key("grid_profit"), "Grid profit", ColumnKind.MONEY),
         ColumnSpec("cycles", "Cycles", ColumnKind.QUANTITY),
+        ColumnSpec(signed_key("realised"), REALISED_COLUMN_TITLE, ColumnKind.MONEY),
         ColumnSpec(signed_key("profit"), TOTAL_PNL_TITLE, ColumnKind.MONEY),
     )
 
@@ -96,6 +98,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
             state_text(row.state),
             progress.realised_profit if progress else None,
             progress.completed_cycles if progress else None,
+            _realised(row),
             _total_pnl(row),
         )
         return values[column]
@@ -120,9 +123,18 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         if column == self.column(signed_key("grid_profit")):
             progress = row.progress
             return sign_tone(progress.realised_profit if progress else None)
+        if column == self.column(signed_key("realised")):
+            return sign_tone(_realised(row))
         if column == self.column(signed_key("profit")):
             return sign_tone(_total_pnl(row))
         return Tone.NEUTRAL
+
+
+def _realised(row: BotSnapshot) -> Decimal | None:
+    """`BOT-231` - what the run has sold against its average cost, net of fees; blank while its PnL
+    was not judged."""
+    progress = row.progress
+    return progress.pnl.realised if progress and progress.pnl else None
 
 
 def _total_pnl(row: BotSnapshot) -> Decimal | None:
