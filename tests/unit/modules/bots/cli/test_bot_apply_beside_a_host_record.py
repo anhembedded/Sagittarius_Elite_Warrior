@@ -97,3 +97,23 @@ def test_a_host_gone_quiet_on_an_unplan_is_reported_and_exits_nonzero(
     assert any("not sent" in n for n in notes)
     assert outcome is not None and outcome.code is ExitCode.HOST_UNHEALTHY
     assert "were not sent" in outcome.message
+
+
+def test_an_unplan_taken_without_an_outcome_is_unknown_and_exits_eleven(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The last command is the unplan; nothing is left unsent, yet the run must not read as a refusal (exit 2)."""
+    setup = Setup()
+    save_bot(setup.world.store, "aaaaaa", S.STOPPED, "kept", OLD)
+    save_bot(setup.world.store, "cccccc", S.STOPPED, "retired", OLD)
+    setup.plans.plan = AppliedPlan(
+        (AppliedBot("cccccc", "retired", "spot_testnet", DesiredState.RUNNING),)
+    )
+    setup.host.answers_before_silence = 1
+
+    outcome = setup.beside_a_host(a_plan_file(tmp_path, an_entry("kept")))
+
+    notes = json.loads(capsys.readouterr().out)["data"]["notes"]
+    assert any("not removed" in n and "outcome unknown" in n for n in notes)
+    assert outcome is not None and outcome.code is ExitCode.HOST_UNHEALTHY
+    assert "1 were sent with the outcome unknown" in outcome.message

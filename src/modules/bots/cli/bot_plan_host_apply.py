@@ -105,6 +105,7 @@ class HostPlanApplier:
         notes = list(preview.notes)
         stopped: HostControlReply | None = None
         wishes_unsent = 0
+        wishes_unknown = 0
         first = True
         for change, request in _requests_of(diff, entries, wishes):
             if request is None:
@@ -127,6 +128,8 @@ class HostPlanApplier:
             first = False
             if reply.status in _NOT_DELIVERED or reply.status is _UNKNOWN:
                 stopped = reply
+                if request.action is HostControlAction.UNPLAN:
+                    wishes_unknown += 1
             self._record(change, request, reply, outcomes, notes)
         everything = tuple(
             outcomes.get(id(c)) or _unsent(c, stopped) for c in diff.changes
@@ -134,7 +137,9 @@ class HostPlanApplier:
         unsent = wishes_unsent + sum(
             1 for o in everything if o.message.startswith("not sent")
         )
-        unknown = sum(1 for o in everything if o.message.startswith("sent, "))
+        unknown = wishes_unknown + sum(
+            1 for o in everything if o.message.startswith("sent, ")
+        )
         result = ApplyResult(diff, everything, tuple(notes))
         return HostApplyRun(result, stopped_by=stopped, unsent=unsent, unknown=unknown)
 
@@ -155,7 +160,12 @@ class HostPlanApplier:
     ) -> None:
         if request.action is HostControlAction.UNPLAN:
             if reply.status is not HostControlStatus.DONE:
-                notes.append(_wish_not_removed(request, reply.message))
+                why = (
+                    f"sent, outcome unknown: {reply.message}"
+                    if reply.status is _UNKNOWN
+                    else reply.message
+                )
+                notes.append(_wish_not_removed(request, why))
                 if change.action is not ChangeAction.DELETE:
                     outcomes[id(change)] = ChangeOutcome(
                         change,
