@@ -1,7 +1,7 @@
 # EPIC-045 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🟡 In Progress
+- **Status:** ✅ Done (2026-10-22)
 - **Target Completion:** 2026-10-28
 
 ---
@@ -40,7 +40,7 @@ gantt
 | EPIC-045F | `--start-planned` skips an unconfirmed mainnet bot | `claude/epic-045f-start-planned-skips-unconfirmed` (#694) | 🟡 | ✅ Merged | 2026-10-21 |
 | EPIC-045D | Parity guard | `claude/epic-045d-tab-host-parity` (#697) | 🟢 | ✅ Merged on merge | 2026-10-22 |
 | EPIC-045G | The four tab actions the host cannot do yet | `claude/epic-045g1-move-a-draft-to-another-venue` (#705), `claude/epic-045g2-confirm-resume` (#708), `claude/epic-045g3-arm-disarm` | 🔴 | ✅ Merged on merge | 2026-10-21 |
-| EPIC-045C | `bot apply` beside a host | `claude/epic-045c-apply-beside-a-host` | 🔴 | 🟣 In review | 2026-10-22 |
+| EPIC-045C | `bot apply` beside a host | `claude/epic-045c-apply-beside-a-host` (#717) | 🔴 | ✅ Merged | 2026-10-22 |
 
 ---
 
@@ -50,6 +50,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-21 | Spec | Epic scaffolded; decision record written; A, B, E begun. |
 | 2026-10-21 | PR #694 | Merged (85e77bb): `--start-planned` skips an unconfirmed mainnet bot; gate green, reviewer round 2 PASS. |
+| 2026-10-22 | PR #717 | Merged (ae798da): `bot apply` beside a running host, entry by entry; gate green on f045fbad, reviewer round 3 PASS. Epic done, 7 of 7. |
 | 2026-10-21 | PR #692 | Merged (b4127df): `bot add`, `bot delete`, runbook; gate green, reviewer round 3 PASS. |
 
 ---
