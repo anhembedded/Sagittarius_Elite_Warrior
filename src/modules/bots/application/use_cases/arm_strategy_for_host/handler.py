@@ -57,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 _REFUSAL_OF: dict[ArmStrategyBlockReason, BotRefusal] = {
     ArmStrategyBlockReason.SYMBOL_LEASED: BotRefusal.SYMBOL_LEASED,
     ArmStrategyBlockReason.SESSION_NOT_READY: BotRefusal.VENUE_NOT_READY,
+    ArmStrategyBlockReason.POSITION_OPEN: BotRefusal.INVALID_TRANSITION,
 }
 
 
@@ -78,7 +79,8 @@ class ArmStrategyForHostCommandHandler(
                 f"this run does not serve {venue.value}, so no strategy can be armed on it "
                 f"({not_served})",
             )
-        problem = _problem_before_arming(ports)
+        saved = ports.arming.saved_selection()
+        problem = _problem_before_arming(ports, saved)
         if problem is not None:
             return problem
         if venue.is_mainnet and command.confirmed_venue != venue.value:
@@ -87,7 +89,6 @@ class ArmStrategyForHostCommandHandler(
                 f"An armed strategy places orders by itself with real money on {venue.display_name}: "
                 f"arming it needs --confirm-venue {venue.value}",
             )
-        saved = ports.arming.saved_selection()
         result = ports.arming.arm(saved)
         if result.armed:
             return BotCommandResult(
@@ -108,7 +109,9 @@ class ArmStrategyForHostCommandHandler(
         )
 
 
-def _problem_before_arming(ports: VenueStrategyControls) -> BotCommandResult | None:
+def _problem_before_arming(
+    ports: VenueStrategyControls, saved: ArmedStrategyConfig
+) -> BotCommandResult | None:
     armed = ports.armed.armed().config
     if armed is not None:
         return _refused(
@@ -116,7 +119,7 @@ def _problem_before_arming(ports: VenueStrategyControls) -> BotCommandResult | N
             f"a strategy is already armed on {ports.venue.value}: {_words_of(armed)}; "
             "disarm it first (`bot disarm-strategy`)",
         )
-    if not ports.arming.saved_selection().strategy_key:
+    if not saved.strategy_key:
         return _refused(
             BotRefusal.INVALID_DEFINITION,
             f"no saved arming exists for {ports.venue.value}: the host arms the saved one and "

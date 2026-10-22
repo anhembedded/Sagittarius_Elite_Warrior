@@ -149,7 +149,7 @@ def test_no_saved_arming_is_refused_with_the_way_to_make_one() -> None:
         ),
         (
             ArmStrategyBlockReason.POSITION_OPEN,
-            BotRefusal.INVALID_DEFINITION,
+            BotRefusal.INVALID_TRANSITION,
             "position is open",
         ),
     ],
