@@ -2,19 +2,21 @@
 
 The pairing of a counter SELL (the BUY it completes) lives only in the bot's own record. A
 reaction hands the executor its runtime and the orders to send; the executor saves the runtime
-and then sends. Were the order sent and the process to die (or the request to raise while the
-order is live) before the placement is saved, the restart's reconcile would adopt a live order
+and then sends. Were the order sent and the process to die before the placement is saved, the restart's reconcile would adopt a live order
 with no pairing (`grid_reactions.adopted`), and its fill would close no cycle: Cycles and Grid
 profit come out short, Total PnL does not move.
 
 So the runtime saved *with* the reaction also lists each order about to be sent as owed, in
 `held` (the record a pause already uses for an order the bot owes and has not placed). The
-placer settles an entry when the outcome is known: the level holds the order, or a definite
-answer says nothing was placed. A `FAULT` may be live and is not settled: `adopted` finds the
-entry's pairing, and a resume places the order if it never reached the exchange.
+placer settles an entry in the save that records the outcome: the level holds the order, or a
+refusal, a pause or a fault says nothing is on the ladder. What it covers is a **death between the
+send and that save**: the restart is RECOVERING, the reconcile adopts the live order and
+`adopted` takes the pairing from the entry, or `release_held` places the order if it never
+reached the exchange. A request that raised (`FAULT`) is not that case: the bot goes to ERROR,
+whose only exit is a Stop that cancels the order, so its entry is settled like any other.
 
-Limit: a fault on one order halts the bot, so the orders after it in the same reaction are never
-sent; they stay on record as owed, and a resume places them. An order that reached the exchange
+Limit: a refusal or fault on one order stops the reaction, so the orders after it are never sent;
+their entries stay on record as owed, and die with the re-plan a halt or a Stop leads to. An order that reached the exchange
 while the app was down and filled there is not found by the reconcile (it lists open orders); the
 inventory check halts the bot on the difference, as it did before this entry existed.
 """

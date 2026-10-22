@@ -105,8 +105,10 @@ class GridLadderPlacer:
                 f"L{action.level_index} already holds an order; nothing was sent",
             )
             return False
-        # `BUG-266`: the save before this call listed the order as owed (`owing`), so a death or a
-        # fault between the send and the save of its placement leaves its pairing on record.
+        # `BUG-266`: the save before this call listed the order as owed (`owing`), so a death
+        # between the send and the save of its placement leaves its pairing on record. Every
+        # answer settles the entry: a fault ends in ERROR, whose only exit is a Stop that
+        # cancels the order, and nothing reads a leftover entry there.
         outcome = self._context.gateway.place_limit(
             action.side,
             action.price,
@@ -115,21 +117,14 @@ class GridLadderPlacer:
         )
         log_order(state.bot_id, action, outcome.client_order_id or outcome.detail)
         what = f"L{action.level_index} {action.side.value}"
-        if outcome.may_be_live:
-            logger.info(
-                "Bot %s: %s may be live and stays owed for the reconcile [intent-kept]",
-                state.bot_id,
-                what,
+        settled = settled_intent(state.runtime, action.level_index)
+        if outcome.done:
+            oid = outcome.client_order_id
+            state.update(
+                accepted(placed(settled, as_accepted(action, outcome), oid), oid)
             )
-        else:
-            settled = settled_intent(state.runtime, action.level_index)
-            if outcome.done:
-                oid = outcome.client_order_id
-                state.update(
-                    accepted(placed(settled, as_accepted(action, outcome), oid), oid)
-                )
-                return True
-            state.update(settled)
+            return True
+        state.update(settled)
         if (
             outcome.kind is OrderOutcomeKind.SYMBOL_NOT_TRADING
             and state.state is BotLifecycleState.RUNNING

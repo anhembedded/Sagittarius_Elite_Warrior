@@ -29,11 +29,10 @@ S -> ST : save(bot, runtime)
 note right of ST : the counter's pairing is on record before the order is sent (BUG-266)
 F -> L : lay the counter order one level away
 L -> T : place
+note over L, T : a death here leaves the entry; the reconcile adopts the live order with its pairing
 alt accepted
   L -> S : update(runtime: owed entry settled, level RESTING with its pairing)
-else FAULT (may be live)
-  L -> L : the entry stays owed; the reconcile adopts the order with its pairing
-else refused, paused, switched off
+else refused, paused, switched off or fault
   L -> S : update(runtime: owed entry settled)
 end
 @enduml
