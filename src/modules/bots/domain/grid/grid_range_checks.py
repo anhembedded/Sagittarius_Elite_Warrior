@@ -14,9 +14,20 @@ where the price is. D2 holds: nothing here mentions a stop loss.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    trigger_met,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    GridParams,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
     RangePosition,
@@ -38,6 +49,13 @@ def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
     price = inputs.market.last_price
     position = range_position(price, params.lower, params.upper)
     numbers = {"last_price": price, "lower": params.lower, "upper": params.upper}
+    trigger = params.trigger_price
+    if (
+        position is RangePosition.INSIDE
+        and trigger is not None
+        and not trigger_met(params, price)
+    ):
+        return _trigger_unmet(params, trigger, numbers)
     if position is RangePosition.INSIDE:
         return Verdict(
             VerdictSeverity.OK,
@@ -52,4 +70,19 @@ def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
         f"Starts waiting for the price to enter {plain(params.lower)}-"
         f"{plain(params.upper)} (now {plain(price)}); nothing is placed until it does",
         {**numbers, "entry_edge": edge},
+    )
+
+
+def _trigger_unmet(
+    params: GridParams, trigger: Decimal, numbers: dict[str, Decimal]
+) -> Verdict:
+    """The price is in the range but not yet at the trigger: the bot waits, like a limit order
+    (`EPIC-046A`, ADR 046 D5)."""
+    side = "at or above" if params.direction is TradeDirection.SHORT else "at or below"
+    return Verdict(
+        VerdictSeverity.OK,
+        "TRIGGER_NOT_MET",
+        f"Starts waiting for the price {side} the trigger {plain(trigger)} "
+        f"(now {plain(numbers['last_price'])}); nothing is placed until it is",
+        {**numbers, "trigger_price": trigger},
     )

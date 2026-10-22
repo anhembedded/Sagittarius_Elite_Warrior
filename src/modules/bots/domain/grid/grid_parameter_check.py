@@ -25,6 +25,7 @@ GRID_PARAMETER_KEYS: tuple[str, ...] = (
     "direction",
     "leverage",
     "on_range_exit",
+    "trigger_price",
 )
 
 #: A valid Grid that every key of `GRID_PARAMETER_KEYS` the probe does not check is read from. The
@@ -48,8 +49,8 @@ def grid_parameter_problem(
 
     The question `bot edit` asks without an exchange: is every key known, and is each value *this edit*
     sets readable by `GridParams` and within its own bounds? It builds a probe from the neutral
-    Grid plus the changed keys (plus the other end of the range, and the other of `direction` and
-    `leverage`, which a change is judged against) and asks `GridParams.from_config`, so the rules are
+    Grid plus the changed keys (plus the other end of the range, the other of `direction` and `leverage`, and the trigger
+    price, which a change is judged against) and asks `GridParams.from_config`, so the rules are
     the one `validate` applies and no second copy can drift. What needs the venue (the position
     venue's `on_range_exit`, the exchange's filters, the account) is judged when the bot starts.
     """
@@ -61,9 +62,14 @@ def grid_parameter_problem(
         )
     probe = dict(_NEUTRAL_PARAMETERS)
     judged = set(changed)
-    for pair in (("lower", "upper"), ("direction", "leverage")):
-        if judged.intersection(pair):
-            judged.update(pair)
+    for related in (
+        ("lower", "upper", "trigger_price"),
+        ("direction", "leverage", "trigger_price"),
+    ):
+        if judged.intersection(related):
+            judged.update(related)
+    if "trigger_price" in judged:
+        judged.update(("lower", "upper", "direction", "leverage"))
     probe.update({key: config[key] for key in judged if config.get(key, "").strip()})
     try:
         GridParams.from_config(probe)

@@ -102,7 +102,9 @@ def test_a_key_that_is_not_a_grid_parameter_is_refused_and_named() -> None:
 
 def test_every_declared_key_is_one_a_grid_reads() -> None:
     """The list a refusal offers is real: each key is one `GridParams.to_config` can write."""
-    params = GridParams.from_config(_FUTURES | {"on_range_exit": "close"})
+    params = GridParams.from_config(
+        _FUTURES | {"on_range_exit": "close", "trigger_price": "120"}
+    )
 
     assert set(GRID_PARAMETER_KEYS) == set(params.to_config())
 

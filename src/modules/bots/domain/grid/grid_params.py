@@ -26,6 +26,11 @@ name both, and one for a position venue must name both (`from_config_naming_expo
 `on_range_exit` (`hold` | `close`): optional, `hold` when absent; `close` only on a position venue
 (`exposure_refusal`). Written back only when it is `close`.
 
+@par Trigger price (`EPIC-046A`)
+`trigger_price` (a price inside the range): optional, absent (or `off`) when there is none. A LONG grid
+activates when the price is at or below it, a SHORT grid when it is at or above it, like a limit
+order on the entry (`grid_entry_gate.py`); a NEUTRAL grid has no better side and is refused.
+
 @par A bot created with no parameters (`BOT-150`)
 New bot asks only for the kind, venue and symbol; the parameters are set on
 the draft afterwards. `unset_parameters` names the ones the user must still
@@ -137,6 +142,7 @@ class GridParams:
     direction: TradeDirection = LEGACY_DIRECTION
     leverage: int = LEGACY_LEVERAGE
     on_range_exit: RangeExit = RangeExit.HOLD
+    trigger_price: Decimal | None = None
 
     def __post_init__(self) -> None:
         if self.lower <= 0:
@@ -151,6 +157,22 @@ class GridParams:
             raise GridParamsError("a stop_loss percent must be below 100")
         if self.leverage < 1:
             raise GridParamsError("leverage must be at least 1")
+        self._check_trigger()
+
+    def _check_trigger(self) -> None:
+        trigger = self.trigger_price
+        if trigger is None:
+            return
+        if self.direction is TradeDirection.NEUTRAL:
+            raise GridParamsError(
+                "a trigger price needs a LONG or SHORT grid: a NEUTRAL grid has no better side "
+                "to wait for"
+            )
+        if not self.lower <= trigger <= self.upper:
+            raise GridParamsError(
+                f"the trigger price {trigger} must be inside the range "
+                f"{self.lower}-{self.upper}"
+            )
 
     @classmethod
     def from_config(cls, config: Mapping[str, str]) -> GridParams:
@@ -167,6 +189,7 @@ class GridParams:
             direction=direction,
             leverage=leverage,
             on_range_exit=_range_exit(config),
+            trigger_price=_trigger_price(config),
         )
 
     @classmethod
@@ -194,6 +217,8 @@ class GridParams:
             config[_LEVERAGE_KEY] = str(self.leverage)
         if self.on_range_exit is not RangeExit.HOLD:
             config[_RANGE_EXIT_KEY] = self.on_range_exit.value
+        if self.trigger_price is not None:
+            config[_TRIGGER_PRICE_KEY] = str(self.trigger_price)
         return config
 
     @property
@@ -287,6 +312,17 @@ def _spacing(config: Mapping[str, str]) -> GridSpacing:
 _DIRECTION_KEY = "direction"
 _LEVERAGE_KEY = "leverage"
 _RANGE_EXIT_KEY = "on_range_exit"
+_TRIGGER_PRICE_KEY = "trigger_price"
+
+
+def _trigger_price(config: Mapping[str, str]) -> Decimal | None:
+    """`None` when the key is absent, blank or `off` (how `bot edit` clears it, as for a stop loss):
+    a definition saved before `EPIC-046A` has none, and `to_config` writes the key only when a
+    trigger is set, so a saved definition keeps its bytes."""
+    text = config.get(_TRIGGER_PRICE_KEY, "").strip()
+    if not text or text.lower() == ExitKind.OFF.value:
+        return None
+    return _parse_decimal(text, _TRIGGER_PRICE_KEY)
 
 
 def _range_exit(config: Mapping[str, str]) -> RangeExit:

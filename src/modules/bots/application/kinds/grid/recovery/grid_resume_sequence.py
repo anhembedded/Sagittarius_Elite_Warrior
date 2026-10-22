@@ -65,6 +65,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    EntryGate,
+    entry_gate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     unplaced_inventory,
 )
@@ -74,10 +78,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resume_plan imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
-    RangePosition,
-    range_position,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
     RESUME_PRICE_TOLERANCE,
@@ -156,8 +156,8 @@ class GridResumeSequence:
         event: BotLifecycleEvent = BotLifecycleEvent.RESUME,
     ) -> ResumeProposal | None:
         """Steps 1–3; `None` when a step could not finish (the reason says why), or when the
-        bot holds nothing and the price is outside its range: it then waits for the range
-        instead (`EPIC-044`, ADR 044 D5), through `event`, the one that leaves HALTED or
+        bot holds nothing and the price does not open its entry gate (outside the range, or short of the trigger
+        price): it then waits instead (`EPIC-044`, ADR 044 D5), through `event`, the one that leaves HALTED or
         AWAITING_RECOVERY."""
         state = self._context.state
         if not self._storage.admits_relaunch():
@@ -168,7 +168,7 @@ class GridResumeSequence:
             registration.registered
             and held is not None
             and held.quantity == 0
-            and self._outside_range(price)
+            and self._gate_closed(price)
         ):
             again = self._wait_if_still_flat(price, event)
             if again is None:
@@ -218,11 +218,10 @@ class GridResumeSequence:
         )
         return True
 
-    def _outside_range(self, price: Decimal) -> bool:
-        params = self._context.params
-        return range_position(price, params.lower, params.upper) is not (
-            RangePosition.INSIDE
-        )
+    def _gate_closed(self, price: Decimal) -> bool:
+        """The range or, for a bot that has a trigger price, the trigger holds the entry back: a
+        resume of a bot that holds nothing is a fresh entry (ADR 046 D3)."""
+        return entry_gate(self._context.params, price) is not EntryGate.OPEN
 
     def _wait_if_still_flat(
         self, price: Decimal, event: BotLifecycleEvent
@@ -254,8 +253,8 @@ class GridResumeSequence:
             )
             return registration
         logger.info(
-            "Bot %s: the resume finds nothing held and the price %s outside the range; "
-            "the bot waits for it [range-wait]",
+            "Bot %s: the resume finds nothing held and the price %s does not open the entry "
+            "(outside the range or short of the trigger); the bot waits [range-wait]",
             state.bot_id,
             price,
         )

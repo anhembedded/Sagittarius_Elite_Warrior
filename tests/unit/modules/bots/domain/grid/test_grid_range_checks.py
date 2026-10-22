@@ -152,3 +152,35 @@ def test_an_exit_refusal_prints_plain_prices() -> None:
     assert stop is not None and take is not None
     assert "stop loss 61000 is at or above the lower limit 60000;" in stop.reason
     assert "take profit 69000 is at or below the upper limit 70000;" in take.reason
+
+
+@pytest.mark.parametrize(
+    ("direction", "price", "side"),
+    [("LONG", Decimal(67000), "at or below"), ("SHORT", Decimal(63000), "at or above")],
+    ids=["long-above-trigger", "short-below-trigger"],
+)
+def test_a_price_in_the_range_short_of_the_trigger_says_it_waits_for_the_trigger(
+    direction: str, price: Decimal, side: str
+) -> None:
+    """`EPIC-046A`, ADR 046 D5: information, never a warning; the plan is drawn at the trigger."""
+    verdicts = _verdicts(price, direction, trigger_price="65000")
+
+    verdict = _find(verdicts, "TRIGGER_NOT_MET")
+    assert verdict is not None
+    assert verdict.severity is VerdictSeverity.OK
+    assert f"price {side} the trigger 65000 (now {price})" in verdict.reason
+    assert _find(verdicts, _IN) is None
+
+
+@pytest.mark.parametrize(
+    ("direction", "price"),
+    [("LONG", Decimal(64000)), ("SHORT", Decimal(66000))],
+    ids=["long-better", "short-better"],
+)
+def test_a_price_already_better_than_the_trigger_is_in_range_as_before(
+    direction: str, price: Decimal
+) -> None:
+    verdicts = _verdicts(price, direction, trigger_price="65000")
+
+    assert _find(verdicts, _IN) is not None
+    assert _find(verdicts, "TRIGGER_NOT_MET") is None

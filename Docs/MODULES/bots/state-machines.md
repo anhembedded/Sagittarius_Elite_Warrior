@@ -118,6 +118,16 @@ exposure asks, instead of naming states: false for `AWAITING_RANGE` and for `REC
 step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
 [the decision](../../../Tasks/epics/EPIC-044_grid_waits_for_the_range/DECISION_2026-10-21_a_grid_waits_for_the_range.md).
 
+A Grid with a **trigger price** (`EPIC-046`) waits in the same `AWAITING_RANGE`, through the same rows:
+no state and no event is added. The gate out of the wait is `grid_entry_gate.py` → `entry_gate`, the
+range first and then the trigger, like a limit order on the entry: a LONG enters at or below it, a
+SHORT at or above it (`trigger_met`); `price_outside_range` now also leads in when the price is inside
+the range but short of the trigger. The latch is the lifecycle itself: only `AWAITING_RANGE` asks the
+gate, so a bot that has laid its ladder never waits again when the price moves back across the
+trigger, and a restart of a running bot returns it to `RUNNING` through `RECOVERING`. A Resume of a bot
+that holds nothing asks the gate too (`GridResumeSequence` → `_gate_closed`). The reasons are
+[the decision](../../../Tasks/epics/EPIC-046_grid_trigger_price/DECISION_2026-10-22_a_grid_trigger_price.md).
+
 The sets the module asks of the table, rather than keeping lists of its own: `RUN_STARTING_STATES`
 (a `start` here stamps a new run), `PRICE_STREAM_STATES`, `PRICE_STALENESS_HALTS`,
 `RESUME_PROPOSES_STATES` (`HALTED` and `AWAITING_RECOVERY`: the states whose Resume re-plans) and
