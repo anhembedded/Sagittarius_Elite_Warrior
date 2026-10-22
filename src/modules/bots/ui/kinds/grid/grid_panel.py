@@ -10,7 +10,9 @@ They are the Grid's own commands (`EPIC-033K` stage 2; SPEC-014): two actions on
 Grid toolbar, and the same commands in the Bots menu (`kind_commands.py`).
 
 The fields read and write the definition's strings (`GridParams.to_config`
-spells them): an exit is `off`, `price:<p>` or `percent:<n>`.
+spells them): an exit is `off`, `price:<p>` or `percent:<n>`. The trigger price
+(`EPIC-046`) is optional: an empty field is no trigger, and the definition then
+holds no `trigger_price` key, so a plan without one keeps its bytes.
 """
 
 from __future__ import annotations
@@ -77,6 +79,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors 
     SPACING,
     STOP_LOSS,
     TAKE_PROFIT,
+    TRIGGER_PRICE,
     UPPER,
     field_errors,
     field_of_code,
@@ -121,6 +124,12 @@ class GridPanel(BotKindPanel):
         self.exposure = ExposureFields()
         self.stop_loss = ExitField("StopLoss")
         self.take_profit = ExitField("TakeProfit")
+        self.trigger_price = decimal_field("editGridTrigger")
+        self.trigger_price.setPlaceholderText("None: enters at any price in the range")
+        self.trigger_price.setToolTip(
+            "Like a limit order: a Long starts only at or below this price, a Short only "
+            "at or above it. Leave empty for none."
+        )
         self.toolbar = QToolBar("Grid")
         self.toolbar.setObjectName("toolbarGridKind")
         # Worded as the Bots menu's commands, without their access keys.
@@ -160,6 +169,7 @@ class GridPanel(BotKindPanel):
         self.capital.setText(config.get("capital_quote", ""))
         self.stop_loss.show_encoded(config.get("stop_loss", ExitKind.OFF.value))
         self.take_profit.show_encoded(config.get("take_profit", ExitKind.OFF.value))
+        self.trigger_price.setText(price_text(_trigger_text(config)))
         self.exposure.show_config(config)
         self.suggestion_note.setVisible(False)
 
@@ -184,7 +194,12 @@ class GridPanel(BotKindPanel):
             "stop_loss": self.stop_loss.encode(),
             "take_profit": self.take_profit.encode(),
             **self.exposure.config(),
+            **self._trigger_config(),
         }
+
+    def _trigger_config(self) -> dict[str, str]:
+        text = self.trigger_price.text().strip()
+        return {TRIGGER_PRICE: text} if text else {}
 
     def set_plan_facts(
         self, account: AccountView | None, risk: PlanRiskFacts | None
@@ -251,6 +266,7 @@ class GridPanel(BotKindPanel):
             (LEVERAGE, self.exposure.leverage),
             (STOP_LOSS, self.stop_loss),
             (TAKE_PROFIT, self.take_profit),
+            (TRIGGER_PRICE, self.trigger_price),
         )
         for key, editor in rows:
             self._rows[key] = editor
@@ -315,10 +331,16 @@ class GridPanel(BotKindPanel):
             TAKE_PROFIT: self.take_profit,
             DIRECTION: self.exposure.direction,
             LEVERAGE: self.exposure.leverage,
+            TRIGGER_PRICE: self.trigger_price,
         }[key]
 
     def _connect(self) -> None:
-        for field in (self.lower_price, self.upper_price, self.capital):
+        for field in (
+            self.lower_price,
+            self.upper_price,
+            self.capital,
+            self.trigger_price,
+        ):
             field.textEdited.connect(self._emit)
         # The arrows, the wheel and Up/Down change the count without a
         # `textEdited` or an `editingFinished` (`BUG-193`): only `valueChanged`
@@ -364,3 +386,9 @@ class GridPanel(BotKindPanel):
     def _emit(self, *_args: object) -> None:
         self.suggestion_note.setVisible(False)
         self.config_changed.emit(self.config())
+
+
+def _trigger_text(config: Mapping[str, str]) -> str:
+    """The field's text: empty for no trigger, `off` included (`GridParams` reads it as none)."""
+    text = config.get(TRIGGER_PRICE, "").strip()
+    return "" if text.lower() == ExitKind.OFF.value else text

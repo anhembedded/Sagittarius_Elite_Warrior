@@ -24,14 +24,14 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-046A](completed/EPIC-046A_the_trigger_gates_the_entry.md) | The decision record, `trigger_price` on `GridParams`, one entry gate for the start, the wait, the confirmation and the flat Resume, the Start check's words and the entry price | Elite | None | 🔴 | Done (2026-10-22), pull request open |
-| [EPIC-046B](incomplete/EPIC-046B_the_trigger_is_shown_and_backtested.md) | The Plan editor field, the waiting words on the banner, `bot list` and `bot show`, the Discord entry alert, and the backtest entering by the same gate | Elite | 046A merged | 🟡 | Planned |
+| [EPIC-046A](completed/EPIC-046A_the_trigger_gates_the_entry.md) | The decision record, `trigger_price` on `GridParams`, one entry gate for the start, the wait, the confirmation, the flat Resume and the backtest, the Start check's words, the entry price and the editor field | Elite | None | 🔴 | Done (2026-10-22), pull request open |
+| [EPIC-046B](incomplete/EPIC-046B_the_trigger_is_shown_and_backtested.md) | The waiting words on the banner, `bot list` and `bot show`, and the Discord entry alert | Elite | 046A merged | 🟡 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| 1 — rule and live entry | LONG and SHORT, Spot and Futures: short of the trigger places nothing; at or better lays what a normal start there would; the latch holds through a price reversal and a restart; a flat Resume asks the trigger; validation refuses in words | 046A's tests; both gate logs on the PR |
-| 2 — surfaces and backtest | Every place that shows a waiting bot names the trigger; the replay enters at the live step | 046B's tests and frames; the parity test |
+| 1 — rule, live entry, editor and backtest | LONG and SHORT, Spot and Futures: short of the trigger places nothing; at or better lays what a normal start there would; the latch holds through a price reversal and a restart; a flat Resume asks the trigger; validation refuses in words; the editor keeps the key; the replay enters on the live step | 046A's tests; both gate logs on the PR |
+| 2 — surfaces | Every place that shows a waiting bot names the trigger | 046B's tests and frames |
 
 ## 5. Out of scope
 - A NEUTRAL trigger (ADR O1).
@@ -40,4 +40,5 @@
 - Any config key, setting, dependency or Engine file.
 
 ## Notes (newest first)
+- **2026-10-22** — Review round 1 of #724: the editor field and the backtest moved into 046A (a Save would have dropped a trigger; the replay would have entered early).
 - **2026-10-22** — Epic scaffolded with the decision record and 046A; split in two pull requests (the rule and the live entry first, the surfaces and the backtest next), told to the coordinating session before building.

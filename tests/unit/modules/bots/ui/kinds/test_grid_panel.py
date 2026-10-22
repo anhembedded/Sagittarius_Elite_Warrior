@@ -68,6 +68,35 @@ def test_the_fields_show_and_read_back_every_parameter(qtbot) -> None:
     assert panel.config() == _CONFIG
 
 
+def test_a_trigger_price_set_elsewhere_survives_a_save_from_the_editor(qtbot) -> None:
+    """`EPIC-046A`, review of #724: a trigger set by `bot edit` or a plan file is kept when the
+    editor saves; the field is empty and the key absent for a plan without one."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+
+    panel.set_config({**_CONFIG, "trigger_price": "64000"})
+    assert panel.config() == {**_CONFIG, "trigger_price": "64000"}
+    assert panel.trigger_price.text() == "64000"
+
+    panel.set_config({**_CONFIG, "trigger_price": "off"})
+    assert "trigger_price" not in panel.config(), "`off` is no trigger"
+
+
+def test_typing_a_trigger_price_is_an_edit_and_clearing_it_drops_the_key(qtbot) -> None:
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    heard: list[dict[str, str]] = []
+    panel.config_changed.connect(heard.append)
+    panel.set_config(_CONFIG)
+
+    qtbot.keyClicks(panel.trigger_price, "64000")
+    assert heard[-1]["trigger_price"] == "64000"
+
+    panel.trigger_price.selectAll()
+    qtbot.keyClick(panel.trigger_price, Qt.Key.Key_Backspace)
+    assert "trigger_price" not in heard[-1]
+
+
 def test_a_new_grid_leaves_blank_exactly_the_parameters_without_a_default(
     qtbot,
 ) -> None:

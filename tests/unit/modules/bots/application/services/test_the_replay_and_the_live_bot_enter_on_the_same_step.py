@@ -74,8 +74,13 @@ _PATHS = {
 }
 
 
-def _entry_step_live(market: str, direction: str, closes: list[Decimal]) -> int | None:
-    case = started(a_wait(market, direction, closes[0]))
+def _entry_step_live(
+    market: str,
+    direction: str,
+    closes: list[Decimal],
+    base: dict[str, str] = WITH_NO_EXITS,
+) -> int | None:
+    case = started(a_wait(market, direction, closes[0], config=base))
     for index, close in enumerate(closes):
         case.price_is(close)
         if case.world.state() is BotLifecycleState.RUNNING:
@@ -96,10 +101,14 @@ def _klines(closes: list[Decimal], wicks: dict[int, int]) -> list[PriceBar]:
 
 
 def _entry_step_replay(
-    market: str, direction: str, closes: list[Decimal], wicks: dict[int, int]
+    market: str,
+    direction: str,
+    closes: list[Decimal],
+    wicks: dict[int, int],
+    base: dict[str, str] = WITH_NO_EXITS,
 ) -> int | None:
-    config = {**WITH_NO_EXITS, "direction": direction, "leverage": "1"}
-    params = GridParams.from_config(config if market == "futures" else WITH_NO_EXITS)
+    config = {**base, "direction": direction, "leverage": "1"}
+    params = GridParams.from_config(config if market == "futures" else base)
     fine = _klines(closes, wicks)
     bar = PriceBar(
         START,
@@ -151,4 +160,29 @@ def test_the_replay_and_the_live_bot_enter_on_the_same_step(
     replayed = _entry_step_replay(market, direction, closes, wicks)
 
     assert live is not None, "the path does enter the range"
+    assert replayed == live
+
+
+#: `EPIC-046A` (ADR 046 D5): the range is 100-140 and the trigger 125; each path starts inside the
+#: range but short of the trigger, passes a price just short of it, then reaches it exactly.
+_TRIGGER_PATHS = [
+    pytest.param("spot", "LONG", [135, 130, "125.01", 125, 120], id="spot-long"),
+    pytest.param("futures", "LONG", [135, 130, "125.01", 125, 120], id="futures-long"),
+    pytest.param(
+        "futures", "SHORT", [115, 120, "124.99", 125, 130], id="futures-short"
+    ),
+]
+
+
+@pytest.mark.parametrize(("market", "direction", "raw"), _TRIGGER_PATHS)
+def test_a_triggered_plan_enters_on_the_same_step_replayed_and_live(
+    market: str, direction: str, raw: list[object]
+) -> None:
+    closes = [D(str(price)) for price in raw]
+    triggered = {**WITH_NO_EXITS, "trigger_price": "125"}
+
+    live = _entry_step_live(market, direction, closes, triggered)
+    replayed = _entry_step_replay(market, direction, closes, {}, triggered)
+
+    assert live == 3, "the step that closed on the trigger"
     assert replayed == live

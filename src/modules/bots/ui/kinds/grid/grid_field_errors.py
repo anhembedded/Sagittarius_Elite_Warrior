@@ -31,6 +31,7 @@ LOWER, UPPER = "lower", "upper"
 GRID_COUNT, SPACING, CAPITAL = "grid_count", "spacing", "capital_quote"
 STOP_LOSS, TAKE_PROFIT = "stop_loss", "take_profit"
 DIRECTION, LEVERAGE = "direction", "leverage"
+TRIGGER_PRICE = "trigger_price"
 
 #: What the editor labels each field.
 FIELD_LABELS: Mapping[str, str] = MappingProxyType(
@@ -44,6 +45,7 @@ FIELD_LABELS: Mapping[str, str] = MappingProxyType(
         TAKE_PROFIT: "Take profit",
         DIRECTION: "Direction",
         LEVERAGE: "Leverage",
+        TRIGGER_PRICE: "Trigger price",
     }
 )
 

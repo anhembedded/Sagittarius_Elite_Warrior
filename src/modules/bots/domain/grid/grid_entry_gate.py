@@ -1,7 +1,8 @@
 """`EPIC-046A` - whether a price lets a Grid start laying its ladder (ADR 046 D1, D2).
 
 One definition for every place that asks: the start (`GridRangeEntry.waits_for_the_range`), the
-flat resume, the waiting bot's price watch and the Plan's entry price (`entry_plan`). The gate is
+flat resume, the waiting bot's price watch, the Plan's entry price (`entry_plan`) and the
+backtest's wait (`WaitingReplay`), so a replay enters on the step the live bot would. The gate is
 the range (`range_position`, the bounds included) and then the optional **trigger price**, which
 works like a limit order on the entry:
 
@@ -55,6 +56,17 @@ def trigger_met(params: GridParams, price: Decimal) -> bool:
     if params.direction is TradeDirection.SHORT:
         return price >= trigger
     return price <= trigger
+
+
+def entry_band(params: GridParams) -> tuple[Decimal, Decimal]:
+    """The prices that open the gate, both ends included: the range, cut at the trigger on the
+    side that is not better. A candle that never reaches it cannot hold an entry."""
+    trigger = params.trigger_price
+    if trigger is None:
+        return params.lower, params.upper
+    if params.direction is TradeDirection.SHORT:
+        return trigger, params.upper
+    return params.lower, trigger
 
 
 def entry_price(params: GridParams, price: Decimal) -> Decimal:

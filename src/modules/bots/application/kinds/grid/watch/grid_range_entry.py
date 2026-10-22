@@ -132,9 +132,10 @@ class GridRangeEntry:
         if gate is EntryGate.OPEN:
             return False
         logger.info(
-            "Bot %s: %s; nothing is placed, waiting [range-wait]",
+            "Bot %s: %s; nothing is placed, waiting for the price to %s [range-wait]",
             self._context.state.bot_id,
             self._why_closed(gate, price),
+            "enter it" if gate is EntryGate.OUTSIDE_RANGE else "reach it",
         )
         self._context.state.transition(BotLifecycleEvent.PRICE_OUTSIDE_RANGE)
         return True
@@ -154,14 +155,14 @@ class GridRangeEntry:
         self._not_before = now + ENTRY_READ_EVERY_SECONDS
         self._attempt(price)
 
-    def _attempt(self, trigger: Decimal) -> None:
+    def _attempt(self, arrived: Decimal) -> None:
         fresh = self._fresh_price()
         if fresh is None:
             return
         gate = entry_gate(self._context.params, fresh)
         if gate is not EntryGate.OPEN:
             self._defer(
-                f"{self._why_closed(gate, fresh)} although the price {trigger} that "
+                f"{self._why_closed(gate, fresh)} although the price {arrived} that "
                 "arrived opened it"
             )
             return
@@ -176,7 +177,7 @@ class GridRangeEntry:
             return
         if stop_asked(self._context):
             return
-        self._enter(fresh, trigger, ladder)
+        self._enter(fresh, arrived, ladder)
 
     def _why_closed(self, gate: EntryGate, price: Decimal) -> str:
         """The words of a closed gate, one sentence for the log: the range, or the trigger."""
@@ -266,17 +267,17 @@ class GridRangeEntry:
         )
         return True
 
-    def _enter(self, price: Decimal, trigger: Decimal, ladder: GridPlan) -> None:
+    def _enter(self, price: Decimal, arrived: Decimal, ladder: GridPlan) -> None:
         state = self._context.state
         self._forget()
         logger.info(
-            "Bot %s: price %s entered the range %s-%s (trigger %s); laying %d orders "
+            "Bot %s: price %s entered the range %s-%s (the price that arrived %s); laying %d orders "
             "[range-entry]",
             state.bot_id,
             price,
             self._context.params.lower,
             self._context.params.upper,
-            trigger,
+            arrived,
             len(ladder.order_levels),
         )
         state.transition(BotLifecycleEvent.RANGE_ENTERED)

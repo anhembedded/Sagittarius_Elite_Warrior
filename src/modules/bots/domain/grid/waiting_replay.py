@@ -17,6 +17,11 @@ rule through the same definition (`range_position`, the bounds included):
   5. a window that never enters returns a result with no fill, flat equity and `range_entry`
      `None`, which the result says.
 
+`EPIC-046A` (ADR 046 D5): a plan with a trigger price waits by the same gate the live bot asks
+(`entry_gate`): the range, then the trigger. A candle is walked only when it reaches the prices
+that open it (`entry_band`), and the probe is planned at the price the bot would enter at
+(`entry_price`).
+
 **Stated limit.** The Futures replay has no mark-price history and takes the step's trade close for
 the mark, so "the same entry step" holds for the trade-price path, not for a mark that diverges
 from it.
@@ -37,6 +42,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result
     RangeEntry,
     StopReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    EntryGate,
+    entry_band,
+    entry_gate,
+    entry_price,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     PriceBar,
     PriceStep,
@@ -48,10 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
-    RangePosition,
-    range_position,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.replay_engine import (
     EngineFactory,
     ReplayEngine,
@@ -64,22 +71,22 @@ _ZERO = Decimal(0)
 def engine_starting_at(
     build: EngineFactory, params: GridParams, first: PriceBar
 ) -> ReplayEngine:
-    """The engine of a run whose first candle is `first`: the venue's own when it opens inside
-    the range, a `WaitingReplay` over it otherwise."""
-    if _inside(first.open, params):
+    """The engine of a run whose first candle is `first`: the venue's own when its open opens
+    the entry gate, a `WaitingReplay` over it otherwise."""
+    if _opens(first.open, params):
         return build(first)
     return WaitingReplay(build, params, first)
 
 
 class WaitingReplay(ReplayEngine):
-    """The capital in cash until a step closes inside the range, then the venue's engine."""
+    """The capital in cash until a step closes where the entry gate opens, then the venue's engine."""
 
     def __init__(
         self, build: EngineFactory, params: GridParams, first: PriceBar
     ) -> None:
         self._build = build
         self._params = params
-        #: Planned at the range edge nearest the first open and never stepped: the ladder the
+        #: Planned where the bot would enter from the first open and never stepped: the ladder the
         #: bot would lay (`plan`) and the shape of an outcome with nothing in it (`outcome`).
         self._probe = build(_at_the_edge(first, params))
         self._inner: ReplayEngine | None = None
@@ -106,7 +113,8 @@ class WaitingReplay(ReplayEngine):
     def may_trade_in(self, low: Decimal, high: Decimal) -> bool:
         if self._inner is not None:
             return self._inner.may_trade_in(low, high)
-        return low <= self._params.upper and high >= self._params.lower
+        band_low, band_high = entry_band(self._params)
+        return low <= band_high and high >= band_low
 
     def run_step(self, step: PriceStep) -> None:
         if self._inner is not None:
@@ -117,7 +125,7 @@ class WaitingReplay(ReplayEngine):
             raise ValueError(
                 "a step that a waiting replay judges carries its close and end"
             )
-        if _inside(step.close, self._params):
+        if _opens(step.close, self._params):
             self._enter(step.end, step.close)
 
     def close_bar(self, bar: PriceBar, end: datetime) -> None:
@@ -155,12 +163,12 @@ class WaitingReplay(ReplayEngine):
         self._inner = self._build(PriceBar(at, price, price, price, price))
 
 
-def _inside(price: Decimal, params: GridParams) -> bool:
-    return range_position(price, params.lower, params.upper) is RangePosition.INSIDE
+def _opens(price: Decimal, params: GridParams) -> bool:
+    return entry_gate(params, price) is EntryGate.OPEN
 
 
 def _at_the_edge(first: PriceBar, params: GridParams) -> PriceBar:
-    price = min(max(first.open, params.lower), params.upper)
+    price = entry_price(params, first.open)
     return PriceBar(first.time, price, price, price, price)
 
 
