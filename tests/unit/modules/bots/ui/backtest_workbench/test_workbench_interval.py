@@ -7,6 +7,7 @@ component (`ChartToolbar`), offering every interval the bot's market loads (`BOT
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -16,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
     BacktestWorkbench,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_window import (
+    FINE_KLINES_MAX_PERIOD,
     CandleWindow,
     sync_requests,
 )
@@ -235,3 +237,23 @@ def test_a_1s_sync_asks_for_the_1s_series_once() -> None:
         r.interval for r in sync_requests(replace(request, interval=TimeFrame.ONE_HOUR))
     ]
     assert other == [TimeFrame.ONE_HOUR, TimeFrame.ONE_SECOND]
+
+
+def test_a_sync_fetches_1s_klines_only_for_a_period_within_the_limit() -> None:
+    """Review of `BOT-232`, finding 4: a year at 1d is 365 candles but about 31.5M one-second rows, so
+    past `FINE_KLINES_MAX_PERIOD` Sync candles fetches the candles alone and the replay runs coarse."""
+    start = PERIOD[0]
+
+    def asked(period: timedelta) -> list[TimeFrame]:
+        window = CandleWindow(
+            "BTCUSDT",
+            TradingVenue.SPOT_TESTNET,
+            TimeFrame.ONE_HOUR,
+            start,
+            start + period,
+        )
+        return [r.interval for r in sync_requests(window)]
+
+    assert asked(FINE_KLINES_MAX_PERIOD) == [TimeFrame.ONE_HOUR, TimeFrame.ONE_SECOND]
+    assert asked(FINE_KLINES_MAX_PERIOD + timedelta(seconds=1)) == [TimeFrame.ONE_HOUR]
+    assert asked(timedelta(days=365)) == [TimeFrame.ONE_HOUR]

@@ -10,7 +10,7 @@ whose action is no longer the current one is dropped and logged. So:
   until the answer the sandbox stays the source bot's, judged and replayed with the market numbers
   that bot came with (`_world`), and a run in flight finishes for it.
 · **Sync** (offered only after a refusal for candles that are not stored, `BUG-107`) fetches the
-  period's candles and its 1-second klines, then runs the same backtest again; "Stop" leaves what it
+  period's candles (and its 1-second klines within `FINE_KLINES_MAX_PERIOD`), then runs the same backtest again; "Stop" leaves what it
   stored.
 
 What the page says is built from the facts in one place (`_state`), so no sentence outlives the state

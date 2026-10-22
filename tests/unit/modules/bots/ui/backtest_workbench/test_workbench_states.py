@@ -153,7 +153,7 @@ def test_a_period_with_no_candles_offers_a_sync_and_only_a_click_syncs(
 
     qtbot.mouseClick(view.sync_button, Qt.MouseButton.LeftButton)
 
-    assert view.status.text().startswith("Syncing BTCUSDT 15m candles and 1-second")
+    assert view.status.text().startswith("Syncing BTCUSDT 15m candles for the period")
     assert _buttons(view) == {"Run backtest": False, "Stop": True}
     world.pool.run_all()
     assert [request.interval for request in world.sync.requests] == [

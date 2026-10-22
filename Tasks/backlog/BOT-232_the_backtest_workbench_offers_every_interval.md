@@ -19,12 +19,13 @@
 - [x] A Futures bot is not offered `1s`; a chosen `1s` moves to `1m` when a Futures bot is followed.
 - [x] 3d, 1w and 1M are not offered, and the set is locked by a test (`UNREPLAYED_INTERVALS`).
 - [x] A backtest replays from stored candles at 3m, 4h and 1d, and its data window reads whole (expected = stored); with 1-second klines at 3m the fine path runs with no coarse period.
-- [x] A sync at 1s asks for the 1-second series once.
+- [x] A sync at 1s asks for the 1-second series once; a sync of a period over 7 days fetches no 1-second klines and the page says the replay runs coarse.
+- [ ] 3d, 1w and 1M return when the replay is calendar-aware: [BOT-234](BOT-234_a_calendar_aware_backtest_replay_for_3d_1w_and_1m.md).
 
 ## 3. Design
 `interval_toolbar()` passes no `offered_codes`; `INTERVALS` becomes `PINNED_INTERVALS` (the first row). The view asks the toolbar's existing `set_market` (BOT-167) from the followed plan's venue, once per market change. `1s` on Spot is offered: the candles and the fine klines are then the same series and it runs. 3d, 1w and 1M are left out until the replay takes each bar's end from the venue's calendar and counts expected candles on the venue's boundaries (the mechanism fix, a task of its own); `interval_toolbar.py` → `UNREPLAYED_INTERVALS` records the reason and its retire condition.
 
-**Deferred, with reason (review finding 4):** `sync_requests` always adds the period's 1-second klines, bounded by nothing but `MAX_CANDLES` on the chosen interval, so a year at 1d syncs about 31.5M one-second rows. It is the existing behaviour of the Sync offer for every interval and is cancellable ("Stop"); bounding it is a product decision (refuse in words, or skip the 1-second klines past a limit and replay coarse, which the replay already labels), put to the owner by the coordinator.
+**Review finding 4, decided (the owner's delegate, 2026-10-22):** `sync_requests` added the period's 1-second klines whatever the period, so a year at 1d would sync about 31.5M one-second rows. Past `candle_window.py` → `FINE_KLINES_MAX_PERIOD` (7 days: the workbench's default period, 604,800 rows, which the real store takes in minutes) Sync candles fetches the candles alone and the replay runs coarse, which it already supports and labels (`coarse_periods`); the line under the commands says so in words. One constant; widening it is one edit.
 
 ## 3a. Reuse
 `ChartToolbar.set_market`, `market_timeframes.supports_timeframe`, `TimeframePickerDialog`: used. Nothing new.

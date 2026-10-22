@@ -607,7 +607,7 @@ interval and period); only a *different* window starts a read, so the Bots scree
 manager, and its answer reaches the Qt thread through a queued signal; `CandlePreview`'s own
 `ActionOwnershipTracker` drops an answer for a window no longer asked for, so changing the interval twice
 quickly draws only the last. The chart is drawn from it unless a result holds it. **Sync candles** from this
-state fetches the window (candles and 1-second klines, through the same `BacktestRunCoordinator.start_sync`
+state fetches the window (candles, and 1-second klines for a period within `candle_window.py` → `FINE_KLINES_MAX_PERIOD`, through the same `BacktestRunCoordinator.start_sync`
 and the run's fence, so it locks Run and Cancel reads "Stop"), then reads the window again instead of
 running; a sync a run's refusal offered still runs it again (`sync_offer.py` → `sync_plan`). A read that
 raises is a command failure `bots.backtest.candles`, told once.

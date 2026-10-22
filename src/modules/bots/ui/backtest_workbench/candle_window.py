@@ -5,7 +5,7 @@ one period. Both the stored-candles preview and a sync ask for exactly this.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
@@ -21,6 +21,13 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
+#: The longest period Sync candles also fetches 1-second klines for (`BOT-232`, review finding 4; the
+#: owner's delegate, 2026-10-22). A week is the workbench's default period and 604,800 rows, which
+#: the real store takes in minutes (`test_grid_backtest_stored_klines.py`); a year at 1d would be
+#: about 31.5M. Past it the replay runs coarse, which it already supports and labels
+#: (`coarse_periods`), and says so in words.
+FINE_KLINES_MAX_PERIOD = timedelta(days=7)
+
 
 @dataclass(frozen=True, slots=True)
 class CandleWindow:
@@ -32,6 +39,11 @@ class CandleWindow:
     start: datetime
     end: datetime
 
+    @property
+    def has_fine_klines_synced(self) -> bool:
+        """Whether Sync candles fetches this period's 1-second klines (not past `FINE_KLINES_MAX_PERIOD`)."""
+        return self.end - self.start <= FINE_KLINES_MAX_PERIOD
+
 
 def window_of(request: KindBacktestRequest) -> CandleWindow:
     """The window a run was asked for."""
@@ -41,8 +53,10 @@ def window_of(request: KindBacktestRequest) -> CandleWindow:
 
 
 def sync_requests(window: CandleWindow) -> tuple[MarketDataSyncRequest, ...]:
-    """What a sync fetches for `window`: its candles and the 1-second klines of its period (one request
-    when the interval is 1s itself)."""
+    """What a sync fetches for `window`: its candles and, for a period within `FINE_KLINES_MAX_PERIOD`,
+    the 1-second klines of its period (one request when the interval is 1s itself)."""
+    intervals = (window.interval, TimeFrame.ONE_SECOND)
+    wanted = intervals if window.has_fine_klines_synced else intervals[:1]
     return tuple(
         MarketDataSyncRequest(
             symbols=(window.symbol,),
@@ -51,5 +65,5 @@ def sync_requests(window: CandleWindow) -> tuple[MarketDataSyncRequest, ...]:
             start_time=window.start,
             end_time=window.end,
         )
-        for interval in dict.fromkeys((window.interval, TimeFrame.ONE_SECOND))
+        for interval in dict.fromkeys(wanted)
     )

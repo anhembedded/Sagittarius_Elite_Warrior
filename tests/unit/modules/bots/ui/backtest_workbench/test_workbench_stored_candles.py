@@ -208,3 +208,21 @@ def test_a_read_that_fails_is_told_once_in_words(qtbot: Any) -> None:
     assert "stored candles could not be read" in world.notifier.failures[0].headline
     assert "could not be read" in world.workbench.view.candles.text()
     world.workbench.shutdown()
+
+
+def test_a_period_past_the_fine_klines_limit_says_the_replay_will_run_coarse(
+    stored: WorkbenchWorld,
+) -> None:
+    _follow_and_read(stored)
+
+    _set_period(stored, start=PERIOD[1] - timedelta(days=8))
+    stored.pool.run_all()
+
+    text = stored.workbench.view.candles.text()
+    assert "longer than 7 days" in text and "the replay runs coarse" in text
+
+
+def test_a_period_within_the_limit_does_not_say_it(stored: WorkbenchWorld) -> None:
+    _follow_and_read(stored)
+
+    assert "coarse" not in stored.workbench.view.candles.text()

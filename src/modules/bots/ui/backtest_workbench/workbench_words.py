@@ -37,7 +37,7 @@ def running(symbol: str, interval: str) -> str:
 
 
 def syncing(symbol: str, interval: str) -> str:
-    return f"Syncing {symbol} {interval} candles and 1-second klines for the period…"
+    return f"Syncing {symbol} {interval} candles for the period…"
 
 
 def partly_stored(missing: int) -> str:
@@ -56,6 +56,13 @@ def fees_line(maker: str, taker: str) -> str:
     included, not rates of the sandbox's own."""
     return (
         f"A run charges your account's fees as read now: maker {maker}, taker {taker}."
+    )
+
+
+def coarse_replay(days: int) -> str:
+    return (
+        f"The period is longer than {days} days, so Sync candles does not fetch its 1-second "
+        "klines and the replay runs coarse: the order of prices inside a candle is assumed."
     )
 
 
