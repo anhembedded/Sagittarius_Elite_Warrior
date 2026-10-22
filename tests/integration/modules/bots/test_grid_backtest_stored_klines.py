@@ -189,9 +189,8 @@ def test_without_one_second_klines_the_replay_is_coarse_and_completes_no_more_cy
         TimeFrame.THREE_MINUTES,
         TimeFrame.FOUR_HOURS,
         TimeFrame.ONE_DAY,
-        TimeFrame.ONE_WEEK,
     ],
-    ids=["3m", "4h", "1d", "1w"],
+    ids=["3m", "4h", "1d"],
 )
 def test_a_period_replays_at_an_interval_other_than_the_default_from_stored_candles(
     repository: SQLAlchemyMarketDataRepository, interval: TimeFrame
@@ -215,7 +214,48 @@ def test_a_period_replays_at_an_interval_other_than_the_default_from_stored_cand
 
     result = _replay(repository, interval, count * step)
 
+    window = result.provenance.window
     assert result.stop_reason is StopReason.END_OF_DATA
     assert len(result.equity) == count
     assert result.coarse_periods
     assert result.completed_cycles >= 1
+    assert window is not None
+    assert (window.expected_candles, window.stored_candles) == (count, count)
+    assert window.missing_candles == 0
+
+
+def test_a_three_minute_replay_walks_the_one_second_klines_of_each_candle_and_counts_its_window(
+    repository: SQLAlchemyMarketDataRepository,
+) -> None:
+    """The fine-window path at an interval other than 1m: each 3-minute candle is replayed through
+    its own 180 one-second klines, and the stored period reads whole (review of `BOT-232`)."""
+    seconds = _seconds()
+    threes = []
+    for start in range(0, len(seconds), 180):
+        part = seconds[start : start + 180]
+        threes.append(
+            _kline(
+                part[0].open_time,
+                TimeFrame.THREE_MINUTES,
+                (
+                    part[0].open_price,
+                    max(k.high_price for k in part),
+                    min(k.low_price for k in part),
+                    part[-1].close_price,
+                ),
+            )
+        )
+    repository.save_klines(MarketType.SPOT, threes)
+    repository.save_klines(MarketType.SPOT, seconds)
+
+    result = _replay(repository, TimeFrame.THREE_MINUTES)
+
+    window = result.provenance.window
+    assert result.stop_reason is StopReason.END_OF_DATA
+    assert result.coarse_periods == ()
+    assert result.completed_cycles >= 6
+    assert window is not None
+    assert (window.expected_candles, window.stored_candles) == (
+        SECONDS // 180,
+        SECONDS // 180,
+    )

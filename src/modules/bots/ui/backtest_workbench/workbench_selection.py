@@ -50,7 +50,8 @@ def needs_brackets(venue: TradingVenue) -> bool:
 
 
 def sync_requests(request: KindBacktestRequest) -> tuple[MarketDataSyncRequest, ...]:
-    """What a sync fetches for `request`: its candles and the 1-second klines of its period."""
+    """What a sync fetches for `request`: its candles and the 1-second klines of its period (one request
+    when the interval is 1s itself)."""
     return tuple(
         MarketDataSyncRequest(
             symbols=(request.symbol,),
@@ -59,5 +60,5 @@ def sync_requests(request: KindBacktestRequest) -> tuple[MarketDataSyncRequest, 
             start_time=request.start,
             end_time=request.end,
         )
-        for interval in (request.interval, TimeFrame.ONE_SECOND)
+        for interval in dict.fromkeys((request.interval, TimeFrame.ONE_SECOND))
     )
