@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -43,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     UnknownBotKindError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
+    FakeBotClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -59,10 +63,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
     GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    T0,
     candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
@@ -217,7 +225,17 @@ def _planner(*, enabled: bool = True, days: int = 30) -> GetPlannerMarketQueryHa
         ],
         MarketType.SPOT,
     )
-    return GetPlannerMarketQueryHandler(ports, DEFAULT_OWNER_BUDGET_CAPS, klines)
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            TradingVenue.SPOT_TESTNET.market_data_venue, history=klines
+        )
+    )
+    return GetPlannerMarketQueryHandler(
+        ports,
+        DEFAULT_OWNER_BUDGET_CAPS,
+        sources,
+        FakeBotClock(T0 + timedelta(days=days)),
+    )
 
 
 class _NoVenues(FakeVenueTradingPorts):
@@ -249,6 +267,9 @@ def test_too_few_daily_candles_leave_the_suggestions_out() -> None:
     assert market.terms is not None
     assert market.market is not None and market.market.daily_atr is None
     assert (market.atr_range, market.bollinger) == (None, None)
+    assert "needs 15" in market.market.daily_atr_unavailable, (
+        "the Plan names why, as the Start does"
+    )
 
 
 def test_a_venue_that_is_not_enabled_is_named_as_the_problem() -> None:

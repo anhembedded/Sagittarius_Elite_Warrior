@@ -217,7 +217,7 @@ def _refused() -> BotsView:
 def _liquidation_warning() -> BotsView:
     config = _config("LONG", 8, stop_loss="percent:1")
     return _screen(
-        _bot(BotLifecycleState.DRAFT, config, None), _verdicts(config, Decimal(9000))
+        _bot(BotLifecycleState.DRAFT, config, None), _verdicts(config, Decimal(6000))
     )
 
 

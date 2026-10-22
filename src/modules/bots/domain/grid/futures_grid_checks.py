@@ -15,7 +15,9 @@ They are pure over `PlanRiskInputs`; the numbers are `FuturesGridThresholds`', n
     `LIQUIDATION_INSIDE_RANGE` (REFUSED), `STOP_LOSS_NEEDED` (REFUSED above leverage 1,
     WARNING at 1 - O3), `STOP_LOSS_AFTER_LIQUIDATION` (REFUSED),
     `STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION` (REFUSED, closer than `min_liq_gap_ratio` of the exit's
-    price, needs no ATR: `BUG-255`), `STOP_LOSS_NEAR_LIQUIDATION` (WARNING, closer than
+    price, which needs no ATR (`BUG-255`), or closer than `min_liq_gap_atr` daily ATRs when the
+    ATR is known, whichever is larger: the ATR can only raise the floor, `futures_liq_gap_floor`,
+    `BOT-227`), `STOP_LOSS_NEAR_LIQUIDATION` (WARNING, closer than
     `min_liq_buffer_atr` daily ATRs); when none objects, one OK verdict
     that says *estimate*.
 
@@ -33,6 +35,10 @@ from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_liq_gap_floor import (
+    LiqGapFloor,
+    liq_gap_floor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_notional_cap import (
     allowed_notional,
@@ -291,21 +297,21 @@ def _stop(
                 {"exit_price": exit_price, "liquidation_price": liquidation},
             )
         ]
-    floor = inputs.thresholds.min_liq_gap_ratio * exit_price
-    if gap < floor:
+    floor = liq_gap_floor(inputs.thresholds, exit_price, inputs.daily_atr)
+    if gap < floor.amount:
         return [
             Verdict(
                 _REFUSED,
                 "STOP_LOSS_TOO_CLOSE_TO_LIQUIDATION",
                 f"The exit at {exit_price} is only {gap:.2f} before the estimated liquidation "
                 f"price {liquidation:.2f} for a plan made at {inputs.plan.last_price}; a "
-                f"gap through the exit could reach the liquidation first. Keep at least {floor:.2f} "
-                f"({inputs.thresholds.min_liq_gap_ratio:.1%} of the exit)",
+                f"gap through the exit could reach the liquidation first. Keep at least "
+                f"{floor.amount:.2f} ({_floor_basis(inputs, floor)})",
                 {
                     "gap": gap,
                     "liquidation_price": liquidation,
                     "exit_price": exit_price,
-                    "min_gap": floor,
+                    "min_gap": floor.amount,
                 },
             )
         ]
@@ -328,6 +334,21 @@ def _stop(
             )
         ]
     return []
+
+
+def _floor_basis(inputs: PlanRiskInputs, floor: LiqGapFloor) -> str:
+    """The rule that set the floor, in words: the owner's share, the ATR that raised it, or the
+    share alone because no daily ATR was known (and why)."""
+    share = f"{inputs.thresholds.min_liq_gap_ratio:.1%} of the exit"
+    if floor.by_atr is None:
+        why = inputs.daily_atr_unavailable or "no daily ATR was available"
+        return f"{share}; the daily ATR is not used: {why}"
+    if floor.raised_by_atr:
+        return (
+            f"{inputs.thresholds.min_liq_gap_atr} of the daily ATR {inputs.daily_atr:.2f}, "
+            f"above {share}"
+        )
+    return f"{share}, above {inputs.thresholds.min_liq_gap_atr} of the daily ATR"
 
 
 def _before_liquidation(

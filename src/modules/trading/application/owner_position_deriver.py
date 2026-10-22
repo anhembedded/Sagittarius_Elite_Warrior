@@ -120,6 +120,7 @@ class OwnerPositionDeriver:
                 last_trade_id=found.last_trade_id,
                 open_order_ids=found.open_order_ids,
                 read_from=found.next_read_from,
+                open_order_remaining=found.open_order_remaining,
             )
         )
         logger.info(
@@ -160,6 +161,7 @@ def _start_of(
         checkpoint.read_from,
         checkpoint.last_trade_id,
         checkpoint.open_order_ids,
+        checkpoint.open_order_remaining,
     )
 
 

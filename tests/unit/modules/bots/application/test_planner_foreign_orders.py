@@ -13,8 +13,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     GetPlannerMarketQuery,
     GetPlannerMarketQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
-    FakeHistoricalKlines,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
+    FakeBotClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
@@ -80,8 +83,11 @@ def _planner(activity: FakeAccountActivity) -> GetPlannerMarketQueryHandler:
     ports = FakeVenueTradingPorts(
         fake_venue_ports(_VENUE, order_entry_terms=terms, account_activity=activity)
     )
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(_VENUE.market_data_venue)
+    )
     return GetPlannerMarketQueryHandler(
-        ports, DEFAULT_OWNER_BUDGET_CAPS, FakeHistoricalKlines()
+        ports, DEFAULT_OWNER_BUDGET_CAPS, sources, FakeBotClock()
     )
 
 

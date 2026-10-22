@@ -142,6 +142,8 @@ class MarketView:
     #: falls back to "the asset" and "quote" rather than guess a name.
     base_asset: str = ""
     quote_asset: str = ""
+    #: Why there is no `daily_atr`, when the reader could say (`BOT-227`).
+    daily_atr_unavailable: str = ""
 
     def __post_init__(self) -> None:
         if self.last_price <= 0:

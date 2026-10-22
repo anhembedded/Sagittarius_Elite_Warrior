@@ -18,6 +18,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.daily_atr_reader import (
+    DailyAtrReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
     FuturesGridBudgets,
     GridBudgetsByProfile,
@@ -93,12 +96,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     FuturesGridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def grid_budgets(
@@ -118,12 +125,14 @@ def futures_exposure(
     gate: IVenueSettingsGate,
     brackets: SymbolBrackets,
     thresholds: FuturesGridThresholds,
+    sources: Callable[[], IMarketDataSources],
 ) -> Callable[[GridRunContext], GridExposure]:
     """The builder of a position bot's `GridExposure`."""
     guard = FuturesRiskGuard(thresholds)
+    daily_atr = DailyAtrReader(sources)
 
     def build(context: GridRunContext) -> GridExposure:
-        reads = FuturesStartReads(context, ports, brackets, thresholds)
+        reads = FuturesStartReads(context, ports, brackets, thresholds, daily_atr)
         checks = FuturesStartChecks(context, gate, guard, reads)
         # The protective stop is placed on a mark read now, not on the watches' shared one.
         protection = ProtectiveStopService(context, ExchangeMarkSource(context, ports))
@@ -177,3 +186,19 @@ def risk_watches(
         )
 
     return build
+
+
+def build_grid_exposures(
+    container: IContainer, thresholds: FuturesGridThresholds
+) -> GridExposures:
+    """The exposure collaborators of each venue profile (`EPIC-039H`)."""
+    return grid_exposures(
+        container.resolve(IVenueProfiles),
+        futures_exposure(
+            container.resolve(IVenueTradingPorts),
+            container.resolve(IVenueSettingsGate),
+            container.resolve(SymbolBrackets),
+            thresholds,
+            lambda: container.resolve(IMarketDataSources),
+        ),
+    )

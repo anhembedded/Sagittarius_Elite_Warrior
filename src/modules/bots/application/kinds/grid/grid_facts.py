@@ -31,9 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_bloc
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exit_report import (
-    GridExitReport,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
     GridFillAnnouncer,
 )
@@ -42,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_ladder_placer import (
     GridLadderPlacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_off_ladder_fills import (
+    GridOffLadderFills,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
@@ -95,10 +95,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
     BotLifecycleState,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
-    book_exit_fill,
-    book_market_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     LadderRules,
@@ -184,7 +180,7 @@ class GridFacts(IBotFacts):
         self._post = post
         self._forget_proposal = forget_proposal
         self._conversion = GridFillConversion(context)
-        self._exit_report = GridExitReport(context)
+        self._off_ladder = GridOffLadderFills(context, self._supervise_protection)
 
     def on_fill(self, fill: BotOrderFill) -> None:
         # A fill changes the account's position: the venue's shared reading of it is dropped here,
@@ -253,36 +249,14 @@ class GridFacts(IBotFacts):
         applied.record(fill.client_order_id, fill.trade_id)
         level_fill = self._conversion.level_fill(fill)
         if state.runtime.level_of(fill.client_order_id) is None:
-            if fill.client_order_id in self._context.off_ladder:
-                booked = (
-                    book_exit_fill
-                    if self._context.off_ladder.is_exit(fill.client_order_id)
-                    else book_market_fill
-                )
-                state.update(
-                    booked(state.runtime, fill.side, level_fill).with_fill_commission(
-                        level_fill.base_fee, level_fill.quote_fee, level_fill.price
-                    )
-                )
-                if self._is_protective_stop(fill.client_order_id):
-                    # The exchange ran the stop that stands over the position: the look at
-                    # the stops reads its status and the bot stops (`EPIC-039L`).
-                    self._supervise_protection()
-                if self._context.off_ladder.is_exit(fill.client_order_id):
-                    self._exit_report.after_exit_fill()
-            else:
-                logger.info(
-                    "Bot %s: fill of %s ignored; no level holds it and the bot "
-                    "neither sent it as a market order nor took it off the ladder",
-                    self._context.state.bot_id,
-                    fill.client_order_id,
-                )
+            self._off_ladder.book(fill, level_fill)
             return
         reaction = self._parts.counters.on_fill(level_fill)
-        state.update(
+        self._parts.placer.save_owing(
             reaction.runtime.with_fill_commission(
                 level_fill.base_fee, level_fill.quote_fee, level_fill.price
-            )
+            ),
+            reaction.actions,
         )
         self._parts.fills.announce(reaction.filled)
         self._parts.placer.act(reaction.actions)
@@ -308,7 +282,7 @@ class GridFacts(IBotFacts):
             LadderRules(terms.step_size, terms.min_notional),
             hold=state.state is _S.PAUSED,
         )
-        state.update(reaction.runtime)
+        self._parts.placer.save_owing(reaction.runtime, reaction.actions)
         self._parts.placer.act(reaction.actions)
 
     def _apply_switch(
@@ -367,12 +341,6 @@ class GridFacts(IBotFacts):
         """The bot's state now: read through here so a type checker does not keep the one it
         narrowed to before a step that moves it."""
         return self._context.state.state
-
-    def _is_protective_stop(self, client_order_id: str) -> bool:
-        return any(
-            stop.client_order_id == client_order_id
-            for stop in self._context.state.runtime.protective_stops
-        )
 
     def _supervise_protection(self) -> None:
         """Look at the protective stop; one that ran closed the position, so the bot stops."""

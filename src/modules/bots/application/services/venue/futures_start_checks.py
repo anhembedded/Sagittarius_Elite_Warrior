@@ -12,14 +12,21 @@ order is sent:
      just proved). A REFUSED verdict is the start's refusal, in the verdict's words; a WARNING is
      logged and the start goes on.
 
-The daily ATR the stop-distance warning compares with is not read here (the executor has no
-candles); that one WARNING is judged on the screen's plan, which has them.
+The daily ATR is read from the stored daily candles, by the reader the Plan's advice reads them
+with (`DailyAtrReader`, `BOT-227`), so the stop-to-liquidation floor the Plan shows is the floor
+judged here: the larger of the owner's flat share and a multiple of the ATR, never below the
+share. Candles missing or older than the reader accepts leave the flat share in force, and the
+refusal's words and the log say so.
 """
 
 from __future__ import annotations
 
 import logging
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.daily_atr_reader import (
+    DailyAtr,
+    DailyAtrReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
 )
@@ -116,11 +123,13 @@ class FuturesStartReads:
         ports: IVenueTradingPorts,
         brackets: SymbolBrackets,
         thresholds: FuturesGridThresholds,
+        daily_atr: DailyAtrReader,
     ) -> None:
         self._context = context
         self._ports = ports
         self._brackets = brackets
         self._thresholds = thresholds
+        self._daily_atr = daily_atr
 
     def risk_inputs(self, plan: GridPlan) -> PlanRiskInputs | str:
         """The guard's inputs, or the sentence that says which fact could not be read."""
@@ -141,6 +150,7 @@ class FuturesStartReads:
             return (
                 "the venue has no leverage settings or mark price to judge the plan by"
             )
+        reading = self.daily_atr_reading()
         return PlanRiskInputs(
             self._context.params,
             plan,
@@ -148,4 +158,41 @@ class FuturesStartReads:
             brackets,
             mark.mark_price,
             self._thresholds,
+            reading.value,
+            reading.unavailable,
         )
+
+    def daily_atr_reading(self) -> DailyAtr:
+        """The daily ATR the floor may be raised by, or why the flat floor stands alone."""
+        definition = self._context.state.bot.definition
+        try:
+            reading = self._daily_atr.read(
+                definition.venue, definition.symbol, self._context.state.now()
+            )
+        except Exception as exc:
+            logger.warning(
+                "Bot %s: the stored daily candles could not be read; the stop-to-liquidation "
+                "floor falls back to the flat share [plan-risk]",
+                self._context.state.bot_id,
+                exc_info=True,
+            )
+            reading = DailyAtr(
+                (), None, f"the stored daily candles could not be read: {exc}"
+            )
+        if reading.value is None:
+            logger.info(
+                "Bot %s: the stop-to-liquidation floor is the flat %s of the exit: %s [plan-risk]",
+                self._context.state.bot_id,
+                self._thresholds.min_liq_gap_ratio,
+                reading.unavailable,
+            )
+        else:
+            logger.info(
+                "Bot %s: the stop-to-liquidation floor is the larger of %s of the exit and %s daily "
+                "ATR (%s) [plan-risk]",
+                self._context.state.bot_id,
+                self._thresholds.min_liq_gap_ratio,
+                self._thresholds.min_liq_gap_atr,
+                reading.value,
+            )
+        return reading

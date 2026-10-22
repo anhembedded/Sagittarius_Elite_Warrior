@@ -67,6 +67,13 @@ def test_the_field_lists_every_spot_venue_with_its_connection_state(
     assert combo.isEnabled()
 
 
+def _venues_asked(screen) -> list:
+    """The market-data venues the screen went to, in the order it first went to each: the chart
+    and the planner's daily candles (`BOT-227`) both ask, and either asking is a read of that
+    venue's own market, which is what is promised."""
+    return list(dict.fromkeys(screen.market_sources.asked))
+
+
 def test_a_draft_moved_to_spot_mainnet_reads_mainnets_account_and_market(
     open_bots_screen,
 ) -> None:
@@ -75,14 +82,14 @@ def test_a_draft_moved_to_spot_mainnet_reads_mainnets_account_and_market(
     select(screen, "a00001")
     screen.settle()
     assert screen.account.symbols_read == [SYMBOL]
-    assert screen.market_sources.asked == [VENUE.market_data_venue]
+    assert _venues_asked(screen) == [VENUE.market_data_venue]
 
     _pick(screen, MAINNET)
 
     assert _venue_of(screen, "a00001") is MAINNET
     assert screen.mainnet_account.symbols_read == [SYMBOL]
     assert screen.account.symbols_read == [SYMBOL]
-    assert screen.market_sources.asked == [
+    assert _venues_asked(screen) == [
         VENUE.market_data_venue,
         MAINNET.market_data_venue,
     ]

@@ -139,6 +139,7 @@ def _risk_verdicts(
             plan.last_price,
             thresholds.futures,
             inputs.market.daily_atr,
+            inputs.market.daily_atr_unavailable,
         )
     )
 

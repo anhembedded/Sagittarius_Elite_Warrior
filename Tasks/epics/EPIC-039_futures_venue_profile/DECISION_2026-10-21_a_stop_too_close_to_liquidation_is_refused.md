@@ -34,3 +34,4 @@ B (1%), the owner's choice: an ATR-free check that refuses the incident, the sam
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | B, 1% | `BUG-255` | Done | `tests/unit/modules/bots/domain/grid/test_a_stop_too_close_to_liquidation_is_refused.py` |
+| C, ATR-tied, 1% kept as the minimum | `BOT-227` | Done | [the decision](DECISION_2026-10-22_the_liquidation_floor_follows_the_daily_atr.md) |

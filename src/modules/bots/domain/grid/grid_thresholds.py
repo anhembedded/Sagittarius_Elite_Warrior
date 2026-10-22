@@ -28,6 +28,11 @@ class FuturesGridThresholds:
     #: (`BUG-255`), with or without a daily ATR: a gap through a stop that close would leave only
     #: the liquidation. The ATR buffer above stays an advisory.
     min_liq_gap_ratio: Decimal = Decimal("0.01")
+    #: The daily ATR can only raise that floor (`BOT-227`): a stop nearer the estimated
+    #: liquidation than this many daily ATRs is REFUSED as well, when the ATR is known. The floor
+    #: is the larger of the two (`futures_liq_gap_floor`), so this multiple can never lower the
+    #: owner's share; the advisory buffer above is the wider line.
+    min_liq_gap_atr: Decimal = Decimal("0.5")
     #: Leverage above this is a WARNING (decision O4).
     leverage_warn: int = 10
     #: Leverage above this is REFUSED, whatever the bracket allows (decision O4).
@@ -64,6 +69,10 @@ class FuturesGridThresholds:
             raise ValueError("min_liq_buffer_atr must not be negative")
         if not 0 <= self.min_liq_gap_ratio < 1:
             raise ValueError("min_liq_gap_ratio must be at least 0 and below 1")
+        if not 0 <= self.min_liq_gap_atr <= self.min_liq_buffer_atr:
+            raise ValueError(
+                "min_liq_gap_atr must be at least 0 and not above min_liq_buffer_atr"
+            )
         if self.risk_snapshot_max_age <= timedelta(0):
             raise ValueError("risk_snapshot_max_age must be positive")
         if self.risk_unknown_halt_after <= timedelta(0):

@@ -82,6 +82,10 @@ entry the range-exit close skips exactly one mark beat so a mark on a bound cann
 position in two beats (`GridPriceReaction`). A Resume of a bot that holds nothing, with the price
 outside the range, waits instead of laying a ladder (`GridResumeSequence.propose`).
 
+## Built: the stop-to-liquidation floor (`BOT-227`)
+
+*How far before its estimated liquidation must a Futures exit sit?* At least the larger of the owner's 1 % of the exit and half a daily ATR (`bots/domain/grid/futures_liq_gap_floor.py` → `liq_gap_floor`; the thresholds `FuturesGridThresholds.min_liq_gap_ratio`, `min_liq_gap_atr`): the ATR can only raise the floor. The Plan (`bots/domain/grid/futures_grid_checks.py` → `judge_futures_plan`) and the Start (`bots/application/services/venue/futures_start_checks.py` → `FuturesStartChecks.refusal`) call the same function, with the ATR one reader gives both (`bots/application/kinds/grid/daily_atr_reader.py` → `DailyAtrReader.read`: the stored daily candles of the venue's own market, never fetched). Candles missing, fewer than 15, or with the newest over two days old give no ATR, and the floor is the 1 % alone: the refusal's words and a `[plan-risk]` line say so (`FuturesStartReads.daily_atr_reading`). Decision: `Tasks/epics/EPIC-039_futures_venue_profile/DECISION_2026-10-22_the_liquidation_floor_follows_the_daily_atr.md`. **Limit:** the multiple is proposed, not yet confirmed by the owner.
+
 ## Built: several bots on one venue
 
 *Which resources do the bots of one venue share, and what stops them using them all?* (`EPIC-029J1b`;
@@ -196,7 +200,14 @@ The router (`.../bot_event_router.py` → `BotEventRouter.on_fill`) gives the fi
 which ignores one already counted and books the rest on the bot's worker (`.../grid_facts.py` →
 `GridFacts.on_fill`, `GridFacts._apply_fill`). A filled level lays its counter order one level away
 and returns to `EMPTY` (`settled`, the level machine in [`state-machines.md`](state-machines.md)), and
-the bot's run state saves the new runtime. Once it is saved, one `BotOrderFilledEvent` is published for
+the bot's run state saves the new runtime. **The counter is on record before it is sent (`BUG-266`).**
+The runtime saved with the fact also lists each order about to be sent as owed, in `held` (`bots/domain/grid/grid_owed_orders.py` → `owing`;
+`bots/application/kinds/grid/grid_ladder_placer.py` → `GridLadderPlacer.save_owing`), and the placer settles the entry in the one save
+that records the placement (`GridLadderPlacer._place`, `settled_intent`). The pairing of a counter SELL (the BUY it completes) lives only in
+the bot's record, so a death or a request that raised while the order was live would otherwise leave an order the restart's reconcile
+adopts with no pairing, its fill closing no cycle. A death between the send and that save is what it covers: the restart is RECOVERING, the reconcile's `adopted` moves the entry's pairing onto the live order it finds, and `release_held` places the order if it never reached the exchange. A request that raised (`FAULT`) settles the entry like any answer: the bot goes to ERROR, whose only exit is a Stop that cancels the order. **Limit:**
+an order that filled while the app was down is not in the open list the reconcile reads, so it is not found; the inventory check halts
+the bot on the difference, as before. Once the runtime is saved, one `BotOrderFilledEvent` is published for
 each order the fact filled whole (`bots/domain/grid/grid_reactions.py` → `Reaction.filled`;
 `bots/application/kinds/grid/grid_fill_announcer.py` → `GridFillAnnouncer.announce`; BOT-189): a partial fill and a trade already counted publish nothing, and
 the `alerting` module words the rest.

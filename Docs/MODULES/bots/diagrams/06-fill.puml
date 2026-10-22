@@ -23,9 +23,16 @@ alt counter level still occupied (BUG-225)
     F -> F : halt duplicate_level_order
   end
 end
+F -> F : level FILLED --settled--> EMPTY
+F -> S : update(runtime + the counter listed as owed, in held)
+S -> ST : save(bot, runtime)
+note right of ST : the counter's pairing is on record before the order is sent (BUG-266)
 F -> L : lay the counter order one level away
 L -> T : place
-F -> F : level FILLED --settled--> EMPTY
-F -> S : update(runtime)
-S -> ST : save(bot, runtime)
+note over L, T : a death here leaves the entry; the reconcile adopts the live order with its pairing
+alt accepted
+  L -> S : update(runtime: owed entry settled, level RESTING with its pairing)
+else refused, paused, switched off or fault
+  L -> S : update(runtime: owed entry settled)
+end
 @enduml
