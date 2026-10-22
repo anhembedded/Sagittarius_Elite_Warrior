@@ -33,6 +33,8 @@ class OverlayRole(str, Enum):
     AVERAGE_COST = "AVERAGE_COST"
     #: `EPIC-039J` - where a leveraged position is estimated to be liquidated.
     LIQUIDATION = "LIQUIDATION"
+    #: `EPIC-046B` - the plan's trigger price: the ladder is laid only at it or better.
+    TRIGGER = "TRIGGER"
 
 
 class OverlayBandRole(str, Enum):

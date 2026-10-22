@@ -42,12 +42,14 @@ class LineStyle(str, Enum):
     SOLID = "SOLID"
     DASH = "DASH"
     DOT = "DOT"
+    DASH_DOT = "DASH_DOT"
 
 
 _QT_STYLES = {
     LineStyle.SOLID: QtCore.Qt.PenStyle.SolidLine,
     LineStyle.DASH: QtCore.Qt.PenStyle.DashLine,
     LineStyle.DOT: QtCore.Qt.PenStyle.DotLine,
+    LineStyle.DASH_DOT: QtCore.Qt.PenStyle.DashDotLine,
 }
 
 

@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     STOP_LOSS_COLOR,
     SUGGESTION_BAND_COLOR,
     TAKE_PROFIT_COLOR,
+    TRIGGER_COLOR,
 )
 
 
@@ -59,6 +60,8 @@ _LINE_STYLES: dict[OverlayRole, _LineStyle] = {
     OverlayRole.RANGE_EDGE: _LineStyle(RANGE_EDGE_COLOR, LineStyle.SOLID, 1),
     OverlayRole.AVERAGE_COST: _LineStyle(AVERAGE_COST_COLOR, LineStyle.DOT, 2),
     OverlayRole.LIQUIDATION: _LineStyle(LIQUIDATION_COLOR, LineStyle.DASH, 2),
+    # `EPIC-046B`: dash-dot, the one style no other line has, so the entry limit reads apart.
+    OverlayRole.TRIGGER: _LineStyle(TRIGGER_COLOR, LineStyle.DASH_DOT, 2),
 }
 
 _BAND_COLORS: dict[OverlayBandRole, str] = {

@@ -7,6 +7,13 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     FillSide,
     OverlayBand,
@@ -209,3 +216,41 @@ def test_range_labels_cannot_be_read_as_exits() -> None:
         if line.role is OverlayRole.RANGE_EDGE or "range" in line.label
     ]
     assert range_words == ["range bottom", "L10 · range top"]
+
+
+def _triggered(direction: str, trigger: str) -> GridOverlaySource:
+    """`EPIC-046B`: the report's plan with a trigger price, as the Plan judges it on each edit."""
+    changes = {"direction": direction, "leverage": "1", "trigger_price": trigger}
+    position_venue = ExposureLimits(
+        frozenset(TradeDirection), 10, ExposureKind.POSITION
+    )
+    given = replace(inputs(**changes), limits=position_venue)
+    evaluation = evaluate_grid(given, GridThresholds())
+    assert evaluation.params is not None and evaluation.plan is not None
+    return GridOverlaySource(evaluation.params, evaluation.plan, GridThresholds())
+
+
+def test_a_long_plan_with_a_trigger_draws_its_line_tagged_at_or_below() -> None:
+    lines = [
+        line
+        for line in grid_overlay(_triggered("LONG", "62500")).lines
+        if line.role is OverlayRole.TRIGGER
+    ]
+
+    assert [(line.price, line.label) for line in lines] == [
+        (Decimal(62500), "Trigger ≤ 62500")
+    ]
+
+
+def test_a_short_plan_tags_its_trigger_at_or_above() -> None:
+    [line] = [
+        line
+        for line in grid_overlay(_triggered("SHORT", "67500")).lines
+        if line.role is OverlayRole.TRIGGER
+    ]
+
+    assert line.label == "Trigger ≥ 67500"
+
+
+def test_a_plan_without_a_trigger_draws_no_trigger_line() -> None:
+    assert _by_role(_source(), OverlayRole.TRIGGER) == []

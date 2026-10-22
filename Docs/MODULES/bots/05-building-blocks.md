@@ -53,7 +53,10 @@ implemented by `BotKindCatalog` (`.../bot_kind_catalog.py` → `BotKindCatalog`)
 `GridKind` (`bots/domain/grid/grid_kind.py` → `GridKind`). A Grid's `overlay`
 (`bots/domain/grid/grid_overlay.py`) draws one label per price: a range limit equal to a level's
 price is part of that level's label ("L6 · range top"), else its own "range top"/"range bottom" line,
-and SL/TP keep their own roles and styles (`BUG-207`).
+and SL/TP keep their own roles and styles (`BUG-207`). A plan with a trigger price adds one
+`OverlayRole.TRIGGER` line, "Trigger ≤ T" (≥ for a SHORT), dash-dot in a colour no other line has;
+the Bots screen leaves it out once the bot has laid its ladder
+(`bots/ui/bots_screen/plan_trigger_line.py` → `shown_for`, `TRIGGER_LATCHED_STATES`; `EPIC-046B`).
 
 **The kind's backtest.** `IBotKind.backtester` answers the kind's `IKindBacktester`
 (`bots/contracts/i_kind_backtester.py` → `IKindBacktester`, `KindBacktestRequest`), or `None`
