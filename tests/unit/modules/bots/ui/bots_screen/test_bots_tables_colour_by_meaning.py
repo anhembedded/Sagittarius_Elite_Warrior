@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import PnlSummary
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     BotLadderTableModel,
     BotsTableModel,
@@ -94,6 +95,30 @@ def test_profit_loss_and_state_take_the_meaning_tables_colour(
     table = _show(screen, S.PAUSED, "0")
     assert _foreground(table, "grid_profit.signed") is None
     assert _foreground(table, "state") == tone_colour(Tone.CAUTION, palette)
+
+
+@pytest.mark.parametrize("base", ["white", "black"])
+def test_the_realised_cell_takes_the_colour_of_its_sign(
+    base, open_bots_screen, monkeypatch
+):
+    """`BOT-231`: Realised is coloured like its neighbouring money columns."""
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    palette = _on(base, monkeypatch)
+    model = _bots_model(screen)
+    for realised, tone in (("20", Tone.POSITIVE), ("-3", Tone.NEGATIVE)):
+        snapshot = _snapshot(screen, S.RUNNING, "1")
+        pnl = PnlSummary(
+            total=None,
+            realised=Decimal(realised),
+            unrealised=None,
+            grid_profit=Decimal(1),
+            hodl=None,
+            unpriced_fees=0,
+        )
+        progress = dataclasses.replace(snapshot.progress, pnl=pnl)
+        model.set_rows([dataclasses.replace(snapshot, progress=progress)])
+        assert _foreground(model, "realised.signed") == tone_colour(tone, palette)
 
 
 def test_in_high_contrast_the_platform_keeps_every_colour(
