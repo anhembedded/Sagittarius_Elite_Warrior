@@ -13,11 +13,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
@@ -37,11 +41,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import Gri
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
+    Verdict,
+    VerdictSeverity,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import (
     DetailInputs,
     detail_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import BotFacts
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.exit_estimate_words import (
+    LIQUIDATION_FIRST,
+    rows_cut_by_liquidation,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     PROPERTY_KEYS,
 )
@@ -122,7 +134,7 @@ def test_the_owners_plan_says_the_loss_at_the_stop_with_its_path_and_what_it_lea
     assert "-4.13% of capital" in row
     assert "falls from" in row
     assert "5 BUY orders" in row
-    assert "funding and slippage are left out" in row
+    assert "a liquidation before the exit are left out" in row
 
 
 def test_the_owners_plan_says_the_gain_at_the_take_profit() -> None:
@@ -155,3 +167,37 @@ def test_a_saved_bot_at_rest_shows_the_guards_liquidation_estimate() -> None:
     saved yet shows (`BUG-261`), instead of "not in the bot's record"."""
     assert "liquidation near" in _facts().liquidation_estimate
     assert _facts(S.RUNNING).liquidation_estimate == ""
+
+
+def test_a_stop_beyond_the_liquidation_price_says_the_margin_goes_first_not_a_loss() -> (
+    None
+):
+    """Review of `BOT-235`: at 50x the long's liquidation estimate (about 723) is above the stop
+    at 721, the guard refuses it as `STOP_LOSS_AFTER_LIQUIDATION`, and a loss "at the stop" would
+    never happen: the row says so, and the take profit's figure is unaffected."""
+    facts = _facts(leverage="50")
+
+    assert facts.loss_at_stop == LIQUIDATION_FIRST
+    assert facts.gain_at_take_profit != LIQUIDATION_FIRST
+    assert "STOP_LOSS_AFTER_LIQUIDATION" not in facts.loss_at_stop
+
+
+@pytest.mark.parametrize(
+    ("direction", "side", "cut"),
+    [
+        (TradeDirection.LONG, "long", {"loss_at_stop"}),
+        (TradeDirection.SHORT, "short", {"loss_at_stop"}),
+        (TradeDirection.SHORT, "long", set()),
+        (TradeDirection.NEUTRAL, "short", {"gain_at_take_profit"}),
+        (TradeDirection.NEUTRAL, "long", {"loss_at_stop"}),
+    ],
+    ids=["long", "short", "short-wrong-leg", "neutral-short-leg", "neutral-long-leg"],
+)
+def test_the_side_the_guard_refused_decides_which_row_is_cut(
+    direction: TradeDirection, side: str, cut: set[str]
+) -> None:
+    verdict = Verdict(
+        VerdictSeverity.REFUSED, "STOP_LOSS_AFTER_LIQUIDATION", "x", subject=side
+    )
+
+    assert rows_cut_by_liquidation([verdict], direction) == cut

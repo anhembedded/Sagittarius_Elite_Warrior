@@ -16,7 +16,9 @@ Status: Current
   the Bots menu. The Ladder shows one row per grid (buy and sell level, step, what a cycle earns
   as an estimate, before fees and, where the run recorded the account's maker rate at its start,
   after them; what the saved run says the grid is doing) and the Plan the grid step, the profit
-  per cycle and where the last price the bot heard stands (`BOT-193`).
+  per cycle and where the last price the bot heard stands (`BOT-193`); for a bot at rest it also shows what a
+  straight run to the stop loss costs and to the take profit earns, estimated net of fees with funding left out,
+  and, on Futures, the plan guard's liquidation estimate (`BOT-235`).
 
 ## 1. Trigger
 

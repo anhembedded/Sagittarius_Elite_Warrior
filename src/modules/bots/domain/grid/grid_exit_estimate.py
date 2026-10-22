@@ -14,7 +14,9 @@ the arithmetic of a fill is not written a second time:
 
 A straight run never reaches a counter order (a BUY's counter SELL rests above the BUY, behind the
 price), so the fills are the plan's own levels and the result does not depend on how the quantities
-were sized: a Spot ladder and a position ladder are read the same way. A NEUTRAL grid has no
+were sized: a Spot ladder and a position ladder are read the same way. On Spot the figure is
+approximate, not exact: the Spot replay takes fees in base and nets the opening fee off the sells
+(about 0.1% apart in a probe at a 0.1% fee). A NEUTRAL grid has no
 opening trade and two legs, each ending at its own exit (`futures_grid_checks._loss_exit`): its
 stop-loss estimate is the long leg and its take-profit estimate the short leg, which closes at a
 price above everything it sold, so that estimate is a loss.

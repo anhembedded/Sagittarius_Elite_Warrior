@@ -99,7 +99,7 @@ PROPERTY_GROUPS: tuple[PropertyGroup, ...] = (
             ("take_profit", "Take profit", _PRICE),
             # `BOT-235`: what a straight run to each exit is worth, from the domain's estimate.
             (EXIT_KEYS[0], "Loss at stop loss (estimate)", _TEXT),
-            (EXIT_KEYS[1], "Gain at take profit (estimate)", _TEXT),
+            (EXIT_KEYS[1], "Result at take profit (estimate)", _TEXT),
             (LIQUIDATION_KEY, "Liquidation price", _TEXT),
         ),
     ),

@@ -93,6 +93,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge im
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.exit_estimate_words import (
     exit_rows,
+    rows_cut_by_liquidation,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
     PlanChecks,
@@ -187,7 +188,13 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     # `BUG-261`: the plan figures read the design on screen, as the checks and the chart do.
     shown = bot if inputs.edited is None else replace(bot, config=config)
     facts = bot_facts(shown, inputs.now)
-    exits = exit_rows(_exit_estimates(inputs, config))
+    estimates = _exit_estimates(inputs, config)
+    exits = exit_rows(
+        estimates,
+        rows_cut_by_liquidation(verdicts, estimates.direction)
+        if estimates is not None
+        else frozenset(),
+    )
     return BotDetail(
         facts=replace(
             facts,
