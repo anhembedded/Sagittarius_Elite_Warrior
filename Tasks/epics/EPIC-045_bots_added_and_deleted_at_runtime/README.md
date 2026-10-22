@@ -1,6 +1,6 @@
 # EPIC-045 — A bot is added and deleted on the running host, as the Bots tab does
 
-- **Status:** 🟡 Phases 1 and 2 done (A, B, E, F, D); C (`bot apply` beside a host) is next
+- **Status:** ✅ Done (2026-10-22): all seven children merged (A, B, E in #692, F in #694, D in #697, G in #705, #708 and #714, C in #717)
 - **Repositories:** Elite
 - **Origin:** the owner, 2026-10-21: "build a mechanism to add a bot and delete a bot at runtime; the UI can do it. Whatever the UI can do at runtime, the VPS must be able to do." (translated; the brief reads "xây cơ chế thêm bot và xoá bot lúc runtime…")
 - **North star:** [`Docs/SPEC/SPEC-015_run_the_bots_headless.md`](../../../Docs/SPEC/SPEC-015_run_the_bots_headless.md), [`Docs/OPERATIONS/headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md) §6 and §8
