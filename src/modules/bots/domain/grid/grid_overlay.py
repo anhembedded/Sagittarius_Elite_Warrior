@@ -38,9 +38,6 @@ from decimal import Decimal
 from enum import Enum
 from types import MappingProxyType
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     BotOverlay,
     OverlayBand,
@@ -50,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     OverlayRole,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    better_is_lower,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
@@ -198,7 +198,7 @@ def _trigger_line(params: GridParams) -> list[OverlayLine]:
     trigger = params.trigger_price
     if trigger is None:
         return []
-    side = "≥" if params.direction is TradeDirection.SHORT else "≤"
+    side = "≤" if better_is_lower(params) else "≥"
     return [
         OverlayLine(trigger, OverlayRole.TRIGGER, f"Trigger {side} {plain(trigger)}")
     ]

@@ -55,15 +55,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_enter
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
     EntryGate,
+    better_is_lower,
     entry_gate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
@@ -184,9 +182,7 @@ class GridRangeEntry:
         params = self._context.params
         if gate is EntryGate.OUTSIDE_RANGE:
             return f"price {price} is outside the range {params.lower}-{params.upper}"
-        side = (
-            "at or above" if params.direction is TradeDirection.SHORT else "at or below"
-        )
+        side = "at or below" if better_is_lower(params) else "at or above"
         return f"price {price} has not reached the trigger, which wants it {side} {params.trigger_price}"
 
     def _ready_to_lay(self) -> bool:
@@ -299,7 +295,7 @@ class GridRangeEntry:
                 params.upper,
                 len(state.runtime.open_orders),
                 trigger=params.trigger_price,
-                trigger_at_or_below=params.direction is not TradeDirection.SHORT,
+                trigger_at_or_below=better_is_lower(params),
             )
         )
 

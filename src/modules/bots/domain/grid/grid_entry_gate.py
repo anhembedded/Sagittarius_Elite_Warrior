@@ -48,14 +48,18 @@ def entry_gate(params: GridParams, price: Decimal) -> EntryGate:
     return EntryGate.OPEN
 
 
+def better_is_lower(params: GridParams) -> bool:
+    """Which side of the trigger is better: lower for a grid that buys to enter (LONG, and Spot,
+    which is LONG), higher for a SHORT. The one place the side is decided (ADR 046 D1)."""
+    return params.direction is not TradeDirection.SHORT
+
+
 def trigger_met(params: GridParams, price: Decimal) -> bool:
     """`True` when `params` has no trigger, or `price` is at the trigger or better for its side."""
     trigger = params.trigger_price
     if trigger is None:
         return True
-    if params.direction is TradeDirection.SHORT:
-        return price >= trigger
-    return price <= trigger
+    return price <= trigger if better_is_lower(params) else price >= trigger
 
 
 def entry_band(params: GridParams) -> tuple[Decimal, Decimal]:
@@ -64,9 +68,9 @@ def entry_band(params: GridParams) -> tuple[Decimal, Decimal]:
     trigger = params.trigger_price
     if trigger is None:
         return params.lower, params.upper
-    if params.direction is TradeDirection.SHORT:
-        return trigger, params.upper
-    return params.lower, trigger
+    return (
+        (params.lower, trigger) if better_is_lower(params) else (trigger, params.upper)
+    )
 
 
 def entry_price(params: GridParams, price: Decimal) -> Decimal:

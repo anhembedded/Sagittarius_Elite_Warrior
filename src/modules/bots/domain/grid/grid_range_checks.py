@@ -16,14 +16,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    better_is_lower,
     trigger_met,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
@@ -78,7 +76,7 @@ def _trigger_unmet(
 ) -> Verdict:
     """The price is in the range but not yet at the trigger: the bot waits, like a limit order
     (`EPIC-046A`, ADR 046 D5)."""
-    side = "at or above" if params.direction is TradeDirection.SHORT else "at or below"
+    side = "at or below" if better_is_lower(params) else "at or above"
     return Verdict(
         VerdictSeverity.OK,
         "TRIGGER_NOT_MET",

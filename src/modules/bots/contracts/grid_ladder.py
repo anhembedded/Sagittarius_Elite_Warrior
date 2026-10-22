@@ -41,9 +41,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
     venue_profile_of,
@@ -51,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import (
     GridProfit,
     grid_profits,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    better_is_lower,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
@@ -352,7 +352,7 @@ def _trigger(params: GridParams, last: Decimal | None) -> TriggerMark | None:
         return None
     return TriggerMark(
         _mark(params.trigger_price, last),
-        at_or_below=params.direction is not TradeDirection.SHORT,
+        at_or_below=better_is_lower(params),
     )
 
 

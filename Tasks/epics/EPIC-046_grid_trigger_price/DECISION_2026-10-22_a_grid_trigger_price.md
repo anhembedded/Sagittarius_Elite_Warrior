@@ -40,7 +40,7 @@ The owner wants a Grid to wait for a price, as a limit order does, before it lay
 | D6 | **Log lines.** The existing tags, no new one: `[range-wait]` names the cause ("price 135 has not reached the trigger, which wants it at or below 125"), `[range-entry-deferred]` names a fresh book price that the gate refuses. | 🟢 Accepted | Owner, 2026-10-22 | `render_log_templates.py --write` follows. |
 
 ## 2a. Constitution check
-The rule is the owner's and touches real money (when a position opens), so D1–D6 are not settled as defaults: they wait for the coordinator's acceptance after the review and stand open to the owner's veto. The check is recorded for the reviewer.
+The rule is the owner's and touches real money (when a position opens), so D1–D6 were not settled as defaults: they were proposed for the reviewer's read and accepted by the owner on 2026-10-22. The check is kept as the record of what was judged.
 
 | Invariant | Passes? | Evidence |
 | :--- | :--- | :--- |
@@ -52,10 +52,10 @@ The rule is the owner's and touches real money (when a position opens), so D1–
 | P6 Fix the mechanism | ✅ | The three `range_position` asks became one gate instead of three `and trigger_met` additions |
 | P7 Seam now, variant later | ✅ | `EntryGate` names why the gate is closed, so a later condition (a NEUTRAL meaning, a dwell) is one more member |
 | P8 Ratchets only fall | ✅ | No test weakened; `test_every_declared_key_is_one_a_grid_reads` gains the key |
-| P9 Decide alone | ✅ | Every default is marked Proposed with the owner's veto; O1 is asked, not decided |
+| P9 Decide alone | ✅ | Every default was proposed to the owner, who accepted it; O1 was asked and answered by the owner, not decided by the author |
 | P10 Pyramid and units | ✅ | The examples state the range, the trigger and the prices in quote units |
 | P11 Prompt-grade artifacts | ✅ | This record, the SPEC and the state-machine page say the same rule once and link here |
-| Reversible; no real money, dependency, setting, Engine, user data or secret | ❌ real money | No dependency, setting, Engine file or secret; a saved definition keeps its bytes. It is real-money behaviour, hence Proposed and not a default |
+| Reversible; no real money, dependency, setting, Engine, user data or secret | ❌ real money | No dependency, setting, Engine file or secret; a saved definition keeps its bytes. It is real-money behaviour, hence put to the owner rather than settled as a default |
 
 ## 3. Alternatives considered
 
