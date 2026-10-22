@@ -7,12 +7,14 @@ import argparse
 import contextlib
 import io
 import re
+from dataclasses import replace
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_renderer import (
     IReportRenderer,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    CellKind,
     Report,
     ReportCell,
     ReportRow,
@@ -43,11 +45,21 @@ _BOX = re.compile("[─-╿]")
 _ESCAPE = "\x1b"
 
 
-def _row(*texts: str, widths: tuple[int, ...] = ()) -> ReportRow:
+def _money(text: str) -> ReportCell:
+    return ReportCell(text, kind=CellKind.MONEY)
+
+
+def _cell(cell: str | ReportCell, width: int) -> ReportCell:
+    if isinstance(cell, ReportCell):
+        return replace(cell, width=width)
+    return ReportCell(cell, width)
+
+
+def _row(*cells: str | ReportCell, widths: tuple[int, ...] = ()) -> ReportRow:
     return ReportRow(
         tuple(
-            ReportCell(text, widths[i] if i < len(widths) else 0)
-            for i, text in enumerate(texts)
+            _cell(cell, widths[i] if i < len(widths) else 0)
+            for i, cell in enumerate(cells)
         )
     )
 
@@ -65,13 +77,28 @@ def _list_report() -> Report:
                 (
                     _row(*head, widths=widths),
                     _row(
-                        "a00001", "BTC grid", "RUNNING", "12.50", "13.00", widths=widths
+                        "a00001",
+                        "BTC grid",
+                        "RUNNING",
+                        _money("12.50"),
+                        _money("13.00"),
+                        widths=widths,
                     ),
                     _row(
-                        "a00002", "ETH grid", "HALTED", "-3.25", "-4.00", widths=widths
+                        "a00002",
+                        "ETH grid",
+                        "HALTED",
+                        _money("-3.25"),
+                        _money("-4.00"),
+                        widths=widths,
                     ),
                     _row(
-                        "a00003", "SOL grid", "STOPPED", "0.00", "0.00", widths=widths
+                        "a00003",
+                        "SOL grid",
+                        "STOPPED",
+                        _money("0.00"),
+                        _money("0.00"),
+                        widths=widths,
                     ),
                 ),
                 has_header=True,
@@ -91,7 +118,7 @@ def _show_report() -> Report:
                 (
                     _row("Name", "BTC grid", widths=(12,)),
                     _row("State", "HALTED", widths=(12,)),
-                    _row("Total PnL", "-4.00", widths=(12,)),
+                    _row("Total PnL", _money("-4.00"), widths=(12,)),
                     ReportRow.of("free text"),
                 ),
             ),
