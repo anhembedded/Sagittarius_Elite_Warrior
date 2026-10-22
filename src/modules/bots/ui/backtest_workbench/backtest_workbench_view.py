@@ -34,7 +34,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    plan_market_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome import (
     BacktestFill,
     EquityPoint,
@@ -56,6 +60,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_words import (
     BANNER,
+    PICK_A_BOT,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_column import (
     PlanColumn,
@@ -66,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
@@ -112,12 +120,15 @@ class BacktestWorkbenchView(QWidget):
     keep_edits_requested = Signal()
     #: The editor's parameters after every edit by the person.
     config_edited = Signal(object)
+    #: The person changed the interval or the period: the stored candles to draw are another set (`BOT-233`).
+    window_changed = Signal()
 
     def __init__(
         self, chart_ports: LiveChartPorts, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
         self.interval = interval_toolbar()
+        self._market: MarketType | None = None
         now = datetime.now(UTC).replace(second=0, microsecond=0)
         self.start = _datetime_edit(
             "dtBacktestStart", now - timedelta(days=_DEFAULT_DAYS)
@@ -161,7 +172,12 @@ class BacktestWorkbenchView(QWidget):
             object_name="tblBacktestFills",
             empty_text="Run a backtest to see its fills.",
         )
+        self.candles = _wrapped_label("lblBacktestCandles")
         self._build()
+        self.show_candles((), PICK_A_BOT)
+        self.interval.sig_timeframe_changed.connect(self.window_changed)
+        self.start.dateTimeChanged.connect(self.window_changed)
+        self.end.dateTimeChanged.connect(self.window_changed)
         self.run_button.clicked.connect(self.run_requested)
         self.cancel_button.clicked.connect(self.cancel_requested)
         self.sync_button.clicked.connect(self.sync_requested)
@@ -175,6 +191,14 @@ class BacktestWorkbenchView(QWidget):
 
     def chosen_interval(self) -> TimeFrame:
         return TimeFrame(self.interval.active_timeframe or DEFAULT_INTERVAL.value)
+
+    def offer_intervals_of(self, venue: TradingVenue) -> None:
+        """The picker offers the intervals the venue's market loads (`BOT-232`: Futures has no `1s`);
+        a chosen interval it does not load moves to the nearest one that it does."""
+        market = plan_market_of(venue)
+        if market is not self._market:
+            self._market = market
+            self.interval.set_market(market)
 
     def chosen_period(self) -> tuple[datetime, datetime]:
         return _utc(self.start), _utc(self.end)
@@ -192,6 +216,8 @@ class BacktestWorkbenchView(QWidget):
         self.no_funding_button.setVisible(controls.no_funding_visible)
         self.reset_button.setEnabled(controls.reset_enabled)
         self.status.setText(state.status)
+        self.candles.setText(state.candles_text)
+        self.candles.setVisible(bool(state.candles_text))
         self.source.show_status(_source_status(state))
         self.changed.setText(_changed_text(state))
         self.checks.show_checks(state.checks)
@@ -233,6 +259,14 @@ class BacktestWorkbenchView(QWidget):
         offers its drop-down."""
         self.chart.use_display_timezone(preference)
         self.equity.follow_display_timezone(preference)
+
+    def show_candles(self, candles: Sequence[MarketData], empty_text: str) -> None:
+        """The stored candles of the period before (or without) a result; with none, `empty_text`
+        where the plot is, never an unfed chart's 1970 axis (`BOT-233`)."""
+        self.chart.draw_history(candles)
+        self.chart.show_overlay(BotOverlay())
+        if not candles:
+            self.chart.say_empty(empty_text)
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
@@ -289,6 +323,7 @@ class BacktestWorkbenchView(QWidget):
         layout = QVBoxLayout(self)
         layout.addLayout(period)
         layout.addLayout(commands)
+        layout.addWidget(self.candles)
         layout.addWidget(self.banner)
         layout.addWidget(body, 1)
 

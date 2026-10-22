@@ -36,11 +36,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_kind
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    GetStoredCandlesQuery,
+    StoredCandles,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
     RunBacktestQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
+    MAX_CANDLES,
     RunGridBacktestQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
@@ -78,8 +83,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_
     WorkbenchSelection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
+    SAMPLE_CANDLES,
     HeldPool,
     SampleCandleFeed,
+    sample_candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.sample_replays import (
     BRACKETS,
@@ -127,6 +134,20 @@ class _Scripted:
     def __call__(self, query: RunBacktestQuery) -> BacktestAnswer:
         answer = self._answers.pop(0)
         return cast(BacktestAnswer, answer(query) if callable(answer) else answer)
+
+
+def sample_stored_candles(query: GetStoredCandlesQuery) -> StoredCandles:
+    """The sample candles of the period, all of them stored: what the preview reads in a frame."""
+    length = timedelta(seconds=query.interval.to_seconds())
+    candles = tuple(
+        candle
+        for candle in (
+            sample_candle(query.symbol, query.interval, START, index)
+            for index in range(SAMPLE_CANDLES)
+        )
+        if query.start <= candle.open_time and candle.open_time + length <= query.end
+    )
+    return StoredCandles(candles, len(candles), len(candles), MAX_CANDLES)
 
 
 def candles_refusal(query: RunBacktestQuery) -> object:
@@ -180,6 +201,7 @@ class _Frame:
                 display_timezone=DisplayTimezonePreference(),
                 kinds=catalog.kind,
                 editors=panel_for,
+                read_candles=sample_stored_candles,
             )
         )
         utc = QTimeZone.utc()

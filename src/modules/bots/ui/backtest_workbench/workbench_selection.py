@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market.result import (
     PlannerMarket,
 )
@@ -20,14 +19,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester impo
     KindBacktestRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    plan_market_of,
     venue_profile_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.funding_requirement import (
+    FundingRequirement,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.sandbox_plan import (
+    SandboxPlan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     PlanRiskFacts,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    MarketDataSyncRequest,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_window import (
+    CandleWindow,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -49,15 +53,25 @@ def needs_brackets(venue: TradingVenue) -> bool:
     return profile is not None and bool(profile.margin_modes)
 
 
-def sync_requests(request: KindBacktestRequest) -> tuple[MarketDataSyncRequest, ...]:
-    """What a sync fetches for `request`: its candles and the 1-second klines of its period."""
-    return tuple(
-        MarketDataSyncRequest(
-            symbols=(request.symbol,),
-            interval=interval,
-            market=plan_market_of(request.venue),
-            start_time=request.start,
-            end_time=request.end,
-        )
-        for interval in (request.interval, TimeFrame.ONE_SECOND)
+def request_of(
+    world: WorkbenchSelection,
+    plan: SandboxPlan,
+    window: CandleWindow,
+    funding: FundingRequirement,
+) -> KindBacktestRequest | None:
+    """The backtest the sandbox's plan asks for over `window`, judged by the sandbox's own bot's
+    market numbers and risk facts (`world`); `None` while the numbers are still being read."""
+    market, risk = world.market, world.risk
+    if market is None or market.terms is None:
+        return None
+    return KindBacktestRequest(
+        plan.symbol,
+        plan.config,
+        market.terms,
+        window.interval,
+        window.start,
+        window.end,
+        plan.venue,
+        brackets=risk.brackets if risk is not None else None,
+        funding=funding,
     )

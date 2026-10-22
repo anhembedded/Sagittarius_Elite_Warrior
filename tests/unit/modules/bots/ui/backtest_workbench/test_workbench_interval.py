@@ -2,10 +2,12 @@
 
 @details The owner found the interval drop-down out of date beside the charts' own picker: the pinned
 timeframes as actions and "More timeframes…" with its grouped dialog. The workbench reuses that
-component (`ChartToolbar`), limited to the intervals a backtest replays (`INTERVALS`)."""
+component (`ChartToolbar`), offering every interval the bot's market loads (`BOT-232`)."""
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -14,14 +16,31 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
     BacktestWorkbench,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_window import (
+    FINE_KLINES_MAX_PERIOD,
+    CandleWindow,
+    sync_requests,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
     DEFAULT_INTERVAL,
-    INTERVALS,
+    OFFERED_INTERVALS,
+    PINNED_INTERVALS,
+    UNREPLAYED_INTERVALS,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
-from .workbench_fixtures import WorkbenchWorld, build_workbench, selection
+from .workbench_candles import PERIOD
+from .workbench_fixtures import (
+    WorkbenchWorld,
+    build_workbench,
+    futures_selection,
+    selection,
+)
 
-_CODES = [interval.value for interval in INTERVALS]
+_CODES = [interval.value for interval in PINNED_INTERVALS]
+_EVERY_CODE = {interval.value for interval in OFFERED_INTERVALS}
 
 
 @pytest.fixture
@@ -52,16 +71,55 @@ def test_it_opens_on_the_default_interval_with_each_replayed_interval_pinned(
     assert checked == [DEFAULT_INTERVAL.value]
 
 
-def test_the_full_picker_offers_only_the_intervals_a_backtest_replays(
+def _offered(workbench: BacktestWorkbench) -> set[str]:
+    toolbar = workbench.view.interval
+    return {row.code for group in toolbar._selection.groups for row in group.rows}
+
+
+def test_the_full_picker_offers_every_interval_the_replay_judges_in_the_charts_groups(
     world: WorkbenchWorld,
 ) -> None:
     toolbar = world.workbench.view.interval
 
-    offered = {row.code for group in toolbar._selection.groups for row in group.rows}
     toolbar._selection.choose("1d")
+    groups = [
+        (group.label, [row.code for row in group.rows])
+        for group in toolbar._selection.groups
+    ]
 
-    assert offered == set(_CODES)
-    assert world.workbench.view.chosen_interval() is DEFAULT_INTERVAL
+    assert _offered(world.workbench) == _EVERY_CODE
+    assert [label for label, _ in groups] == [
+        "SECONDS",
+        "MINUTES",
+        "HOURS",
+        "DAYS AND UP",
+    ]
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_DAY
+    assert _action_texts(world.workbench)[:4] == _CODES
+
+
+def test_the_full_picker_warns_that_seconds_are_heavy(world: WorkbenchWorld) -> None:
+    assert world.workbench.view.interval._selection.has_warning
+
+
+def test_a_futures_bot_is_not_offered_1s_which_futures_serves_no_klines_for(
+    world: WorkbenchWorld,
+) -> None:
+    world.workbench.follow(futures_selection())
+
+    assert _offered(world.workbench) == _EVERY_CODE - {"1s"}
+
+
+def test_a_chosen_1s_moves_to_1m_when_the_bot_followed_is_a_futures_one(
+    world: WorkbenchWorld,
+) -> None:
+    world.workbench.follow(selection())
+    world.workbench.view.interval._selection.choose("1s")
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_SECOND
+
+    world.workbench.follow(futures_selection())
+
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_MINUTE
 
 
 def test_choosing_an_interval_is_what_the_next_run_replays(
@@ -145,3 +203,57 @@ def test_the_row_always_shows_the_interval_run_replays(world: WorkbenchWorld) ->
         a.text() for a in toolbar.timeframes.timeframe_actions() if a.isChecked()
     ]
     assert checked == ["1h"]
+
+
+def test_the_intervals_whose_candles_are_off_the_epoch_grid_are_not_offered() -> None:
+    """Review of `BOT-232`: 3d, 1w and 1M candles open off the grid the replay counts and windows by,
+    so a stored period would read "partly stored" for ever. The set is locked; widening the picker to
+    them needs the calendar-aware replay (`UNREPLAYED_INTERVALS`)."""
+    assert {
+        TimeFrame.THREE_DAYS,
+        TimeFrame.ONE_WEEK,
+        TimeFrame.ONE_MONTH,
+    } == UNREPLAYED_INTERVALS
+    assert set(OFFERED_INTERVALS) == set(TimeFrame) - UNREPLAYED_INTERVALS
+
+
+def test_the_picker_does_not_list_them(world: WorkbenchWorld) -> None:
+    assert not {"3d", "1w", "1M"} & _offered(world.workbench)
+
+
+def test_a_1s_sync_asks_for_the_1s_series_once() -> None:
+    request = CandleWindow(
+        "BTCUSDT",
+        TradingVenue.SPOT_TESTNET,
+        TimeFrame.ONE_SECOND,
+        PERIOD[0],
+        PERIOD[1],
+    )
+
+    asked = [r.interval for r in sync_requests(request)]
+
+    assert asked == [TimeFrame.ONE_SECOND]
+    other = [
+        r.interval for r in sync_requests(replace(request, interval=TimeFrame.ONE_HOUR))
+    ]
+    assert other == [TimeFrame.ONE_HOUR, TimeFrame.ONE_SECOND]
+
+
+def test_a_sync_fetches_1s_klines_only_for_a_period_within_the_limit() -> None:
+    """Review of `BOT-232`, finding 4: a year at 1d is 365 candles but about 31.5M one-second rows, so
+    past `FINE_KLINES_MAX_PERIOD` Sync candles fetches the candles alone and the replay runs coarse."""
+    start = PERIOD[0]
+
+    def asked(period: timedelta) -> list[TimeFrame]:
+        window = CandleWindow(
+            "BTCUSDT",
+            TradingVenue.SPOT_TESTNET,
+            TimeFrame.ONE_HOUR,
+            start,
+            start + period,
+        )
+        return [r.interval for r in sync_requests(window)]
+
+    assert asked(FINE_KLINES_MAX_PERIOD) == [TimeFrame.ONE_HOUR, TimeFrame.ONE_SECOND]
+    assert asked(FINE_KLINES_MAX_PERIOD + timedelta(seconds=1)) == [TimeFrame.ONE_HOUR]
+    assert asked(timedelta(days=365)) == [TimeFrame.ONE_HOUR]

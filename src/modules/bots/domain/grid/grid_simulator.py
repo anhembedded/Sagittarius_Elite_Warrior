@@ -172,7 +172,7 @@ def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:
     return DataWindow(
         start=start,
         end=end,
-        expected_candles=_closed_candles(start, end, inputs.bar_length),
+        expected_candles=closed_candles(start, end, inputs.bar_length),
         stored_candles=sum(
             1
             for bar in inputs.bars
@@ -181,7 +181,7 @@ def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:
     )
 
 
-def _closed_candles(start: datetime, end: datetime, length: timedelta) -> int:
+def closed_candles(start: datetime, end: datetime, length: timedelta) -> int:
     """The candles that open at or after `start` and close by `end`.
 
     Candles open on epoch-aligned boundaries (Binance klines up to a day do),

@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    StoredCandles,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
@@ -171,6 +174,7 @@ class _Host:
             self._catalog.kind,
             panel_for,
             DisplayTimezonePreference(),
+            lambda query: StoredCandles((), 0, 0, 1),
             market,
         )
         self.built.append(made)

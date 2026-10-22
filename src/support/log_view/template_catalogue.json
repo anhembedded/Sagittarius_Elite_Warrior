@@ -275,6 +275,8 @@
 ["", "Bulk sync completed."],
 ["sss", "CLI command ", " declared by ", " -> ", "."],
 ["sss", "Cancel of ", " ", " on ", ": the exchange holds no such order"],
+["ss", "Candle preview ", " failed: ", ""],
+["sss", "Candle preview ", ": ", " ", ""],
 ["s", "Channel ", " is off [alert-settings]"],
 ["s", "Channel ", " is on [alert-settings]"],
 ["s", "Chart OpenGL unavailable; falling back to CPU: ", ""],

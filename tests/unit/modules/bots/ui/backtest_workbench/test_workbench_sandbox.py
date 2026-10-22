@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench import (
-    backtest_workbench_presenter as presenter,
+    outcome_shown as presenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,

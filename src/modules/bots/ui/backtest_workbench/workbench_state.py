@@ -27,6 +27,8 @@ class WorkbenchState:
     reason: str = ""
     status: str = ""
     offer_sync: bool = False
+    #: What the stored candles of the period are, in words; `""` with no bot (`BOT-233`).
+    candles_text: str = ""
     offer_without_funding: bool = False
     #: Whether the selected bot's kind has a sandbox to edit and reset.
     has_sandbox: bool = False

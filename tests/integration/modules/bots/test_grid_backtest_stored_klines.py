@@ -23,6 +23,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    GetStoredCandlesQuery,
+    GetStoredCandlesQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
     RunGridBacktestQueryHandler,
@@ -126,7 +130,11 @@ def repository(tmp_path) -> Iterator[SQLAlchemyMarketDataRepository]:
     manager.dispose_all()
 
 
-def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
+def _replay(
+    repository: SQLAlchemyMarketDataRepository,
+    interval: TimeFrame = TimeFrame.ONE_MINUTE,
+    seconds: int = SECONDS,
+) -> GridBacktestResult:
     sources = FakeMarketDataSources().serving(
         FakeMarketDataSources.ports(
             VENUE.market_data_venue,
@@ -139,9 +147,9 @@ def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
             SYMBOL,
             CONFIG,
             TERMS,
-            TimeFrame.ONE_MINUTE,
+            interval,
             T0,
-            T0 + timedelta(seconds=SECONDS),
+            T0 + timedelta(seconds=seconds),
             VENUE,
         )
     )
@@ -177,3 +185,114 @@ def test_without_one_second_klines_the_replay_is_coarse_and_completes_no_more_cy
 
     assert coarse.coarse_periods
     assert coarse.completed_cycles <= fine.completed_cycles
+
+
+@pytest.mark.parametrize(
+    "interval",
+    [
+        TimeFrame.THREE_MINUTES,
+        TimeFrame.FOUR_HOURS,
+        TimeFrame.ONE_DAY,
+    ],
+    ids=["3m", "4h", "1d"],
+)
+def test_a_period_replays_at_an_interval_other_than_the_default_from_stored_candles(
+    repository: SQLAlchemyMarketDataRepository, interval: TimeFrame
+) -> None:
+    """`BOT-232`: the workbench offers every interval, so the replay is judged at one the picker
+    used to hide. Candles only, no 1-second klines: the replay is coarse and still ends cleanly."""
+    step = interval.to_seconds()
+    count = 12
+    candles = []
+    for index in range(count):
+        low, high = (62500.0, 67500.0) if index % 2 == 0 else (62600.0, 67400.0)
+        up = index % 2 == 0
+        candles.append(
+            _kline(
+                T0 + timedelta(seconds=index * step),
+                interval,
+                (low if up else high, high, low, high if up else low),
+            )
+        )
+    repository.save_klines(MarketType.SPOT, candles)
+
+    result = _replay(repository, interval, count * step)
+
+    window = result.provenance.window
+    assert result.stop_reason is StopReason.END_OF_DATA
+    assert len(result.equity) == count
+    assert result.coarse_periods
+    assert result.completed_cycles >= 1
+    assert window is not None
+    assert (window.expected_candles, window.stored_candles) == (count, count)
+    assert window.missing_candles == 0
+
+
+def test_a_three_minute_replay_walks_the_one_second_klines_of_each_candle_and_counts_its_window(
+    repository: SQLAlchemyMarketDataRepository,
+) -> None:
+    """The fine-window path at an interval other than 1m: each 3-minute candle is replayed through
+    its own 180 one-second klines, and the stored period reads whole (review of `BOT-232`)."""
+    seconds = _seconds()
+    threes = []
+    for start in range(0, len(seconds), 180):
+        part = seconds[start : start + 180]
+        threes.append(
+            _kline(
+                part[0].open_time,
+                TimeFrame.THREE_MINUTES,
+                (
+                    part[0].open_price,
+                    max(k.high_price for k in part),
+                    min(k.low_price for k in part),
+                    part[-1].close_price,
+                ),
+            )
+        )
+    repository.save_klines(MarketType.SPOT, threes)
+    repository.save_klines(MarketType.SPOT, seconds)
+
+    result = _replay(repository, TimeFrame.THREE_MINUTES)
+
+    window = result.provenance.window
+    assert result.stop_reason is StopReason.END_OF_DATA
+    assert result.coarse_periods == ()
+    assert result.completed_cycles >= 6
+    assert window is not None
+    assert (window.expected_candles, window.stored_candles) == (
+        SECONDS // 180,
+        SECONDS // 180,
+    )
+
+
+def test_the_stored_candles_of_a_period_are_read_from_the_real_shards_with_no_grid(
+    repository: SQLAlchemyMarketDataRepository,
+) -> None:
+    """`BOT-233`: the workbench draws these before any run, so the read is judged against the real
+    SQLite store: oldest first, counted against the period, and never fetched."""
+    seconds = _seconds()
+    repository.save_klines(MarketType.SPOT, _minutes(seconds))
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            VENUE.market_data_venue,
+            history=StoredKlinesReader(repository),
+            repository=repository,
+        )
+    )
+
+    whole = GetStoredCandlesQueryHandler(sources).execute(
+        GetStoredCandlesQuery(
+            VENUE, SYMBOL, TimeFrame.ONE_MINUTE, T0, T0 + timedelta(seconds=SECONDS)
+        )
+    )
+    longer = GetStoredCandlesQueryHandler(sources).execute(
+        GetStoredCandlesQuery(
+            VENUE, SYMBOL, TimeFrame.ONE_MINUTE, T0, T0 + timedelta(seconds=2 * SECONDS)
+        )
+    )
+
+    assert [c.open_time for c in whole.candles] == [
+        T0 + timedelta(minutes=i) for i in range(SECONDS // 60)
+    ]
+    assert (whole.expected, whole.stored, whole.needs_sync) == (120, 120, False)
+    assert (longer.expected, longer.stored, longer.needs_sync) == (240, 120, True)

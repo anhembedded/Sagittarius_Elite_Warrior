@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_kind_backtester import (
     GridKindBacktester,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    GetStoredCandlesQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
     RunBacktestQueryHandler,
@@ -44,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
     BacktestWorkbench,
     WorkbenchPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_preview import (
+    StoredCandlesReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
     WorkbenchSelection,
@@ -180,6 +186,7 @@ def build_workbench(
     kinds: Sequence[IBotKind] | None = None,
     editors: Callable[[str], BotKindPanel] = panel_for,
     zone: str | None = None,
+    read_candles: StoredCandlesReader | None = None,
 ) -> WorkbenchWorld:
     repository = FakeMarketDataRepository()
     if stored:
@@ -221,6 +228,7 @@ def build_workbench(
             display_timezone=preference,
             kinds=catalog.kind,
             editors=editors,
+            read_candles=read_candles or GetStoredCandlesQueryHandler(sources).execute,
         )
     )
     view = workbench.view

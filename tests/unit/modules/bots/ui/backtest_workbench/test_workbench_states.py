@@ -153,7 +153,7 @@ def test_a_period_with_no_candles_offers_a_sync_and_only_a_click_syncs(
 
     qtbot.mouseClick(view.sync_button, Qt.MouseButton.LeftButton)
 
-    assert view.status.text().startswith("Syncing BTCUSDT 15m candles and 1-second")
+    assert view.status.text().startswith("Syncing BTCUSDT 15m candles for the period")
     assert _buttons(view) == {"Run backtest": False, "Stop": True}
     world.pool.run_all()
     assert [request.interval for request in world.sync.requests] == [
@@ -180,7 +180,13 @@ def test_stop_during_a_sync_says_what_it_stored_stays(qtbot: Any) -> None:
 
     assert view.status.text() == "Sync stopped; what it already stored stays."
     assert world.sync.requests == [] and len(world.dispatcher.queries) == 1
-    assert _buttons(view) == {"Run backtest": True, "Cancel": False}
+    # Nothing was stored, so the candles under the chart are still missing: the sync stays on offer
+    # (`BOT-233`), where it used to vanish with the refusal that had offered it.
+    assert _buttons(view) == {
+        "Run backtest": True,
+        "Cancel": False,
+        "Sync candles": True,
+    }
     world.workbench.shutdown()
 
 
