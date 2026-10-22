@@ -28,6 +28,9 @@ _SRC = Path(__file__).resolve().parents[4] / "src"
 _VARIABLE_TEMPLATE_CALLS_CEILING = 33
 #: Templates two lines of the catalogue cannot tell apart. It only falls.
 _AMBIGUOUS_TEMPLATES_CEILING = 1
+#: Log calls the extractor leaves out as too generic to match a line. It only falls (`BOT-230`: the
+#: committed file used to show a change in this count; it no longer carries it).
+_TOO_GENERIC_TEMPLATES_CEILING = 1
 _FILL = {"s": "SENT{}", "d": "{}", "f": "{}.5", "x": "ff{}", "h": "HOLE{}"}
 
 
@@ -40,13 +43,27 @@ def test_the_committed_catalogue_is_what_the_source_generates() -> None:
 def test_the_catalogue_file_parses_back_to_the_same_templates() -> None:
     generated = extract_catalogue(_SRC)
 
-    assert parse_catalogue_text(catalogue_text(generated)) == generated
+    assert parse_catalogue_text(catalogue_text(generated)) == generated.templates
+
+
+def test_the_header_holds_nothing_that_changes_with_the_templates() -> None:
+    """`BOT-230`: a count in the header made every pull request that adds a log call conflict
+    with every other on the same line."""
+    header = CATALOGUE_PATH.read_text(encoding="utf-8").splitlines()[1]
+
+    assert header == '{"schema": "sew.log-templates/1"},'
 
 
 def test_log_calls_with_a_variable_message_only_fall() -> None:
     assert (
         extract_catalogue(_SRC).variable_template_calls
         <= _VARIABLE_TEMPLATE_CALLS_CEILING
+    )
+
+
+def test_templates_left_out_as_too_generic_only_fall() -> None:
+    assert (
+        extract_catalogue(_SRC).too_generic_templates <= _TOO_GENERIC_TEMPLATES_CEILING
     )
 
 
