@@ -12,6 +12,7 @@ from collections.abc import Callable
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    CellKind,
     JsonValue,
     Report,
     ReportCell,
@@ -186,10 +187,10 @@ def _row(
             ReportCell(state, _STATE_WIDTH),
             ReportCell(venue, 14),
             ReportCell(symbol, 10),
-            ReportCell(grid_profit, 14),
+            ReportCell(grid_profit, 14, CellKind.MONEY),
             ReportCell(cycles, 8),
-            ReportCell(realised, 14),
-            ReportCell(total, 14),
+            ReportCell(realised, 14, CellKind.MONEY),
+            ReportCell(total, 14, CellKind.MONEY),
             ReportCell(grid_step, _STEP_WIDTH),
             ReportCell(reason),
         )

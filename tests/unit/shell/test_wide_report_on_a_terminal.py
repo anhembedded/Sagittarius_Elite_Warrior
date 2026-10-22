@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    CellKind,
     Report,
     ReportCell,
     ReportRow,
@@ -24,11 +26,21 @@ _BOX = re.compile("[─-╿]")
 _ESCAPE = "\x1b"
 
 
-def _row(*texts: str, widths: tuple[int, ...] = ()) -> ReportRow:
+def _money(text: str) -> ReportCell:
+    return ReportCell(text, kind=CellKind.MONEY)
+
+
+def _cell(cell: str | ReportCell, width: int) -> ReportCell:
+    if isinstance(cell, ReportCell):
+        return replace(cell, width=width)
+    return ReportCell(cell, width)
+
+
+def _row(*cells: str | ReportCell, widths: tuple[int, ...] = ()) -> ReportRow:
     return ReportRow(
         tuple(
-            ReportCell(text, widths[i] if i < len(widths) else 0)
-            for i, text in enumerate(texts)
+            _cell(cell, widths[i] if i < len(widths) else 0)
+            for i, cell in enumerate(cells)
         )
     )
 
@@ -66,8 +78,8 @@ def _real_show_report() -> Report:
                 (
                     _row("Name", "BTC grid", widths=(12,)),
                     _row("State", "RECOVERING", widths=(12,)),
-                    _row("Grid profit", "12.50", widths=(12,)),
-                    _row("Total PnL", "-4.00", widths=(12,)),
+                    _row("Grid profit", _money("12.50"), widths=(12,)),
+                    _row("Total PnL", _money("-4.00"), widths=(12,)),
                     _row("Ladder", _LADDER, widths=(32,)),
                     _row("Recovery", _RECOVERY, widths=(12,)),
                     _row(
@@ -171,12 +183,27 @@ _LIST_ROW = (
 )  # fmt: skip
 
 
+#: Grid profit, Realised and Total PnL are money cells, whatever their heads are called.
+_MONEY_COLUMNS = (5, 7, 8)
+
+
+def _list_cells() -> list[str | ReportCell]:
+    return [
+        _money(text) if index in _MONEY_COLUMNS else text
+        for index, text in enumerate(_LIST_ROW)
+    ]
+
+
 def _list_report() -> Report:
     return Report(
         "bot-list",
         1,
         {},
-        (ReportSection(None, (_row(*_LIST_HEAD), _row(*_LIST_ROW)), has_header=True),),
+        (
+            ReportSection(
+                None, (_row(*_LIST_HEAD), _row(*_list_cells())), has_header=True
+            ),
+        ),
     )
 
 

@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.core.contracts.report import ReportCell, ReportRow
+from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    CellKind,
+    ReportCell,
+    ReportRow,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
 )
@@ -30,8 +34,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
 )
 
 
-def _row(label: str, value: str) -> ReportRow:
-    return ReportRow((ReportCell(label, 12), ReportCell(value)))
+def _row(label: str, value: str, kind: CellKind = CellKind.TEXT) -> ReportRow:
+    return ReportRow((ReportCell(label, 12), ReportCell(value, kind=kind)))
 
 
 def earnings_rows(bot: BotStatusEntry) -> tuple[ReportRow, ...]:
@@ -40,14 +44,14 @@ def earnings_rows(bot: BotStatusEntry) -> tuple[ReportRow, ...]:
     its sum. The figures are the booked ones, unchanged; only the words and the order are new."""
     earnings = bot.earnings
     return (
-        _row("Realised", realised_text(earnings, plain_money)),
-        _row("Grid profit", grid_profit_text(earnings, plain_money)),
+        _row("Realised", realised_text(earnings, plain_money), CellKind.MONEY),
+        _row("Grid profit", grid_profit_text(earnings, plain_money), CellKind.MONEY),
         _row("Cycles", cycles_text(earnings)),
         _row("Held", held_text(earnings, plain_price)),
         _row("Unrealised", unrealised_text(earnings, plain_money, plain_price)),
         _row("Fees paid", _money_or_none(earnings.commissions if earnings else None)),
         _row("Funding", _money_or_none(earnings.funding if earnings else None)),
-        _row("Total PnL", total_pnl_text(earnings, plain_money)),
+        _row("Total PnL", total_pnl_text(earnings, plain_money), CellKind.MONEY),
         _row("", earnings_sum_text(earnings)),
         _row("", f"({TOTAL_PNL_BASIS})"),
         _row("", f"({EARNINGS_BASIS})"),

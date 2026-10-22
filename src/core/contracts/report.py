@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import Enum, auto
 
 #: What JSON can hold. A payload that holds anything else (a `Decimal`, an
 #: enum, a `datetime`) is a bug in the command, found by `json.dumps`.
@@ -35,12 +36,27 @@ type JsonValue = (
 )
 
 
+class CellKind(Enum):
+    """What a cell is, so a renderer for people can colour it by what it is and never by the words
+    around it (a head renamed from `TOTAL PNL` to `TOTAL PNL (NET)` once dropped a colour).
+
+    @par Extension cases
+      · a state word or a side: a new member, set by the command that prints it, read by the
+        renderer; today those two are still found by their column head.
+    """
+
+    TEXT = auto()
+    #: A signed money figure: a renderer for people colours it by its sign.
+    MONEY = auto()
+
+
 @dataclass(frozen=True, slots=True)
 class ReportCell:
     """One piece of a row; `width` pads it when the row has a cell after it."""
 
     text: str
     width: int = 0
+    kind: CellKind = CellKind.TEXT
 
 
 @dataclass(frozen=True, slots=True)
