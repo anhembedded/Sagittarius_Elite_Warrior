@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_report_renderer import (
     IReportRenderer,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    CellKind,
     Report,
     ReportCell,
     ReportRow,
@@ -60,8 +61,6 @@ _STATE_HEADS = frozenset({"STATE"})
 _STATE_LABELS = frozenset({"state"})
 _SIDE_HEADS = frozenset({"SIDE", "POSITION SIDE", "POSITION", "DIRECTION"})
 _SIDE_LABELS = frozenset(head.lower() for head in _SIDE_HEADS)
-_MONEY_HEADS = frozenset({"GRID PROFIT", "REALISED", "TOTAL PNL"})
-_MONEY_LABELS = frozenset({"grid profit", "realised", "total pnl"})
 _FIGURE = re.compile(r"^[+-]?\d[\d,]*(\.\d+)?")
 _MINIMUM_TABLE_CELLS = 3
 _LABEL_AND_VALUE = 2
@@ -77,20 +76,21 @@ def _figure_style(text: str) -> str | None:
 
 
 def _style_of(
-    kind: str | None,
-    text: str,
+    name: str | None,
+    cell: ReportCell,
     states: frozenset[str],
-    money: frozenset[str],
     sides: frozenset[str],
 ) -> str | None:
-    if kind is None:
+    """A money figure is coloured by what the cell is (`CellKind.MONEY`); a state word and a side
+    by the name of the column or label they sit under."""
+    if cell.kind is CellKind.MONEY:
+        return _figure_style(cell.text)
+    if name is None:
         return None
-    if kind in states:
-        return _STATE_STYLES.get(text.strip().upper())
-    if kind in sides:
-        return _SIDE_STYLES.get(text.strip().upper())
-    if kind in money:
-        return _figure_style(text)
+    if name in states:
+        return _STATE_STYLES.get(cell.text.strip().upper())
+    if name in sides:
+        return _SIDE_STYLES.get(cell.text.strip().upper())
     return None
 
 
@@ -124,9 +124,8 @@ def _table(
                     cell.text,
                     style=_style_of(
                         heads[i] if header else None,
-                        cell.text,
+                        cell,
                         _STATE_HEADS,
-                        _MONEY_HEADS,
                         _SIDE_HEADS,
                     )
                     or "",
@@ -142,9 +141,13 @@ def _block(rows: tuple[ReportRow, ...]) -> Table:
     grid.add_column(overflow="fold", style="bold")
     grid.add_column(overflow="fold")
     for row in rows:
-        label, value = (cell.text.strip() for cell in row.cells)
+        label_cell, value_cell = row.cells
+        label, value = label_cell.text.strip(), value_cell.text.strip()
         style = _style_of(
-            label.lower(), value, _STATE_LABELS, _MONEY_LABELS, _SIDE_LABELS
+            label.lower(),
+            ReportCell(value, kind=value_cell.kind),
+            _STATE_LABELS,
+            _SIDE_LABELS,
         )
         grid.add_row(Text(label), Text(value, style=style or ""))
     return grid
