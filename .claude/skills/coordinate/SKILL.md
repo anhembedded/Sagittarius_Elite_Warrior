@@ -33,8 +33,8 @@ flowchart TD
 1. **Read the state first.** `Tasks/COORDINATION.md` holds the live streams, session ids, open PRs, the owner's standing decisions and what the owner still owes. Never rebuild it from memory. If your own context passes about 400k tokens, write the state there and ask the owner to open a fresh coordinator session (`ONBOARDING.md` §7, session economy).
 2. **Wake only for work.** Do not subscribe to PR activity yourself: the author watches its own PR and messages you when its head is ready. When a stale notification still reaches you (a cancelled run on a superseded head, a subscription or close echo), end the turn without a tool call.
 3. **Hand work out.**
-   - The author runs on the cheaper general model by default, and on the strongest permitted model for design-heavy work.
-   - The reviewer runs on a different model from the author, and on the strongest permitted model for real-money changes. A model the owner excluded (`ONBOARDING.md` §7, "Excluded model") is never permitted, and every spawn prompt says so in one line.
+   - The author runs on the strongest permitted model (owner, 2026-10-22).
+   - The reviewer runs on the cheaper general model, which is always a different model from the author's. A model the owner excluded (`ONBOARDING.md` §7, "Excluded model") is never permitted, and every spawn prompt says so in one line.
    - Every code PR gets a reviewer, bug fixes included (user decision); documentation-only PRs get none unless the owner asks.
    - One author session covers one epic or phase and keeps it to the end; start a new one only when it is archived, failed or stuck (no context-size cap; user decision).
    - The author's prompt names the task file, the hard limits (no mainnet orders, no secrets, no dependency or settings change) and asks the author to report its PR URL, head sha, reviewer verdict and gate results.

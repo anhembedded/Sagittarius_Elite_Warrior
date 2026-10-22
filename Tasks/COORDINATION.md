@@ -11,7 +11,7 @@ This file holds state, not rules. Rules live in `.claude/`; decisions live in th
 | Decision | Where it binds |
 | :--- | :--- |
 | The coordinator may merge code PRs itself once it has verified the head (gates read, reviewer PASS where one is required, scope matches). Owner's words: *"bạn theo dõi và tự merge hết đi, cho phép"* | `coordinate` skill step 5 |
-| Authors run on the cheaper general model; design-heavy work and real-money reviews run on the strongest model; a reviewer is never on the author's model | `coordinate` skill step 3 |
+| Authors run on the strongest permitted model; reviewers run on the cheaper general model; a reviewer is never on the author's model (owner, 2026-10-22, reversing the earlier split; the owner named the two models in chat) | `coordinate` skill step 3 |
 | At most two delivery streams in flight; a weekly digest; design decisions are taught and written to `Docs/LEARNING/` | `report-rule.md` §3 |
 | Speak Vietnamese to the owner; repository text in English | `ONBOARDING.md` §10 |
 | The model named Fable is never used: not for a session, a created session or a subagent; "strongest model" means the strongest other model (2026-10-17) | `ONBOARDING.md` §7, "Excluded model" |
