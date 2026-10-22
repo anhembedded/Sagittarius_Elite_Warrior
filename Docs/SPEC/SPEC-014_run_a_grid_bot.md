@@ -107,7 +107,20 @@ sound, I start it, and I watch what it does."*
    without a time limit until the price is inside the range, then lays its ladder exactly as a normal
    start would, opening buy or short included; for every direction, on Spot and Futures
    (`PRICE_BELOW_RANGE`, `PRICE_ABOVE_RANGE`: "Starts waiting for the price to enter X-Y (now Z)"). The
-   rest of the plan is judged at the nearest bound, where the bot will enter. A waiting bot is shown as
+   rest of the plan is judged at the nearest bound, where the bot will enter. **An optional trigger
+   price** (`trigger_price`, `EPIC-046`, the owner's request of 2026-10-22) makes the entry work like a
+   limit order: a LONG activates only when the price is at or below it, a SHORT only at or above it,
+   and the price must also be inside the range; a NEUTRAL grid refuses a trigger in words, and so does
+   a trigger outside the range. A price inside the range but short of the trigger waits in the same
+   way ("Starts waiting for the price at or below the trigger X (now Y)", `TRIGGER_NOT_MET`, never a
+   warning), and the plan is judged at the trigger, where the bot will enter. A started grid never
+   waits again while it runs or holds inventory or a position, whatever the price does after; a
+   Resume of a bot that holds nothing (one that halted before it ever entered, or one that traded
+   and is flat again) is a fresh entry and asks the trigger again, as a new Start does. The range
+   comes first: a LONG whose price falls past the trigger and below the lower bound in one move
+   does not enter until the price is back inside `[lower, trigger]`, where a plain limit order
+   would have filled; a ladder below the range is meaningless. The editor's Trigger price field
+   is optional (empty = none), and the backtest enters on the same step by the same gate. A waiting bot is shown as
    "Waiting for the range" (badge, table, `bot list`), the Plan says "Waiting for the price to enter X–Y
    (last price Z, N s ago)", the heartbeat counts it apart from running bots, and the owner gets one alert, `BOT_RANGE_ENTERED`
    (INFO), when it enters and lays its ladder (`EPIC-044C`). The field the number lives in carries the sentence
@@ -454,6 +467,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | The lease's holder is readable without claiming | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | unit (contract suite, real and fake) |
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
 | Start with the price outside the range waits for it, for every direction and both sides, and enters on the first price inside (the bounds included); a restart keeps the wait; Stop, the switch and the exits while waiting; levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_waits_for_the_range.py` · `test_a_waiting_grid_survives_a_restart.py` · `test_a_flat_resume_waits_for_the_range.py` · `test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
+| A trigger price gates the entry like a limit order: a LONG waits inside the range until the price is at or below it, a SHORT until at or above it, the range judged first; a trigger met at Start activates at once; once laid it never waits again, through a restart too; a flat Resume asks the trigger; a trigger outside the range or on a NEUTRAL grid is refused in words; the definition round trip, the editor keeping the key on Save, and the replay entering on the live step (`EPIC-046A`) | `tests/unit/modules/bots/domain/grid/test_grid_entry_gate.py` · `test_grid_range_checks.py` · `tests/unit/modules/bots/application/services/test_a_grid_with_a_trigger_waits_for_a_better_price.py` · `test_the_replay_and_the_live_bot_enter_on_the_same_step.py` · `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | A suggested plan passes every blocking check for the current price (range holds the price, stale price exits move and are named, off exits stay off), and one `[grid-suggest]` line records it | `tests/unit/modules/bots/domain/grid/test_grid_suggestion.py` · `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |

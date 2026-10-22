@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import 
     GridDerived,
     derive,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    entry_price,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
     exposure_refusal,
 )
@@ -118,11 +121,13 @@ def entry_plan(
     params: GridParams, inputs: BotKindInputs, level_sizing: LevelSizing | None = None
 ) -> GridPlan:
     """The ladder a Start would place: sized the venue's way unless `level_sizing` says otherwise,
-    and drawn at the bound the bot will enter at when the price is outside the range (ADR 044 D6).
+    and drawn at the price the bot will enter at: the bound when the price is outside the range
+    (ADR 044 D6), the trigger while it is unmet (ADR 046 D5).
     The one place that decides it, for the checks and for `BOT-235`'s exit estimates."""
     sizing = level_sizing or level_sizing_for(inputs.limits.exposure_kind)
-    entry_price = min(max(inputs.market.last_price, params.lower), params.upper)
-    return plan(params, inputs.terms, entry_price, sizing)
+    return plan(
+        params, inputs.terms, entry_price(params, inputs.market.last_price), sizing
+    )
 
 
 def _risk_verdicts(

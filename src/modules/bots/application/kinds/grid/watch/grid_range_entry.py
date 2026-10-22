@@ -1,5 +1,11 @@
 """`EPIC-044B` — a Grid waiting for its range enters it and lays its ladder (ADR 044 D4, D5).
 
+`EPIC-046A` adds the optional trigger price to the same wait (ADR 046 D2): the gate is the range
+and then the trigger (`entry_gate`), so a LONG bot with a trigger waits inside its range until the
+price is at or below it, a SHORT one until it is at or above it. The state, the confirmation by
+the fresh book and the pre-checks below are unchanged; only "inside the range" became "the gate
+is open".
+
 A bot started away from its range sits in AWAITING_RANGE with nothing placed. Every price the
 exits are judged on arrives here (`GridPriceReaction`: the streamed last price on Spot, the mark
 price on a position venue), and when one is inside the range (`range_position`, the bounds
@@ -49,9 +55,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_enter
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    EntryGate,
+    entry_gate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
     find_breach,
@@ -63,10 +76,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.range_position import (
-    RangePosition,
-    range_position,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
@@ -114,20 +123,19 @@ class GridRangeEntry:
         self._deferred_for: str | None = None
 
     def waits_for_the_range(self, price: Decimal) -> bool:
-        """Start with the price outside the range: place nothing and wait for it (ADR 044 D1).
+        """Start with the price outside the range, or short of the trigger: place nothing and
+        wait (ADR 044 D1, ADR 046 D1).
 
-        Answers whether the bot now waits; `False` leaves a bot whose price is inside the range
-        for the start sequence."""
-        params = self._context.params
-        if range_position(price, params.lower, params.upper) is RangePosition.INSIDE:
+        Answers whether the bot now waits; `False` leaves a bot whose gate is open for the start
+        sequence."""
+        gate = entry_gate(self._context.params, price)
+        if gate is EntryGate.OPEN:
             return False
         logger.info(
-            "Bot %s: price %s is outside the range %s-%s; nothing is placed, waiting "
-            "for the price to enter it [range-wait]",
+            "Bot %s: %s; nothing is placed, waiting for the price to %s [range-wait]",
             self._context.state.bot_id,
-            price,
-            params.lower,
-            params.upper,
+            self._why_closed(gate, price),
+            "enter it" if gate is EntryGate.OUTSIDE_RANGE else "reach it",
         )
         self._context.state.transition(BotLifecycleEvent.PRICE_OUTSIDE_RANGE)
         return True
@@ -138,11 +146,7 @@ class GridRangeEntry:
         if state.state is not _S.AWAITING_RANGE:
             self._forget()
             return
-        params = self._context.params
-        if (
-            range_position(price, params.lower, params.upper)
-            is not RangePosition.INSIDE
-        ):
+        if entry_gate(self._context.params, price) is not EntryGate.OPEN:
             self._forget()
             return
         now = self._context.monotonic.seconds()
@@ -151,30 +155,39 @@ class GridRangeEntry:
         self._not_before = now + ENTRY_READ_EVERY_SECONDS
         self._attempt(price)
 
-    def _attempt(self, trigger: Decimal) -> None:
+    def _attempt(self, arrived: Decimal) -> None:
         fresh = self._fresh_price()
         if fresh is None:
             return
-        params = self._context.params
-        if (
-            range_position(fresh, params.lower, params.upper)
-            is not RangePosition.INSIDE
-        ):
+        gate = entry_gate(self._context.params, fresh)
+        if gate is not EntryGate.OPEN:
             self._defer(
-                f"the book price {fresh} is outside the range {params.lower}-"
-                f"{params.upper} although the trigger {trigger} is inside"
+                f"{self._why_closed(gate, fresh)} although the price {arrived} that "
+                "arrived opened it"
             )
             return
         if not self._symbol_trades():
             return
         if not self._budget_registers():
             return
-        ladder = plan(params, self._context.terms, fresh, self._context.level_sizing)
+        ladder = plan(
+            self._context.params, self._context.terms, fresh, self._context.level_sizing
+        )
         if self._refused_by_sizing(ladder) or not self._ready_to_lay():
             return
         if stop_asked(self._context):
             return
-        self._enter(fresh, trigger, ladder)
+        self._enter(fresh, arrived, ladder)
+
+    def _why_closed(self, gate: EntryGate, price: Decimal) -> str:
+        """The words of a closed gate, one sentence for the log: the range, or the trigger."""
+        params = self._context.params
+        if gate is EntryGate.OUTSIDE_RANGE:
+            return f"price {price} is outside the range {params.lower}-{params.upper}"
+        side = (
+            "at or above" if params.direction is TradeDirection.SHORT else "at or below"
+        )
+        return f"price {price} has not reached the trigger, which wants it {side} {params.trigger_price}"
 
     def _ready_to_lay(self) -> bool:
         """The balance and the plan's verdicts at this price, in the words of the Bots screen."""
@@ -254,17 +267,17 @@ class GridRangeEntry:
         )
         return True
 
-    def _enter(self, price: Decimal, trigger: Decimal, ladder: GridPlan) -> None:
+    def _enter(self, price: Decimal, arrived: Decimal, ladder: GridPlan) -> None:
         state = self._context.state
         self._forget()
         logger.info(
-            "Bot %s: price %s entered the range %s-%s (trigger %s); laying %d orders "
+            "Bot %s: price %s entered the range %s-%s (the price that arrived %s); laying %d orders "
             "[range-entry]",
             state.bot_id,
             price,
             self._context.params.lower,
             self._context.params.upper,
-            trigger,
+            arrived,
             len(ladder.order_levels),
         )
         state.transition(BotLifecycleEvent.RANGE_ENTERED)
