@@ -196,7 +196,15 @@ The router (`.../bot_event_router.py` → `BotEventRouter.on_fill`) gives the fi
 which ignores one already counted and books the rest on the bot's worker (`.../grid_facts.py` →
 `GridFacts.on_fill`, `GridFacts._apply_fill`). A filled level lays its counter order one level away
 and returns to `EMPTY` (`settled`, the level machine in [`state-machines.md`](state-machines.md)), and
-the bot's run state saves the new runtime. Once it is saved, one `BotOrderFilledEvent` is published for
+the bot's run state saves the new runtime. **The counter is on record before it is sent (`BUG-266`).**
+The runtime saved with the fact also lists each order about to be sent as owed, in `held` (`bots/domain/grid/grid_owed_orders.py` → `owing`;
+`bots/application/kinds/grid/grid_ladder_placer.py` → `GridLadderPlacer.save_owing`), and the placer settles the entry in the one save
+that records the placement (`GridLadderPlacer._place`, `settled_intent`). The pairing of a counter SELL (the BUY it completes) lives only in
+the bot's record, so a death or a request that raised while the order was live would otherwise leave an order the restart's reconcile
+adopts with no pairing, its fill closing no cycle. A `FAULT` (`OrderOutcome.may_be_live`) is the one outcome that leaves the entry: the
+reconcile's `adopted` moves its pairing onto the order it finds, and a resume places the order if it never reached the exchange. **Limit:**
+an order that filled while the app was down is not in the open list the reconcile reads, so it is not found; the inventory check halts
+the bot on the difference, as before. Once the runtime is saved, one `BotOrderFilledEvent` is published for
 each order the fact filled whole (`bots/domain/grid/grid_reactions.py` → `Reaction.filled`;
 `bots/application/kinds/grid/grid_fill_announcer.py` → `GridFillAnnouncer.announce`; BOT-189): a partial fill and a trade already counted publish nothing, and
 the `alerting` module words the rest.

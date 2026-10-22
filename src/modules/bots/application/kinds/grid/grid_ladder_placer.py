@@ -47,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_rejection import (
     rejected_counter,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_owed_orders import (
+    owing,
+    settled_intent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     GridAction,
     Halt,
@@ -58,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+    GridRuntime,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -74,8 +79,13 @@ class GridLadderPlacer:
         """Place what a pause held back."""
         state = self._context.state
         reaction = release_held(state.runtime)
-        state.update(reaction.runtime)
+        self.save_owing(reaction.runtime, reaction.actions)
         self.act(reaction.actions)
+
+    def save_owing(self, runtime: GridRuntime, actions: tuple[GridAction, ...]) -> None:
+        """Save `runtime` with the orders in `actions` listed as owed, before `act` sends them
+        (`BUG-266`)."""
+        self._context.state.update(owing(runtime, actions))
 
     def act(self, actions: tuple[GridAction, ...]) -> None:
         for index, action in enumerate(actions):
@@ -88,12 +98,15 @@ class GridLadderPlacer:
     def _place(self, action: PlaceOrder, later: tuple[GridAction, ...]) -> bool:
         state = self._context.state
         if state.runtime.levels[action.level_index].state is not LevelState.EMPTY:
+            state.update(settled_intent(state.runtime, action.level_index))
             halt_with(
                 state,
                 GridReason.DUPLICATE_LEVEL_ORDER,
                 f"L{action.level_index} already holds an order; nothing was sent",
             )
             return False
+        # `BUG-266`: the save before this call listed the order as owed (`owing`), so a death or a
+        # fault between the send and the save of its placement leaves its pairing on record.
         outcome = self._context.gateway.place_limit(
             action.side,
             action.price,
@@ -102,6 +115,21 @@ class GridLadderPlacer:
         )
         log_order(state.bot_id, action, outcome.client_order_id or outcome.detail)
         what = f"L{action.level_index} {action.side.value}"
+        if outcome.may_be_live:
+            logger.info(
+                "Bot %s: %s may be live and stays owed for the reconcile [intent-kept]",
+                state.bot_id,
+                what,
+            )
+        else:
+            settled = settled_intent(state.runtime, action.level_index)
+            if outcome.done:
+                oid = outcome.client_order_id
+                state.update(
+                    accepted(placed(settled, as_accepted(action, outcome), oid), oid)
+                )
+                return True
+            state.update(settled)
         if (
             outcome.kind is OrderOutcomeKind.SYMBOL_NOT_TRADING
             and state.state is BotLifecycleState.RUNNING
@@ -113,14 +141,8 @@ class GridLadderPlacer:
             and state.state is BotLifecycleState.RUNNING
         ):
             return self._leave_rung_empty(action, f"{what}: {outcome.detail}")
-        if not outcome.done:
-            fail_with(state, outcome, what)
-            return False
-        oid = outcome.client_order_id
-        state.update(
-            accepted(placed(state.runtime, as_accepted(action, outcome), oid), oid)
-        )
-        return True
+        fail_with(state, outcome, what)
+        return False
 
     def _leave_rung_empty(self, action: PlaceOrder, detail: str) -> bool:
         """Keep the ladder running without `action`'s rung; `False` when the rung
@@ -149,6 +171,8 @@ class GridLadderPlacer:
         for pending in owed:
             if not isinstance(pending, PlaceOrder):
                 continue
+            # Held for good now, no longer owed in passing: one entry per level (`BUG-266`).
+            runtime = settled_intent(runtime, pending.level_index)
             reaction = hold_order(runtime, pending)
             runtime = reaction.runtime
             for halt in reaction.actions:

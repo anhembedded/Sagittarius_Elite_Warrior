@@ -9,9 +9,8 @@ interleaves with an order in flight; the bodies below run on that worker.
   · **A fill** goes through `on_fill` when a level holds the order (the counter
     order follows, held while PAUSED), or `book_market_fill` when it is one of
     the bot's market orders (the opening buy, an exit slice).
-  · **An end** re-places the order once while RUNNING (held while PAUSED); in
-    any other state the level just empties — the bot's own cancels end orders
-    too.
+  · **An end** re-places the order once while RUNNING (held while PAUSED); in any other
+    state the level just empties — the bot's own cancels end orders too.
   · **A tick** remembers the price; at or beyond the stop loss or the take
     profit it runs Stop with *sell base* forced, recording why (D11).
   · **Trading off** (`switch_off`) halts a running bot without another order;
@@ -279,10 +278,11 @@ class GridFacts(IBotFacts):
                 )
             return
         reaction = self._parts.counters.on_fill(level_fill)
-        state.update(
+        self._parts.placer.save_owing(
             reaction.runtime.with_fill_commission(
                 level_fill.base_fee, level_fill.quote_fee, level_fill.price
-            )
+            ),
+            reaction.actions,
         )
         self._parts.fills.announce(reaction.filled)
         self._parts.placer.act(reaction.actions)
@@ -308,7 +308,7 @@ class GridFacts(IBotFacts):
             LadderRules(terms.step_size, terms.min_notional),
             hold=state.state is _S.PAUSED,
         )
-        state.update(reaction.runtime)
+        self._parts.placer.save_owing(reaction.runtime, reaction.actions)
         self._parts.placer.act(reaction.actions)
 
     def _apply_switch(

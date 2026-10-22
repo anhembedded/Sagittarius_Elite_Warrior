@@ -114,6 +114,7 @@
 ["sss", "Bot ", ": ", " is gone: ", ""],
 ["ss", "Bot ", ": ", " is held by another owner"],
 ["ss", "Bot ", ": ", " is transient; the bot waits for it to clear [bot-halt-recovery]"],
+["ss", "Bot ", ": ", " may be live and stays owed for the reconcile [intent-kept]"],
 ["sss", "Bot ", ": ", " met a rate limit in ", "; left as it is"],
 ["ssd", "Bot ", ": ", " was refused for its own numbers; L", " stays empty [counter-rejected]"],
 ["ss", "Bot ", ": ", "; halting [exchange-terms]"],

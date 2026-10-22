@@ -81,6 +81,14 @@ class OrderOutcome:
     def done(self) -> bool:
         return self.kind is OrderOutcomeKind.DONE
 
+    @property
+    def may_be_live(self) -> bool:
+        """Whether the order may rest on the exchange although the answer is not `DONE`
+        (`BUG-266`). Only a `FAULT` can: the request raised or never arrived, so nothing says it
+        did not go through. Every other kind is a definite answer that nothing was placed (a
+        refusal, a pause, a switch-off) or, for a cancel, that nothing rests."""
+        return self.kind is OrderOutcomeKind.FAULT
+
 
 #: The exchange's refusals that are about the symbol, the key or the order's own
 #: numbers: each is a named outcome, every other rejection stays a fault.
