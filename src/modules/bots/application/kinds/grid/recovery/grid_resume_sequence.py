@@ -20,8 +20,10 @@ again, which proposes afresh from the exchange as it then is.
 
 from __future__ import annotations
 
+import hashlib
+import itertools
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
@@ -52,6 +54,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    FINGERPRINT_LENGTH,
+    ResumeProposalSummary,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
@@ -86,6 +92,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: Counts the proposals this process has made; `ResumeProposal.sequence` takes the next number.
+_PROPOSALS_MADE = itertools.count(1)
+
 
 @dataclass(frozen=True, slots=True)
 class ResumeProposal:
@@ -95,6 +104,26 @@ class ResumeProposal:
     inventory: OwnerInventory
     #: The base the plan's SELL levels do not reach (`EPIC-035R`); it stays held.
     unplaced_inventory: Decimal
+    #: Taken when the proposal is made, so a later one is always greater (`EPIC-045G`); not part of what it says.
+    sequence: int = field(default_factory=lambda: next(_PROPOSALS_MADE), compare=False)
+
+    @property
+    def summary(self) -> ResumeProposalSummary:
+        """What a person reads and the digest that names it (`EPIC-045G`): the price, the base held,
+        what stays unplaced and every order's side, price and quantity, so any change re-names it."""
+        levels = ";".join(
+            f"{level.side.value}:{level.price}:{level.quantity}"
+            for level in self.plan.order_levels
+        )
+        text = f"{self.plan.last_price}|{self.inventory.quantity}|{self.unplaced_inventory}|{levels}"
+        digest = hashlib.sha256(text.encode()).hexdigest()[:FINGERPRINT_LENGTH]
+        return ResumeProposalSummary(
+            digest,
+            len(self.plan.order_levels),
+            self.plan.last_price,
+            self.inventory.quantity,
+            self.sequence,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +204,19 @@ class GridResumeSequence:
             proposal.inventory.quantity,
         )
         return proposal
+
+    def drops_stale(self, held: ResumeProposal, expected: str | None) -> bool:
+        """A confirmation that names a proposal other than the held one lays nothing and the held one
+        stays for a person to read (`EPIC-045G`); `None` names nothing, as the tab's Confirm resume."""
+        if expected is None or expected == held.summary.fingerprint:
+            return False
+        logger.info(
+            "Bot %s: confirmation of proposal %s dropped, the held one is %s [resume-stale]",
+            self._context.state.bot_id,
+            expected,
+            held.summary.fingerprint,
+        )
+        return True
 
     def _outside_range(self, price: Decimal) -> bool:
         params = self._context.params

@@ -24,6 +24,10 @@ the audit can say which command was refused.
                   Required for "move", refused for any other action. A move asks no venue
                   (`confirmed_venue` must be null: it places no order, the real-money question is
                   at `bot start`) and names an existing bot.
+  proposal        a confirm-resume's fingerprint (`EPIC-045G`, owner decision O3): 4 to 16 lower-case
+                  hex characters, the digest `bot resume` printed for the proposal a person read.
+                  Refused for any other action. Absent is a sound document: the host refuses the
+                  confirmation in words.
   entry           an add's bot (`EPIC-045A`): an object of exactly name, kind, venue, symbol and
                   params (an object of 0 to `MAX_SETTINGS_PER_EDIT` text values), each of the shape
                   `NewBotEntry` states. Required for "add", refused for any other action. An add
@@ -48,6 +52,10 @@ the audit can say which command was refused.
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
   never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
   document an older host wrote, because `set` is absent from them.
+
+@par Older hosts (`EPIC-045G`, proposal)
+  `proposal` is a new key on the existing `confirm-resume` word: an older host reads it as *malformed*
+  ("it has an unknown key (proposal)"), audits it and lays nothing.
 
 @par Older hosts (`EPIC-045G`, confirm-resume)
   `confirm-resume` is a new `action` word and adds no key: an older host reads it as *malformed*
@@ -90,6 +98,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command imp
 _ID_SHAPE = re.compile(r"^[0-9a-f]{32}$")
 _BOT_SHAPE = re.compile(r"^[a-z0-9_-]{1,64}$")
 _VENUE_SHAPE = re.compile(r"^[a-z0-9_]{1,32}$")
+_PROPOSAL_SHAPE = re.compile(r"^[0-9a-f]{4,16}$")
 _KEYS = frozenset(
     {
         "schema",
@@ -102,6 +111,7 @@ _KEYS = frozenset(
         "set",
         "entry",
         "to_venue",
+        "proposal",
     }
 )
 _ENTRY_KEYS = frozenset({"name", "kind", "venue", "symbol", "params"})
@@ -130,6 +140,8 @@ def encode_command(command: HostCommand) -> str:
         document["set"] = {setting.key: setting.value for setting in command.settings}
     if command.to_venue is not None:
         document["to_venue"] = command.to_venue
+    if command.proposal is not None:
+        document["proposal"] = command.proposal
     if command.entry is not None:
         document["entry"] = {
             "name": command.entry.name,
@@ -162,6 +174,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         settings=_settings_of(document.get("set")),
         entry=_entry_of(document.get("entry")),
         to_venue=document.get("to_venue"),
+        proposal=document.get("proposal"),
     )
 
 
@@ -201,6 +214,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
         or _add_problem(document, action, venue, bot_id)
         or _delete_problem(action, venue)
         or _move_problem(document, action, venue)
+        or _proposal_problem(document, action)
         or _acknowledgement_problem(document, action, venue, bot_id)
     )
     if problem is not None:
@@ -288,6 +302,22 @@ def _move_problem(
     target = document.get("to_venue")
     if not isinstance(target, str) or not _VENUE_SHAPE.fullmatch(target):
         return "a move needs to_venue, a venue word"
+    return None
+
+
+def _proposal_problem(document: dict[str, object], action: str) -> str | None:
+    """`proposal` is a confirm-resume's and only a confirm-resume's: the fingerprint of the proposal it lays.
+
+    It may be absent (the host then refuses the confirmation in words, with the way to get one); when
+    present it is a short hex digest, never text.
+    """
+    if "proposal" not in document:
+        return None
+    if action != HostControlAction.CONFIRM_RESUME.value:
+        return "proposal belongs to a confirm-resume"
+    found = document["proposal"]
+    if not isinstance(found, str) or not _PROPOSAL_SHAPE.fullmatch(found):
+        return "proposal is not a short hex fingerprint"
     return None
 
 

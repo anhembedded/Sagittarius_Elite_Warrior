@@ -44,6 +44,8 @@ class HostCommand:
     entry: NewBotEntry | None = None
     #: The venue a move goes to (`EPIC-045G`); absent from older files and from every other action.
     to_venue: str | None = None
+    #: The fingerprint of the resume proposal a confirm-resume lays (`EPIC-045G`); absent from older files and from every other action.
+    proposal: str | None = None
 
 
 class ControlVerdict(StrEnum):

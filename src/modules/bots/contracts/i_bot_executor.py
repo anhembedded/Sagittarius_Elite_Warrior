@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage impo
     StopCoverageReading,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    ResumeProposalSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 
 
@@ -56,17 +59,24 @@ class IBotExecutor(ABC):
         """Cancel every tagged order, then keep or sell the base (ADR O3)."""
 
     @abstractmethod
-    def confirm_resume(self) -> None:
-        """Lay the ladder a resume from HALTED proposed (ADR D13, O2)."""
+    def confirm_resume(self, expected: str | None = None) -> None:
+        """Lay the ladder a resume from HALTED proposed (ADR D13, O2). With `expected` (the
+        fingerprint a person read, `EPIC-045G`) it lays nothing unless the held proposal is that
+        one, decided on the worker so a re-proposal in between cannot slip through."""
 
     @abstractmethod
     def withdraw_resume_proposal(self) -> None:
         """Queue the withdrawal of a held resume proposal (`EPIC-042E`); runs after a Resume
         already queued, so one that has not been proposed yet is withdrawn too."""
 
-    @abstractmethod
     def has_resume_proposal(self) -> bool:
-        """A resume from HALTED proposed a ladder that awaits confirmation."""
+        """A resume from HALTED proposed a ladder that awaits confirmation: what `resume_proposal` says."""
+        return self.resume_proposal() is not None
+
+    def resume_proposal(self) -> ResumeProposalSummary | None:
+        """What the held proposal says, read off the worker's thread; `None` when none is held
+        or the kind proposes nothing (closed by default, like `IBotKind`'s optional ports)."""
+        return None
 
     @abstractmethod
     def stop_coverage(self) -> StopCoverageReading:

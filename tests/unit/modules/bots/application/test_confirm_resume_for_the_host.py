@@ -43,6 +43,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
+FP = "1a2b3c4d"
+
 
 class _Dispatcher(ICommandDispatcher):
     """Answers each confirmation with `answer` and remembers what it was given."""
@@ -81,10 +83,10 @@ def _handler(
 def test_confirming_for_the_host_is_the_confirmation_the_screen_dispatches() -> None:
     handler, dispatcher = _handler(TradingVenue.SPOT_TESTNET)
 
-    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa"))
+    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", proposal=FP))
 
     assert result.accepted
-    assert dispatcher.dispatched == [ConfirmBotResumeCommand("aaaaaa")]
+    assert dispatcher.dispatched == [ConfirmBotResumeCommand("aaaaaa", FP)]
     assert "price moved" in result.message, (
         "the accepted words say the ladder may be refused"
     )
@@ -94,9 +96,9 @@ def test_a_mainnet_confirmation_is_not_dispatched_until_the_venue_is_typed() -> 
     venue = TradingVenue.SPOT_MAINNET
     handler, dispatcher = _handler(venue)
 
-    refused = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa"))
+    refused = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", proposal=FP))
     wrong = handler.execute(
-        ConfirmBotResumeForHostCommand("aaaaaa", TradingVenue.SPOT_TESTNET.value)
+        ConfirmBotResumeForHostCommand("aaaaaa", TradingVenue.SPOT_TESTNET.value, FP)
     )
 
     assert refused.refusal is wrong.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
@@ -108,10 +110,10 @@ def test_a_mainnet_confirmation_with_its_venue_typed_is_dispatched() -> None:
     venue = TradingVenue.SPOT_MAINNET
     handler, dispatcher = _handler(venue)
 
-    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", venue.value))
+    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", venue.value, FP))
 
     assert result.accepted
-    assert dispatcher.dispatched == [ConfirmBotResumeCommand("aaaaaa")]
+    assert dispatcher.dispatched == [ConfirmBotResumeCommand("aaaaaa", FP)]
 
 
 def test_a_bot_that_holds_no_proposal_is_told_to_resume_first_and_to_wait() -> None:
@@ -122,10 +124,10 @@ def test_a_bot_that_holds_no_proposal_is_told_to_resume_first_and_to_wait() -> N
         ),
     )
 
-    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa"))
+    result = handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", proposal=FP))
 
     assert result.refusal is BotRefusal.NO_RESUME_PROPOSAL
-    assert "`bot resume aaaaaa`" in result.message and "a few seconds" in result.message
+    assert "`bot resume aaaaaa`" in result.message and "fingerprint" in result.message
 
 
 def test_any_other_refusal_of_the_screen_reaches_the_operator_unchanged() -> None:
@@ -134,15 +136,49 @@ def test_any_other_refusal_of_the_screen_reaches_the_operator_unchanged() -> Non
     )
     handler, _ = _handler(TradingVenue.SPOT_TESTNET, refused)
 
-    assert handler.execute(ConfirmBotResumeForHostCommand("aaaaaa")) == refused
+    assert (
+        handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", proposal=FP))
+        == refused
+    )
 
 
 def test_confirming_a_bot_that_does_not_exist_is_refused_not_dispatched() -> None:
     dispatcher = _Dispatcher(BotCommandResult.done("zzzzzz"))
 
     result = ConfirmResumeForHostCommandHandler(FakeBotStore(), dispatcher).execute(
-        ConfirmBotResumeForHostCommand("zzzzzz")
+        ConfirmBotResumeForHostCommand("zzzzzz", proposal=FP)
     )
 
     assert result.refusal is BotRefusal.NOT_FOUND
     assert dispatcher.dispatched == []
+
+
+def test_a_confirmation_that_names_no_proposal_is_refused_before_anything_is_asked() -> (
+    None
+):
+    handler, dispatcher = _handler(TradingVenue.SPOT_TESTNET)
+
+    for missing in (None, ""):
+        result = handler.execute(
+            ConfirmBotResumeForHostCommand("aaaaaa", proposal=missing)
+        )
+
+        assert result.refusal is BotRefusal.NO_RESUME_PROPOSAL
+        assert "--proposal <fingerprint>" in result.message
+    assert dispatcher.dispatched == [], "no ladder is laid that nobody named"
+
+
+def test_a_stale_proposal_is_the_screens_refusal_and_reaches_the_operator_unchanged() -> (
+    None
+):
+    changed = BotCommandResult.refused(
+        BotRefusal.RESUME_PROPOSAL_CHANGED,
+        "The proposal changed since you read it",
+        "aaaaaa",
+    )
+    handler, _ = _handler(TradingVenue.SPOT_TESTNET, changed)
+
+    assert (
+        handler.execute(ConfirmBotResumeForHostCommand("aaaaaa", proposal=FP))
+        == changed
+    )

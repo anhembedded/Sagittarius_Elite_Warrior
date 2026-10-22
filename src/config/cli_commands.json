@@ -614,7 +614,7 @@
           },
           "resume": {
             "modules": ["bots", "operations"],
-            "help": "Ask the running host (main.py run) to resume one PAUSED, RECOVERING, HALTED or AWAITING_RECOVERY bot, as the Bots tab's Resume does. A HALTED or AWAITING_RECOVERY bot's resume only proposes a ladder and places nothing: read it in the host's log, then bot confirm-resume lays it (run --resume-halted answers it in advance at start). Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to resume one PAUSED, RECOVERING, HALTED or AWAITING_RECOVERY bot, as the Bots tab's Resume does. A HALTED or AWAITING_RECOVERY bot's resume only proposes a ladder and places nothing: the reply carries the proposal and its fingerprint, then bot confirm-resume --proposal lays that ladder and no other (run --resume-halted answers it in advance at start). Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
@@ -651,13 +651,18 @@
           },
           "confirm-resume": {
             "modules": ["bots", "operations"],
-            "help": "Ask the running host (main.py run) to lay the ladder a HALTED or AWAITING_RECOVERY bot's resume proposed, as the Bots tab's Confirm resume does. The second of two steps: bot resume proposes and places nothing, you read the proposal in the host's log, this lays it. Refused in words when no proposal is held. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to lay the ladder a HALTED or AWAITING_RECOVERY bot's resume proposed, as the Bots tab's Confirm resume does. The second of two steps: bot resume proposes, places nothing and prints the proposal with its fingerprint; you read it, then this lays that ladder and no other, naming it with --proposal. Refused in words when no proposal is held, when the held one is not the one you named (a later resume re-proposed), and when --proposal is missing. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
                 "name": "bot_id",
                 "type": "str",
                 "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--proposal",
+                "type": "str",
+                "help": "The fingerprint bot resume printed for the proposal you read (8 hex characters, any case); the confirmation lays that proposal and nothing else"
               },
               {
                 "name": "--confirm-venue",

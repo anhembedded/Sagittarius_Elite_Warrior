@@ -118,6 +118,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    ResumeProposalSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RESUME_PROPOSES_STATES,
     BotLifecycleEvent,
@@ -286,8 +289,8 @@ class GridExecutor(IBotExecutor):
         self._context.stop_requested.set()
         self._post("stop", lambda: self._run_stop(base))
 
-    def confirm_resume(self) -> None:
-        self._post("confirm resume", self._run_confirm)
+    def confirm_resume(self, expected: str | None = None) -> None:
+        self._post("confirm resume", lambda: self._run_confirm(expected))
 
     def recover_after_restart(self) -> None:
         """Boot: report what the exchange holds for a restored bot, and cancel
@@ -301,11 +304,9 @@ class GridExecutor(IBotExecutor):
         """Off the worker's thread, a read only (`IBotExecutor.stop_coverage`)."""
         return self._protection.read_coverage()
 
-    def has_resume_proposal(self) -> bool:
-        """Read off the worker's thread: one reference, set and cleared by
-        the worker alone; a confirmation that loses a race to a switch-off
-        still finds nothing there and lays nothing (`_run_confirm`)."""
-        return self._proposal is not None
+    def resume_proposal(self) -> ResumeProposalSummary | None:
+        """Read off the worker's thread: one reference, set and cleared by the worker alone."""
+        return None if self._proposal is None else self._proposal.summary
 
     # --- every task through the guard ---
 
@@ -364,14 +365,14 @@ class GridExecutor(IBotExecutor):
         self._storage.resumed()
         self._placer.release_held()
 
-    def _run_confirm(self) -> None:
-        proposal, self._proposal = self._proposal, None
-        if self._context.state.state not in RESUME_PROPOSES_STATES or proposal is None:
-            logger.info(
-                "Bot %s: nothing to confirm in %s",
-                self.bot_id,
-                self._context.state.state.value,
-            )
+    def _run_confirm(self, expected: str | None) -> None:
+        held = self._proposal
+        if held is not None and self._resume.drops_stale(held, expected):
+            return
+        proposal, self._proposal = held, None
+        state = self._context.state.state
+        if state not in RESUME_PROPOSES_STATES or proposal is None:
+            logger.info("Bot %s: nothing to confirm in %s", self.bot_id, state.value)
             return
         self._resume.confirm(proposal)
 

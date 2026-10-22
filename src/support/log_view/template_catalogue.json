@@ -1,5 +1,5 @@
 [
-{"schema": "sew.log-templates/1", "templates": 867, "variable_template_calls": 33, "too_generic_templates": 1},
+{"schema": "sew.log-templates/1", "templates": 868, "variable_template_calls": 33, "too_generic_templates": 1},
 ["hhh", "", " ", " detail:\n", ""],
 ["hhhh", "", " ", " raised delivering a notification: ", ": ", ""],
 ["sssss", "", " ", ": ", " changed from ", " to ", " [futures-gate]"],
@@ -139,6 +139,7 @@
 ["ss", "Bot ", ": cancel ", " raised"],
 ["sss", "Bot ", ": cancel ", " was refused by name: ", " [named-refusal]"],
 ["sss", "Bot ", ": cancelled the protective stop ", " that the plan does not ask for (", ") [protective-stop]"],
+["sss", "Bot ", ": confirmation of proposal ", " dropped, the held one is ", " [resume-stale]"],
 ["ssssssssdds", "Bot ", ": exchange facts read at ", ": ", " free ", " locked ", ", ", " free ", " locked ", ", ", " own and ", " other orders, earlier runs ", " [exchange-facts]"],
 ["sdsss", "Bot ", ": exit slice ", " of ", " -> ", " ", ""],
 ["sss", "Bot ", ": fill ", " of ", " ignored; it was already counted [duplicate-fill]"],

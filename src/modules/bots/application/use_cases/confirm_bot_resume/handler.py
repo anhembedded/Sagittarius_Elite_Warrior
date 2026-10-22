@@ -52,7 +52,20 @@ class ConfirmBotResumeCommandHandler(
                     "check the proposed ladder, then confirm.",
                     bot_id,
                 )
-            self._runner.confirm_resume(bot_id)
+            held = self._runner.resume_proposal(bot_id)
+            if (
+                command.proposal is not None
+                and held is not None
+                and held.fingerprint != command.proposal
+            ):
+                return BotCommandResult.refused(
+                    BotRefusal.RESUME_PROPOSAL_CHANGED,
+                    f"The proposal changed since you read it: the held one lays {held.orders} "
+                    f"orders from {held.price}. Nothing was laid; run the resume again, read its "
+                    "proposal and confirm with its fingerprint.",
+                    bot_id,
+                )
+            self._runner.confirm_resume(bot_id, command.proposal)
         # A read-only copy refuses by raising (`EPIC-035H`); a refusal is a value.
         except ReadOnlyInstanceError as exc:
             return BotCommandResult.refused(

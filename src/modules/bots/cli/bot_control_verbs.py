@@ -122,6 +122,22 @@ class ConfirmResumeBotVerb(_ControlVerb):
     name = "confirm-resume"
     action = HostControlAction.CONFIRM_RESUME
 
+    def _request_of(
+        self, args: argparse.Namespace, world: BotVerbWorld
+    ) -> HostControlRequest | CliOutcome:
+        if not args.proposal:
+            return CliOutcome(
+                ExitCode.USAGE,
+                "bot confirm-resume needs --proposal <fingerprint>: `bot resume` prints it with the "
+                "proposal, and a confirmation lays the proposal that was read",
+            )
+        return HostControlRequest(
+            self.action,
+            args.bot_id,
+            getattr(args, "confirm_venue", None),
+            proposal=args.proposal.strip().lower(),
+        )
+
 
 class StartBotVerb(_ControlVerb):
     name = "start"

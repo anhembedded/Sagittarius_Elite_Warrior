@@ -64,6 +64,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
                 settings=(ParameterSetting("lower", "81000"),),
                 entry=_ENTRY,
                 to_venue="spot_mainnet",
+                proposal="1a2b3c4d",
             )
         )
 
@@ -71,7 +72,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         StopBotForOperatorCommand(BOT, "spot_mainnet"),
         PauseBotForHostCommand(BOT),
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
-        ConfirmBotResumeForHostCommand(BOT, "spot_mainnet"),
+        ConfirmBotResumeForHostCommand(BOT, "spot_mainnet", "1a2b3c4d"),
         StartBotForHostCommand(BOT, "spot_mainnet"),
         EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
         AddBotForHostCommand(_ENTRY),
