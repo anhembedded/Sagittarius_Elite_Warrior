@@ -204,6 +204,17 @@ is as tall as its rows, so the panel scrolls once; a row's height is asked of it
 stay in the editor (`grid_exposure_fields.py` → `ExposureFields`): the second is a live estimate of the plan
 being edited, not a recorded figure.
 
+Two Plan rows are estimates of a straight run (`BOT-235`): *Loss at stop loss (estimate)* and *Gain at take profit
+(estimate)*. The numbers are `bots/domain/grid/grid_exit_estimate.py` → `exit_estimates_for`, `estimate_exits`,
+`ExitEstimates`: the plan a Start would place (`grid_evaluation.py` → `entry_plan`, the one place that sizes and
+prices it) run from its last price to the exit on `grid_position_model.py` → `PositionBook`, the book the Futures
+replay books its fills with, with `FuturesReplay`'s fee rule (taker on the opening and the closing trade, maker on
+the ladder fills); funding and slippage are left out. `bot_detail.py` → `detail_for` asks for them for a Grid at rest
+whose market numbers are read, `ui/bots_screen/exit_estimate_words.py` → `exit_rows` writes the amount, its share of
+the capital and the path assumed into `BotFacts.loss_at_stop` and `gain_at_take_profit`, and a row with no text (an
+exit off, a bot with a run, no plan) is hidden. A bot at rest also shows the plan guard's liquidation estimate in
+the *Liquidation price* row, as a design not saved yet does (`BUG-261`); only a bot with a run reads the exchange's.
+
 **A figure and a state read by their meaning, never by colour alone (`EPIC-043C`).** A profit, a loss or a change is
 a `signed_key` column or row (`support/ui_kit/value_formatter.py` → `signed_key`): the formatter writes an arrow and
 a sign (`▲ +12.50`, `▼ -9.00`), and the tone comes from the meaning table's colour on the application's palette.

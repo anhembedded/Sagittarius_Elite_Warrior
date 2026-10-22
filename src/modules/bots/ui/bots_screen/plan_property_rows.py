@@ -37,6 +37,8 @@ READINESS_GROUP = "readiness"
 #: The group of the plan's figures, and its heading while they come from a design not saved
 #: yet (`BUG-261`).
 PLAN_GROUP = "plan"
+#: The two estimated rows of the plan, hidden while that exit is off or there is no plan (`BOT-235`).
+EXIT_KEYS = ("loss_at_stop", "gain_at_take_profit")
 PLAN_TITLE = "Plan"
 PLAN_UNSAVED_TITLE = "Plan (not saved)"
 
@@ -95,6 +97,9 @@ PROPERTY_GROUPS: tuple[PropertyGroup, ...] = (
             ("upper_edge", "Upper edge", _PRICE),
             ("stop_loss", "Stop loss", _PRICE),
             ("take_profit", "Take profit", _PRICE),
+            # `BOT-235`: what a straight run to each exit is worth, from the domain's estimate.
+            (EXIT_KEYS[0], "Loss at stop loss (estimate)", _TEXT),
+            (EXIT_KEYS[1], "Gain at take profit (estimate)", _TEXT),
             (LIQUIDATION_KEY, "Liquidation price", _TEXT),
         ),
     ),

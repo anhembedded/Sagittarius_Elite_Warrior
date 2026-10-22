@@ -59,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     exposure_limits_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    BotKindInputs,
     PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -66,7 +67,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     RUN_STARTING_STATES,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exit_estimate import (
+    ExitEstimates,
+    exit_estimates_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_KIND_ID,
     GRID_MARKETS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
@@ -84,6 +90,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge im
     JudgedPlan,
     PlanWorld,
     judge,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.exit_estimate_words import (
+    exit_rows,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
     PlanChecks,
@@ -177,15 +186,22 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     verdicts = judged.verdicts + (field_verdicts(readiness.items) if readiness else ())
     # `BUG-261`: the plan figures read the design on screen, as the checks and the chart do.
     shown = bot if inputs.edited is None else replace(bot, config=config)
+    facts = bot_facts(shown, inputs.now)
+    exits = exit_rows(_exit_estimates(inputs, config))
     return BotDetail(
         facts=replace(
-            bot_facts(shown, inputs.now),
+            facts,
             unsaved=inputs.edited is not None,
+            # A bot at rest has no run to report its liquidation price, so it shows the guard's
+            # estimate, as a design not saved yet does (`BUG-261`, `BOT-235`).
             liquidation_estimate=(
                 "; ".join(line.text for line in liquidation_lines(verdicts))
-                if inputs.edited is not None
+                if inputs.edited is not None or bot.state in RUN_STARTING_STATES
                 else ""
             ),
+            loss_at_stop=exits.loss_at_stop,
+            gain_at_take_profit=exits.gain_at_take_profit,
+            tones={**facts.tones, **exits.tones},
         ),
         verdicts=verdicts,
         checks=plan_checks_of(verdicts),
@@ -196,6 +212,31 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         readiness=readiness,
         overlay_note=_not_drawn(bot, inputs.market, judged),
         ladder=grid_ladder_of(shown, inputs.now),
+    )
+
+
+def _exit_estimates(
+    inputs: DetailInputs, config: Mapping[str, str]
+) -> ExitEstimates | None:
+    """What a straight run to the stop loss and to the take profit is worth, for a Grid at rest
+    whose market numbers are read; `None` otherwise (`BOT-235`). A bot with a run shows none: its
+    plan was drawn at the price its run began at, not at today's."""
+    bot, market = inputs.bot, inputs.market
+    if (
+        bot.kind != GRID_KIND_ID
+        or bot.state not in RUN_STARTING_STATES
+        or market is None
+        or market.terms is None
+        or market.market is None
+    ):
+        return None
+    return exit_estimates_for(
+        BotKindInputs(
+            config,
+            market.terms,
+            market.market,
+            limits=exposure_limits_of(bot.venue, GRID_MARKETS),
+        )
     )
 
 

@@ -50,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_gri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     COST_KEYS,
+    EXIT_KEYS,
     LIQUIDATION_KEY,
     PLAN_GROUP,
     PLAN_TITLE,
@@ -234,6 +235,10 @@ class BotPlanPanel(QStackedWidget):
             PLAN_GROUP, PLAN_UNSAVED_TITLE if facts and facts.unsaved else PLAN_TITLE
         )
         self._show_costs(facts is not None and facts.shows_costs)
+        for key in EXIT_KEYS:
+            self.properties.set_rows_shown(
+                (key,), facts is not None and bool(getattr(facts, key))
+            )
 
     def _show_ladder(self) -> None:
         """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
