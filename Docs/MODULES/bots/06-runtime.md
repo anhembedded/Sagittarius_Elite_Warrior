@@ -82,6 +82,10 @@ entry the range-exit close skips exactly one mark beat so a mark on a bound cann
 position in two beats (`GridPriceReaction`). A Resume of a bot that holds nothing, with the price
 outside the range, waits instead of laying a ladder (`GridResumeSequence.propose`).
 
+## Built: the stop-to-liquidation floor (`BOT-227`)
+
+*How far before its estimated liquidation must a Futures exit sit?* At least the larger of the owner's 1 % of the exit and half a daily ATR (`bots/domain/grid/futures_liq_gap_floor.py` → `liq_gap_floor`; the thresholds `FuturesGridThresholds.min_liq_gap_ratio`, `min_liq_gap_atr`): the ATR can only raise the floor. The Plan (`bots/domain/grid/futures_grid_checks.py` → `judge_futures_plan`) and the Start (`bots/application/services/venue/futures_start_checks.py` → `FuturesStartChecks.refusal`) call the same function, with the ATR one reader gives both (`bots/application/kinds/grid/daily_atr_reader.py` → `DailyAtrReader.read`: the stored daily candles of the venue's own market, never fetched). Candles missing, fewer than 15, or with the newest over two days old give no ATR, and the floor is the 1 % alone: the refusal's words and a `[plan-risk]` line say so (`FuturesStartReads.daily_atr_reading`). Decision: `Tasks/epics/EPIC-039_futures_venue_profile/DECISION_2026-10-22_the_liquidation_floor_follows_the_daily_atr.md`. **Limit:** the multiple is proposed, not yet confirmed by the owner.
+
 ## Built: several bots on one venue
 
 *Which resources do the bots of one venue share, and what stops them using them all?* (`EPIC-029J1b`;

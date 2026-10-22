@@ -268,8 +268,7 @@ def grid_executor_deps(
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
     pacers: Callable[[TradingVenue, OrderPacing], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
-    """What every Grid executor is built from, as production wires it. A journey with its own
-    queue and pacer passes them and keeps every other binding (`EPIC-039H`)."""
+    """What every Grid executor is built from; a journey may pass its own queue and pacer (`EPIC-039H`)."""
     ports = container.resolve(IVenueTradingPorts)
     monotonic = container.resolve(IMonotonicClock)
     positions = SharedPositionReads(ports, monotonic)
@@ -306,6 +305,7 @@ def _grid_exposures(container: IContainer) -> GridExposures:
             container.resolve(IVenueSettingsGate),
             container.resolve(SymbolBrackets),
             _FUTURES_THRESHOLDS,
+            lambda: container.resolve(IMarketDataSources),
         ),
     )
 

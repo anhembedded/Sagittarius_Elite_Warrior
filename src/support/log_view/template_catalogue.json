@@ -241,6 +241,8 @@
 ["sss", "Bot ", ": the protective stop ", " was not placed: ", " [protective-stop]"],
 ["ss", "Bot ", ": the resume finds nothing held and the price ", " outside the range; the bot waits for it [range-wait]"],
 ["s", "Bot ", ": the stop over its position could not be read"],
+["sss", "Bot ", ": the stop-to-liquidation floor is the flat ", " of the exit: ", " [plan-risk]"],
+["ssss", "Bot ", ": the stop-to-liquidation floor is the larger of ", " of the exit and ", " daily ATR (", ") [plan-risk]"],
 ["s", "Bot ", ": the symbol's status could not be read from the exchange; going on with the last terms [symbol-status]"],
 ["s", "Bot ", ": the terms refresh could not reach the exchange; asking again [exchange-terms]"],
 ["s", "Bot ", ": the terms refresh failed; asking again"],

@@ -10,11 +10,11 @@ reads what is stored and never fetches.
 from __future__ import annotations
 
 from dataclasses import replace
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.daily_atr_reader import (
+    DailyAtrReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
     read_planner_numbers,
 )
@@ -25,12 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
     SuggestedRange,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
-    GRID_MARKETS,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -45,12 +42,8 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicators.bands import (
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.volatility import (
     ATR_DEFAULT_PERIOD,
     HighLowClose,
-    atr,
     atr_range,
 )
-
-#: Enough daily candles for ATR(14) and Bollinger(20) with room to spare.
-_DAILY_CANDLES = 60
 
 
 class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerMarket]):
@@ -58,11 +51,13 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
         self,
         ports: IVenueTradingPorts,
         caps: OwnerBudgetCaps,
-        klines: IHistoricalKlines,
+        sources: IMarketDataSources,
+        clock: IBotClock,
     ) -> None:
         self._ports = ports
         self._caps = caps
-        self._klines = klines
+        self._atr = DailyAtrReader(lambda: sources)
+        self._clock = clock
 
     def execute(self, query: GetPlannerMarketQuery) -> PlannerMarket:
         numbers = read_planner_numbers(
@@ -71,18 +66,11 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
         if isinstance(numbers, str):
             return _unreadable(numbers)
         terms, view = numbers
-        candles = self._klines.load(
-            market_of(query.venue, GRID_MARKETS),
-            query.symbol,
-            TimeFrame.ONE_DAY,
-            limit=_DAILY_CANDLES,
-            newest_first=True,
-        )[::-1]
-        hlc = tuple(_high_low_close(candle) for candle in candles)
-        daily_atr = atr(hlc) if len(hlc) > ATR_DEFAULT_PERIOD else None
+        reading = self._atr.read(query.venue, query.symbol, self._clock.now())
+        hlc = reading.candles
         return PlannerMarket(
             terms=terms,
-            market=replace(view, daily_atr=daily_atr),
+            market=replace(view, daily_atr=reading.value),
             atr_range=_atr_suggestion(hlc),
             bollinger=_bollinger_suggestion(hlc),
         )
@@ -90,14 +78,6 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
 
 def _unreadable(problem: str) -> PlannerMarket:
     return PlannerMarket(None, None, None, None, problem)
-
-
-def _high_low_close(candle: MarketData) -> HighLowClose:
-    return HighLowClose(
-        high=Decimal(str(candle.high_price)),
-        low=Decimal(str(candle.low_price)),
-        close=Decimal(str(candle.close_price)),
-    )
 
 
 def _atr_suggestion(hlc: tuple[HighLowClose, ...]) -> SuggestedRange | None:

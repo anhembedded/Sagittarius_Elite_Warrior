@@ -35,6 +35,9 @@ class PlanRiskInputs:
     #: ATR(14) on the daily timeframe; `None` when no candles: the stop's distance to
     #: liquidation is then not judged against an ATR.
     daily_atr: Decimal | None = None
+    #: Why there is no daily ATR, when the reader that looked could say (`BOT-227`): a refusal
+    #: then names the flat floor it fell back to and this reason.
+    daily_atr_unavailable: str = ""
 
     def __post_init__(self) -> None:
         if self.mark <= 0:
