@@ -196,6 +196,20 @@ def test_an_eleven_column_list_never_loses_a_column_or_cuts_a_figure(columns):
     ]  # fmt: skip
 
 
+@pytest.mark.parametrize("columns", [200, 80])
+def test_the_realised_figure_takes_the_sign_colour_in_the_table_and_the_stacked_list(
+    columns,
+):
+    """`BOT-231`: Realised is a money head in the table and a money label in the one block per bot
+    a narrow terminal prints, so it is coloured like Grid profit and the total in both."""
+    report = _list_report()
+    text = _renderer(_state(columns=columns)).render(report)
+
+    assert re.search(r"\x1b\[[0-9;]*32m[^\x1b]*12\.50", text)
+    assert re.search(r"\x1b\[[0-9;]*32m[^\x1b]*9\.75", text)
+    assert re.search(r"\x1b\[[0-9;]*31m[^\x1b]*-4\.00", text)
+
+
 def test_a_word_wider_than_its_share_is_kept_whole_when_the_terminal_allows():
     order_id = "x-BTCUSDT-grid-level-0007-abcdef"
     report = Report(

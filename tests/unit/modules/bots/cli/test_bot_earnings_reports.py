@@ -77,6 +77,15 @@ _UNPRICED = replace(
     realised_profit=Decimal("5.74"),
     completed_cycles=1,
 )
+#: `BOT-231`: grid profit 1,234.50, realised 20.00 and a total of 30.00 are three different figures,
+#: so a Realised cell that printed either of the others is caught.
+_REALISED_APART = replace(
+    _EARNED,
+    realised_total=Decimal(20),
+    inventory=Decimal("0.01"),
+    cost=Decimal(640),
+    mark_price=Decimal(65000),
+)
 #: `BOT-202`: a Futures run holding base, priced, that paid a fee and a funding.
 _FUTURES_HELD = replace(
     _EARNED,
@@ -101,6 +110,7 @@ def _world() -> BotQueryDispatcher:
     seed(store, "aaaaaa", S.STOPPED, runtime=encode_runtime(_EARNED))
     seed(store, "bbbbbb", S.RUNNING, runtime=encode_runtime(_UNPRICED))
     seed(store, "cccccc", S.DRAFT, runtime={})
+    seed(store, "ffffff", S.RUNNING, runtime=encode_runtime(_REALISED_APART))
     seed(
         store,
         "eeeeee",
@@ -220,7 +230,10 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
     assert head.index("CYCLES") < head.index("REALISED") < head.index("TOTAL PNL")
     row = next(line for line in out.splitlines() if line.startswith("aaaaaa"))
     assert "1,234.50" in row and "1,230.25" in row
-    assert row.split().count("1,230.25") == 2, "Realised and the total both print it"
+    apart = next(line for line in out.splitlines() if line.startswith("ffffff"))
+    cells = apart.split()
+    assert cells.index("20.00") == cells.index("1,234.50") + 2
+    assert cells.index("30.00") == cells.index("20.00") + 1
     assert (
         "REALISED is everything sold so far, measured against the average cost" in out
     )
