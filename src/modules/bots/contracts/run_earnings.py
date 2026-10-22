@@ -65,6 +65,14 @@ EARNINGS_BASIS = (
     "so grid profit is a different view of part of the realised money, not an addition to it. "
     "Each figure is rounded on its own."
 )
+#: `BOT-231` - the summary column: `realised_total`, the same figure `bot show` calls Realised.
+REALISED_HEAD = "REALISED"
+REALISED_COLUMN_TITLE = "Realised"
+#: Said under `bot list`: where the column sits against Grid profit, so the two are not added.
+REALISED_LEGEND = (
+    "REALISED is everything sold so far, measured against the average cost, net of fees; it "
+    "includes GRID PROFIT's cycles, so GRID PROFIT is part of it, not an addition."
+)
 #: `bot list` - what the two columns are, so a Total PnL far above the Grid profit is read right.
 GRID_PROFIT_LEGEND = (
     "GRID PROFIT counts only completed buy to sell cycles. The rest of TOTAL PNL is the held "
