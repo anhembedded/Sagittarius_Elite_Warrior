@@ -4,9 +4,10 @@ The overlay is the plan's (`grid_overlay`), so it always carries the trigger lin
 has laid its ladder the trigger is never asked again, as a filled limit order is not redrawn: the
 Bots screen leaves the line out for a bot whose state holds a laid ladder, and for a RECOVERING
 bot that returns to one. A halted bot, one awaiting recovery or one in error is judged by its
-record: while it holds inventory, a position or a resting order its Resume plans over what it
-holds and never asks the trigger, so the line goes (review of #725); while it holds nothing the
-Resume is a fresh entry and asks it, so the line stays. A bot at rest or waiting keeps the line.
+record: while it holds inventory or a position its Resume plans over what it holds and never asks
+the trigger, so the line goes (review of #725); while it holds none the Resume cancels any
+resting order, finds the bot flat and asks the trigger (`GridResumeSequence._wait_if_still_flat`),
+so the line stays. A bot at rest or waiting keeps the line.
 """
 
 from __future__ import annotations
@@ -48,9 +49,7 @@ def trigger_latched(bot: BotSnapshot) -> bool:
 
 def _holds_something(bot: BotSnapshot) -> bool:
     progress = bot.progress
-    return progress is not None and (
-        progress.inventory != 0 or progress.open_orders > 0
-    )
+    return progress is not None and progress.inventory != 0
 
 
 def shown_for(overlay: BotOverlay | None, bot: BotSnapshot) -> BotOverlay | None:
