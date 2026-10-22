@@ -124,7 +124,7 @@ class _RecordingRunner(IBotRunner):
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))
 
-    def confirm_resume(self, bot_id: str) -> None:
+    def confirm_resume(self, bot_id: str, expected: str | None = None) -> None:
         self.sent.append(("confirm_resume", bot_id))
 
     def withdraw_resume_proposal(self, bot_id: str) -> None: ...

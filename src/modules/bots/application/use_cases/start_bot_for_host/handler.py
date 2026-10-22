@@ -78,8 +78,8 @@ class StartBotForHostCommandHandler(
                 BotRefusal.INVALID_TRANSITION,
                 f"Bot {command.bot_id} is {state.value}: it is not started, it is resumed, and "
                 "that resume proposes a ladder that a person reads and confirms. Run "
-                f"`bot resume {command.bot_id}`, read the proposal in the host's log, then "
-                f"`bot confirm-resume {command.bot_id}`; or use `run --resume-halted` when the "
+                f"`bot resume {command.bot_id}`, read the proposal in its reply, then "
+                f"`bot confirm-resume {command.bot_id} --proposal <fingerprint>`; or use `run --resume-halted` when the "
                 "host starts, or the Bots tab.",
                 command.bot_id,
             )

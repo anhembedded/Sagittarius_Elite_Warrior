@@ -88,7 +88,8 @@ class HostControlRequest:
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
     `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action.
     `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action. `to_venue` is the venue
-    a move goes to (`EPIC-045G`); `None` for every other action."""
+    a move goes to (`EPIC-045G`); `None` for every other action. `proposal` is the fingerprint of the resume
+    proposal a confirm-resume lays (`EPIC-045G`); `None` for every other action."""
 
     action: HostControlAction
     bot_id: str
@@ -97,6 +98,7 @@ class HostControlRequest:
     settings: tuple[ParameterSetting, ...] = ()
     entry: NewBotEntry | None = None
     to_venue: str | None = None
+    proposal: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

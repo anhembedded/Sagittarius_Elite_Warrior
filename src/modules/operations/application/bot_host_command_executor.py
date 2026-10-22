@@ -79,7 +79,7 @@ _REQUESTS: dict[HostControlAction, _Request] = {
         c.bot_id, c.confirmed_venue
     ),
     HostControlAction.CONFIRM_RESUME: lambda c: ConfirmBotResumeForHostCommand(
-        c.bot_id, c.confirmed_venue
+        c.bot_id, c.confirmed_venue, c.proposal
     ),
     HostControlAction.START: lambda c: StartBotForHostCommand(
         c.bot_id, c.confirmed_venue
