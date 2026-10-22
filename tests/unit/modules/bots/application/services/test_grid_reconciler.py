@@ -294,7 +294,7 @@ def test_a_refused_budget_leaves_the_bot_recovering() -> None:
     _enable(world)
 
     assert world.state() is S.RECOVERING
-    assert "inventory_unavailable" in world.runtime().reason_detail
+    assert "records could not be read" in world.runtime().reason_detail  # `BUG-257`
     assert world.book.requests == []
 
 

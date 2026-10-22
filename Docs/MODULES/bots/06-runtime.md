@@ -488,7 +488,10 @@ says "the 3 automatic recoveries allowed in 24 h are used up". A `PAUSED` or `RE
 plainly, and a Futures venue has no rule but the exchange's pause. The ladder comes off on entering the state
 (`.../kinds/grid/grid_task_guard.py` → `GridTaskGuard`). When that cancel fails the bot lands in plain
 `HALTED` instead (`GridTaskGuard._halt_unparked`): the wait presumes a ladder off the exchange, and
-`BOT_HALTED` then says the orders may still rest.
+`BOT_HALTED` then says the orders may still rest. A cancel stopped by the exchange's pause is told once,
+at INFO, as `[exchange-pause]` (`GridTaskGuard._pause_met_while_parking`; `BUG-257`), and only a bot that
+holds an order takes that path to `HALTED`: one that holds none, a start refused before its ladder,
+stays in the wait, since recovery cancels the tagged orders it reads before it lays anything.
 
 **The wait.** The bot keeps its price stream and keeps watching its stop loss and take profit
 (`GridPriceReaction`), so a tick that reaches either runs Stop as it does in `HALTED`. On every beat of

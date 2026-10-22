@@ -28,10 +28,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     waiting_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    EARNINGS_BASIS,
     NO_VALUE,
     RunEarnings,
     cycles_text,
     grid_profit_text,
+    realised_text,
     total_pnl_text,
     unrealised_text,
 )
@@ -137,12 +139,18 @@ class BotFacts:
     unsaved: bool = False
     #: `BUG-261` - for a design not saved yet, the guard's liquidation estimate (the record holds none).
     liquidation_estimate: str = ""
+    #: `BOT-229` - every sell and buy-back against the average cost, net of fees: the part of the
+    #: total that is in the wallet, of which `grid_profit` is a different view.
+    realised: str = NO_VALUE
+    #: `BOT-229` - how the realised and grid-profit figures are measured, said once beside them.
+    earnings_basis: str = NO_VALUE
 
 
 def _tones(bot: BotSnapshot) -> dict[str, Tone]:
     earnings = RunEarnings.of(bot.progress)
     hodl = bot.progress.pnl.hodl if bot.progress and bot.progress.pnl else None
     return {
+        "realised": sign_tone(earnings.realised if earnings else None),
         "grid_profit": sign_tone(earnings.grid_profit if earnings else None),
         "total_pnl": sign_tone(earnings.total_pnl if earnings else None),
         "unrealised": sign_tone(earnings.unrealised if earnings else None),
@@ -173,6 +181,8 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         shows_costs=_has_funding(bot),
         cycles=cycles_text(RunEarnings.of(progress)),
         tones=_tones(bot),
+        realised=realised_text(RunEarnings.of(progress), _write_money),
+        earnings_basis=EARNINGS_BASIS if progress is not None else NO_VALUE,
     )
 
 

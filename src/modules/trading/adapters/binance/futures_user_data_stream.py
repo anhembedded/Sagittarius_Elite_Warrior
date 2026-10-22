@@ -109,6 +109,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.closing_on_cancel import (
+    create_closing_on_cancel,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -245,7 +248,8 @@ class FuturesUserDataStream(ManagedUserDataStream):
         is_closing = False
         client: AsyncClient | None = None
         try:
-            client = await AsyncClient.create(
+            client = await create_closing_on_cancel(
+                AsyncClient.create,
                 api_key=credentials.api_key,
                 api_secret=credentials.api_secret,
                 testnet=self._events.venue.is_testnet,

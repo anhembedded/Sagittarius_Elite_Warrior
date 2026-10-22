@@ -13,6 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_words import (
+    CONNECTION_FAILURE_SENTENCES,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -70,6 +76,40 @@ def unexplained_position_words(position: UnexplainedPosition) -> str:
     )
 
 
+def _pause_words(result: SessionReadyResult) -> str:
+    """What to do about an exchange pause: wait as long as it said. A ban lasts minutes to days, so
+    it is never called a few seconds."""
+    seconds = result.connection_retry_after
+    if seconds is None:
+        return "Wait for the pause to end, then try again."
+    whole = int(-(-seconds.total_seconds() // 1))
+    what = (
+        "banned this address for"
+        if result.connection_banned
+        else "asked for a pause of"
+    )
+    return f"The exchange {what} {whole} s: try again after that."
+
+
+def _connection_words(result: SessionReadyResult) -> str:
+    """What the connection check found, when it named a failure: the cause, not a guess at the key.
+    Empty when the refusal is not a connection one or the check named nothing."""
+    kind = result.connection_failure
+    if (
+        result.block_reason is not SessionBlockReason.CONNECTION_NOT_READY
+        or kind is None
+    ):
+        return ""
+    words = (
+        f"Connection to the exchange is not ready: {CONNECTION_FAILURE_SENTENCES[kind]}"
+    )
+    if kind is ConnectionFailureKind.RATE_LIMITED:
+        return f"{words} {_pause_words(result)}"
+    if kind is ConnectionFailureKind.NETWORK:
+        return f"{words} If the host has only just started, try again in a few seconds."
+    return words
+
+
 def refusal_words(result: SessionReadyResult) -> str:
     """The sentence for a refused `ensure_ready()`; for positions the opening would not excuse,
     followed by each one's symbol and figures (`BUG-250`).
@@ -79,7 +119,7 @@ def refusal_words(result: SessionReadyResult) -> str:
     """
     if result.block_reason is None:
         raise ValueError("the session opened; there is no refusal to word")
-    words = SESSION_BLOCK_WORDS[result.block_reason]
+    words = _connection_words(result) or SESSION_BLOCK_WORDS[result.block_reason]
     if not result.unexplained_positions:
         return words
     detail = "; ".join(

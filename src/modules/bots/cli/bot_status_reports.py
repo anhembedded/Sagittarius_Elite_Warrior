@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     ReportRow,
     ReportSection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_earnings_rows import (
+    earnings_rows,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_exchange_unrealised_rows import (
     exchange_unrealised_rows,
 )
@@ -47,8 +50,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     summary_line,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    GRID_PROFIT_LEGEND,
     NO_VALUE,
-    TOTAL_PNL_BASIS,
     TOTAL_PNL_HEAD,
     TOTAL_PNL_LEGEND,
     cycles_text,
@@ -56,7 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     plain_money,
     plain_price,
     total_pnl_text,
-    unrealised_text,
 )
 
 LIST_COMMAND = "bot-list"
@@ -135,7 +137,9 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
-    legend = ReportSection(None, (ReportRow.of(TOTAL_PNL_LEGEND),))
+    legend = ReportSection(
+        None, (ReportRow.of(TOTAL_PNL_LEGEND), ReportRow.of(GRID_PROFIT_LEGEND))
+    )
     return (
         *_recorded_note(status),
         ReportSection(None, tuple(rows), has_header=True),
@@ -255,14 +259,7 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
                 "Run started",
                 bot.run_started_at.isoformat() if bot.run_started_at else "-",
             ),
-            _field("Grid profit", grid_profit_text(bot.earnings, plain_money)),
-            _field("Cycles", cycles_text(bot.earnings)),
-            _field("Total PnL", total_pnl_text(bot.earnings, plain_money)),
-            _field("", f"({TOTAL_PNL_BASIS})"),
-            _field(
-                "Unrealised",
-                unrealised_text(bot.earnings, plain_money, plain_price),
-            ),
+            *earnings_rows(bot),
             *exchange_unrealised_rows(bot),
             *_ladder_rows(bot),
             *_recovery_rows(bot.recovery),
