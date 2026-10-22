@@ -32,7 +32,7 @@ A plan-file workflow (create, edit, prune) still needed the host stopped: `bot a
 - #714's optional notes: the arm handler reads `saved_selection()` once and a `POSITION_OPEN` refusal is `INVALID_TRANSITION` as the disarm's is.
 
 ## 5. Testing
-`tests/unit/modules/bots/cli/test_bot_apply_beside_a_host.py` (end to end over `InProcessHost`, including record equality with an offline apply), `tests/unit/modules/bots/application/plan/test_plan_entry_handlers_for_the_host.py`, `tests/unit/modules/operations/application/test_host_command_codec_plan.py`, the executor and delete-handler tests. Mutation-checked: `set_wish` not replacing the row, `forget_wish` not writing, a write on every `set_wish`, deletes sent before the entries.
+`tests/unit/modules/bots/cli/test_bot_apply_beside_a_host.py` (end to end over `InProcessHost`, including record equality with an offline apply), `tests/unit/modules/bots/application/plan/test_plan_entry_handlers_for_the_host.py`, `tests/unit/modules/operations/application/test_host_command_codec_plan.py`, `tests/integration/modules/bots/test_bot_apply_beside_a_running_host_on_the_fake_exchange.py` (the composed app: a create, an edit of a stopped bot, a refused edit of a running bot and a prune at rest; the per-entry results, the bots' files, the exchange's orders and the applied record), the executor and delete-handler tests. Mutation-checked: `set_wish` not replacing the row, `forget_wish` not writing, a write on every `set_wish`, deletes sent before the entries.
 
 ## 6. Docs touched
 Runbook §6 and §8, SPEC-015, `Docs/MODULES/bots/06-runtime.md`.
