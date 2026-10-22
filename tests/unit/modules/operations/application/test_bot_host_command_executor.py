@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ApplyPlanEntryForHostCommand,
     ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
@@ -30,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     ResumeBotForHostCommand,
     StartBotForHostCommand,
     StopBotForOperatorCommand,
+    UnplanBotForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_host_command_executor import (
     BotHostCommandExecutor,
@@ -67,6 +69,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
                 entry=_ENTRY,
                 to_venue="spot_mainnet",
                 proposal="1a2b3c4d",
+                desired_state="running",
                 strategy_venue="spot_testnet",
             )
         )
@@ -84,6 +87,8 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         AcknowledgeLossCapForHostCommand(),
         ArmStrategyForHostCommand("spot_testnet", "spot_mainnet"),
         DisarmStrategyForHostCommand("spot_testnet"),
+        ApplyPlanEntryForHostCommand(_ENTRY, "running"),
+        UnplanBotForHostCommand(BOT),
     ]
 
 

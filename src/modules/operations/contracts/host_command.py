@@ -48,6 +48,8 @@ class HostCommand:
     proposal: str | None = None
     #: The venue an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); absent from older files and from every other action.
     strategy_venue: str | None = None
+    #: The wish an apply-entry records (`EPIC-045C`); absent from older files and from every other action.
+    desired_state: str | None = None
 
 
 class ControlVerdict(StrEnum):

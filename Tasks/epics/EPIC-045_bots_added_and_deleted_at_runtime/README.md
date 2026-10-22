@@ -30,7 +30,7 @@
 | [EPIC-045B](completed/EPIC-045B_bot_delete_on_the_running_host.md) | `bot delete <id>`: a DRAFT or STOPPED bot with nothing left on the exchange is forgotten, under the Start lock | Elite | None | 🟡 | ✅ Done (2026-10-21, #692) |
 | [EPIC-045E](completed/EPIC-045E_the_runbook_says_add_then_start.md) | Runbook §6 and §8: export, scp, `bot add`, `bot start`; no restart | Elite | A, B | 🟢 | ✅ Done (2026-10-21, #692) |
 | [EPIC-045G](completed/EPIC-045G_the_four_tab_actions_the_host_cannot_do_yet.md) | The four Bots tab actions the host cannot do at runtime yet: a DRAFT's venue change, confirm-resume of a HALTED bot, Arm and Disarm strategy; each deletes its exclusion from the parity guard | Elite | D | 🔴 | ✅ Done (2026-10-21, #705, #708) |
-| [EPIC-045C](incomplete/EPIC-045C_bot_apply_beside_a_running_host.md) | `bot apply` (create, edit, prune) through the command directory | Elite | A, B | 🔴 | Planned |
+| [EPIC-045C](completed/EPIC-045C_bot_apply_beside_a_running_host.md) | `bot apply` (create, edit, prune) through the command directory | Elite | A, B | 🔴 | ✅ Done (2026-10-22) |
 | [EPIC-045F](completed/EPIC-045F_start_planned_skips_an_unconfirmed_mainnet_bot.md) | `run --start-planned` skips a mainnet bot that lacks its confirmation, with a WARNING and an alert, and runs the rest (found on the VPS) | Elite | A, B | 🟡 | ✅ Done (2026-10-21, #694) |
 | [EPIC-045D](completed/EPIC-045D_the_tab_and_the_host_cannot_drift.md) | A guard: every Bots tab action that changes a bot maps to a host verb or a reasoned exclusion | Elite | A, B | 🟢 | ✅ Done (2026-10-21) |
 
@@ -39,7 +39,7 @@
 | :--- | :--- | :--- |
 | 1 — A, B, E | An operator adds a bot from a plan file and deletes a DRAFT or STOPPED one with the host running; neither places or cancels an order; the runbook says so | ✅ the unit and integration tests of A and B, green; the `-Full` run on #692's head (run 39607929553) green; the VPS check is the owner's (Not run) |
 | 2 — D | A new Bots tab action without a host verb fails CI | ✅ the guard red on its seeded failures (a new command however imported, a stale row, a wrong or undeclared verb, a reasonless exclusion, an unclassified menu command), green on the tree; it records four open gaps (confirm-resume at runtime, DRAFT venue change, Arm and Disarm strategy), slice `EPIC-045G` |
-| 3 — C | A plan-file workflow needs no restart | decided in D5; Not started |
+| 3 — C | A plan-file workflow needs no restart | ✅ decided in [DECISION_2026-10-22](DECISION_2026-10-22_bot_apply_beside_a_running_host.md); built and proven by `test_bot_apply_beside_a_host.py` |
 
 ## 5. Out of scope
 - Starting a bot from `bot add` (a new bot starts only by `bot start <id> --confirm-venue …`).

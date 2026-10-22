@@ -455,7 +455,7 @@
             ]
           },
           "apply": {
-            "help": "Make the bots match a plan file: create, edit and (with --prune) delete bots through the commands the Bots tab uses, and record each entry's desired_state for run --start-planned. Applying starts and stops nothing. A second apply of the same plan changes nothing",
+            "help": "Make the bots match a plan file: create, edit and (with --prune) delete bots through the commands the Bots tab uses, and record each entry's desired_state for run --start-planned. Applying starts and stops nothing. A second apply of the same plan changes nothing. Beside a running host (main.py run) it asks the host entry by entry through the command directory instead of exiting 3: each entry is answered on its own, a refusal of one never stops the others, a host that stops answering leaves the rest listed as not sent, and a bot at rest is deleted only under --prune and only if it holds nothing. Exit 2 when an entry needs attention, 10 when no host is running, 5 when the running copy takes no commands, 11 when the host stops answering",
             "read_only_when": "dry_run",
             "short_lived": true,
             "args": [
@@ -473,6 +473,12 @@
                 "name": "--prune",
                 "action": "store_true",
                 "help": "Also delete the stored bots the plan does not name, if they are at rest (DRAFT or STOPPED); a rename is a delete and a create"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Beside a running host: seconds to wait for the host to answer each entry; a command the host has not picked up by then is withdrawn and the run says so"
               },
               {
                 "name": "--json",

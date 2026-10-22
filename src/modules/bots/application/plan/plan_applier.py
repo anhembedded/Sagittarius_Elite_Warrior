@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_document import (
     BotPlanDocument,
+    PlannedBot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_change import (
     ChangeAction,
@@ -35,6 +36,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_change imp
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_differ import (
     PrunePolicy,
     diff_plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.wish_ledger import (
+    previous_record,
+    set_wish,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
@@ -115,11 +120,32 @@ class PlanApplier:
         diff, notes = self._compare(plan, prune)
         outcomes = tuple(self._carry_out(change) for change in diff.changes)
         record = self._record_of(plan, outcomes)
-        if record != self._previous_record():
+        if record != previous_record(self._store):
             self._store.write(record)
         result = ApplyResult(diff, outcomes, notes)
         logger.info("[plan] applied: %s", _counts(result))
         return result
+
+    def apply_entry(self, entry: PlannedBot) -> ChangeOutcome:
+        """One entry of a plan carried out on its own, as `apply` would, and its wish recorded.
+
+        Used beside a running host (`EPIC-045C`), where a plan arrives entry by entry. The entry is
+        compared with the stored bots as the whole-plan apply compares it (create, edit, leave or
+        blocked) and carried out through the same commands; the record gets this bot's row when it now
+        matches the entry, and no other row is touched.
+        """
+        diff, _ = self._compare(BotPlanDocument((entry,)), PrunePolicy.KEEP)
+        change = next(c for c in diff.changes if c.planned is not None)
+        outcome = self._carry_out(change)
+        if outcome.done and outcome.bot_id is not None:
+            set_wish(
+                self._store,
+                AppliedBot(
+                    outcome.bot_id, entry.name, entry.venue.value, entry.desired_state
+                ),
+            )
+        logger.info("[plan] entry applied: %s %s", change.action.value, outcome.done)
+        return outcome
 
     # --- internals ------------------------------------------------------------
 
@@ -145,12 +171,6 @@ class PlanApplier:
                 f"of the comparison: {names}"
             )
         return diff_plan(plan, listing.bots, recorded, prune), tuple(notes)
-
-    def _previous_record(self) -> AppliedPlan | None:
-        try:
-            return self._store.read()
-        except AppliedPlanUnreadableError:
-            return None
 
     def _carry_out(self, change: PlanChange) -> ChangeOutcome:
         entry = change.planned

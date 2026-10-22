@@ -59,6 +59,13 @@ class HostControlAction(StrEnum):
     ARM_STRATEGY = "arm-strategy"
     #: `EPIC-045G`: remove the venue's armed strategy, as the Bots tab's Disarm strategy does. Same subject.
     DISARM_STRATEGY = "disarm-strategy"
+    #: `EPIC-045C`: carry out one entry of a plan file, as `bot apply` does offline: create the bot (a DRAFT) if
+    #: none has the entry's name and venue, edit it if its parameters differ, leave it if they match, and record
+    #: the entry's desired state. It names no existing bot: `bot_id` is the fixed word `PLAN_SUBJECT`, the entry
+    #: travels in `entry` and its wish in `desired_state`.
+    APPLY_ENTRY = "apply-entry"
+    #: `EPIC-045C`: forget the wish the applied-plan record holds for this bot, because the plan no longer names it.
+    UNPLAN = "unplan"
 
 
 #: What an acknowledgement's `bot_id` says: it is about the account, not a bot.
@@ -67,6 +74,8 @@ LOSS_CAP_SUBJECT = "loss-cap"
 ADD_SUBJECT = "new-bot"
 #: What an arm's or a disarm's `bot_id` says: it is about a venue's armed strategy, not a bot.
 STRATEGY_SUBJECT = "strategy"
+#: What an apply-entry's `bot_id` says: the entry is identified by its name and venue, not by a bot id.
+PLAN_SUBJECT = "plan"
 
 
 class HostControlStatus(StrEnum):
@@ -97,7 +106,8 @@ class HostControlRequest:
     `entry` is the bot an add creates (`EPIC-045A`); `None` for every other action. `to_venue` is the venue
     a move goes to (`EPIC-045G`); `None` for every other action. `proposal` is the fingerprint of the resume
     proposal a confirm-resume lays (`EPIC-045G`); `None` for every other action. `strategy_venue` is the venue
-    whose armed strategy an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); `None` for every other action."""
+    whose armed strategy an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); `None` for every other action.
+    `desired_state` is the wish (`running` or `stopped`) an apply-entry records for its entry (`EPIC-045C`)."""
 
     action: HostControlAction
     bot_id: str
@@ -108,6 +118,7 @@ class HostControlRequest:
     to_venue: str | None = None
     proposal: str | None = None
     strategy_venue: str | None = None
+    desired_state: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

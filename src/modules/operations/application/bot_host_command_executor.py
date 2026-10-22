@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ApplyPlanEntryForHostCommand,
     ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
@@ -40,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     ResumeBotForHostCommand,
     StartBotForHostCommand,
     StopBotForOperatorCommand,
+    UnplanBotForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HostCommand,
@@ -64,6 +66,8 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     HostControlAction.ADD: "the bot was created and is DRAFT (see `bot list`)",
     HostControlAction.DELETE: "the bot was deleted (see `bot list`)",
     HostControlAction.MOVE: "the bot was moved to the venue and is still DRAFT (see `bot show`)",
+    HostControlAction.APPLY_ENTRY: "the plan entry was applied (see `bot list`)",
+    HostControlAction.UNPLAN: "the wish was removed from the applied plan",
     HostControlAction.ARM_STRATEGY: "the strategy was armed (see `bot list`)",
     HostControlAction.DISARM_STRATEGY: "the strategy was removed",
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: (
@@ -92,6 +96,10 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.ADD: lambda c: AddBotForHostCommand(_entry_of(c)),
     HostControlAction.DELETE: lambda c: DeleteBotForHostCommand(c.bot_id),
     HostControlAction.MOVE: lambda c: MoveBotForHostCommand(c.bot_id, _venue_of(c)),
+    HostControlAction.APPLY_ENTRY: lambda c: ApplyPlanEntryForHostCommand(
+        _entry_of(c), c.desired_state or ""
+    ),
+    HostControlAction.UNPLAN: lambda c: UnplanBotForHostCommand(c.bot_id),
     HostControlAction.ARM_STRATEGY: lambda c: ArmStrategyForHostCommand(
         _strategy_venue_of(c), c.confirmed_venue
     ),
@@ -113,6 +121,8 @@ _SAYS_ITS_OWN_WORDS = frozenset(
         HostControlAction.ADD,
         HostControlAction.DELETE,
         HostControlAction.MOVE,
+        HostControlAction.APPLY_ENTRY,
+        HostControlAction.UNPLAN,
         HostControlAction.ARM_STRATEGY,
         HostControlAction.DISARM_STRATEGY,
     }
