@@ -43,7 +43,14 @@ S = HostControlStatus
 
 def _run(host: RecordingHostControl, **values: object) -> CliOutcome | None:
     args = argparse.Namespace(
-        **{"bot_id": "44wa1x", "wait": 15.0, "json": True, "format": None} | values
+        **{
+            "bot_id": "44wa1x",
+            "proposal": "1a2b3c4d",
+            "wait": 15.0,
+            "json": True,
+            "format": None,
+        }
+        | values
     )
     dispatcher = BotQueryDispatcher(FakeBotStore(), HeldProbe(True))
     return ConfirmResumeBotVerb().run(
@@ -54,12 +61,15 @@ def _run(host: RecordingHostControl, **values: object) -> CliOutcome | None:
 def test_confirm_resume_sends_the_bot_and_the_typed_venue() -> None:
     host = RecordingHostControl()
 
-    _run(host, wait=3.0, confirm_venue="spot_mainnet")
+    _run(host, wait=3.0, confirm_venue="spot_mainnet", proposal="1a2b3c4d")
 
     assert host.sent == [
         (
             HostControlRequest(
-                HostControlAction.CONFIRM_RESUME, "44wa1x", "spot_mainnet"
+                HostControlAction.CONFIRM_RESUME,
+                "44wa1x",
+                "spot_mainnet",
+                proposal="1a2b3c4d",
             ),
             3.0,
         )
@@ -99,13 +109,35 @@ def test_the_shipped_declaration_parses_confirm_resume_and_the_typed_venue() -> 
     config.get.return_value = shipped
 
     args = build_parser(config).parse_args(
-        ["bot", "confirm-resume", "44wa1x", "--confirm-venue", "spot_mainnet"]
+        [
+            "bot",
+            "confirm-resume",
+            "44wa1x",
+            "--proposal",
+            "1a2b3c4d",
+            "--confirm-venue",
+            "spot_mainnet",
+        ]
     )
 
-    assert (args.action, args.bot_id, args.confirm_venue) == (
+    assert (args.action, args.bot_id, args.proposal, args.confirm_venue) == (
         "confirm-resume",
         "44wa1x",
+        "1a2b3c4d",
         "spot_mainnet",
     )
     declared = shipped["bot"]["subparsers"]["commands"]["confirm-resume"]
     assert declared["read_only"] is True
+
+
+@pytest.mark.parametrize("missing", [None, ""])
+def test_a_missing_proposal_is_a_usage_error_and_sends_nothing(
+    missing: str | None,
+) -> None:
+    host = RecordingHostControl()
+
+    outcome = _run(host, proposal=missing)
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert "--proposal <fingerprint>" in outcome.message
+    assert host.sent == []

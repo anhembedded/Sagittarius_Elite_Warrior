@@ -11,9 +11,6 @@ import pytest
 from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
 from PySide6.QtWidgets import QAbstractScrollArea, QStyleOptionViewItem, QTreeView
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
-    TOTAL_PNL_BASIS,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_grid import (
     COPY_SEPARATOR,
     PlanPropertyGrid,
@@ -59,12 +56,16 @@ def test_the_table_lists_four_groups_each_with_its_rows(qtbot) -> None:
     assert plan["holdings"] == ["inventory", "earlier_runs", "last_price"]
 
 
-def test_every_figure_the_dock_had_is_still_on_it_with_its_old_title(qtbot) -> None:
+def test_every_figure_the_dock_had_is_still_on_it_under_its_current_title(
+    qtbot,
+) -> None:
     grid = _grid(qtbot)
 
-    assert grid.shown_title("total_pnl") == f"Total PnL ({TOTAL_PNL_BASIS})"
+    assert (
+        grid.shown_title("total_pnl") == "Total PnL = realised + unrealised + funding"
+    )
     assert grid.shown_title("cycle_average") == "Average per cycle (net of fees)"
-    assert grid.shown_title("funding") == "Funding (earned +, paid −)"
+    assert grid.shown_title("funding") == "Funding (earned +, paid -)"
     # `BUG-261`: the figure may come from a design not saved yet, so its title no longer says "Saved".
     assert grid.shown_title("grid_step") == "Grid step, top to bottom"
 

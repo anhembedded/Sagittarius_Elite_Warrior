@@ -19,6 +19,9 @@ from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.exchange_pause_behind import (
+    exchange_pause_behind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
     OwnerBook,
 )
@@ -128,7 +131,10 @@ class RegisterOwnerBudgetCommandHandler(
             return _refused(OwnerBudgetRefusal.INVENTORY_BEYOND_LOOKBACK)
         except AccountHistoryUnavailableError as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
-            return _refused(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
+            return OwnerBudgetRegistrationResult(
+                OwnerBudgetRefusal.INVENTORY_UNAVAILABLE,
+                paused_for=exchange_pause_behind(exc),
+            )
         book = OwnerBook(registration, derivation.inventory, derivation.counted)
         for order in resting:
             book.adopt_open(order, resting_notional(order))

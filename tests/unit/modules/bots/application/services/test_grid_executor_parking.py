@@ -13,6 +13,7 @@ base.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
@@ -26,9 +27,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+    GridRuntime,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
@@ -121,3 +126,40 @@ def test_a_faulted_bot_still_runs_its_take_profit() -> None:
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.TAKE_PROFIT
+
+
+def _the_exchange_pauses() -> ExchangeRateLimitedError:
+    return ExchangeRateLimitedError(
+        timedelta(seconds=30), banned=False, raw_message="429"
+    )
+
+
+def test_a_pause_that_stops_the_cancel_of_a_held_ladder_says_the_orders_may_still_rest() -> (
+    None
+):
+    """`BUG-257`: with orders held the note stays, in the pause's words, and the bot is HALTED."""
+    world = _running()
+    oid = world.open_ids_by_price()[Decimal(140)]
+    world.book.open.pop(oid)
+    # The pause meets the read that lists the bot's orders, which is not caught per order, so it
+    # leaves `park()` and reaches `GridTaskGuard._pause_met_while_parking`.
+    world.activity.open_orders_error = _the_exchange_pauses()
+
+    world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
+
+    assert world.state() is S.HALTED
+    detail = world.runtime().reason_detail
+    assert "may still rest" in detail
+    assert "pause of 30 s" in detail
+
+
+def test_a_pause_that_meets_a_bot_holding_no_order_leaves_no_false_note() -> None:
+    world = grid_world(state=S.RUNNING, runtime=GridRuntime(()))
+    world.activity.open_orders_error = _the_exchange_pauses()
+
+    world.executor.facts.halt_user_stream_down(timedelta(seconds=300))
+
+    # The halt is transient, so the bot waits to recover; a cancel stopped by the pause with
+    # nothing held does not turn that wait into a plain HALTED (the design, `06-runtime.md`).
+    assert world.state() is S.AWAITING_RECOVERY
+    assert "may still rest" not in world.runtime().reason_detail

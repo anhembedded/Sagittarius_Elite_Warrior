@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_hold import (
     ILossCapHold,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.resume_proposal_summary import (
+    ResumeProposalSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RESUME_PROPOSES_STATES,
@@ -123,14 +126,17 @@ class BotRunner(IBotRunner):
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self._executor(bot_id).stop(base)
 
-    def confirm_resume(self, bot_id: str) -> None:
-        self._executor(bot_id).confirm_resume()
+    def confirm_resume(self, bot_id: str, expected: str | None = None) -> None:
+        self._executor(bot_id).confirm_resume(expected)
 
     def withdraw_resume_proposal(self, bot_id: str) -> None:
         self._executor(bot_id).withdraw_resume_proposal()
 
     def has_resume_proposal(self, bot_id: str) -> bool:
         return self._executor(bot_id).has_resume_proposal()
+
+    def resume_proposal(self, bot_id: str) -> ResumeProposalSummary | None:
+        return self._executor(bot_id).resume_proposal()
 
     def stop_coverage(self, bot_id: str) -> StopCoverageReading:
         return self._executor(bot_id).stop_coverage()

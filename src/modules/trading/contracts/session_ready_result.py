@@ -4,8 +4,12 @@ venue's order session is open, or the named reason it is not."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
@@ -71,6 +75,13 @@ class SessionReadyResult:
     #: `BUG-250` — for `UNEXPECTED_POSITIONS`, the positions the opening would not excuse and why;
     #: empty on a success, and on a refusal decided before the account was read.
     unexplained_positions: tuple[UnexplainedPosition, ...] = ()
+    #: `BUG-262` - for `CONNECTION_NOT_READY`, what the connection check said failed (`None` when it
+    #: named nothing), so a refusal can say why instead of sending the owner to the API key.
+    connection_failure: ConnectionFailureKind | None = None
+    #: `BUG-262` - for a `RATE_LIMITED` failure, the pause the exchange named and whether it is a ban
+    #: (HTTP 418, minutes to days), so the refusal does not promise a retry in seconds.
+    connection_retry_after: timedelta | None = None
+    connection_banned: bool = False
 
     @property
     def account_was_read(self) -> bool:

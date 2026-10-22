@@ -86,11 +86,14 @@ class ConfirmBotResumeForHostCommand:
     """Lay the ladder this bot's last resume proposed (`EPIC-045G`), as the Bots tab's Confirm resume does.
 
     `confirmed_venue` is what the operator typed: the confirmation places orders, so a mainnet bot
-    needs its venue typed here as well as at the resume (decision O8).
+    needs its venue typed here as well as at the resume (decision O8). `proposal` is the fingerprint
+    the resume printed (owner decision O3): the confirmation lays the ladder that was read and no other,
+    and a command with none is refused.
     """
 
     bot_id: str
     confirmed_venue: str | None = None
+    proposal: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
