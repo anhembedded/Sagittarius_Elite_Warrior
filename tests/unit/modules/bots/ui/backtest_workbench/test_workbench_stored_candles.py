@@ -226,3 +226,33 @@ def test_a_period_within_the_limit_does_not_say_it(stored: WorkbenchWorld) -> No
     _follow_and_read(stored)
 
     assert "coarse" not in stored.workbench.view.candles.text()
+
+
+def test_after_a_refused_run_the_sync_follows_the_window_now_on_screen(
+    qtbot: Any,
+) -> None:
+    """Review of `BOT-233`: the refusal of a 15m run must not decide what Sync fetches once the person
+    has switched to 1h, nor run the old query again afterwards."""
+    world = build_workbench(stored=False, storing_sync=True)
+    qtbot.addWidget(world.workbench.page)
+    view = world.workbench.view
+    _follow_and_read(world)
+    qtbot.mouseClick(view.run_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+    assert view.sync_button.isVisibleTo(
+        view
+    )  # a 15m run was refused for missing candles
+    action = view.interval.timeframes.action_for("1h")
+    assert action is not None
+    action.trigger()
+    world.pool.run_all()
+
+    qtbot.mouseClick(view.sync_button, Qt.MouseButton.LeftButton)
+    world.pool.run_all()
+
+    assert {r.interval for r in world.sync.requests} == {
+        TimeFrame.ONE_HOUR,
+        TimeFrame.ONE_SECOND,
+    }
+    assert len(world.dispatcher.queries) == 1  # no second run was started
+    world.workbench.shutdown()
