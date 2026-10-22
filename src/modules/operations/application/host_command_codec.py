@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "loss-cap-ack"
+  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "arm-strategy" | "disarm-strategy" | "loss-cap-ack"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
@@ -28,6 +28,11 @@ the audit can say which command was refused.
                   hex characters, the digest `bot resume` printed for the proposal a person read.
                   Refused for any other action. Absent is a sound document: the host refuses the
                   confirmation in words.
+  strategy_venue  an arm-strategy's or a disarm-strategy's venue (`EPIC-045G`): a venue word of 1 to
+                  32 characters of [a-z0-9_]. Required for those two, refused for any other action,
+                  and `bot_id` is then the fixed word `strategy`. An arm may carry `confirmed_venue`
+                  (a mainnet arm needs it: the strategy then places orders on its own with real
+                  money); a disarm asks none, it sells and cancels nothing.
   entry           an add's bot (`EPIC-045A`): an object of exactly name, kind, venue, symbol and
                   params (an object of 0 to `MAX_SETTINGS_PER_EDIT` text values), each of the shape
                   `NewBotEntry` states. Required for "add", refused for any other action. An add
@@ -57,6 +62,10 @@ the audit can say which command was refused.
   `proposal` is a new key on the existing `confirm-resume` word: an older host reads it as *malformed*
   ("it has an unknown key (proposal)"), audits it and lays nothing.
 
+@par Older hosts (`EPIC-045G`, arm-strategy and disarm-strategy)
+  Both are new `action` words and `strategy_venue` is a new key: an older host reads a document with
+  it as *malformed* ("it has an unknown key (strategy_venue)"), audits it and arms or disarms nothing.
+
 @par Older hosts (`EPIC-045G`, confirm-resume)
   `confirm-resume` is a new `action` word and adds no key: an older host reads it as *malformed*
   ("action is not one of ..."), audits it, removes the file and executes nothing, so the operator
@@ -81,14 +90,17 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
-    ADD_SUBJECT,
-    LOSS_CAP_SUBJECT,
     HostControlAction,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.new_bot_entry import NewBotEntry
 from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
-    MAX_SETTINGS_PER_EDIT,
     ParameterSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_rules import (
+    VENUE_SHAPE,
+    action_problem,
+    built_entry_of,
+    setting_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HOST_COMMAND_SCHEMA,
@@ -97,8 +109,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command imp
 
 _ID_SHAPE = re.compile(r"^[0-9a-f]{32}$")
 _BOT_SHAPE = re.compile(r"^[a-z0-9_-]{1,64}$")
-_VENUE_SHAPE = re.compile(r"^[a-z0-9_]{1,32}$")
-_PROPOSAL_SHAPE = re.compile(r"^[0-9a-f]{4,16}$")
 _KEYS = frozenset(
     {
         "schema",
@@ -112,9 +122,9 @@ _KEYS = frozenset(
         "entry",
         "to_venue",
         "proposal",
+        "strategy_venue",
     }
 )
-_ENTRY_KEYS = frozenset({"name", "kind", "venue", "symbol", "params"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +152,8 @@ def encode_command(command: HostCommand) -> str:
         document["to_venue"] = command.to_venue
     if command.proposal is not None:
         document["proposal"] = command.proposal
+    if command.strategy_venue is not None:
+        document["strategy_venue"] = command.strategy_venue
     if command.entry is not None:
         document["entry"] = {
             "name": command.entry.name,
@@ -175,6 +187,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         entry=_entry_of(document.get("entry")),
         to_venue=document.get("to_venue"),
         proposal=document.get("proposal"),
+        strategy_venue=document.get("strategy_venue"),
     )
 
 
@@ -201,7 +214,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
         return "bot_id is not the shape of a bot id"
     venue = document.get("confirmed_venue")
     if venue is not None and (
-        not isinstance(venue, str) or not _VENUE_SHAPE.fullmatch(venue)
+        not isinstance(venue, str) or not VENUE_SHAPE.fullmatch(venue)
     ):
         return "confirmed_venue is neither null nor a venue word"
     close = document.get("close_position", False)
@@ -209,14 +222,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
         return "close_position is not true or false"
     if close and action != "stop":
         return "close_position belongs to a stop"
-    problem = (
-        _edit_problem(document, action, venue)
-        or _add_problem(document, action, venue, bot_id)
-        or _delete_problem(action, venue)
-        or _move_problem(document, action, venue)
-        or _proposal_problem(document, action)
-        or _acknowledgement_problem(document, action, venue, bot_id)
-    )
+    problem = action_problem(document, action, venue, bot_id)
     if problem is not None:
         return problem
     return _timestamp_problem(document.get("issued_at"))
@@ -232,135 +238,13 @@ def _timestamp_problem(value: object) -> str | None:
     return None if moment.tzinfo is not None else "issued_at has no time zone"
 
 
-def _edit_problem(
-    document: dict[str, object], action: str, venue: object
-) -> str | None:
-    """`set` is an edit's and only an edit's, and an edit places no order, so it names no venue."""
-    if "set" not in document:
-        return "an edit needs set" if action == "edit" else None
-    if action != "edit":
-        return "set belongs to an edit"
-    if venue is not None:
-        return "an edit asks no venue: confirmed_venue must be null"
-    settings = document["set"]
-    if (
-        not isinstance(settings, dict)
-        or not 1 <= len(settings) <= MAX_SETTINGS_PER_EDIT
-    ):
-        return f"set is not an object of 1 to {MAX_SETTINGS_PER_EDIT} settings"
-    try:
-        for key, value in settings.items():
-            _setting(key, value)
-    except (TypeError, ValueError) as invalid:
-        return f"set is not sound: {invalid}"
-    return None
-
-
-def _add_problem(
-    document: dict[str, object], action: str, venue: object, bot_id: str
-) -> str | None:
-    """`entry` is an add's and only an add's; the bot it names does not exist yet and an add places no order."""
-    named = bot_id == ADD_SUBJECT
-    if action != HostControlAction.ADD.value:
-        if "entry" in document:
-            return "entry belongs to an add"
-        return f"{ADD_SUBJECT} is not a bot id" if named else None
-    if not named:
-        return f"an add names no bot: bot_id is {ADD_SUBJECT}"
-    if venue is not None:
-        return "an add asks no venue: confirmed_venue must be null"
-    if "entry" not in document:
-        return "an add needs entry"
-    return _entry_problem(document["entry"])
-
-
-def _entry_problem(entry: object) -> str | None:
-    if not isinstance(entry, dict) or set(entry) != _ENTRY_KEYS:
-        return f"entry is not an object of exactly {', '.join(sorted(_ENTRY_KEYS))}"
-    try:
-        _built_entry(entry)
-    except (TypeError, ValueError) as invalid:
-        return f"entry is not sound: {invalid}"
-    return None
-
-
-def _delete_problem(action: str, venue: object) -> str | None:
-    """A delete forgets a bot at rest, sends nothing to the exchange and so asks no venue."""
-    if action == HostControlAction.DELETE.value and venue is not None:
-        return "a delete asks no venue: confirmed_venue must be null"
-    return None
-
-
-def _move_problem(
-    document: dict[str, object], action: str, venue: object
-) -> str | None:
-    """`to_venue` is a move's and only a move's; a move places no order, so it asks no venue."""
-    if action != HostControlAction.MOVE.value:
-        return "to_venue belongs to a move" if "to_venue" in document else None
-    if venue is not None:
-        return "a move asks no venue: confirmed_venue must be null"
-    target = document.get("to_venue")
-    if not isinstance(target, str) or not _VENUE_SHAPE.fullmatch(target):
-        return "a move needs to_venue, a venue word"
-    return None
-
-
-def _proposal_problem(document: dict[str, object], action: str) -> str | None:
-    """`proposal` is a confirm-resume's and only a confirm-resume's: the fingerprint of the proposal it lays.
-
-    It may be absent (the host then refuses the confirmation in words, with the way to get one); when
-    present it is a short hex digest, never text.
-    """
-    if "proposal" not in document:
-        return None
-    if action != HostControlAction.CONFIRM_RESUME.value:
-        return "proposal belongs to a confirm-resume"
-    found = document["proposal"]
-    if not isinstance(found, str) or not _PROPOSAL_SHAPE.fullmatch(found):
-        return "proposal is not a short hex fingerprint"
-    return None
-
-
-def _acknowledgement_problem(
-    document: dict[str, object], action: str, venue: object, bot_id: str
-) -> str | None:
-    """An acknowledgement is about the account and carries nothing a bot's command carries."""
-    named = bot_id == LOSS_CAP_SUBJECT
-    if action != HostControlAction.ACKNOWLEDGE_LOSS_CAP.value:
-        return "loss-cap is not a bot id" if named else None
-    if not named:
-        return f"a loss-cap-ack names no bot: bot_id is {LOSS_CAP_SUBJECT}"
-    if venue is not None or "close_position" in document or "set" in document:
-        return "a loss-cap-ack carries no venue, close_position or set"
-    return None
-
-
-def _setting(key: object, value: object) -> ParameterSetting:
-    if not isinstance(key, str) or not isinstance(value, str):
-        raise TypeError("a setting is text and text")
-    return ParameterSetting(key, value)
-
-
 def _settings_of(raw: object) -> tuple[ParameterSetting, ...]:
     """The settings of a document `_problem_of` found sound (absent for every action but an edit)."""
     if not isinstance(raw, dict):
         return ()
-    return tuple(_setting(key, value) for key, value in raw.items())
-
-
-def _built_entry(entry: dict[str, object]) -> NewBotEntry:
-    fields = [entry[name] for name in ("name", "kind", "venue", "symbol")]
-    if not all(isinstance(field, str) for field in fields):
-        raise TypeError("a field of the entry is not text")
-    params = entry["params"]
-    if not isinstance(params, dict):
-        raise TypeError("params is not an object")
-    name, kind, venue, symbol = (str(field) for field in fields)
-    return NewBotEntry(
-        name, kind, venue, symbol, tuple(_setting(k, v) for k, v in params.items())
-    )
+    return tuple(setting_of(key, value) for key, value in raw.items())
 
 
 def _entry_of(raw: object) -> NewBotEntry | None:
     """The entry of a document `_problem_of` found sound (absent for every action but an add)."""
-    return _built_entry(raw) if isinstance(raw, dict) else None
+    return built_entry_of(raw) if isinstance(raw, dict) else None

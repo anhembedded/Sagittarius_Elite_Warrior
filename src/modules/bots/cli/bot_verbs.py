@@ -35,8 +35,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     AcknowledgeLossCapVerb,
     AddBotVerb,
+    ArmStrategyVerb,
     ConfirmResumeBotVerb,
     DeleteBotVerb,
+    DisarmStrategyVerb,
     EditBotVerb,
     MoveBotVerb,
     PauseBotVerb,
@@ -127,5 +129,7 @@ BOT_VERBS: tuple[IBotVerb, ...] = (
     AddBotVerb(),
     DeleteBotVerb(),
     MoveBotVerb(),
+    ArmStrategyVerb(),
+    DisarmStrategyVerb(),
     AcknowledgeLossCapVerb(),
 )

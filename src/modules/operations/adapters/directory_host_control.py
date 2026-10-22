@@ -112,6 +112,7 @@ class DirectoryHostControl(IHostControl):
             request.entry,
             request.to_venue,
             request.proposal,
+            request.strategy_venue,
         )
         written = self._write(command)
         if written is not None:

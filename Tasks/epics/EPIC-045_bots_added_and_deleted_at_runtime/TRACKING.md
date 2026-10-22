@@ -39,7 +39,7 @@ gantt
 | EPIC-045E | Runbook | `claude/epic-045-runtime-bot-add-delete` (#692) | 🟢 | ✅ Merged | 2026-10-21 |
 | EPIC-045F | `--start-planned` skips an unconfirmed mainnet bot | `claude/epic-045f-start-planned-skips-unconfirmed` (#694) | 🟡 | ✅ Merged | 2026-10-21 |
 | EPIC-045D | Parity guard | `claude/epic-045d-tab-host-parity` (#697) | 🟢 | ✅ Merged on merge | 2026-10-22 |
-| EPIC-045G | The four tab actions the host cannot do yet | not started | 🔴 | 🔵 Planned | 2026-10-26 |
+| EPIC-045G | The four tab actions the host cannot do yet | `claude/epic-045g1-move-a-draft-to-another-venue` (#705), `claude/epic-045g2-confirm-resume` (#708), `claude/epic-045g3-arm-disarm` | 🔴 | ✅ Merged on merge | 2026-10-21 |
 | EPIC-045C | `bot apply` beside a host | not started | 🔴 | 🔵 Planned | 2026-10-28 |
 
 ---

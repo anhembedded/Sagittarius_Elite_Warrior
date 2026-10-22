@@ -30,8 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
+    DisarmStrategyForHostCommand,
     EditBotForHostCommand,
     MoveBotForHostCommand,
     PauseBotForHostCommand,
@@ -62,6 +64,8 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     HostControlAction.ADD: "the bot was created and is DRAFT (see `bot list`)",
     HostControlAction.DELETE: "the bot was deleted (see `bot list`)",
     HostControlAction.MOVE: "the bot was moved to the venue and is still DRAFT (see `bot show`)",
+    HostControlAction.ARM_STRATEGY: "the strategy was armed (see `bot list`)",
+    HostControlAction.DISARM_STRATEGY: "the strategy was removed",
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: (
         "the loss cap is acknowledged: bots may start again, and the day's loss keeps counting "
         "from 00:00 UTC (it trips again at the figure unless you raised it)"
@@ -88,6 +92,12 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.ADD: lambda c: AddBotForHostCommand(_entry_of(c)),
     HostControlAction.DELETE: lambda c: DeleteBotForHostCommand(c.bot_id),
     HostControlAction.MOVE: lambda c: MoveBotForHostCommand(c.bot_id, _venue_of(c)),
+    HostControlAction.ARM_STRATEGY: lambda c: ArmStrategyForHostCommand(
+        _strategy_venue_of(c), c.confirmed_venue
+    ),
+    HostControlAction.DISARM_STRATEGY: lambda c: DisarmStrategyForHostCommand(
+        _strategy_venue_of(c)
+    ),
     HostControlAction.ACKNOWLEDGE_LOSS_CAP: lambda _c: (
         AcknowledgeLossCapForHostCommand()
     ),
@@ -103,6 +113,8 @@ _SAYS_ITS_OWN_WORDS = frozenset(
         HostControlAction.ADD,
         HostControlAction.DELETE,
         HostControlAction.MOVE,
+        HostControlAction.ARM_STRATEGY,
+        HostControlAction.DISARM_STRATEGY,
     }
 )
 
@@ -112,6 +124,13 @@ def _venue_of(command: HostCommand) -> str:
     if command.to_venue is None:
         raise ValueError("a move carries to_venue")
     return command.to_venue
+
+
+def _strategy_venue_of(command: HostCommand) -> str:
+    """The codec refuses an arm or a disarm with no `strategy_venue`; this keeps the type honest, not a second check."""
+    if command.strategy_venue is None:
+        raise ValueError("an arm-strategy and a disarm-strategy carry strategy_venue")
+    return command.strategy_venue
 
 
 def _entry_of(command: HostCommand) -> NewBotEntry:

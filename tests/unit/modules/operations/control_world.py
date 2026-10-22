@@ -61,6 +61,7 @@ def command(
     entry: NewBotEntry | None = None,
     to_venue: str | None = None,
     proposal: str | None = None,
+    strategy_venue: str | None = None,
 ) -> HostCommand:
     return HostCommand(
         command_id,
@@ -73,6 +74,7 @@ def command(
         entry,
         to_venue,
         proposal,
+        strategy_venue,
     )
 
 

@@ -58,13 +58,9 @@ MENU: dict[str, HostVerb | Excluded | ReadOnly] = {
         "It reads bots and writes a file, changing none; the host's equivalent is the read-only "
         "`bot export`, which works on the read-only copy beside a running host."
     ),
-    "bots.bots.arm_strategy": Excluded(
-        "OPEN GAP. It arms a strategy on a venue through the trading module's armed-strategy "
-        "controls (`IVenueStrategyControls`), not a bot: there is no bot id and no host verb, and "
-        "the one-round headless command is `trade-once`, which arms nothing."
-    ),
-    "bots.bots.disarm_strategy": Excluded(
-        "OPEN GAP. The counterpart of Arm strategy; same controls, same missing verb."
+    "bots.bots.arm_strategy": HostVerb("arm-strategy", HostControlAction.ARM_STRATEGY),
+    "bots.bots.disarm_strategy": HostVerb(
+        "disarm-strategy", HostControlAction.DISARM_STRATEGY
     ),
     "bots.bots.refresh_fills": ReadOnly("Reads the selected bot's fills again."),
     "bots.bots.fit_levels": ReadOnly("Fits the chart to the ladder; a view."),

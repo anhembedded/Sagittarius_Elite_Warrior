@@ -46,6 +46,8 @@ class HostCommand:
     to_venue: str | None = None
     #: The fingerprint of the resume proposal a confirm-resume lays (`EPIC-045G`); absent from older files and from every other action.
     proposal: str | None = None
+    #: The venue an arm-strategy or a disarm-strategy acts on (`EPIC-045G`); absent from older files and from every other action.
+    strategy_venue: str | None = None
 
 
 class ControlVerdict(StrEnum):
