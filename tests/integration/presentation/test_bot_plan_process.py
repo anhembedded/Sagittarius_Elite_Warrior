@@ -148,15 +148,18 @@ def test_export_then_a_dry_run_is_no_changes_as_processes(
     assert FAKE_SECRET not in out_file.read_text() + dry[1] + dry[2]
 
 
-def test_beside_a_running_host_apply_exits_three_but_a_dry_run_and_an_export_work(
+def test_beside_a_running_host_apply_goes_through_the_host_and_a_dry_run_and_an_export_work(
     started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
 ) -> None:
+    """`EPIC-045C`: a second process no longer exits 3; the real host creates the bot and records the wish."""
     data_root = tmp_path / "data"
     plan = _plan(tmp_path / "plan.json", _bot())
     host = start_child(started, data_root, exchange, "--skip-preflight")
     host.wait_for_stdout("[host] BOOTING -> SERVING")
     try:
-        applied = _bot_command(started, data_root, exchange, "apply", str(plan))
+        applied = _bot_command(
+            started, data_root, exchange, "apply", str(plan), "--json"
+        )
         dry = _bot_command(
             started, data_root, exchange, "apply", str(plan), "--dry-run", "--json"
         )
@@ -173,14 +176,16 @@ def test_beside_a_running_host_apply_exits_three_but_a_dry_run_and_an_export_wor
         host.send(signal.SIGTERM)
         host.finish()
 
-    assert applied[0] == int(ExitCode.LOCK_HELD), applied[1] + applied[2]
-    assert "writable copy" in applied[2] or "writable copy" in applied[1]
+    assert applied[0] == int(ExitCode.SUCCESS), applied[1] + applied[2]
+    changes = _json(applied[1])["changes"]
+    assert [(c["action"], c["done"]) for c in changes] == [("create", True)]
     assert dry[0] == int(ExitCode.SUCCESS), dry[1] + dry[2]
-    assert _json(dry[1])["has_changes"] is True
+    assert _json(dry[1])["has_changes"] is False, "the host's apply is idempotent"
     assert exported[0] == int(ExitCode.SUCCESS), exported[1] + exported[2]
-    assert not (data_root / "state" / "bot_plan.json").exists(), (
-        "the refused apply wrote nothing"
-    )
+    exported_plan = json.loads((tmp_path / "e.json").read_text())
+    assert [b["name"] for b in exported_plan["bots"]] == ["BTC grid"]
+    record = json.loads((data_root / "state" / "bot_plan.json").read_text())
+    assert "running" in json.dumps(record), "the wish was recorded by the host"
 
 
 def test_run_start_planned_with_no_applied_plan_exits_five_and_boots_nothing(
