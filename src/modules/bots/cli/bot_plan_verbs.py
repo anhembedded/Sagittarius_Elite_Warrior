@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     BotList,
     ListBotsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    EXIT_OF_HOST_STATUS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_host_apply import (
     HostPlanApplier,
 )
@@ -115,7 +118,9 @@ class ApplyBotPlanVerb(IBotVerb):
         if run.result is None:
             host = run.stopped_by
             return CliOutcome(
-                ExitCode.LOCK_HELD,
+                EXIT_OF_HOST_STATUS.get(host.status, ExitCode.LOCK_HELD)
+                if host
+                else ExitCode.LOCK_HELD,
                 f"{world.instance.reason} `bot apply` changes bots and the running copy did not "
                 f"take the plan: {host.message if host else 'no answer'}. Nothing was changed. "
                 "`bot apply --dry-run` works here.",
@@ -126,11 +131,12 @@ class ApplyBotPlanVerb(IBotVerb):
         )
         if printed is not None:
             return printed
-        if run.unsent:
+        if run.unsent or run.unknown:
             return CliOutcome(
                 ExitCode.HOST_UNHEALTHY,
-                f"{run.unsent} change(s) were not sent because the host stopped answering; "
-                "the earlier ones were applied and are listed above. Run the same plan again.",
+                f"{run.unsent} change(s) were not sent and {run.unknown} were sent with the outcome unknown "
+                "because the host stopped answering; the earlier ones were applied and all are listed above. "
+                "Read `bot list`, then run the same plan again.",
             )
         return _needs_attention(run.result.diff) or _refused_by_host(run.result)
 

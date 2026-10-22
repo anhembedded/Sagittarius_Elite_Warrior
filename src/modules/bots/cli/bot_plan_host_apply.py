@@ -6,14 +6,16 @@ to carry out each change, one command file per change, waiting for the host's an
 
   · every plan entry that the comparison does not block becomes an `apply-entry` (the host creates a DRAFT, edits, or
     leaves, with the offline apply's own `PlanApplier`, and records the entry's wish);
-  · a recorded wish of a bot the plan does not name becomes an `unplan`, so the record ends as an offline apply would
-    leave it (C6);
+  · a recorded wish that will not get a fresh row from this run becomes an `unplan`: a bot the plan does not name
+    (whether or not it is then pruned) and a named entry the lifecycle table blocks, so the record ends as an offline
+    apply would leave it (C6), and a bot is never started on a wish whose parameters were not applied;
   · a stored bot the plan does not name, under `--prune` and at rest, becomes a `delete`, which the host judges again
     (the lifecycle table and its exposure refusal, C8).
 
 The plan is checked whole before the first command is sent, so a plan that cannot be carried changes nothing. A refusal
 of one entry never stops the others; a host that stops answering stops the run, and every change not sent is listed as
-not sent, never as done (C4). Applying starts no bot and places no order (C5).
+not sent, never as done (C4). A host that took a command file and recorded no outcome may still have run it, so that
+change is reported as sent with the outcome unknown, never as not sent or unchanged. Applying starts no bot and places no order (C5).
 """
 
 from __future__ import annotations
@@ -56,14 +58,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store i
     IAppliedPlanStore,
 )
 
-#: The statuses that say the host is not there to answer (as opposed to answering "no").
-_UNREACHABLE = frozenset(
-    {
-        HostControlStatus.NOT_RUNNING,
-        HostControlStatus.NO_CONTROL,
-        HostControlStatus.NO_ANSWER,
-    }
+#: The statuses that say nothing was written for the host: there is no host, or it takes no commands.
+_NOT_DELIVERED = frozenset(
+    {HostControlStatus.NOT_RUNNING, HostControlStatus.NO_CONTROL}
 )
+#: Taken by the host, no outcome recorded in time: the command may still run.
+_UNKNOWN = HostControlStatus.NO_ANSWER
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +76,8 @@ class HostApplyRun:
     #: The reply that ended the run early, or that showed there was no host to talk to.
     stopped_by: HostControlReply | None = None
     unsent: int = 0
+    #: Changes whose command was taken by the host without an outcome in time: they may have run.
+    unknown: int = 0
 
     @property
     def unreachable(self) -> bool:
@@ -102,30 +104,39 @@ class HostPlanApplier:
         outcomes: dict[int, ChangeOutcome] = {}
         notes = list(preview.notes)
         stopped: HostControlReply | None = None
+        wishes_unsent = 0
         first = True
         for change, request in _requests_of(diff, entries, wishes):
             if request is None:
                 outcomes[id(change)] = _local_outcome(change)
                 continue
-            if request.action is HostControlAction.UNPLAN:
-                # The change is reported as the comparison said (kept, or not pruned); the row is a side effect.
-                outcomes[id(change)] = _local_outcome(change)
+            if (
+                request.action is HostControlAction.UNPLAN
+                and change.action is not ChangeAction.DELETE
+            ):
+                # The change is reported as the comparison said (kept, blocked, not pruned); the row is a side effect.
+                outcomes.setdefault(id(change), _local_outcome(change))
             if stopped is not None:
+                if request.action is HostControlAction.UNPLAN:
+                    wishes_unsent += 1
+                    notes.append(_wish_not_removed(request, "not sent"))
                 continue
             reply = self._host.send(request, wait_s)
-            if reply.status in _UNREACHABLE:
-                if first:
-                    return HostApplyRun(None, stopped_by=reply)
-                stopped = reply
-                continue
+            if reply.status in _NOT_DELIVERED and first:
+                return HostApplyRun(None, stopped_by=reply)
             first = False
+            if reply.status in _NOT_DELIVERED or reply.status is _UNKNOWN:
+                stopped = reply
             self._record(change, request, reply, outcomes, notes)
         everything = tuple(
             outcomes.get(id(c)) or _unsent(c, stopped) for c in diff.changes
         )
-        unsent = sum(1 for o in everything if o.message.startswith("not sent"))
+        unsent = wishes_unsent + sum(
+            1 for o in everything if o.message.startswith("not sent")
+        )
+        unknown = sum(1 for o in everything if o.message.startswith("sent, "))
         result = ApplyResult(diff, everything, tuple(notes))
-        return HostApplyRun(result, stopped_by=stopped, unsent=unsent)
+        return HostApplyRun(result, stopped_by=stopped, unsent=unsent, unknown=unknown)
 
     def _recorded_wishes(self) -> frozenset[str]:
         try:
@@ -144,17 +155,33 @@ class HostPlanApplier:
     ) -> None:
         if request.action is HostControlAction.UNPLAN:
             if reply.status is not HostControlStatus.DONE:
-                notes.append(
-                    f"the wish of bot {request.bot_id} could not be removed from the applied plan: {reply.message}"
-                )
+                notes.append(_wish_not_removed(request, reply.message))
+                if change.action is not ChangeAction.DELETE:
+                    outcomes[id(change)] = ChangeOutcome(
+                        change,
+                        False,
+                        f"its wish could not be removed from the applied plan: {reply.message}",
+                        change.bot_id,
+                    )
             return
-        done = reply.status is HostControlStatus.DONE
-        message = (
-            reply.message if done else f"the host did not carry it out: {reply.message}"
-        )
-        outcomes[id(change)] = ChangeOutcome(
-            change, done, message, reply.bot_id or change.bot_id
-        )
+        outcomes[id(change)] = _outcome_of_reply(change, reply)
+
+
+def _outcome_of_reply(change: PlanChange, reply: HostControlReply) -> ChangeOutcome:
+    if reply.status is HostControlStatus.DONE:
+        return ChangeOutcome(change, True, reply.message, reply.bot_id or change.bot_id)
+    if reply.status is _UNKNOWN:
+        words = f"sent, outcome unknown: {reply.message} Read `bot list` before applying again"
+    else:
+        words = f"the host did not carry it out: {reply.message}"
+    return ChangeOutcome(change, False, words, change.bot_id)
+
+
+def _wish_not_removed(request: HostControlRequest, why: str) -> str:
+    return (
+        f"the wish of bot {request.bot_id} was not removed from the applied plan ({why}): "
+        "`run --start-planned` would still act on it"
+    )
 
 
 def _entries_of(diff: PlanDiff) -> dict[int, NewBotEntry] | tuple[str, ...]:
@@ -184,27 +211,30 @@ def _entry_of(planned: PlannedBot) -> NewBotEntry:
 def _requests_of(
     diff: PlanDiff, entries: dict[int, NewBotEntry], wishes: frozenset[str]
 ) -> list[tuple[PlanChange, HostControlRequest | None]]:
-    """Plan entries first, then the wishes of unnamed bots, then the deletes: a delete is the last thing done."""
+    """Entries first, then every wish that gets no fresh row, then the deletes: a delete is the last thing done.
+
+    A wish gets no fresh row when the plan does not name its bot (pruned or not) or names it in an entry the
+    lifecycle table blocks; an offline apply writes a row only for an entry it carried out. The `unplan` goes
+    before the `delete`, so a delete the host refuses (exposure left) still leaves no wish behind.
+    """
     named: list[tuple[PlanChange, HostControlRequest | None]] = []
     forgets: list[tuple[PlanChange, HostControlRequest | None]] = []
     deletes: list[tuple[PlanChange, HostControlRequest | None]] = []
     for change in diff.changes:
-        if change.planned is not None:
+        named_entry = change.planned is not None
+        if named_entry:
             named.append((change, _apply_request(change, entries)))
-        elif change.action is ChangeAction.DELETE and change.bot_id:
+        elif change.action is not ChangeAction.DELETE:
+            named.append((change, None))
+        gets_no_row = change.action is ChangeAction.BLOCKED or not named_entry
+        if gets_no_row and change.bot_id and change.bot_id in wishes:
+            forgets.append(
+                (change, HostControlRequest(HostControlAction.UNPLAN, change.bot_id))
+            )
+        if change.action is ChangeAction.DELETE and change.bot_id and not named_entry:
             deletes.append(
                 (change, HostControlRequest(HostControlAction.DELETE, change.bot_id))
             )
-        elif change.bot_id and change.bot_id in wishes:
-            forgets.append(
-                (
-                    change,
-                    HostControlRequest(HostControlAction.UNPLAN, change.bot_id),
-                )
-            )
-            # The change itself (kept, or blocked from pruning) is reported as the comparison said.
-        else:
-            named.append((change, None))
     return named + forgets + deletes
 
 

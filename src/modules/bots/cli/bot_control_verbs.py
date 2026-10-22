@@ -59,7 +59,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_reports import (
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.i_bot_verb import IBotVerb
 
-_EXIT_OF: dict[HostControlStatus, ExitCode] = {
+EXIT_OF_HOST_STATUS: dict[HostControlStatus, ExitCode] = {
     HostControlStatus.REFUSED: ExitCode.USAGE,
     HostControlStatus.REJECTED: ExitCode.ERROR,
     HostControlStatus.NO_CONTROL: ExitCode.CONFIGURATION,
@@ -97,7 +97,7 @@ class _ControlVerb(IBotVerb):
 
 def _failure(request: HostControlRequest, reply: HostControlReply) -> CliOutcome:
     return CliOutcome(
-        _EXIT_OF[reply.status],
+        EXIT_OF_HOST_STATUS[reply.status],
         f"bot {request.action.value} {request.bot_id}: {reply.message}",
     )
 

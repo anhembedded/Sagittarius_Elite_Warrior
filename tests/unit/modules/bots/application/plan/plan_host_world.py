@@ -52,7 +52,7 @@ class InProcessHost(IHostControl):
         self.sent: list[HostControlRequest] = []
         #: After this many requests the host says nothing more (`None`: it always answers).
         self.answers_before_silence: int | None = None
-        #: Entries by name the host refuses in these words, whatever the store says.
+        #: Entries by name, or bots by id, the host refuses in these words, whatever the store says.
         self.refuse: dict[str, str] = {}
         kinds = BotKindCatalog([StubKind("grid")])
         lock = BotCommandLock()
@@ -81,8 +81,11 @@ class InProcessHost(IHostControl):
         return HostControlReply(status, result.message, "c" * 32, result.bot_id or "")
 
     def _refusal(self, request: HostControlRequest) -> str | None:
+        if request.action is HostControlAction.UNPLAN:
+            return None
         entry = request.entry
-        return self.refuse.get(entry.name) if entry is not None else None
+        key = entry.name if entry is not None else request.bot_id
+        return self.refuse.get(key)
 
     def _run(self, request: HostControlRequest) -> BotCommandResult:
         match request.action:

@@ -14,7 +14,7 @@ A plan-file workflow (create, edit, prune) still needed the host stopped: `bot a
 
 ## 2. Acceptance criteria
 - [x] `bot apply` beside a running host with no restart, each document inside the 4096-byte limit (one command per entry, never one document for the plan).
-- [x] An honest answer for a partly applied plan: a per-entry result, a refused entry never stops the others, a host that goes quiet leaves the rest `not sent` (exit `11`), no host at the first command is the old exit `3` with nothing changed.
+- [x] An honest answer for a partly applied plan: a per-entry result, a refused entry never stops the others, a host that goes quiet leaves the rest `not sent` (exit `11`), a command it took without an outcome is "sent, outcome unknown", and no host at the first command is exit `10` (`5` when the copy takes no commands) with nothing changed.
 - [x] The applied record `state/bot_plan.json` ends as an offline apply of the same plan leaves it, so `run --start-planned` stays coherent.
 - [x] `--prune` on a running host deletes only bots at rest, with `bot delete`'s refusals; a running bot the plan omits keeps running and loses its wish.
 - [x] Nothing places or cancels an order; a mainnet start never happens implicitly.
@@ -32,7 +32,7 @@ A plan-file workflow (create, edit, prune) still needed the host stopped: `bot a
 - #714's optional notes: the arm handler reads `saved_selection()` once and a `POSITION_OPEN` refusal is `INVALID_TRANSITION` as the disarm's is.
 
 ## 5. Testing
-`tests/unit/modules/bots/cli/test_bot_apply_beside_a_host.py` (end to end over `InProcessHost`, including record equality with an offline apply), `tests/unit/modules/bots/application/plan/test_plan_entry_handlers_for_the_host.py`, `tests/unit/modules/operations/application/test_host_command_codec_plan.py`, `tests/integration/modules/bots/test_bot_apply_beside_a_running_host_on_the_fake_exchange.py` (the composed app: a create, an edit of a stopped bot, a refused edit of a running bot and a prune at rest; the per-entry results, the bots' files, the exchange's orders and the applied record), the executor and delete-handler tests. Mutation-checked: `set_wish` not replacing the row, `forget_wish` not writing, a write on every `set_wish`, deletes sent before the entries.
+`tests/unit/modules/bots/cli/test_bot_apply_beside_a_host.py` and `test_bot_apply_beside_a_host_record.py` (end to end over `InProcessHost`; the record equals an offline apply's, also after a refused prune delete, a blocked named entry and a host silent on an `unplan`), `tests/unit/modules/bots/application/plan/test_plan_entry_handlers_for_the_host.py`, `tests/unit/modules/operations/application/test_host_command_codec_plan.py`, `tests/integration/modules/bots/test_bot_apply_beside_a_running_host_on_the_fake_exchange.py` (the composed app: a create, an edit of a stopped bot, a refused edit of a running bot and a prune at rest; the per-entry results, the bots' files, the exchange's orders and the applied record), the executor and delete-handler tests. Mutation-checked: `set_wish` not replacing the row, `forget_wish` not writing, a write on every `set_wish`, deletes sent before the entries.
 
 ## 6. Docs touched
 Runbook §6 and §8, SPEC-015, `Docs/MODULES/bots/06-runtime.md`.
