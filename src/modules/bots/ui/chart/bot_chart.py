@@ -86,6 +86,11 @@ class BotChart(LiveCandleChart):
                 "symbol's history first."
             )
 
+    def say_empty(self, text: str) -> None:
+        """@brief Replaces the plot with `text` (`BOT-233`): a chart handed no candles shows what is
+        missing, never pyqtgraph's empty axes at 1970-01-01. The next drawing of candles clears it."""
+        self._notice.show(text)
+
     def use_display_timezone(self, preference: DisplayTimezonePreference) -> None:
         """@brief The chart's time axis and crosshair read in the shared display time zone
         (`BOT-205`), and its header offers the drop-down that chooses it. Once per chart;

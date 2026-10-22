@@ -44,6 +44,8 @@ ALLOWED_SENSITIVE_MODULES = frozenset(
     {
         # a read-only value the planner reads
         "modules.bots.application.queries.get_planner_market.result",
+        # a read: the stored candles of the period, drawn before any run (`BOT-233`)
+        "modules.bots.application.queries.get_stored_candles",
         # the one query the workbench runs: it replays stored candles
         "modules.bots.application.queries.run_backtest",
         # a value: which venue a bot trades on

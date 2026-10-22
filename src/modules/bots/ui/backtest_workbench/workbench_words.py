@@ -18,8 +18,15 @@ PERIOD_ORDER = "The period must end after it starts."
 DISCARD_QUESTION = (
     "Another bot is selected. Replace your edits with its saved plan, or keep them?"
 )
+CANDLES_UNREAD = "The stored candles could not be read."
+NO_WHOLE_CANDLE = (
+    "The period holds no whole candle at this interval; choose a longer period."
+)
+PICK_A_BOT = "Select a bot to see its candles here."
+LOADING_CANDLES = "Reading the stored candles…"
 #: What failed, by the action's label: the headline the user reads (`BOT-169`).
 FAILED_HEADLINES = {
+    "candles": "The stored candles could not be read. Try changing the period or the interval.",
     "backtest": "The backtest could not run. Check the period and try again.",
     "sync": "The candle sync could not finish. Check the connection and try again.",
 }
@@ -49,4 +56,29 @@ def fees_line(maker: str, taker: str) -> str:
     included, not rates of the sandbox's own."""
     return (
         f"A run charges your account's fees as read now: maker {maker}, taker {taker}."
+    )
+
+
+def no_candles(symbol: str, interval: str) -> str:
+    return (
+        f"No {interval} candles of {symbol} are stored for this period. "
+        "Sync candles fetches them."
+    )
+
+
+def all_candles_stored(expected: int, interval: str) -> str:
+    return f"All {expected} {interval} candles of the period are stored."
+
+
+def candles_missing(stored: int, expected: int, interval: str) -> str:
+    return (
+        f"{stored} of the {expected} {interval} candles of the period are stored. "
+        "The rest are not stored; Sync candles fetches them."
+    )
+
+
+def too_many_candles(expected: int, interval: str, limit: int) -> str:
+    return (
+        f"{expected} {interval} candles is more than one backtest draws ({limit}); "
+        "choose a shorter period or a larger interval."
     )

@@ -600,6 +600,18 @@ runs again with the funding the person chose for it. **A failure** is a command 
 notice's detail (`BOT-169`). The sandbox plan the request carries is a copy, so no step of this
 sequence reaches the bot, its orders or the account.
 
+**The candles under the chart before a run (`BOT-233`).** `CandleDrawing.follow` (called on every refresh)
+asks `CandlePreview.want` for the window the page is set to (the sandbox's symbol and venue, the chosen
+interval and period); only a *different* window starts a read, so the Bots screen's clock does not. The read
+(`GetStoredCandlesQuery`, stored candles of the venue's own market, never a fetch) runs on the thread
+manager, and its answer reaches the Qt thread through a queued signal; `CandlePreview`'s own
+`ActionOwnershipTracker` drops an answer for a window no longer asked for, so changing the interval twice
+quickly draws only the last. The chart is drawn from it unless a result holds it. **Sync candles** from this
+state fetches the window (candles and 1-second klines, through the same `BacktestRunCoordinator.start_sync`
+and the run's fence, so it locks Run and Cancel reads "Stop"), then reads the window again instead of
+running; a sync a run's refusal offered still runs it again (`sync_offer.py` → `sync_plan`). A read that
+raises is a command failure `bots.backtest.candles`, told once.
+
 ## Built: the mainnet lock removed (EPIC-039L C4-lite)
 
 **The mainnet gate (C4-lite), built.** Futures mainnet is open to bots since the owner's O2

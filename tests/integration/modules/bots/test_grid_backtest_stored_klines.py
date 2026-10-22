@@ -23,6 +23,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    GetStoredCandlesQuery,
+    GetStoredCandlesQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
     RunGridBacktestQueryHandler,
@@ -259,3 +263,36 @@ def test_a_three_minute_replay_walks_the_one_second_klines_of_each_candle_and_co
         SECONDS // 180,
         SECONDS // 180,
     )
+
+
+def test_the_stored_candles_of_a_period_are_read_from_the_real_shards_with_no_grid(
+    repository: SQLAlchemyMarketDataRepository,
+) -> None:
+    """`BOT-233`: the workbench draws these before any run, so the read is judged against the real
+    SQLite store: oldest first, counted against the period, and never fetched."""
+    seconds = _seconds()
+    repository.save_klines(MarketType.SPOT, _minutes(seconds))
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            VENUE.market_data_venue,
+            history=StoredKlinesReader(repository),
+            repository=repository,
+        )
+    )
+
+    whole = GetStoredCandlesQueryHandler(sources).execute(
+        GetStoredCandlesQuery(
+            VENUE, SYMBOL, TimeFrame.ONE_MINUTE, T0, T0 + timedelta(seconds=SECONDS)
+        )
+    )
+    longer = GetStoredCandlesQueryHandler(sources).execute(
+        GetStoredCandlesQuery(
+            VENUE, SYMBOL, TimeFrame.ONE_MINUTE, T0, T0 + timedelta(seconds=2 * SECONDS)
+        )
+    )
+
+    assert [c.open_time for c in whole.candles] == [
+        T0 + timedelta(minutes=i) for i in range(SECONDS // 60)
+    ]
+    assert (whole.expected, whole.stored, whole.needs_sync) == (120, 120, False)
+    assert (longer.expected, longer.stored, longer.needs_sync) == (240, 120, True)

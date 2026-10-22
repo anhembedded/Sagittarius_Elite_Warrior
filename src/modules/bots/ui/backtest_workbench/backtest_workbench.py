@@ -28,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench_view import (
     BacktestWorkbenchView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_preview import (
+    CandlePreview,
+    StoredCandlesReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
     DEFAULT_INTERVAL,
 )
@@ -82,6 +86,9 @@ class WorkbenchPorts:
     #: The application's display time zone, which the replay chart's axis and crosshair follow
     #: (`BOT-205`), so it reads like the Live chart beside it.
     display_timezone: DisplayTimezonePreference
+    #: Reads the stored candles of the period before any run (`BOT-233`): the host binds
+    #: `GetStoredCandlesQuery` to the dispatcher, as for a run.
+    read_candles: StoredCandlesReader
     market: MarketType = BOT_MARKET
 
 
@@ -110,6 +117,7 @@ class BacktestWorkbench:
             coordinator,
             ports.notifier,
             KindSources(ports.kinds, ports.editors),
+            CandlePreview(ports.thread_manager, ports.read_candles),
         )
 
     @property

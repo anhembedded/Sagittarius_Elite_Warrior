@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_candles import (
+    GetStoredCandlesQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
 )
@@ -147,6 +150,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
             catalog.kind,
             panel_for,
             display_timezone,
+            lambda query: commands.dispatch(GetStoredCandlesQuery, query),
             plan_market_of(venue),
         ),
         symbols=container.resolve(ISymbolCatalog),

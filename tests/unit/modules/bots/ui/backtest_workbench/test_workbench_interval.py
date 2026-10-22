@@ -12,11 +12,12 @@ from typing import Any
 import pytest
 from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_kind_backtester import (
-    KindBacktestRequest,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
     BacktestWorkbench,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.candle_window import (
+    CandleWindow,
+    sync_requests,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
     DEFAULT_INTERVAL,
@@ -24,14 +25,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_t
     PINNED_INTERVALS,
     UNREPLAYED_INTERVALS,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.workbench_selection import (
-    sync_requests,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
-)
-from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
-    TERMS,
 )
 
 from .workbench_candles import PERIOD
@@ -225,14 +220,12 @@ def test_the_picker_does_not_list_them(world: WorkbenchWorld) -> None:
 
 
 def test_a_1s_sync_asks_for_the_1s_series_once() -> None:
-    request = KindBacktestRequest(
+    request = CandleWindow(
         "BTCUSDT",
-        {},
-        TERMS,
+        TradingVenue.SPOT_TESTNET,
         TimeFrame.ONE_SECOND,
         PERIOD[0],
         PERIOD[1],
-        TradingVenue.SPOT_TESTNET,
     )
 
     asked = [r.interval for r in sync_requests(request)]
