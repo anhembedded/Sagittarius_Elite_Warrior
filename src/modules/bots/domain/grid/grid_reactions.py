@@ -288,7 +288,17 @@ def adopted(runtime: GridRuntime, index: int, order: LevelOrder) -> GridRuntime:
 
     A counter order held for this level is dropped: the adopted order *is* it,
     sent before the app died and never saved, so placing the held one too
-    would put two orders at one level."""
+    would put two orders at one level. It also *is* the held order's cycle: the pairing the held
+    order carried (the entry it completes) moves onto the adopted one, or its fill would book no
+    cycle (`BUG-265`). With no held order the exchange's list says nothing of a pairing, so none is
+    invented: an adopted opening-ladder SELL is not a cycle's completion."""
+    held = next((h for h in runtime.held if h.level_index == index), None)
+    if held is not None and order.paired_buy_price is None:
+        order = replace(
+            order,
+            paired_buy_price=held.paired_buy_price,
+            paired_buy_fee_quote=held.paired_buy_fee_quote,
+        )
     after = runtime.updating_level(
         index, lambda level: level.moved(LevelEvent.ADOPT, order)
     )
