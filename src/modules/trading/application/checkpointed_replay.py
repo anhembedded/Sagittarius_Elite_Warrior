@@ -17,9 +17,10 @@ and one more state; a different overlap is the constant below.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -67,6 +68,9 @@ class ReplayStart[S]:
     read_from: datetime
     last_trade_id: int | None = None
     open_order_ids: frozenset[int] = frozenset()
+    #: What each of those orders still owes to fill, where the checkpoint knew it (`BOT-228`). An
+    #: id with no entry is one an older checkpoint carried: it stays until the run ends.
+    open_order_remaining: Mapping[int, Decimal] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,8 @@ class Replayed[S]:
     last_trade_id: int | None
     #: The owner's orders that may still fill, for the next checkpoint.
     open_order_ids: frozenset[int]
+    #: What each of those orders still owes to fill, as far as it is known (`BOT-228`).
+    open_order_remaining: Mapping[int, Decimal]
     #: Where the next read starts.
     next_read_from: datetime
     #: How many of the owner's orders this read saw.
@@ -110,6 +116,7 @@ def replay_owner_fills[S](
     state = start.state
     last_trade_id = start.last_trade_id
     replayed: set[int] = set()
+    folded: dict[int, Decimal] = {}
     for trade in history.trade_history(claim.symbol, start.read_from):
         if trade.order_id not in owned or (
             last_trade_id is not None and trade.trade_id <= last_trade_id
@@ -117,27 +124,61 @@ def replay_owner_fills[S](
             continue
         state = fold(state, trade)
         replayed.add(trade.trade_id)
+        folded[trade.order_id] = folded.get(trade.order_id, Decimal(0)) + trade.quantity
         last_trade_id = trade.trade_id
+    still_open = still_open_orders(orders, start, folded)
     return Replayed(
         state,
         frozenset(replayed),
         start.last_trade_id,
         last_trade_id,
-        still_open_orders(orders, start.open_order_ids),
+        still_open.ids,
+        still_open.remaining,
         max(start.read_from, now - READ_OVERLAP),
         len(orders),
     )
 
 
-def still_open_orders(
-    orders: tuple[OrderRecord, ...], carried_open: frozenset[int]
-) -> frozenset[int]:
-    """The owner's orders that may still fill: those read and not over, and those carried from the
-    checkpoint that this read did not see end."""
+@dataclass(frozen=True)
+class StillOpen:
+    """The owner's orders that may still fill, and what each owes where that is known."""
+
+    ids: frozenset[int]
+    remaining: Mapping[int, Decimal]
+
+
+def still_open_orders[S](
+    orders: tuple[OrderRecord, ...],
+    start: ReplayStart[S],
+    folded: Mapping[int, Decimal],
+) -> StillOpen:
+    """@brief The owner's orders that may still fill: those read and not over, and those carried
+    from the checkpoint that this read did not see end.
+
+    @details An order the window does not list (it was created before the read began) is never
+    seen to end by the orders read, so its id used to stay for good (`BOT-228`). The fills this
+    read folded for it are subtracted from what the checkpoint says it owed, and the id goes when
+    nothing is owed: only the owner's own counted fills can say so, never a guess, so an id is
+    never dropped while its order may still fill. An order cancelled with nothing filled leaves
+    no fill to say it ended, and stays until the run's checkpoint is discarded; a Grid cancels
+    rarely, where it fills all day. An id an older checkpoint carried with no figure stays, too."""
     ended = {
         record.exchange_order_id
         for record in orders
         if is_terminal(record.order.status)
     }
-    read_open = {record.exchange_order_id for record in orders} - ended
-    return frozenset(read_open | (carried_open - ended))
+    owed: dict[int, Decimal] = {}
+    for record in orders:
+        order_id = record.exchange_order_id
+        if order_id not in ended:
+            before = start.open_order_remaining.get(order_id, record.order.quantity)
+            owed[order_id] = before - folded.get(order_id, Decimal(0))
+    unknown: set[int] = set()
+    for order_id in start.open_order_ids - ended - owed.keys():
+        before_or_none = start.open_order_remaining.get(order_id)
+        if before_or_none is None:
+            unknown.add(order_id)
+        else:
+            owed[order_id] = before_or_none - folded.get(order_id, Decimal(0))
+    open_owed = {order_id: left for order_id, left in owed.items() if left > 0}
+    return StillOpen(frozenset(open_owed) | unknown, open_owed)

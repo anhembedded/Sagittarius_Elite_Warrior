@@ -18,8 +18,10 @@ Hedge-Mode pair of positions is a second `OwnerPosition` field.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     OwnerPosition,
@@ -39,6 +41,9 @@ class OwnerPositionCheckpoint:
     open_order_ids: frozenset[int]
     #: Where the next read of the history starts.
     read_from: datetime
+    #: What each of those orders still owes to fill, where known (`BOT-228`); an id with no entry
+    #: was carried by an older checkpoint and stays until the run ends.
+    open_order_remaining: Mapping[int, Decimal] = field(default_factory=dict)
 
     def belongs_to(self, tag: str, run_started_at: datetime) -> bool:
         return self.tag == tag and self.run_started_at == run_started_at

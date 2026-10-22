@@ -74,6 +74,10 @@ def _encode(checkpoint: OwnerPositionCheckpoint) -> dict[str, Any]:
         "last_trade_id": checkpoint.last_trade_id,
         "open_order_ids": sorted(checkpoint.open_order_ids),
         "read_from": checkpoint.read_from.isoformat(),
+        "open_order_remaining": {
+            str(order_id): str(owed)
+            for order_id, owed in sorted(checkpoint.open_order_remaining.items())
+        },
     }
 
 
@@ -92,4 +96,8 @@ def _decode(raw: dict[str, Any]) -> OwnerPositionCheckpoint:
         last_trade_id=None if last_trade_id is None else int(last_trade_id),
         open_order_ids=frozenset(int(order_id) for order_id in raw["open_order_ids"]),
         read_from=datetime.fromisoformat(raw["read_from"]),
+        open_order_remaining={
+            int(order_id): Decimal(owed)
+            for order_id, owed in raw.get("open_order_remaining", {}).items()
+        },
     )
