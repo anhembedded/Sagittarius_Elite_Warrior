@@ -50,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_gri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_property_rows import (
     COST_KEYS,
+    EXIT_KEYS,
     LIQUIDATION_KEY,
     PLAN_GROUP,
     PLAN_TITLE,
@@ -234,6 +235,11 @@ class BotPlanPanel(QStackedWidget):
             PLAN_GROUP, PLAN_UNSAVED_TITLE if facts and facts.unsaved else PLAN_TITLE
         )
         self._show_costs(facts is not None and facts.shows_costs)
+        for key, text in (
+            (EXIT_KEYS[0], facts.loss_at_stop if facts else ""),
+            (EXIT_KEYS[1], facts.gain_at_take_profit if facts else ""),
+        ):
+            self.properties.set_rows_shown((key,), bool(text))
 
     def _show_ladder(self) -> None:
         """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
@@ -242,7 +248,7 @@ class BotPlanPanel(QStackedWidget):
         facts = self._model.facts
         estimate = facts.liquidation_estimate if facts is not None else ""
         if estimate:
-            # A design not saved yet has the guard's estimate, not "not in the record" (`BUG-261`).
+            # A bot at rest, or a design not saved yet, has the guard's estimate, not "not in the record" (`BUG-261`, `BOT-235`).
             rows[LIQUIDATION_KEY] = estimate
         self.properties.set_values(rows, ladder.tones)
         self.properties.set_rows_shown(

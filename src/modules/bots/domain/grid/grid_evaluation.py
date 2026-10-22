@@ -95,10 +95,7 @@ def evaluate_grid(
     if params.grid_count > inputs.terms.max_open_orders:
         return GridEvaluation((_too_many_levels(params, inputs),), params)
     try:
-        sizing = level_sizing or level_sizing_for(inputs.limits.exposure_kind)
-        # A price outside the range is planned at the bound the bot will enter at (ADR 044 D6).
-        entry_price = min(max(inputs.market.last_price, params.lower), params.upper)
-        grid_plan = plan(params, inputs.terms, entry_price, sizing)
+        grid_plan = entry_plan(params, inputs, level_sizing)
         derived = derive(params, inputs.terms, grid_plan)
         check_inputs = GridCheckInputs(
             params,
@@ -115,6 +112,17 @@ def evaluate_grid(
     except ArithmeticError as exc:
         return _unreadable(f"a value is out of range ({type(exc).__name__})")
     return GridEvaluation(verdicts, params, grid_plan, derived)
+
+
+def entry_plan(
+    params: GridParams, inputs: BotKindInputs, level_sizing: LevelSizing | None = None
+) -> GridPlan:
+    """The ladder a Start would place: sized the venue's way unless `level_sizing` says otherwise,
+    and drawn at the bound the bot will enter at when the price is outside the range (ADR 044 D6).
+    The one place that decides it, for the checks and for `BOT-235`'s exit estimates."""
+    sizing = level_sizing or level_sizing_for(inputs.limits.exposure_kind)
+    entry_price = min(max(inputs.market.last_price, params.lower), params.upper)
+    return plan(params, inputs.terms, entry_price, sizing)
 
 
 def _risk_verdicts(

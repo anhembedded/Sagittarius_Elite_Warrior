@@ -139,6 +139,10 @@ class BotFacts:
     unsaved: bool = False
     #: `BUG-261` - for a design not saved yet, the guard's liquidation estimate (the record holds none).
     liquidation_estimate: str = ""
+    #: `BOT-235` - the Plan's two estimated rows (`exit_estimate_words.py`); empty when that exit is
+    #: off, the bot runs or the parameters make no plan.
+    loss_at_stop: str = ""
+    gain_at_take_profit: str = ""
     #: `BOT-229` - every sell and buy-back against the average cost, net of fees: the part of the
     #: total that is in the wallet, of which `grid_profit` is a different view.
     realised: str = NO_VALUE
