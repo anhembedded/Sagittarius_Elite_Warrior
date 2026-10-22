@@ -286,7 +286,8 @@ class BotAlertSource:
         subject = subject_or_bare(self._entry(event.bot_id), event.bot_id)
         detail = (
             f"The price {plain_price(event.price)} entered the range "
-            f"{plain_price(event.lower)}-{plain_price(event.upper)}. "
+            f"{plain_price(event.lower)}-{plain_price(event.upper)}"
+            f"{_trigger_met(event)}. "
             f"The bot laid {event.orders} order(s) and is running."
         )
         self._publish(AlertKind.BOT_RANGE_ENTERED, subject, detail)
@@ -382,3 +383,11 @@ class BotAlertSource:
         return cast(
             BotStatusReport, self._dispatcher.dispatch(GetBotStatusReportQuery, query)
         )
+
+
+def _trigger_met(event: BotRangeEnteredEvent) -> str:
+    """`EPIC-046B` (ADR 046 D5): the trigger price the entry met, when the plan has one."""
+    if event.trigger is None:
+        return ""
+    side = "at or below" if event.trigger_at_or_below else "at or above"
+    return f", {side} its trigger price {plain_price(event.trigger)}"

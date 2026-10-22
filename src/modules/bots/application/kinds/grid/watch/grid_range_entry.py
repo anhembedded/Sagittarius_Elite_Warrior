@@ -298,6 +298,8 @@ class GridRangeEntry:
                 params.lower,
                 params.upper,
                 len(state.runtime.open_orders),
+                trigger=params.trigger_price,
+                trigger_at_or_below=params.direction is not TradeDirection.SHORT,
             )
         )
 

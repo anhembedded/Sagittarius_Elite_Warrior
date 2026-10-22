@@ -1,6 +1,6 @@
 # EPIC-046 — A Grid with a trigger price activates like a limit order: only at that price or better
 
-- **Status:** 🟡 Phase 1 in progress (046A: the rule and the live entry, pull request open)
+- **Status:** ✅ Done (2026-10-22): 046A merged (#724), 046B done, pull request open
 - **Repositories:** Elite
 - **Origin:** the owner, 2026-10-22, through the coordinating session: *"cái phần giá kích hoạt làm chưa ta? tui muốn kích hoạt giống limit, giá tốt hơn giá đó mới kích hoạt grid"*. Translated: "Has the trigger price been built? I want it to activate like a limit order: the grid activates only when the price is better than that price."
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (the Start checks) and [`Docs/MODULES/bots/state-machines.md`](../../../Docs/MODULES/bots/state-machines.md) (`AWAITING_RANGE`); both change with the slices.
@@ -11,7 +11,7 @@
 
 ## 1. Decisions already made
 1. The rule is the owner's: an optional trigger price; the grid activates only at a better price, like a limit order (ADR D0).
-2. D1–D6 are the author's proposed defaults, for the reviewer's read, the coordinator's acceptance and the owner's veto: LONG ≤ trigger, SHORT ≥ trigger, NEUTRAL refused (O1 asked); the same `AWAITING_RANGE` wait and price source, the range judged first; the lifecycle is the latch; a trigger outside the range is refused at Design.
+2. D1–D6, accepted by the owner on 2026-10-22 after the review: LONG ≤ trigger, SHORT ≥ trigger, NEUTRAL refused (O1 asked); the same `AWAITING_RANGE` wait and price source, the range judged first; the lifecycle is the latch; a trigger outside the range is refused at Design.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-22, `f850b18`) | When the epic is done |
@@ -24,8 +24,8 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-046A](completed/EPIC-046A_the_trigger_gates_the_entry.md) | The decision record, `trigger_price` on `GridParams`, one entry gate for the start, the wait, the confirmation, the flat Resume and the backtest, the Start check's words, the entry price and the editor field | Elite | None | 🔴 | Done (2026-10-22), pull request open |
-| [EPIC-046B](incomplete/EPIC-046B_the_trigger_is_shown_and_backtested.md) | The waiting words on the banner, `bot list` and `bot show`, and the Discord entry alert | Elite | 046A merged | 🟡 | Planned |
+| [EPIC-046A](completed/EPIC-046A_the_trigger_gates_the_entry.md) | The decision record, `trigger_price` on `GridParams`, one entry gate for the start, the wait, the confirmation, the flat Resume and the backtest, the Start check's words, the entry price and the editor field | Elite | None | 🔴 | Done (2026-10-22, #724) |
+| [EPIC-046B](completed/EPIC-046B_the_trigger_is_shown_and_backtested.md) | The waiting words on the banner, `bot list` and `bot show`, and the Discord entry alert | Elite | 046A merged | 🟡 | Done (2026-10-22), pull request open |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -40,5 +40,6 @@
 - Any config key, setting, dependency or Engine file.
 
 ## Notes (newest first)
+- **2026-10-22** — #724 merged at `8e5e27a`; the owner accepted D1–D6; 046B names the trigger in the waiting sentence and the entry alert.
 - **2026-10-22** — Review round 1 of #724: the editor field and the backtest moved into 046A (a Save would have dropped a trigger; the replay would have entered early).
 - **2026-10-22** — Epic scaffolded with the decision record and 046A; split in two pull requests (the rule and the live entry first, the surfaces and the backtest next), told to the coordinating session before building.

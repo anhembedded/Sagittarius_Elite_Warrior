@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
     venue_profile_of,
@@ -134,6 +137,16 @@ class PriceMark:
 
 
 @dataclass(frozen=True, slots=True)
+class TriggerMark:
+    """`EPIC-046B`: the plan's trigger price and which side of it is better (ADR 046 D1)."""
+
+    mark: PriceMark
+    #: `True` for a LONG grid (it waits for the price at or below the trigger), `False` for a
+    #: SHORT one (at or above it).
+    at_or_below: bool
+
+
+@dataclass(frozen=True, slots=True)
 class PricePosition:
     """Recorded: where the last price the bot heard stands against the range and the exits."""
 
@@ -148,6 +161,8 @@ class PricePosition:
     #: A position venue has a liquidation price, which the exchange reports while the bot runs
     #: and the record does not hold.
     has_liquidation_price: bool
+    #: The plan's trigger price, `None` when it has none (`EPIC-046B`).
+    trigger: TriggerMark | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,6 +343,16 @@ def _position(params: GridParams, bot: BotSnapshot, now: datetime) -> PricePosit
         has_liquidation_price=(
             profile is not None and profile.exposure_kind is ExposureKind.POSITION
         ),
+        trigger=_trigger(params, last),
+    )
+
+
+def _trigger(params: GridParams, last: Decimal | None) -> TriggerMark | None:
+    if params.trigger_price is None:
+        return None
+    return TriggerMark(
+        _mark(params.trigger_price, last),
+        at_or_below=params.direction is not TradeDirection.SHORT,
     )
 
 

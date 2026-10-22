@@ -72,6 +72,13 @@ def _world() -> BotQueryDispatcher:
     seed(store, "wait01", S.AWAITING_RANGE, _CONFIG, _waiting_run(Decimal(58000)))
     seed(store, "wait02", S.AWAITING_RANGE, _CONFIG, _waiting_run(None))
     seed(store, "halt01", S.HALTED, _CONFIG, _waiting_run(Decimal(58000)))
+    seed(
+        store,
+        "trig01",
+        S.AWAITING_RANGE,
+        {**_CONFIG, "trigger_price": "62000"},
+        _waiting_run(Decimal(64000)),
+    )
     return BotQueryDispatcher(store, HeldProbe(False))
 
 
@@ -133,3 +140,17 @@ def test_the_json_reason_is_unchanged_for_a_waiting_bot(
     waiting = next(bot for bot in bots if bot["bot_id"] == "wait01")
     assert waiting["state"] == "AWAITING_RANGE"
     assert waiting["reason"] == ""
+
+
+def test_bot_list_names_the_trigger_a_bot_waits_on(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`EPIC-046B`, ADR 046 D5: the trigger comes from the plan through the read model."""
+    line = next(
+        row
+        for row in _text(ListBotsVerb(), capsys).splitlines()
+        if row.startswith("trig01")
+    )
+
+    assert "Waiting for the price ≤ 62,000.00 within 60,000.00–70,000.00" in line
+    assert "last price 64,000.00" in line

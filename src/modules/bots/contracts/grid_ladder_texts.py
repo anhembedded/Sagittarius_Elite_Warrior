@@ -197,8 +197,9 @@ def _exit(mark: PriceMark | None, price: PriceWriter) -> str:
 
 
 def waiting_text(position: PricePosition, price: PriceWriter) -> str:
-    """What a bot in AWAITING_RANGE says: the range it waits for and the price it waits on
-    (`EPIC-044C`). The Plan's banner and `bot show` say the same words."""
+    """What a bot in AWAITING_RANGE says: the range it waits for, and the trigger price when the
+    plan has one (`EPIC-046B`), and the price it waits on (`EPIC-044C`). The Plan's banner,
+    `bot list`, `bot show` and the heartbeat say the same words."""
     # The price with how long ago it was heard: a waiting bot watches no exit, so nothing halts it
     # on a quiet feed, and a bare "now" could be hours old (`domain-truth-rule.md`).
     heard = (
@@ -206,6 +207,16 @@ def waiting_text(position: PricePosition, price: PriceWriter) -> str:
         if position.last_price is None
         else f"last price {_last_price(position, price)}"
     )
+    trigger = position.trigger
+    if trigger is not None:
+        # `EPIC-046B` (ADR 046 D5): one sentence whichever side the price is on, since the range
+        # and the trigger together are the prices that open the entry.
+        side = "≤" if trigger.at_or_below else "≥"
+        return (
+            f"Waiting for the price {side} {price(trigger.mark.price)} within "
+            f"{price(position.lower.price)}–{price(position.upper.price)} ({heard}); "
+            "nothing is placed until it is"
+        )
     return (
         f"Waiting for the price to enter {price(position.lower.price)}–"
         f"{price(position.upper.price)} ({heard}); nothing is placed until it does"
