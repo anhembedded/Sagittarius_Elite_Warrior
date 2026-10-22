@@ -18,6 +18,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot import (
     DeleteBotCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
+    AppliedBot,
+    AppliedPlan,
+    DesiredState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
@@ -69,6 +74,40 @@ def test_a_bot_at_rest_that_holds_nothing_is_deleted_by_the_screens_own_delete(
     assert host.ids == []
     assert host.dispatcher.dispatched == [DeleteBotCommand(BOT)]
     assert "nothing was sent to the exchange" in result.message
+
+
+def test_a_deleted_bots_wish_goes_with_it_and_another_bots_wish_stays() -> None:
+    """`EPIC-045C`: a row for a bot that no longer exists acts on nothing, so the delete removes it."""
+    host = a_host()
+    host.hold(S.STOPPED, _record(_flat()))
+    host.plans.write(
+        AppliedPlan(
+            (
+                AppliedBot(BOT, "grid one", "spot_testnet", DesiredState.RUNNING),
+                AppliedBot("other1", "kept", "spot_testnet", DesiredState.RUNNING),
+            )
+        )
+    )
+
+    assert host.delete().accepted
+
+    record = host.plans.read()
+    assert record is not None and [row.bot_id for row in record.bots] == ["other1"]
+
+
+def test_a_refused_delete_keeps_the_bots_wish() -> None:
+    host = a_host()
+    host.hold(S.RUNNING, _record(_flat()))
+    host.plans.write(
+        AppliedPlan(
+            (AppliedBot(BOT, "grid one", "spot_testnet", DesiredState.RUNNING),)
+        )
+    )
+
+    assert not host.delete().accepted
+
+    record = host.plans.read()
+    assert record is not None and record.desired_for(BOT) is DesiredState.RUNNING
 
 
 def test_a_draft_that_never_ran_has_an_empty_record_and_is_deleted() -> None:

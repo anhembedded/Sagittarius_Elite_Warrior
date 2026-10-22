@@ -15,6 +15,7 @@ import re
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     ADD_SUBJECT,
     LOSS_CAP_SUBJECT,
+    PLAN_SUBJECT,
     STRATEGY_SUBJECT,
     HostControlAction,
 )
@@ -38,6 +39,7 @@ def action_problem(
         or _add_problem(document, action, venue, bot_id)
         or _delete_problem(action, venue)
         or _move_problem(document, action, venue)
+        or _plan_problem(document, action, venue, bot_id)
         or _proposal_problem(document, action)
         or _strategy_problem(document, action, venue, bot_id)
         or _acknowledgement_problem(document, action, venue, bot_id)
@@ -74,7 +76,7 @@ def _add_problem(
     """`entry` is an add's and only an add's; the bot it names does not exist yet and an add places no order."""
     named = bot_id == ADD_SUBJECT
     if action != HostControlAction.ADD.value:
-        if "entry" in document:
+        if "entry" in document and action != HostControlAction.APPLY_ENTRY.value:
             return "entry belongs to an add"
         return f"{ADD_SUBJECT} is not a bot id" if named else None
     if not named:
@@ -115,6 +117,41 @@ def _move_problem(
     if not isinstance(target, str) or not VENUE_SHAPE.fullmatch(target):
         return "a move needs to_venue, a venue word"
     return None
+
+
+_DESIRED_STATES = frozenset({"running", "stopped"})
+
+
+def _plan_problem(
+    document: dict[str, object], action: str, venue: object, bot_id: str
+) -> str | None:
+    """`apply-entry` carries one plan entry and its wish, `unplan` names a bot; neither places an order.
+
+    `desired_state` is an apply-entry's alone and a closed word. The entry itself is judged by the
+    add rule (`_entry_problem`), because the host judges it again as a plan entry when it runs.
+    """
+    applies = action == HostControlAction.APPLY_ENTRY.value
+    unplans = action == HostControlAction.UNPLAN.value
+    named = bot_id == PLAN_SUBJECT
+    if not (applies or unplans):
+        if "desired_state" in document:
+            return "desired_state belongs to an apply-entry"
+        return f"{PLAN_SUBJECT} is not a bot id" if named else None
+    if venue is not None:
+        return f"{action} asks no venue: confirmed_venue must be null"
+    if "set" in document or "close_position" in document:
+        return f"{action} carries no set or close_position"
+    if unplans:
+        if named or "desired_state" in document or "entry" in document:
+            return "an unplan names a bot and carries nothing else"
+        return None
+    if not named:
+        return f"an apply-entry names no bot: bot_id is {PLAN_SUBJECT}"
+    if document.get("desired_state") not in _DESIRED_STATES:
+        return "an apply-entry needs desired_state, running or stopped"
+    if "entry" not in document:
+        return "an apply-entry needs entry"
+    return _entry_problem(document["entry"])
 
 
 def _proposal_problem(document: dict[str, object], action: str) -> str | None:

@@ -62,6 +62,7 @@ def command(
     to_venue: str | None = None,
     proposal: str | None = None,
     strategy_venue: str | None = None,
+    desired_state: str | None = None,
 ) -> HostCommand:
     return HostCommand(
         command_id,
@@ -75,6 +76,7 @@ def command(
         to_venue,
         proposal,
         strategy_venue,
+        desired_state,
     )
 
 

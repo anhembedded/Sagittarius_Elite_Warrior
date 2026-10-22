@@ -33,6 +33,11 @@ the audit can say which command was refused.
                   and `bot_id` is then the fixed word `strategy`. An arm may carry `confirmed_venue`
                   (a mainnet arm needs it: the strategy then places orders on its own with real
                   money); a disarm asks none, it sells and cancels nothing.
+  desired_state   an apply-entry's wish (`EPIC-045C`): "running" or "stopped". Required for "apply-entry",
+                  refused for any other action; `bot_id` is then the fixed word `plan`, the entry
+                  travels in `entry` (as an add's does), and `confirmed_venue` must be null: applying
+                  places no order and starts nothing. An "unplan" names the bot whose wish is
+                  forgotten and carries nothing else.
   entry           an add's bot (`EPIC-045A`): an object of exactly name, kind, venue, symbol and
                   params (an object of 0 to `MAX_SETTINGS_PER_EDIT` text values), each of the shape
                   `NewBotEntry` states. Required for "add", refused for any other action. An add
@@ -57,6 +62,11 @@ the audit can say which command was refused.
   reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
   never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
   document an older host wrote, because `set` is absent from them.
+
+@par Older hosts (`EPIC-045C`)
+  `apply-entry` and `unplan` are new `action` words and `desired_state` a new key: an older host reads
+  them as *malformed* ("action is not one of ..." / "it has an unknown key (desired_state)"), audits
+  the command and changes nothing, so the operator gets REJECTED and no plan entry is applied.
 
 @par Older hosts (`EPIC-045G`, proposal)
   `proposal` is a new key on the existing `confirm-resume` word: an older host reads it as *malformed*
@@ -123,6 +133,7 @@ _KEYS = frozenset(
         "to_venue",
         "proposal",
         "strategy_venue",
+        "desired_state",
     }
 )
 
@@ -154,6 +165,8 @@ def encode_command(command: HostCommand) -> str:
         document["proposal"] = command.proposal
     if command.strategy_venue is not None:
         document["strategy_venue"] = command.strategy_venue
+    if command.desired_state is not None:
+        document["desired_state"] = command.desired_state
     if command.entry is not None:
         document["entry"] = {
             "name": command.entry.name,
@@ -188,6 +201,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         to_venue=document.get("to_venue"),
         proposal=document.get("proposal"),
         strategy_venue=document.get("strategy_venue"),
+        desired_state=document.get("desired_state"),
     )
 
 

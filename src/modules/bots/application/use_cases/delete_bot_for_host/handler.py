@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.wish_ledger import (
+    forget_wish,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
@@ -42,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     DeleteBotForHostCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
+    IAppliedPlanStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -68,11 +74,13 @@ class DeleteBotForHostCommandHandler(
         dispatcher: ICommandDispatcher,
         kinds: IBotKindCatalog,
         lock: BotCommandLock,
+        plans: IAppliedPlanStore,
     ) -> None:
         self._lookup = BotLookup(store)
         self._dispatcher = dispatcher
         self._kinds = kinds
         self._lock = lock
+        self._plans = plans
 
     def execute(self, command: DeleteBotForHostCommand) -> BotCommandResult:
         with self._lock.held():
@@ -100,6 +108,8 @@ class DeleteBotForHostCommandHandler(
             )
             if not result.accepted:
                 return result
+            # A deleted bot's wish goes with it: a row for a bot that no longer exists acts on nothing.
+            forget_wish(self._plans, command.bot_id)
             return BotCommandResult(
                 accepted=True,
                 bot_id=command.bot_id,

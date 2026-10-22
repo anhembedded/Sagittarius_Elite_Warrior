@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.acknowledg
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_for_host import (
     AddBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.apply_plan_entry_for_host import (
+    ApplyPlanEntryForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.arm_strategy_for_host import (
     ArmStrategyForHostCommandHandler,
 )
@@ -86,9 +89,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_for_operator import (
     StopBotForOperatorCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.unplan_bot_for_host import (
+    UnplanBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     AcknowledgeLossCapForHostCommand,
     AddBotForHostCommand,
+    ApplyPlanEntryForHostCommand,
     ArmStrategyForHostCommand,
     ConfirmBotResumeForHostCommand,
     DeleteBotForHostCommand,
@@ -102,6 +109,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StartBotForHostCommand,
     StopBotForHostCommand,
     StopBotForOperatorCommand,
+    UnplanBotForHostCommand,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -137,6 +145,9 @@ def bind_commands(container: IContainer) -> None:
     container.bind(DeleteBotForHostCommand, DeleteBotForHostCommandHandler)
     # `EPIC-045G` - `bot move` on the running host; the screen's `ChangeBotVenueCommand` is bound above.
     container.bind(MoveBotForHostCommand, MoveBotForHostCommandHandler)
+    # `EPIC-045C` - `bot apply` beside a running host, entry by entry; the screen's Create and Edit are bound above.
+    container.bind(ApplyPlanEntryForHostCommand, ApplyPlanEntryForHostCommandHandler)
+    container.bind(UnplanBotForHostCommand, UnplanBotForHostCommandHandler)
     # `EPIC-045G` - `bot arm-strategy` and `bot disarm-strategy`: the venue's own strategy arming controls.
     container.bind(ArmStrategyForHostCommand, ArmStrategyForHostCommandHandler)
     container.bind(DisarmStrategyForHostCommand, DisarmStrategyForHostCommandHandler)

@@ -252,3 +252,24 @@ class DisarmStrategyForHostCommand:
     strategy's symbol refuses it, in words."""
 
     venue: str
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyPlanEntryForHostCommand:
+    """The operator's `bot apply`, one entry at a time, beside a running host (`EPIC-045C`).
+
+    The host carries the entry out as the offline apply does (create a DRAFT, edit, or leave) and records
+    `desired_state` (`running` or `stopped`); it never starts the bot. The entry is judged again on the host as a
+    plan entry, because a command file is a trust boundary.
+    """
+
+    entry: NewBotEntry
+    desired_state: str
+
+
+@dataclass(frozen=True, slots=True)
+class UnplanBotForHostCommand:
+    """The operator's `bot apply`, for a bot the plan no longer names (`EPIC-045C`): forget its recorded wish, so
+    `run --start-planned` stops acting on it. The bot itself is not touched."""
+
+    bot_id: str

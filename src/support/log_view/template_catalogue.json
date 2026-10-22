@@ -801,6 +801,7 @@
 ["hhhhhh", "[paper-exchange] Partial take-profit filled | ", " Price: ", " | Qty: ", " | PnL: ", " (", "%) | Remaining: ", ""],
 ["hhhh", "[paper-exchange] Trailing stop | ", " peak ", " | offset ", "% | stop now ", ""],
 ["s", "[plan] applied: ", ""],
+["ss", "[plan] entry applied: ", " ", ""],
 ["sssss", "[preflight] ", " ", "", ": ", "", ""],
 ["ds", "[preflight] ", " checks ran: ", ""],
 ["", "[preflight] --skip-preflight: no check ran; the host serves without knowing the key, the clock or the exchange are fit"],

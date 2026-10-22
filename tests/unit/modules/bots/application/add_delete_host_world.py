@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.edit_host_wor
     SpyLock,
     settings_of,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.plan.plan_world import (
+    MemoryAppliedPlanStore,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_world import (
     ReadinessWorld,
     readiness_world,
@@ -113,8 +116,9 @@ class AddDeleteHost:
         self._move = MoveBotForHostCommandHandler(
             world.store, self.dispatcher, self.lock
         )
+        self.plans = MemoryAppliedPlanStore()
         self._delete = DeleteBotForHostCommandHandler(
-            world.store, self.dispatcher, world.kinds, self.lock
+            world.store, self.dispatcher, world.kinds, self.lock, self.plans
         )
 
     def move(self, venue: str, bot_id: str = BOT) -> BotCommandResult:

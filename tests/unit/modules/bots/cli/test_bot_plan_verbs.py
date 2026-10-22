@@ -69,6 +69,7 @@ def _apply_args(path: Path, **values: object) -> argparse.Namespace:
             "plan": str(path),
             "dry_run": False,
             "prune": False,
+            "wait": 15.0,
             "json": True,
             "format": None,
             **values,
@@ -179,21 +180,6 @@ def test_a_dry_run_with_a_blocked_entry_also_exits_two(
     )
 
     assert outcome is not None and outcome.code is ExitCode.USAGE
-
-
-def test_a_second_copy_exits_three_on_apply_and_changes_nothing(
-    tmp_path: Path,
-) -> None:
-    world, store = CommandWorld(), MemoryAppliedPlanStore()
-    path = _plan_file(tmp_path, _bot())
-    reader = InstanceAccess.declined("Another copy holds the data root.")
-
-    outcome = ApplyBotPlanVerb().run(
-        _apply_args(path), verb_world(world, _PRINTER, plans=store, instance=reader)
-    )
-
-    assert outcome is not None and outcome.code is ExitCode.LOCK_HELD
-    assert world.commands() == [] and store.writes == 0
 
 
 def test_a_dry_run_works_on_a_read_only_copy(
