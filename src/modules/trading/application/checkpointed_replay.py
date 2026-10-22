@@ -161,19 +161,27 @@ def still_open_orders[S](
     nothing is owed: only the owner's own counted fills can say so, never a guess, so an id is
     never dropped while its order may still fill. An order cancelled with nothing filled leaves
     no fill to say it ended, and stays until the run's checkpoint is discarded; a Grid cancels
-    rarely, where it fills all day. An id an older checkpoint carried with no figure stays, too."""
+    rarely, where it fills all day. An id with no figure stays, too: one an older checkpoint
+    carried, and one whose order reports a quantity of zero (a `closePosition` stop)."""
     ended = {
         record.exchange_order_id
         for record in orders
         if is_terminal(record.order.status)
     }
     owed: dict[int, Decimal] = {}
+    unknown: set[int] = set()
     for record in orders:
         order_id = record.exchange_order_id
-        if order_id not in ended:
-            before = start.open_order_remaining.get(order_id, record.order.quantity)
-            owed[order_id] = before - folded.get(order_id, Decimal(0))
-    unknown: set[int] = set()
+        if order_id in ended:
+            continue
+        before = start.open_order_remaining.get(order_id)
+        if before is None and record.order.quantity <= 0:
+            # A quantity of zero is a `closePosition` stop (`protective_stop_request.py`): it
+            # closes whatever the position is, so no quantity says when it is done.
+            unknown.add(order_id)
+            continue
+        before = record.order.quantity if before is None else before
+        owed[order_id] = before - folded.get(order_id, Decimal(0))
     for order_id in start.open_order_ids - ended - owed.keys():
         before_or_none = start.open_order_remaining.get(order_id)
         if before_or_none is None:

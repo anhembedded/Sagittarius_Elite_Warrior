@@ -68,14 +68,14 @@ _REGISTRATION = OwnerBudgetRegistration(
 )
 
 
-def _resting(exchange_id: int) -> OrderRecord:
+def _resting(exchange_id: int, quantity: Decimal = _QUANTITY) -> OrderRecord:
     return OrderRecord(
         order=Order(
             client_order_id=ClientOrderId(f"SEW-a3f9c1-{exchange_id:010d}"),
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.LIMIT,
-            quantity=_QUANTITY,
+            quantity=quantity,
             status=OrderStatus.NEW,
             price=D(50000),
         ),
@@ -189,3 +189,18 @@ def test_what_each_order_owes_survives_the_file(tmp_path: Path) -> None:
     store.save(checkpoint)
 
     assert store.load("a3f9c1") == checkpoint
+
+
+def test_a_close_position_stop_reporting_no_quantity_keeps_its_id() -> None:
+    """The Futures protective stop is sent with a quantity of zero and `closePosition`
+    (`protective_stop_request.py`): nothing is owed to fill that a figure could say is done, so
+    its id stays and the position it closes is still counted when it fires."""
+    checkpoints = FakeOwnerInventoryCheckpoints()
+    _derive(checkpoints, [_resting(42, quantity=D(0))], [], _FIRST_READ)
+    assert checkpoints.saved["a3f9c1"].open_order_ids == frozenset({42})
+
+    fired = _fill(100, 42, _QUANTITY, _FIRST_READ + timedelta(minutes=10))
+    inventory = _derive(checkpoints, [], [fired], _LATER)
+
+    assert inventory.quantity == _QUANTITY, "the stop's fill is the owner's"
+    assert 42 in checkpoints.saved["a3f9c1"].open_order_ids

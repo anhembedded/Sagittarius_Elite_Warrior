@@ -26,7 +26,7 @@
 | **Drop an id when the counted fills reach its quantity** | one stored figure per id, no exchange read | a premature drop is impossible: counted fills never exceed what the order executed | **Chosen** |
 | Widen the order window back to the oldest carried order | up to 30 daily Spot requests per derivation | none | Rejected: it undoes what the checkpoint is for |
 
-**Price paid (a test locks it):** an order cancelled with nothing filled leaves no fill to say it ended, so its id stays until the run's checkpoint is discarded; a Grid cancels at a rung drop or a stop, where it fills all day. An id an older checkpoint carried has no figure and stays too, so the owner's current `6tszoz` file keeps its 76 until that run ends; its new ids prune.
+**Price paid (a test locks it):** an order cancelled with nothing filled leaves no fill to say it ended, so its id stays until the run's checkpoint is discarded; a Grid cancels at a rung drop or a stop, where it fills all day. An id an older checkpoint carried has no figure and stays too, and so does an order that reports a quantity of zero: the Futures protective stop is a `closePosition` order with no quantity, so no figure could say it is done (found in the review of PR 720; a test locks it). so the owner's current `6tszoz` file keeps its 76 until that run ends; its new ids prune.
 
 ## 3a. Reuse
 `OrderRecord`, `is_terminal`, `still_open_orders`: used. A UI need: none.
