@@ -103,7 +103,7 @@ The walking skeleton (`EPIC-036G`) added:
   `ALERT_ON_ENTRY`; the bot leaving the wait is in `CLEARED_ON_ENTRY`); `on_auto_recovered` raises a
   `BOT_AUTO_RECOVERED` warning for each automatic recovery, keyed by the attempt so a second
   recovery inside the dedup window is not a count on the first; `on_range_entered` raises one INFO
-  `BOT_RANGE_ENTERED` alert when a bot that waited for its range has laid its ladder; `on_planned_bot_not_started` raises one WARNING `PLANNED_BOT_NOT_STARTED` alert per planned mainnet bot the host's `--start-planned` skipped for want of `--confirm-venue` (`EPIC-045F`; the alert names `bot start <id> --confirm-venue <venue>`) (the entry crosses
+  `BOT_RANGE_ENTERED` alert when a bot that waited for its range has laid its ladder, naming the trigger price it met when its plan has one (`EPIC-046B`); `on_planned_bot_not_started` raises one WARNING `PLANNED_BOT_NOT_STARTED` alert per planned mainnet bot the host's `--start-planned` skipped for want of `--confirm-venue` (`EPIC-045F`; the alert names `bot start <id> --confirm-venue <venue>`) (the entry crosses
   two states, so it is the bot's own event and not a state entry, and a state change of the entry
   publishes nothing); the entry into `AWAITING_RANGE` ends `BOT_HALTED`, `BOT_ERROR` and
   `BOT_RECOVERY_STALLED` (a halted bot resumed flat into the wait, `CLEARED_ON_ENTRY`); the `BOT_HALTED` alert's `Reason:`

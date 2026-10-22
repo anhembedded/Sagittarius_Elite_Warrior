@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.wait
     BELOW,
     CASES,
     INSIDE,
+    WITH_NO_EXITS,
     a_wait,
     started,
 )
@@ -99,3 +100,34 @@ def test_an_entry_whose_ladder_cannot_be_laid_tells_nothing() -> None:
 
     assert case.world.state() is S.HALTED
     assert _told(case) == []
+
+
+@pytest.mark.parametrize(
+    ("direction", "short_of", "better", "at_or_below"),
+    [
+        ("LONG", Decimal(135), Decimal(124), True),
+        ("SHORT", Decimal(115), Decimal(126), False),
+    ],
+    ids=["long", "short"],
+)
+def test_an_entry_on_a_trigger_names_the_trigger_and_its_side(
+    direction: str, short_of: Decimal, better: Decimal, at_or_below: bool
+) -> None:
+    """`EPIC-046B`, ADR 046 D5: the alert says which trigger the entry met."""
+    config = {**WITH_NO_EXITS, "trigger_price": "125"}
+    case = started(a_wait("futures", direction, short_of, config=config))
+
+    case.price_is(better)
+
+    [event] = _told(case)
+    assert event.trigger == Decimal(125)
+    assert event.trigger_at_or_below is at_or_below
+
+
+def test_an_entry_without_a_trigger_names_none() -> None:
+    case = started(a_wait("spot", "LONG", BELOW))
+
+    case.price_is(INSIDE)
+
+    [event] = _told(case)
+    assert event.trigger is None

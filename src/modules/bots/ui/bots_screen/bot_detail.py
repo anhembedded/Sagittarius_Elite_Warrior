@@ -99,6 +99,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks impor
     PlanChecks,
     plan_checks_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_trigger_line import (
+    shown_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_liquidation import (
     liquidation_lines,
 )
@@ -215,7 +218,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         availability={
             action: availability(bot.state, action, start) for action in BotAction
         },
-        overlay=judged.overlay,
+        overlay=shown_for(judged.overlay, bot),
         readiness=readiness,
         overlay_note=_not_drawn(bot, inputs.market, judged),
         ladder=grid_ladder_of(shown, inputs.now),

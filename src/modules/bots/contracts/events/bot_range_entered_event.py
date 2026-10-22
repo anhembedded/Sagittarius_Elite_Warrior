@@ -30,3 +30,7 @@ class BotRangeEnteredEvent(BaseEvent):
     upper: Decimal
     #: How many orders the ladder has resting once it is laid.
     orders: int
+    #: The trigger price the entry met (`EPIC-046B`), `None` for a plan without one.
+    trigger: Decimal | None = None
+    #: `True` when the trigger wanted the price at or below it (a LONG), `False` at or above it.
+    trigger_at_or_below: bool = True

@@ -52,6 +52,8 @@ STOP_LOSS_COLOR = BEAR_COLOR
 #: `EPIC-039J` - the estimated price at which a leveraged position is liquidated.
 LIQUIDATION_COLOR = "firebrick"
 RANGE_EDGE_COLOR = "steelblue"
+#: `EPIC-046B` - a Grid's trigger price, the limit on its entry: a hue no other line uses.
+TRIGGER_COLOR = "mediumorchid"
 AVERAGE_COST_COLOR = "goldenrod"
 SUGGESTION_BAND_COLOR = "gray"
 INDICATOR_BAND_COLOR = "goldenrod"

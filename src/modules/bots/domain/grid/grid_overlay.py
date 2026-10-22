@@ -20,6 +20,9 @@ with the same activity draw the same chart.
   (`grid_checks.check_range_against_atr`); centring is this drawing's own
   suggestion. A zone never reaches below zero.
 · **Bollinger** (when the caller computed the bands): the band between them.
+· **Trigger** (`EPIC-046B`, when the plan has a trigger price): one line, tagged
+  "Trigger ≤ T" (≥ for a SHORT). It is the plan's; the Bots screen leaves it out once the
+  bot has laid its ladder (`plan_trigger_line.py`), as a filled limit order is not redrawn.
 · **Liquidation** (`EPIC-039J`, a position venue's plan once the guard judged it): one dashed
   line per exposed side at the guard's estimated liquidation price, labelled an estimate.
 
@@ -42,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     OverlayFill,
     OverlayLine,
     OverlayRole,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_entry_gate import (
+    better_is_lower,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
@@ -135,6 +142,7 @@ def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     level_prices = {level.price for level in source.plan.levels}
     lines += _edge_lines(limits, level_prices)
     lines += _exit_lines(source.params)
+    lines += _trigger_line(source.params)
     lines += _liquidation_lines(source.liquidations)
     if activity.average_cost is not None:
         lines.append(
@@ -184,6 +192,16 @@ def _exit_lines(params: GridParams) -> list[OverlayLine]:
             OverlayLine(params.take_profit_price, OverlayRole.TAKE_PROFIT, "TP")
         )
     return lines
+
+
+def _trigger_line(params: GridParams) -> list[OverlayLine]:
+    trigger = params.trigger_price
+    if trigger is None:
+        return []
+    side = "≤" if better_is_lower(params) else "≥"
+    return [
+        OverlayLine(trigger, OverlayRole.TRIGGER, f"Trigger {side} {plain(trigger)}")
+    ]
 
 
 def _liquidation_lines(

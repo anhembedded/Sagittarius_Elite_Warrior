@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     PriceMark,
     PricePosition,
     RecordedCycles,
+    TriggerMark,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
     FEE_NOT_SAVED,
@@ -34,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     small_money_text,
     step_text,
     summary_line,
+    waiting_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     NO_PRICE_YET,
@@ -299,3 +301,38 @@ def test_without_a_recorded_rate_the_note_says_the_net_is_blank_and_why() -> Non
     assert note.startswith("Net figures are blank")
     assert FEE_NOT_SAVED in note
     assert RATE_SOURCE not in cycle_profit_text(_summary(), plain_money)
+
+
+def test_a_bot_waiting_on_its_range_alone_names_the_range() -> None:
+    text = waiting_text(_position(last_price=Decimal(58000)), plain_price)
+
+    assert text.startswith("Waiting for the price to enter 60,000.00–70,000.00")
+
+
+def test_a_long_waiting_on_its_trigger_names_the_trigger_and_the_better_side() -> None:
+    """`EPIC-046B`, ADR 046 D5: "Waiting for the price ≤ X (now Y)"."""
+    trigger = TriggerMark(PriceMark(Decimal(62000), None), at_or_below=True)
+
+    text = waiting_text(_position(trigger=trigger), plain_price)
+
+    assert text.startswith(
+        "Waiting for the price ≤ 62,000.00 within 60,000.00–70,000.00"
+    )
+    assert "last price 64,000.00" in text
+    assert text.endswith("nothing is placed until it is")
+
+
+def test_a_short_waiting_on_its_trigger_wants_the_price_at_or_above_it() -> None:
+    trigger = TriggerMark(PriceMark(Decimal(66000), None), at_or_below=False)
+
+    text = waiting_text(_position(trigger=trigger), plain_price)
+
+    assert text.startswith("Waiting for the price ≥ 66,000.00")
+
+
+def test_a_trigger_wait_before_any_price_says_none_was_heard() -> None:
+    trigger = TriggerMark(PriceMark(Decimal(62000), None), at_or_below=True)
+
+    text = waiting_text(_position(trigger=trigger, last_price=None), plain_price)
+
+    assert "no price heard yet" in text

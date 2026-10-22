@@ -129,3 +129,44 @@ def test_the_wait_ends_the_halt_conditions_and_leaves_the_own_route_ones_for_run
         AlertKind.RATE_LIMITED,
         AlertKind.KEY_REJECTED,
     } <= set(CLEARED_ON_ENTRY["RUNNING"])
+
+
+def test_an_entry_on_a_trigger_names_the_trigger_and_its_side() -> None:
+    """`EPIC-046B`, ADR 046 D5."""
+    source, published = _source()
+
+    source.on_range_entered(
+        BotRangeEnteredEvent(
+            BOT,
+            Decimal(124),
+            Decimal(100),
+            Decimal(140),
+            8,
+            trigger=Decimal(125),
+            trigger_at_or_below=True,
+        )
+    )
+    source.on_range_entered(
+        BotRangeEnteredEvent(
+            BOT,
+            Decimal(126),
+            Decimal(100),
+            Decimal(140),
+            8,
+            trigger=Decimal(125),
+            trigger_at_or_below=False,
+        )
+    )
+
+    long_alert, short_alert = published.published
+    assert "at or below its trigger price 125.0000" in long_alert.detail
+    assert "at or above its trigger price 125.0000" in short_alert.detail
+
+
+def test_an_entry_without_a_trigger_says_nothing_of_one() -> None:
+    source, published = _source()
+
+    source.on_range_entered(_entered())
+
+    [alert] = published.published
+    assert "trigger" not in alert.detail
