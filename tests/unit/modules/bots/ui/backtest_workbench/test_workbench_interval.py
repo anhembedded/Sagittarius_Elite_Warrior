@@ -2,7 +2,7 @@
 
 @details The owner found the interval drop-down out of date beside the charts' own picker: the pinned
 timeframes as actions and "More timeframes…" with its grouped dialog. The workbench reuses that
-component (`ChartToolbar`), limited to the intervals a backtest replays (`INTERVALS`)."""
+component (`ChartToolbar`), offering every interval the bot's market loads (`BOT-232`)."""
 
 from __future__ import annotations
 
@@ -16,12 +16,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.interval_toolbar import (
     DEFAULT_INTERVAL,
-    INTERVALS,
+    PINNED_INTERVALS,
 )
 
-from .workbench_fixtures import WorkbenchWorld, build_workbench, selection
+from .workbench_fixtures import (
+    WorkbenchWorld,
+    build_workbench,
+    futures_selection,
+    selection,
+)
 
-_CODES = [interval.value for interval in INTERVALS]
+_CODES = [interval.value for interval in PINNED_INTERVALS]
+_EVERY_CODE = {interval.value for interval in TimeFrame}
 
 
 @pytest.fixture
@@ -52,16 +58,55 @@ def test_it_opens_on_the_default_interval_with_each_replayed_interval_pinned(
     assert checked == [DEFAULT_INTERVAL.value]
 
 
-def test_the_full_picker_offers_only_the_intervals_a_backtest_replays(
+def _offered(workbench: BacktestWorkbench) -> set[str]:
+    toolbar = workbench.view.interval
+    return {row.code for group in toolbar._selection.groups for row in group.rows}
+
+
+def test_the_full_picker_offers_every_interval_from_1s_to_1m_in_the_charts_groups(
     world: WorkbenchWorld,
 ) -> None:
     toolbar = world.workbench.view.interval
 
-    offered = {row.code for group in toolbar._selection.groups for row in group.rows}
     toolbar._selection.choose("1d")
+    groups = [
+        (group.label, [row.code for row in group.rows])
+        for group in toolbar._selection.groups
+    ]
 
-    assert offered == set(_CODES)
-    assert world.workbench.view.chosen_interval() is DEFAULT_INTERVAL
+    assert _offered(world.workbench) == _EVERY_CODE
+    assert [label for label, _ in groups] == [
+        "SECONDS",
+        "MINUTES",
+        "HOURS",
+        "DAYS AND UP",
+    ]
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_DAY
+    assert _action_texts(world.workbench)[:4] == _CODES
+
+
+def test_the_full_picker_warns_that_seconds_are_heavy(world: WorkbenchWorld) -> None:
+    assert world.workbench.view.interval._selection.has_warning
+
+
+def test_a_futures_bot_is_not_offered_1s_which_futures_serves_no_klines_for(
+    world: WorkbenchWorld,
+) -> None:
+    world.workbench.follow(futures_selection())
+
+    assert _offered(world.workbench) == _EVERY_CODE - {"1s"}
+
+
+def test_a_chosen_1s_moves_to_1m_when_the_bot_followed_is_a_futures_one(
+    world: WorkbenchWorld,
+) -> None:
+    world.workbench.follow(selection())
+    world.workbench.view.interval._selection.choose("1s")
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_SECOND
+
+    world.workbench.follow(futures_selection())
+
+    assert world.workbench.view.chosen_interval() is TimeFrame.ONE_MINUTE
 
 
 def test_choosing_an_interval_is_what_the_next_run_replays(

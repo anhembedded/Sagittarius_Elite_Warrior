@@ -126,7 +126,11 @@ def repository(tmp_path) -> Iterator[SQLAlchemyMarketDataRepository]:
     manager.dispose_all()
 
 
-def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
+def _replay(
+    repository: SQLAlchemyMarketDataRepository,
+    interval: TimeFrame = TimeFrame.ONE_MINUTE,
+    seconds: int = SECONDS,
+) -> GridBacktestResult:
     sources = FakeMarketDataSources().serving(
         FakeMarketDataSources.ports(
             VENUE.market_data_venue,
@@ -139,9 +143,9 @@ def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
             SYMBOL,
             CONFIG,
             TERMS,
-            TimeFrame.ONE_MINUTE,
+            interval,
             T0,
-            T0 + timedelta(seconds=SECONDS),
+            T0 + timedelta(seconds=seconds),
             VENUE,
         )
     )
@@ -177,3 +181,41 @@ def test_without_one_second_klines_the_replay_is_coarse_and_completes_no_more_cy
 
     assert coarse.coarse_periods
     assert coarse.completed_cycles <= fine.completed_cycles
+
+
+@pytest.mark.parametrize(
+    "interval",
+    [
+        TimeFrame.THREE_MINUTES,
+        TimeFrame.FOUR_HOURS,
+        TimeFrame.ONE_DAY,
+        TimeFrame.ONE_WEEK,
+    ],
+    ids=["3m", "4h", "1d", "1w"],
+)
+def test_a_period_replays_at_an_interval_other_than_the_default_from_stored_candles(
+    repository: SQLAlchemyMarketDataRepository, interval: TimeFrame
+) -> None:
+    """`BOT-232`: the workbench offers every interval, so the replay is judged at one the picker
+    used to hide. Candles only, no 1-second klines: the replay is coarse and still ends cleanly."""
+    step = interval.to_seconds()
+    count = 12
+    candles = []
+    for index in range(count):
+        low, high = (62500.0, 67500.0) if index % 2 == 0 else (62600.0, 67400.0)
+        up = index % 2 == 0
+        candles.append(
+            _kline(
+                T0 + timedelta(seconds=index * step),
+                interval,
+                (low if up else high, high, low, high if up else low),
+            )
+        )
+    repository.save_klines(MarketType.SPOT, candles)
+
+    result = _replay(repository, interval, count * step)
+
+    assert result.stop_reason is StopReason.END_OF_DATA
+    assert len(result.equity) == count
+    assert result.coarse_periods
+    assert result.completed_cycles >= 1

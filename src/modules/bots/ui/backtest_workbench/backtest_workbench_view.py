@@ -34,7 +34,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    plan_market_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.backtest.backtest_outcome import (
     BacktestFill,
     EquityPoint,
@@ -66,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_status impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
@@ -118,6 +125,7 @@ class BacktestWorkbenchView(QWidget):
     ) -> None:
         super().__init__(parent)
         self.interval = interval_toolbar()
+        self._market: MarketType | None = None
         now = datetime.now(UTC).replace(second=0, microsecond=0)
         self.start = _datetime_edit(
             "dtBacktestStart", now - timedelta(days=_DEFAULT_DAYS)
@@ -175,6 +183,14 @@ class BacktestWorkbenchView(QWidget):
 
     def chosen_interval(self) -> TimeFrame:
         return TimeFrame(self.interval.active_timeframe or DEFAULT_INTERVAL.value)
+
+    def offer_intervals_of(self, venue: TradingVenue) -> None:
+        """The picker offers the intervals the venue's market loads (`BOT-232`: Futures has no `1s`);
+        a chosen interval it does not load moves to the nearest one that it does."""
+        market = plan_market_of(venue)
+        if market is not self._market:
+            self._market = market
+            self.interval.set_market(market)
 
     def chosen_period(self) -> tuple[datetime, datetime]:
         return _utc(self.start), _utc(self.end)

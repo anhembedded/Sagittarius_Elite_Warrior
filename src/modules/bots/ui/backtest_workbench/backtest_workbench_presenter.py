@@ -380,6 +380,9 @@ class BacktestWorkbenchPresenter(QObject):
         )
 
     def _refresh(self) -> None:
+        plan = self._sandbox.plan
+        if plan is not None:
+            self._view.offer_intervals_of(plan.venue)
         self._view.show_state(self._state())
 
     def _busy(self) -> bool:

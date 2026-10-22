@@ -11,8 +11,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     CurrentStaysPinned,
 )
 
-#: The intervals a backtest offers; the result chart draws in the same one.
-INTERVALS = (
+#: The intervals pinned on the row at first; the picker offers every interval the bot's market
+#: loads, and the result chart draws in the one that was run.
+PINNED_INTERVALS = (
     TimeFrame.ONE_MINUTE,
     TimeFrame.FIVE_MINUTES,
     TimeFrame.FIFTEEN_MINUTES,
@@ -27,12 +28,10 @@ _CURRENT_INTERVAL_TEXT = (
 
 def interval_toolbar() -> ChartToolbar:
     """The interval, chosen the way every chart's timeframe is: the pinned intervals as actions and
-    "More timeframes…", offering only what a backtest replays (`INTERVALS`)."""
-    codes = [interval.value for interval in INTERVALS]
+    "More timeframes…", whose picker offers every interval the bot's market loads (`BOT-232`)."""
     toolbar = ChartToolbar(
-        timeframes=codes,
+        timeframes=[interval.value for interval in PINNED_INTERVALS],
         active=DEFAULT_INTERVAL.value,
-        offered_codes=codes,
         keep_current_pinned=CurrentStaysPinned(_CURRENT_INTERVAL_TEXT),
     )
     toolbar.setObjectName("tbBacktestInterval")
