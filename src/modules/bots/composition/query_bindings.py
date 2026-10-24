@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_read
     GetBotReadinessQuery,
     GetBotReadinessQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
+    GetBotRunFactsQuery,
+    GetBotRunFactsQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report import (
     GetBotStatusReportQueryHandler,
 )
@@ -78,6 +82,7 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetExchangeFactsQuery, GetExchangeFactsQueryHandler)
     container.bind(GetPlanRiskFactsQuery, GetPlanRiskFactsQueryHandler)
     container.bind(GetVenueConnectionQuery, GetVenueConnectionQueryHandler)
+    container.bind(GetBotRunFactsQuery, GetBotRunFactsQueryHandler)
     container.bind(GetStoredCandlesQuery, GetStoredCandlesQueryHandler)
     container.bind(RunGridBacktestQuery, RunGridBacktestQueryHandler)
     container.bind(RunBacktestQuery, RunBacktestQueryHandler)

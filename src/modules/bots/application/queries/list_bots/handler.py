@@ -15,7 +15,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.b
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
+    BotStoreReading,
+    IBotStore,
+    StoredBot,
+)
 
 
 class ListBotsQueryHandler(IQueryHandler[ListBotsQuery, BotList]):
@@ -26,11 +30,20 @@ class ListBotsQueryHandler(IQueryHandler[ListBotsQuery, BotList]):
 
     def execute(self, query: ListBotsQuery) -> BotList:
         reading = self._store.load_all()
-        stored = sorted(
+        return BotList(
+            tuple(
+                BotSnapshot.of(item.bot, bot_progress(item)) for item in listed(reading)
+            ),
+            reading.refused,
+        )
+
+
+def listed(reading: BotStoreReading) -> tuple[StoredBot, ...]:
+    """The stored bots in the order the list shows them: oldest first. Who holds a symbol, and
+    which bots fill a venue, are named in this order too (`GetBotRunFactsQuery`)."""
+    return tuple(
+        sorted(
             reading.bots,
             key=lambda item: (item.bot.created_at, item.bot.bot_id.value),
         )
-        return BotList(
-            tuple(BotSnapshot.of(item.bot, bot_progress(item)) for item in stored),
-            reading.refused,
-        )
+    )

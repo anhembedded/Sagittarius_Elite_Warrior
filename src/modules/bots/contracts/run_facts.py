@@ -1,13 +1,18 @@
 """`EPIC-034H` — the Run step's facts: what stands in a bot's way that is not its plan or its
 account.
 
-`RunFacts` is what the assessment judges. Published here (`EPIC-048B`) so the screen and a remote
-backend hold the same read model the Start path judges.
+`RunFacts` is what the assessment judges; `BotRunFacts` is what the host knows of it. Published
+here (`EPIC-048B`) so the screen and a remote backend hold the same read model the Start path
+judges.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudgetCaps,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,3 +34,19 @@ class RunFacts:
     lease_holder: str = ""
     #: Which cap the owner budget exceeds.
     budget_problem: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class BotRunFacts:
+    """`EPIC-048B` — what only the host knows of a bot's Run step, as `GetBotRunFactsQuery`
+    answers it: every fact of `RunFacts` but the budget, and the caps the budget is judged
+    against.
+
+    The budget depends on the parameters on screen, which change on every edit; carrying the caps
+    instead of the verdict lets the screen re-judge an edit 150 ms after the last keystroke
+    without asking the host again (`presenter_pacing.REJUDGE_MS`, DERISK R1 §1.5).
+    """
+
+    #: The Run step's host facts; `budget_problem` is always empty here.
+    facts: RunFacts
+    caps: OwnerBudgetCaps
