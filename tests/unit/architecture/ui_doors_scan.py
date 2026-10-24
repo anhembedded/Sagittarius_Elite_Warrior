@@ -138,19 +138,21 @@ def _resolve(module: str, name: str | None) -> object:
 
 
 def classify(module: str, name: str | None, allowed: frozenset[str]) -> str | None:
-    """R7 §7.2 step 2: the class of one imported name, or `None` when it goes through the doors."""
+    """R7 §7.2 step 2: the class of one imported name, or `None` when it goes through the doors.
+
+    The layer words are matched on whole path segments of the module *and* the imported name, so
+    a bare package (`from <m> import application`, `from <m>.application import X`) is caught as
+    well as a module inside it; R7's substring test needed a dot after the word.
+    """
     short = module.removeprefix(PACKAGE + ".")
     if not short.startswith("src."):
         return None
-    if ".application.services." in short or short.endswith(".application.services"):
+    target = f".{short}.{name}." if name else f".{short}."
+    if ".application.services." in target:
         return APP_SERVICE
-    if (
-        ".adapters." in short
-        or short.endswith(".adapters")
-        or short.startswith("src.infrastructure")
-    ):
+    if ".adapters." in target or short.startswith("src.infrastructure"):
         return ADAPTER
-    if ".application." in short and not USE_CASE_MESSAGE.search(short):
+    if ".application." in target and not USE_CASE_MESSAGE.search(short):
         return APP_OTHER
     if name and ".contracts" in short and name not in allowed:
         obj = _resolve(module, name)

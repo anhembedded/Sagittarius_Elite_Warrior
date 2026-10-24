@@ -72,6 +72,8 @@ The two areas that leave the count are `bots/ui/backtest` and `bots/ui/chart` (t
 2. The `bots.adapters.plan_file` import removed from `src/modules/bots/ui/bots_screen/plan_export_flow.py` → `test_a_count_that_fell_is_lowered_in_the_baseline` red: `around_the_doors / bots/ui/bots_screen / ADAPTER: 2 -> 0`; reverted, `6 passed`.
 3. `IDisplayTimezonePreference` and `IDisplayPreferences` on the rule's line → `test_every_allowlisted_name_is_a_real_contract` red, naming both.
 
+**Review, round 1 (PR #730).** PASS with one Should-fix: `classify` matched `.application.` and `.adapters.` as substrings of the module only, so a bare package (`from <m> import application`, `from <m>.application import X`) went uncounted; R7's spike had the same gap. Fixed by matching the layer words on whole segments of the module and the imported name; `test_a_layer_is_matched_on_whole_segments` pins seven shapes, and four of them go red against the old `classify`. No instance exists today, so the baseline is unchanged.
+
 **Run time.** About 3 s alone (`--durations`: 2.96 s in the module fixture, which imports the classified modules; every test after it under 0.1 s); the same imports are already loaded in the full gate. Read-only, writes no file. No `ResourceWarning` in the architecture suite's log.
 
 **Verification at this commit.** `pytest tests/unit -q -n auto` (the architecture suite included): 19296 passed, 2 skipped (log read for `FAILED|ERROR|Traceback|ResourceWarning`: none). Commit tier `ci-local.ps1 -SkipTests`: `RESULT: PASS`, log read the same way. The full gate is the PR's GitHub Actions run.

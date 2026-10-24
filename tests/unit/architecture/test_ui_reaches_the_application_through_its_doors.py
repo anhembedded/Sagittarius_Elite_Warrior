@@ -35,6 +35,7 @@ from .ui_doors_scan import (
     Hit,
     allowlist,
     baseline_shape,
+    classify,
     scan,
     section_of,
     ui_files,
@@ -101,6 +102,34 @@ def test_every_allowlisted_name_is_a_real_contract() -> None:
     }
     unknown = allowlist() - defined
     assert not unknown, f"the allowlist names no contract class: {sorted(unknown)}"
+
+
+@pytest.mark.parametrize(
+    ("module", "name", "expected"),
+    [
+        ("src.modules.bots", "application", "APP_OTHER"),
+        ("src.modules.bots.application", "BotPlan", "APP_OTHER"),
+        ("src.modules.bots.application", "services", "APP_SERVICE"),
+        ("src.modules.bots", "adapters", "ADAPTER"),
+        ("src.modules.bots.application.services.readiness", "assess", "APP_SERVICE"),
+        ("src.modules.bots.application.queries.get_bot", "GetBotQuery", None),
+        ("src.modules.bots.domain", "application_word", None),
+    ],
+    ids=[
+        "bare-app",
+        "app-package",
+        "app-services",
+        "bare-adapters",
+        "service",
+        "query",
+        "word",
+    ],
+)
+def test_a_layer_is_matched_on_whole_segments(
+    module: str, name: str, expected: str | None
+) -> None:
+    """A bare package import reaches the layer as surely as a module inside it (review of #730)."""
+    assert classify(module, name, frozenset()) == expected
 
 
 def test_the_scan_reads_the_ui_tree() -> None:
