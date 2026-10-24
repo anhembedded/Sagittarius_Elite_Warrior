@@ -4,10 +4,17 @@
 |-------|-------|
 | Document type | De-risk (step 3): throwaway experiments that confirm or overturn the provisional decisions |
 | Epic | EPIC-047 — a desktop tab that shows and controls the bots on the VPS host |
-| Version | 0.1 (Draft) |
-| Status | R1, R4, R5, R6, R7 measured; R2 and R3 proved on localhost, **waiting for the owner's run** on Windows against the VPS (§R3.4) |
+| Version | 0.2 (Draft) |
+| Status | R1, R4, R5, R6, R7 measured; R2 and R3 proved on localhost; the owner's first run (2026-10-24) found **A1 false** (no SSH key yet); waiting for the re-run after the key setup of §R3.4 |
 | Inputs | `CHARTER.md` v0.4 (§4 G1–G9, §5.2 A6–A7) · `DISCOVER.md` v0.2 (§8 R1–R7) · code at `claude/dazzling-feynman-n23hrz` 5ddbd68 · Engine at the `engine.ref` pin f4ef582 |
 | Next step | The owner runs §R3.4; then the decision records for G1, G6, G7 and G9, with the amendments of §9 |
+
+**Revision history**
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 0.1 | 2026-10-24 | R1–R7, A6, A7; the owner's script for R2 and R3 |
+| 0.2 | 2026-10-24 | The owner's first run: A1 is false (password login, no key); the key setup joins §R3.4; the script catches every check's error and goes on, skips the key-file checks without a key file, and checks `known_hosts` first |
 
 **How to read this document.** One section per experiment: the question, what was run, the measured result with its raw evidence, the verdict (*confirmed*, *overturned* or *inconclusive*) and what the verdict does to G1, G6, G7 or G9. §8 answers A6 and A7; §9 lists the decisions this evidence asks to change. Code excerpts are from throwaway spikes kept outside the repository; nothing under `src/`, `tests/`, `scripts/`, the requirements files or the configuration changed. `file:line` citations are at 5ddbd68.
 
@@ -25,6 +32,7 @@
 | R6 | Version handshake detects a mismatch | **Confirmed**: refused in words, exit 3 | Hash wire *names*, not Python module paths; Scenario 4's "read-only on mismatch" needs a decision (§6.4) |
 | R7 | Size of the "UI around the doors" debt on every screen | **Measured**: 215 imports in 82 files over 18 screen areas; 30 functions take the container | G9's baseline; two allowlist questions (§7.4) |
 | A6 | Every Bots-screen query can be asynchronous | **Holds**, with 1 query and 4 non-query reads to move off the UI thread (§8.1) | — |
+| A1 | The owner has an SSH key that logs in to the VPS | **False** (owner's run, 2026-10-24): the owner logs in with a password and has no key | The epic's runbook needs a key-setup step (§R3.4); D6 |
 | A7 | The Bots screen can reach the application only through the doors | **Likely true**; the 45 bypass imports of `bots/ui/bots_screen` are listed (§8.2) | — |
 
 ---
@@ -258,7 +266,24 @@ paramiko run 1:
 
 ### 3.4 What the owner runs on Windows (R2 and R3 on the real machines)
 
-**Prerequisites.** Python 3.12 on the desktop; the VPS's host key already in `%USERPROFILE%\.ssh\known_hosts` (log in once with `ssh <login>@<vps>` and accept the key); for the agent checks, the key loaded in Pageant or in the Windows "OpenSSH Authentication Agent" service (`ssh-add`).
+**The owner's first run (2026-10-24, Windows 11, Python 3.14.6, asyncssh 2.24.1, paramiko 5.1.0).** The key-file check failed with `FileNotFoundError` and the agent check with `PermissionDenied`: the owner logs in to the VPS with a password and has no key, so **assumption A1 is false**. Version 0.1 of the script then stopped on an uncaught `FileNotFoundError` in the wrong-pin check, before the paramiko and system `ssh` checks; version 0.2 (§R3.5) catches every check's error, reports it and goes on.
+
+**Prerequisites.** Python 3.12 or later on the desktop (3.14.6 works); the VPS's host key already in `%USERPROFILE%\.ssh\known_hosts` (log in once with `ssh <login>@<vps>` and accept the key); a key that logs in, set up once as below.
+
+**Key setup, once** (PowerShell, on the desktop; the passphrase is asked by `ssh-keygen` and never typed on a command line):
+
+```powershell
+ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\id_ed25519            # choose a passphrase when asked
+# install the public half on the VPS (asks the VPS password one last time)
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <login>@<vps> "umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys"
+# the agent, for the agent checks (an administrator PowerShell for the two service lines)
+Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519
+ssh -o BatchMode=yes <login>@<vps> true; $LASTEXITCODE                  # 0: the key logs in with no password
+```
+
+Only the `.pub` file leaves the desktop. Turning password login off on the VPS (`PasswordAuthentication no`) is a separate hardening step, out of this experiment's scope; the epic's runbook (D6) carries this key setup as its first step.
 
 **Commands** (PowerShell; the script is in §R3.5; save it as `derisk_r2_r3.py`):
 
@@ -269,10 +294,12 @@ py -3.12 -m venv $env:TEMP\sew-derisk
 # add --ask-passphrase when the key file has one (typed, not shown, not stored)
 ```
 
-**Reading the output.** One line per check, `[PASS]` or `[FAIL]`, then `N PASS, M FAIL`; exit code 0 only when nothing failed. The script prints no key, no passphrase and no secret: library versions, timings and the type name of an error only. It runs a stdlib-only echo program on the VPS (`python3 -c …`) and changes nothing there.
+**Reading the output.** One line per check, `[PASS]`, `[FAIL]` or `[SKIP]`, then `N PASS, M FAIL, K SKIP`; exit code 0 only when nothing failed. A failing check never stops the next one. A `--key` that names no file skips the key-file checks with one `[SKIP]` line. The script prints no key, no passphrase and no secret: library versions, timings and the type name of an error only. It runs a stdlib-only echo program on the VPS (`python3 -c …`) and changes nothing there.
 
 | Line | Pass means | Fail means |
 |------|------------|------------|
+| `known_hosts holds a pinned key file` | `%USERPROFILE%\.ssh\known_hosts` exists | log in once with `ssh <login>@<vps>` and accept the key |
+| `[SKIP] key file … not found` | — | no key yet: do the key setup above, then run again |
 | `asyncssh …: login with the key file, host key pinned` | G1's first choice logs in from Windows | read the error type: `PermissionDenied` (key not in `authorized_keys`), `HostKeyNotVerifiable` (host not in `known_hosts`), `KeyImportError` (passphrase: add `--ask-passphrase`) |
 | `…: stdio round trip x50` | R2: the link works; the p50 and p95 are the **real** VPS round trip that AC2 adds to R5's 100 ms | the link drops or stalls |
 | `…: the echo opened no TCP listener` | R2: `ss -Hltn` on the VPS is the same before and during the session | something listened: report it |
@@ -289,8 +316,9 @@ py -3.12 -m venv $env:TEMP\sew-derisk
 """EPIC-047 De-risk R2 + R3: an SSH stdio round trip to the VPS, from the owner's desktop.
 
 Runs a tiny stdlib-only echo program on the VPS over SSH (it opens no socket), with asyncssh,
-with paramiko and with the system `ssh`, and prints PASS / FAIL per check. It prints no key, no
-passphrase and no secret: only library versions, timings and the *type name* of an error.
+with paramiko and with the system `ssh`, and prints PASS / FAIL / SKIP per check. Every check
+catches its own error, reports it and goes on to the next one. It prints no key, no passphrase
+and no secret: only library versions, timings and the *type name* of an error.
 
   python derisk_r2_r3.py --host <vps> --user <login> [--key <private key file> [--ask-passphrase]] [--port 22]
 """
@@ -328,6 +356,7 @@ for line in sys.stdin:
         print(json.dumps({"id": msg["id"], "host_ns": time.time_ns()}), flush=True)
 '''
 RESULTS: list[tuple[str, str, str]] = []
+KNOWN_HOSTS = os.path.expanduser("~/.ssh/known_hosts")
 
 
 def remote_command(python: str) -> str:
@@ -338,6 +367,15 @@ def remote_command(python: str) -> str:
 def check(name: str, ok: bool, detail: str = "") -> None:
     RESULTS.append(("PASS" if ok else "FAIL", name, detail))
     print(f"[{'PASS' if ok else 'FAIL'}] {name} {detail}", flush=True)
+
+
+def skip(name: str, why: str) -> None:
+    RESULTS.append(("SKIP", name, why))
+    print(f"[SKIP] {name}: {why}", flush=True)
+
+
+def failed(name: str, error: BaseException) -> None:
+    check(name, False, type(error).__name__)
 
 
 def stats(values: list[float]) -> str:
@@ -378,29 +416,40 @@ async def asyncssh_suite(a: argparse.Namespace, passphrase: str | None) -> None:
             conn.abort()  # the cut: no goodbye
             return ready, rtts, same
 
-    pinned = {"known_hosts": os.path.expanduser("~/.ssh/known_hosts")}
+    pinned = {"known_hosts": KNOWN_HOSTS}
+    with_key = {"client_keys": [a.key], "passphrase": passphrase, "agent_path": None}
     if a.key:
+        name = f"{lib}: login with the key file, host key pinned"
         try:
-            ready, rtts, same = await session(client_keys=[a.key], passphrase=passphrase, agent_path=None, **pinned)
-            check(f"{lib}: login with the key file, host key pinned", True, f"ready {ready:.0f} ms")
+            ready, rtts, same = await session(**with_key, **pinned)
+            check(name, True, f"ready {ready:.0f} ms")
             check(f"{lib}: stdio round trip x50", max(rtts) < 2000, stats(rtts))
             check(f"{lib}: the echo opened no TCP listener", same)
-            t = time.perf_counter()
-            ready2, _, _ = await session(client_keys=[a.key], passphrase=passphrase, agent_path=None, **pinned)
-            check(f"{lib}: reconnect after an abrupt cut", ready2 < 5000, f"{(time.perf_counter() - t) * 1e3:.0f} ms")
         except Exception as error:
-            check(f"{lib}: login with the key file", False, type(error).__name__)
+            failed(name, error)
+        name = f"{lib}: reconnect after an abrupt cut"
+        try:
+            t = time.perf_counter()
+            ready2, _, _ = await session(**with_key, **pinned)
+            check(name, ready2 < 5000, f"{(time.perf_counter() - t) * 1e3:.0f} ms")
+        except Exception as error:
+            failed(name, error)
+    else:
+        skip(f"{lib}: key-file checks", "no key file (see --key)")
+    name = f"{lib}: login through the SSH agent (no key file named)"
     try:  # leaving client_keys out lets asyncssh ask the agent: Pageant or the Windows OpenSSH agent
         ready, _, _ = await session(**pinned)
-        check(f"{lib}: login through the SSH agent (no key file named)", True, f"ready {ready:.0f} ms")
+        check(name, True, f"ready {ready:.0f} ms")
     except Exception as error:
-        check(f"{lib}: login through the SSH agent (no key file named)", False, type(error).__name__)
-    try:
-        await session(known_hosts=fake_known_hosts(a.host, a.port),
-                      **({"client_keys": [a.key], "passphrase": passphrase} if a.key else {}))
-        check(f"{lib}: a wrong pinned host key is refused", False, "it connected")
+        failed(name, error)
+    name = f"{lib}: a wrong pinned host key is refused"
+    try:  # the host key is checked before any login, so this holds with or without a key
+        await session(known_hosts=fake_known_hosts(a.host, a.port), **(with_key if a.key else {}))
+        check(name, False, "it connected")
     except asyncssh.HostKeyNotVerifiable as error:
-        check(f"{lib}: a wrong pinned host key is refused", True, type(error).__name__)
+        check(name, True, type(error).__name__)
+    except Exception as error:
+        failed(name, error)
 
 
 # ---------------------------------------------------------------- paramiko
@@ -414,8 +463,8 @@ def paramiko_suite(a: argparse.Namespace, passphrase: str | None) -> None:
         client = paramiko.SSHClient()
         if known_hosts:
             client.load_host_keys(known_hosts)
-        else:
-            client.load_system_host_keys()
+        elif os.path.exists(KNOWN_HOSTS):
+            client.load_host_keys(KNOWN_HOSTS)
         client.set_missing_host_key_policy(paramiko.RejectPolicy())
         client.connect(a.host, a.port, a.user, look_for_keys=False, timeout=15, **kw)
         try:
@@ -439,24 +488,31 @@ def paramiko_suite(a: argparse.Namespace, passphrase: str | None) -> None:
             client.close()
 
     if a.key:
+        name = f"{lib}: login with the key file, host key pinned"
         try:
             ready, rtts, same = session(key_filename=a.key, passphrase=passphrase, allow_agent=False)
-            check(f"{lib}: login with the key file, host key pinned", True, f"ready {ready:.0f} ms")
+            check(name, True, f"ready {ready:.0f} ms")
             check(f"{lib}: stdio round trip x50", max(rtts) < 2000, stats(rtts))
             check(f"{lib}: the echo opened no TCP listener", same)
         except Exception as error:
-            check(f"{lib}: login with the key file", False, type(error).__name__)
+            failed(name, error)
+    else:
+        skip(f"{lib}: key-file checks", "no key file (see --key)")
+    name = f"{lib}: login through the SSH agent (no key file named)"
     try:
         ready, _, _ = session(allow_agent=True)
-        check(f"{lib}: login through the SSH agent (no key file named)", True, f"ready {ready:.0f} ms")
+        check(name, True, f"ready {ready:.0f} ms")
     except Exception as error:
-        check(f"{lib}: login through the SSH agent (no key file named)", False, type(error).__name__)
-    try:
+        failed(name, error)
+    name = f"{lib}: a wrong pinned host key is refused"
+    try:  # the host key is checked before any login, so this holds with or without a key
         session(known_hosts=fake_known_hosts(a.host, a.port),
                 **({"key_filename": a.key, "passphrase": passphrase} if a.key else {"allow_agent": True}))
-        check(f"{lib}: a wrong pinned host key is refused", False, "it connected")
+        check(name, False, "it connected")
     except paramiko.BadHostKeyException as error:
-        check(f"{lib}: a wrong pinned host key is refused", True, type(error).__name__)
+        check(name, True, type(error).__name__)
+    except Exception as error:
+        failed(name, error)
 
 
 # ---------------------------------------------------------------- system ssh
@@ -464,6 +520,7 @@ def system_ssh_suite(a: argparse.Namespace) -> None:
     command = ["ssh", "-T", "-o", "BatchMode=yes", "-p", str(a.port)]
     if a.key:
         command += ["-i", a.key]
+    name = "system ssh: login and stdio round trip x50"
     t0 = time.perf_counter()
     try:
         proc = subprocess.Popen(command + [f"{a.user}@{a.host}", remote_command(a.remote_python)],
@@ -472,21 +529,25 @@ def system_ssh_suite(a: argparse.Namespace) -> None:
     except FileNotFoundError:
         check("system ssh: found on PATH", False)
         return
-    first = proc.stdout.readline()
-    if not first:
-        check("system ssh: login (BatchMode, key from agent or -i)", False, f"exit {proc.wait()}")
-        return
-    ready = (time.perf_counter() - t0) * 1e3
-    rtts = []
-    for n in range(50):
-        t = time.perf_counter()
-        proc.stdin.write(json.dumps({"id": n, "call": "ping"}) + "\n")
-        proc.stdin.flush()
-        json.loads(proc.stdout.readline())
-        rtts.append((time.perf_counter() - t) * 1e3)
-    proc.stdin.close()
-    proc.wait()
-    check("system ssh: login and stdio round trip x50", True, f"ready {ready:.0f} ms, {stats(rtts)}")
+    try:
+        first = proc.stdout.readline()
+        if not first:
+            check("system ssh: login (BatchMode, key from agent or -i)", False, f"exit {proc.wait()}")
+            return
+        ready = (time.perf_counter() - t0) * 1e3
+        rtts = []
+        for n in range(50):
+            t = time.perf_counter()
+            proc.stdin.write(json.dumps({"id": n, "call": "ping"}) + "\n")
+            proc.stdin.flush()
+            json.loads(proc.stdout.readline())
+            rtts.append((time.perf_counter() - t) * 1e3)
+        proc.stdin.close()
+        proc.wait()
+        check(name, True, f"ready {ready:.0f} ms, {stats(rtts)}")
+    except Exception as error:
+        proc.kill()
+        failed(name, error)
 
 
 def main() -> int:
@@ -498,22 +559,30 @@ def main() -> int:
     parser.add_argument("--ask-passphrase", action="store_true", help="the key file has a passphrase")
     parser.add_argument("--remote-python", default="python3")
     a = parser.parse_args()
+    check("known_hosts holds a pinned key file", os.path.exists(KNOWN_HOSTS),
+          KNOWN_HOSTS if os.path.exists(KNOWN_HOSTS) else f"{KNOWN_HOSTS} missing: run `ssh {a.user}@{a.host}` once")
+    if a.key and not os.path.isfile(a.key):
+        print(f"[SKIP] key file {a.key} not found: the key-file checks are skipped (DERISK §3.4 makes one)")
+        a.key = None
     passphrase = None
     if a.key and a.ask_passphrase:
         passphrase = getpass.getpass("Key passphrase (not shown, not stored): ") or None
     print(f"agent: {'SSH_AUTH_SOCK set' if os.environ.get('SSH_AUTH_SOCK') else 'none in env (Windows: Pageant or the OpenSSH agent service)'}")
-    for suite in ("asyncssh", "paramiko"):
+    for suite in ("asyncssh", "paramiko", "system ssh"):
         try:
             if suite == "asyncssh":
                 asyncio.run(asyncssh_suite(a, passphrase))
-            else:
+            elif suite == "paramiko":
                 paramiko_suite(a, passphrase)
+            else:
+                system_ssh_suite(a)
         except ImportError:
             check(f"{suite}: installed", False, "pip install " + suite)
-    system_ssh_suite(a)
-    failed = [r for r in RESULTS if r[0] == "FAIL"]
-    print(f"\n{len(RESULTS) - len(failed)} PASS, {len(failed)} FAIL")
-    return 1 if failed else 0
+        except Exception as error:  # a suite never stops the next one
+            failed(f"{suite}: suite", error)
+    count = {status: sum(1 for r in RESULTS if r[0] == status) for status in ("PASS", "FAIL", "SKIP")}
+    print(f"\n{count['PASS']} PASS, {count['FAIL']} FAIL, {count['SKIP']} SKIP")
+    return 1 if count["FAIL"] else 0
 
 
 if __name__ == "__main__":
@@ -809,6 +878,7 @@ What must stay synchronous is the pure re-judge over facts already held (R1, §1
 | 5 | **Link protocol** | A per-bot revision in each record; a desk heartbeat with a bridge-side idle watchdog; the handshake hashes **wire names**; one reflective codec with a contract test per root type | R4, R5, R6 | P1, P8 |
 | 6 | **Charter Scenario 4** | v1 refuses the whole link on any version difference, in words naming both builds and `sudo sew-update`; read-only across versions becomes a later variant | R6 | P7 |
 | 7 | **G9** | Baseline 215 imports and 30 container-taking functions (§7.2 method); decide the two allowlist questions of §7.4 in its decision record | R7 | P1, P8 |
+| 8 | **A1, D6** | A1 is false: the epic's runbook starts with the key setup of §R3.4, and the connection profile (D5) references that key or the agent, never a password | the owner's run, 2026-10-24 | P2, no secret stored by the app (charter §5.1) |
 
 Items 1, 4 and 5 are within the delegation that settled G1–G9: reversible, no real-money behaviour, no dependency. Items 2, 3 and 6 change what the owner reads in the charter and touch the host's behaviour, so they are put to the owner with the decision records; nothing is built until then.
 
