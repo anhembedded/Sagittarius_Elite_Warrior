@@ -20,6 +20,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QApplication, QWidget
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    BotAssessment,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
@@ -221,7 +224,11 @@ def _screen(
     view = BotsView()
     view.model.set_bots((bot,))
     view.model.set_selected(bot)
-    detail = detail_for(DetailInputs(bot, None, None, _NOW, edited=design))
+    # The frame's own readiness is its assessment: a frame has no dispatcher to ask.
+    detail = detail_for(
+        DetailInputs(bot, None, None, _NOW, edited=design),
+        lambda _query: BotAssessment(readiness),
+    )
     verdicts = _verdicts(design or bot.config)
     facts = detail.facts
     if design is not None:

@@ -1,7 +1,7 @@
 """`EPIC-034H` — the one function that says what is left before a bot starts.
 
 `assess_readiness` is the single place the three steps are judged. The Bots
-screen calls it with what it already holds (the account the Connect step read,
+screen asks it through `AssessBotQuery` (`EPIC-048B`) with what it already holds (the account the Connect step read,
 the planner's market numbers, the parameters on screen); the Start use case
 calls it, through `BotReadinessReader`, with numbers read afresh at the click.
 Same function, same words, so the button that is enabled is the click that is

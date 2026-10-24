@@ -582,6 +582,28 @@ at that moment (`bots/application/kinds/grid/grid_parking.py` → `GridParking.l
 exchange", "is not on the exchange" (the record says one stands and the exchange does not list it),
 "no protective stop stands over it", or "could not be read", never "none" for an unread list.
 
+## Built: the Bots screen judges a bot, and where each read runs (EPIC-048B)
+
+*What happens, in order, when the selected bot's detail is refreshed (a read answered, an edit
+paused for `presenter_pacing.py` → `REJUDGE_MS`, the screen's clock), and on which thread?*
+
+The screen's reads of a bot (`ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`,
+`GetExchangeFactsQuery`, `GetPlanRiskFactsQuery`) run on the thread manager and answer through
+`bots/ui/bots_screen/fenced_reads.py` → `FencedReads`, which drops an answer for a selection no longer
+current; the Connect step's `GetVenueConnectionQuery` runs the same way (`connect_step.py` →
+`ConnectStep`). A refresh then runs on the Qt thread (`detail_effects.py` → `DetailEffects.refresh`;
+`selected_bot.py` → `SelectedBot.detail`):
+
+1. sends `GetBotRunFactsQuery` for the bot's venue and symbol and holds the answer, the host's Run facts
+   and its budget caps;
+2. builds `detail_for` over what it holds, which sends `AssessBotQuery`: a pure function of those facts
+   and the parameters on screen, so a re-judge after an edit reads nothing but the store's Run facts.
+
+Step 1 is a local read of this process's own state (the store, the symbol leases, the venues that are
+on), as it was before the doors; `EPIC-048B`'s next step moves it, and the venue choices and the plan
+export, onto the thread manager. Step 2 never leaves the screen's side: a remote backend answers the
+host's queries over its link and this one where the screen runs (`EPIC-048` D5).
+
 ## Built: a backtest from the workbench (EPIC-040D)
 
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the

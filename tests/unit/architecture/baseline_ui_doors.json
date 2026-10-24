@@ -20,8 +20,7 @@
     },
     "bots/ui/bots_screen": {
       "ADAPTER": 2,
-      "APP_SERVICE_fn": 6,
-      "PORT": 8
+      "PORT": 7
     },
     "bots/ui/kinds": {
       "APP_OTHER_fn": 2,
@@ -64,8 +63,7 @@
       "APP_OTHER_data": 1
     },
     "bots/ui/bots_screen": {
-      "APP_OTHER_data": 2,
-      "APP_SERVICE_data": 3
+      "APP_OTHER_data": 2
     },
     "bots/ui/strategies": {
       "APP_SERVICE_data": 2

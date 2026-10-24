@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 MARKET_NOT_READ = "The market numbers for this symbol are still being read."
 #: What the first reading of the account says.
 READING_THE_ACCOUNT = "Reading the account…"
+#: What the Run step says while the host's facts of it (the other bots, the symbol's lease, the
+#: venue) are being read (`GetBotRunFactsQuery`, `EPIC-048B`).
+READING_THE_RUN_FACTS = "Checking the other bots, the symbol's lease and the venue…"
 
 
 class ReadinessStep(str, Enum):

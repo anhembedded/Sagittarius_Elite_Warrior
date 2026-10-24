@@ -11,16 +11,21 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime
+from typing import cast
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQuery,
+    BotAssessment,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
+    BotRunFacts,
+    GetBotRunFactsQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
-    BotSlot,
-    occupancy_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -73,15 +78,12 @@ class SelectedBot:
         self,
         catalog: IBotKindCatalog,
         now: Callable[[], datetime],
-        run_facts: BotRunFactsReader,
+        commands: ICommandDispatcher,
     ) -> None:
         self._catalog = catalog
         self._now = now
-        self._run_facts = run_facts
-        #: Every bot the list shows, and the files it refused: what "another
-        #: bot is active" is read from (ADR D20).
-        self._bots: tuple[BotSnapshot, ...] = ()
-        self._refused: tuple[str, ...] = ()
+        #: The doors to the host's Run facts and to the assessment (`EPIC-048B`).
+        self._commands = commands
         self.bot: BotSnapshot | None = None
         self.market: PlannerMarket | None = None
         self.edited: Mapping[str, str] | None = None
@@ -126,11 +128,6 @@ class SelectedBot:
             self.panel.set_config(bot.config)
             self._share_plan_facts()
         return self.panel
-
-    def take_bots(
-        self, bots: tuple[BotSnapshot, ...], refused_files: tuple[str, ...]
-    ) -> None:
-        self._bots, self._refused = bots, refused_files
 
     def take_snapshot(self, bot: BotSnapshot) -> None:
         """The same bot, re-read: its state and progress may have moved."""
@@ -192,21 +189,12 @@ class SelectedBot:
             kind = self._catalog.kind(self.bot.kind)
         except UnknownBotKindError:
             kind = None
-        config = self.edited if self.edited is not None else self.bot.config
-        run = self._run_facts.read(
-            self.bot.bot_id,
-            self.bot.venue,
-            self.bot.symbol,
-            config,
-            occupancy_of(
-                self.bot.bot_id,
-                self.bot.venue,
-                self.bot.symbol,
-                (
-                    BotSlot(other.bot_id, other.venue, other.symbol, other.state)
-                    for other in self._bots
-                ),
-                self._refused,
+        bot = self.bot
+        run = cast(
+            BotRunFacts,
+            self._commands.dispatch(
+                GetBotRunFactsQuery,
+                GetBotRunFactsQuery(bot.bot_id, bot.venue, bot.symbol),
             ),
         )
         return detail_for(
@@ -220,8 +208,12 @@ class SelectedBot:
                 run,
                 self.exchange,
                 self.risk,
-            )
+            ),
+            self._assess,
         )
+
+    def _assess(self, query: AssessBotQuery) -> BotAssessment:
+        return cast(BotAssessment, self._commands.dispatch(AssessBotQuery, query))
 
 
 def _editor_for(bot: BotSnapshot | None) -> BotKindPanel | None:

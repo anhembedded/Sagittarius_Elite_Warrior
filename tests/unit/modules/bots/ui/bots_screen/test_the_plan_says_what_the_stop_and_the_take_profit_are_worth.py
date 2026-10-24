@@ -14,6 +14,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
@@ -115,7 +118,8 @@ def _facts(state: S = S.DRAFT, **changes: str):
             market,
             _NOW,
             risk=risk,
-        )
+        ),
+        AssessBotQueryHandler().execute,
     ).facts
 
 

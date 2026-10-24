@@ -12,6 +12,9 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
@@ -94,7 +97,8 @@ def _futures_facts(**changes: object) -> FuturesLoaded:
 def _detail(exchange: FuturesLoaded, state: S = S.HALTED):
     market = PlannerMarket(TERMS, MarketView(LAST_PRICE), None, None)
     return detail_for(
-        DetailInputs(_halted_futures_bot(state), None, market, _NOW, exchange=exchange)
+        DetailInputs(_halted_futures_bot(state), None, market, _NOW, exchange=exchange),
+        AssessBotQueryHandler().execute,
     )
 
 

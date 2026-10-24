@@ -139,7 +139,7 @@ class BotsPresenter(CommandPresenter):
         self._export = PlanExport(self._model, commands, self._dialogs, deps.notifier)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
-        self._selected = SelectedBot(self._catalog, now, deps.run_facts)
+        self._selected = SelectedBot(self._catalog, now, commands)
         self._venues = BotVenues(
             deps.contexts,
             self._catalog,
@@ -224,9 +224,6 @@ class BotsPresenter(CommandPresenter):
 
     def _on_list(self, bots: BotList) -> None:
         self._model.set_bots(bots.bots)
-        self._selected.take_bots(
-            bots.bots, tuple(refused.name for refused in bots.refused)
-        )
         self._failures.files_refused([refused.name for refused in bots.refused])
         wanted = self._select_after_create or (
             self._model.selected.bot_id if self._model.selected else ""
