@@ -6,11 +6,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
@@ -31,16 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_sett
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
     LeverageBracket,
     LeverageBrackets,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 
 from .bots_screen_fixtures import BotLifecycleState, stored
@@ -70,14 +60,9 @@ class _RecordingPanel(GridPanel):
         super().set_plan_facts(account, risk)
 
 
-def _selected() -> SelectedBot:
+def _selected(commands: ICommandDispatcher) -> SelectedBot:
     return SelectedBot(
-        BotKindCatalog(()),
-        lambda: datetime(2026, 10, 4, tzinfo=UTC),
-        BotRunFactsReader(
-            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
-            DEFAULT_OWNER_BUDGET_CAPS,
-        ),
+        BotKindCatalog(()), lambda: datetime(2026, 10, 4, tzinfo=UTC), commands
     )
 
 
@@ -86,7 +71,7 @@ def test_the_risk_the_venue_gave_reaches_the_editor_and_none_clears_it(
 ) -> None:
     screen = open_bots_screen([stored("a00001", BotLifecycleState.DRAFT)])
     screen.settle()
-    selected = _selected()
+    selected = _selected(screen.dispatcher)
     selected.select(screen.view.model.bots[0])
     panel = _RecordingPanel()
     qtbot.addWidget(panel)

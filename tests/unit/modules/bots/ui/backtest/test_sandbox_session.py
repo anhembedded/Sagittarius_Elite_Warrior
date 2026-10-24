@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest.sandbox_session import (
     SandboxFollow,
@@ -17,13 +17,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest.sandbox_session impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -142,11 +135,15 @@ def _selection(snapshot):  # type: ignore[no-untyped-def]
     return SelectedBot(
         BotKindCatalog(()),
         lambda: datetime(2026, 10, 20, tzinfo=UTC),
-        BotRunFactsReader(
-            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
-            DEFAULT_OWNER_BUDGET_CAPS,
-        ),
+        _ReadsNothing(),
     )
+
+
+class _ReadsNothing(ICommandDispatcher):
+    """The sandbox copies a selection's plan; it never asks for its detail."""
+
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        raise AssertionError(f"the sandbox sent {handler_class.__name__}")
 
 
 def test_the_sandbox_copies_the_saved_plan_not_the_plan_panels_unsaved_edits(

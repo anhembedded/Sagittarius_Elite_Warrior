@@ -2,8 +2,9 @@
 the same items.
 
 The screen assembles its inputs from what it holds (the Connect step's account,
-the planner's market numbers, the list's bots, the exchange snapshot of
-`BOT-174`); Start reads them afresh. The
+the planner's market numbers, the host's Run facts through `GetBotRunFactsQuery`,
+the exchange snapshot of `BOT-174`) and judges them through `AssessBotQuery`
+(`EPIC-048B`); Start reads them afresh. The
 inputs are built apart, the judgement is one function, so a scenario fed to both
 must agree: a difference is an input one of them builds differently.
 """
@@ -18,13 +19,18 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
     read_planner_numbers,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
+    GetBotRunFactsQuery,
+    GetBotRunFactsQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
-    BotSlot,
     VenueOccupancy,
-    occupancy_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
@@ -33,7 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.r
     ConnectionRead,
     ConnectionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.account_view import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.account_view import (
     account_view_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
@@ -76,27 +82,9 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
         world.ports, world.caps, snapshot.venue, snapshot.symbol
     )
     assert not isinstance(numbers, str)
-    reading = world.store.load_all()
-    run = BotRunFactsReader(world.ports, world.caps).read(
-        BOT,
-        snapshot.venue,
-        snapshot.symbol,
-        snapshot.config,
-        occupancy_of(
-            BOT,
-            snapshot.venue,
-            snapshot.symbol,
-            (
-                BotSlot(
-                    s.bot.bot_id.value,
-                    s.bot.definition.venue,
-                    s.bot.definition.symbol,
-                    s.bot.state,
-                )
-                for s in reading.bots
-            ),
-            (refused.name for refused in reading.refused),
-        ),
+    # The screen's own door to the host's Run facts (`EPIC-048B`).
+    run = GetBotRunFactsQueryHandler(world.store, world.ports, world.caps).execute(
+        GetBotRunFactsQuery(BOT, snapshot.venue, snapshot.symbol)
     )
     detail = detail_for(
         DetailInputs(
@@ -110,7 +98,8 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
             ),
             run,
             world.facts.read(stored.bot),
-        )
+        ),
+        AssessBotQueryHandler().execute,
     )
     assert detail.readiness is not None
     return [item.code for item in detail.readiness.items]
@@ -209,11 +198,12 @@ def test_the_plan_judges_with_the_limits_a_bot_runs_with() -> None:
             world.clock.now(),
             None,
             ConnectionRead(ConnectionState.READING, ""),
-            BotRunFactsReader(world.ports, world.caps).read(
-                BOT, snapshot.venue, snapshot.symbol, snapshot.config, VenueOccupancy()
+            BotRunFactsReader(world.ports, world.caps).host_facts(
+                BOT, snapshot.venue, snapshot.symbol, VenueOccupancy()
             ),
             world.facts.read(stored.bot),
-        )
+        ),
+        AssessBotQueryHandler().execute,
     )
 
     assert "DIRECTION_NOT_ALLOWED" not in [v.code for v in detail.verdicts]

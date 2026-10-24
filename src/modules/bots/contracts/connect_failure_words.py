@@ -11,6 +11,10 @@ sentence is told **once**, in the message bar (`BUG-181`, `ui-presentation-rule.
 Connect item, Start's reason — carries the short state below, never the advice.
 It does not say how to read again: the bar's Retry does, a refusal has nothing to
 retry.
+
+Vocabulary both sides speak, so it is published with the module's contracts (`EPIC-048B`), as
+trading's `connection_failure_words` is: the screen words a failed read without reaching an
+application internal (`architecture-rule.md` §3.1).
 """
 
 from __future__ import annotations

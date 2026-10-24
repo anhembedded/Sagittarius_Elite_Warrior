@@ -2,13 +2,15 @@
 
 Whether the venue trades Spot and is on, who else holds the symbol's lease and
 whether the owner budget fits trading's caps are all state this process
-already holds, so the Bots screen reads them on every refresh and Start reads
-them at the click, through this one function.
+already holds, so the Bots screen reads them through `GetBotRunFactsQuery` and Start reads
+them at the click, through this one reader. The screen holds the host's facts and judges the
+budget of the parameters on screen itself, through `run_facts_for` (`EPIC-048B`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
@@ -17,7 +19,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budg
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
     VenueOccupancy,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_facts import (
+    BotRunFacts,
     RunFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
@@ -53,6 +56,17 @@ class BotRunFactsReader:
         config: Mapping[str, str],
         occupancy: VenueOccupancy,
     ) -> RunFacts:
+        return run_facts_for(self.host_facts(bot_id, venue, symbol, occupancy), config)
+
+    def host_facts(
+        self,
+        bot_id: str,
+        venue: TradingVenue,
+        symbol: str,
+        occupancy: VenueOccupancy,
+    ) -> BotRunFacts:
+        """Every Run fact but the budget, which `run_facts_for` judges from the parameters
+        (`GetBotRunFactsQuery`, `EPIC-048B`)."""
         problem = self._venue_problem(venue)
         holder = ""
         if not problem:
@@ -62,13 +76,15 @@ class BotRunFactsReader:
                 bot_owner_id(occupancy.symbol_holder),
             }
             holder = held if held and held not in named_already else ""
-        return RunFacts(
-            venue_problem=problem,
-            other_active_bot=occupancy.symbol_holder,
-            venue_full_of=occupancy.venue_full_of,
-            venue_recovering=occupancy.venue_recovering,
-            lease_holder=holder,
-            budget_problem=grid_budget_problem(config, self._caps),
+        return BotRunFacts(
+            RunFacts(
+                venue_problem=problem,
+                other_active_bot=occupancy.symbol_holder,
+                venue_full_of=occupancy.venue_full_of,
+                venue_recovering=occupancy.venue_recovering,
+                lease_holder=holder,
+            ),
+            self._caps,
         )
 
     def _venue_problem(self, venue: TradingVenue) -> str:
@@ -79,3 +95,9 @@ class BotRunFactsReader:
         if venue not in self._ports.enabled():
             return f"{venue.display_name} is not enabled"
         return ""
+
+
+def run_facts_for(host: BotRunFacts, config: Mapping[str, str]) -> RunFacts:
+    """The Run step's facts for `config`: the host's, and the budget `config` asks for judged
+    against the host's caps. Pure, so the screen re-judges an edit without a read."""
+    return replace(host.facts, budget_problem=grid_budget_problem(config, host.caps))
