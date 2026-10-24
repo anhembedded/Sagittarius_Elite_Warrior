@@ -138,6 +138,12 @@ def _detail_through(commands: ICommandDispatcher, screen: BotsScreen) -> BotDeta
     selected.take_risk(
         commands.dispatch(GetPlanRiskFactsQuery, GetPlanRiskFactsQuery(bot.bot_id))
     )
+    selected.take_run(
+        commands.dispatch(
+            GetBotRunFactsQuery,
+            GetBotRunFactsQuery(bot.bot_id, bot.venue, bot.symbol),
+        )
+    )
     answer = commands.dispatch(
         GetVenueConnectionQuery, GetVenueConnectionQuery(bot.venue, bot.symbol)
     )

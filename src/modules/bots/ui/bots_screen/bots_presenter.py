@@ -166,6 +166,7 @@ class BotsPresenter(CommandPresenter):
         self._clock = BotsClock(
             self, deps.instance, self._queries.bots, self._refresh_detail
         )
+        self._clock.timeout.connect(self._exchange.recheck_run)
         self.strategies = strategies_for(
             container, self._dialogs, view.output_log.append, self._model.set_status
         )
@@ -248,6 +249,7 @@ class BotsPresenter(CommandPresenter):
                 self._venues.follow(fresh)
             else:
                 self._account_effects.present_chart(fresh)
+        self._exchange.recheck_run()
         self._refresh_detail()
 
     # -- selection and detail ---------------------------------------------- #

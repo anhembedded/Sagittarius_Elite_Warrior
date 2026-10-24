@@ -22,7 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot i
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
     BotRunFacts,
-    GetBotRunFactsQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
@@ -82,7 +81,7 @@ class SelectedBot:
     ) -> None:
         self._catalog = catalog
         self._now = now
-        #: The doors to the host's Run facts and to the assessment (`EPIC-048B`).
+        #: The door to the assessment (`EPIC-048B`).
         self._commands = commands
         self.bot: BotSnapshot | None = None
         self.market: PlannerMarket | None = None
@@ -99,6 +98,9 @@ class SelectedBot:
         #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
         #: read, and none for a bot whose venue carries no such risk.
         self.risk: PlanRiskFacts | None = None
+        #: What only the host knows of the Run step (`EPIC-048B`, `RunFactsCheck`): none
+        #: until read, and Start waits for them meanwhile.
+        self.run: BotRunFacts | None = None
 
     @property
     def connection(self) -> ConnectionRead | None:
@@ -120,6 +122,7 @@ class SelectedBot:
         self.bot, self.market, self.edited = bot, None, None
         self.exchange = ExchangeChecking()
         self.risk = None
+        self.run = None
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
             profile = venue_profile_of(bot.venue)
@@ -135,6 +138,9 @@ class SelectedBot:
 
     def take_exchange(self, exchange: VenueSnapshot) -> None:
         self.exchange = exchange
+
+    def take_run(self, facts: BotRunFacts) -> None:
+        self.run = facts
 
     def take_risk(self, read: PlanRiskRead | None) -> None:
         """The liquidation facts the venue gave; what it could not give, or `None`, leaves
@@ -189,14 +195,6 @@ class SelectedBot:
             kind = self._catalog.kind(self.bot.kind)
         except UnknownBotKindError:
             kind = None
-        bot = self.bot
-        run = cast(
-            BotRunFacts,
-            self._commands.dispatch(
-                GetBotRunFactsQuery,
-                GetBotRunFactsQuery(bot.bot_id, bot.venue, bot.symbol),
-            ),
-        )
         return detail_for(
             DetailInputs(
                 self.bot,
@@ -205,7 +203,7 @@ class SelectedBot:
                 self._now(),
                 self.edited,
                 self.connection,
-                run,
+                self.run,
                 self.exchange,
                 self.risk,
             ),

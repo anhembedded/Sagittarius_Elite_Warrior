@@ -122,6 +122,19 @@ def test_start_waits_while_the_run_facts_are_being_read() -> None:
     )
 
 
+def test_while_another_step_is_open_the_unread_run_facts_add_nothing() -> None:
+    """Start is already refused, and the count stays what is known to be left."""
+    world = readiness_world()
+
+    readiness = _assess(
+        world, config={**CONFIG, "capital_quote": "1"}, read_run_facts=False
+    ).readiness
+
+    assert readiness is not None
+    assert not readiness.can_start
+    assert RUN_FACTS_READING not in [item.code for item in readiness.items]
+
+
 def test_what_the_host_knows_blocks_start() -> None:
     world = readiness_world()
     add_bot(world, "zzz999", S.RUNNING)

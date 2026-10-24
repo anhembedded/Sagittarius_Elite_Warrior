@@ -51,6 +51,10 @@ _READ_HEADLINES = {
     ReadKind.LIST: "The bots could not be read. Retry, or check the venue connection.",
     ReadKind.PLANNER: "The market numbers for this bot could not be read. Retry.",
     ReadKind.FILLS: "The fills of this bot could not be read. Retry.",
+    ReadKind.RUN: (
+        "What else stands in this bot's way (other bots, the symbol's lease, the venue) "
+        "could not be checked. Start waits for it. Retry."
+    ),
 }
 _FILES_CAUSE = "bots.files.unreadable"
 _COMMAND_CAUSE = "bots.command"

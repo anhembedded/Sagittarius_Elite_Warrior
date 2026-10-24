@@ -9,8 +9,9 @@ one locally, as it keeps the kinds (`IBotKind`) local.
 
 The judgement is the Start and Resume use cases' own: `assess_readiness`, `run_facts_for` and
 `assess_resume` are the functions they call, so the button that is enabled is the click that is
-accepted. The one difference is a Run step whose host facts are still being read: the screen
-says so and Start waits, rather than judging a Start against facts nobody has read.
+accepted. The one difference is a Run step whose host facts are still being read while nothing
+else is left: the screen says so and Start waits, rather than judging a Start against facts
+nobody has read.
 """
 
 from __future__ import annotations
@@ -106,12 +107,15 @@ def _readiness(query: AssessBotQuery) -> BotReadiness | None:
             limits=exposure_limits_of(bot.venue, GRID_MARKETS),
         )
     )
-    return readiness if query.run else _run_facts_reading(readiness, query)
+    if query.run is None and readiness.can_start:
+        return _run_facts_reading(readiness, query)
+    return readiness
 
 
 def _run_facts_reading(readiness: BotReadiness, query: AssessBotQuery) -> BotReadiness:
     """The Run step waits for its host facts: one item, so Start stays disabled until they are
-    read and judged."""
+    read and judged. Added only when nothing else is left: while another step is open, Start is
+    already refused, and the count stays what is known to be left (`readiness_assessment`)."""
     item = ReadinessItem(
         ReadinessStep.RUN,
         RUN_FACTS_READING,

@@ -184,8 +184,10 @@ from host facts is two queries:
   screen judges with (`EPIC-048` D5): `assess_readiness` for a bot at rest, with the budget judged from
   the parameters on screen against the carried caps (`.../readiness/bot_run_facts.py` → `run_facts_for`),
   `assess_resume` for a bot that proposes a Resume, and the parameter verdicts. It reads nothing, so it is
-  answered where the screen runs. While the Run facts are not read it adds one waiting item
-  (`RUN_FACTS_READING`) instead of judging a Start against facts nobody has read.
+  answered where the screen runs. While the Run facts are not read and nothing else is left, it adds
+  one waiting item (`RUN_FACTS_READING`) instead of judging a Start against facts nobody has read.
+  The screen reads the Run facts off the UI thread and holds them (`bots/ui/bots_screen/run_facts_check.py`
+  → `RunFactsCheck`).
 
 `bots/ui/bots_screen/bot_detail.py` → `detail_for` takes the assessment as its door (`Assess`) and keeps
 the presentation: figures, checks, availability, overlay, ladder. The values both sides hold are

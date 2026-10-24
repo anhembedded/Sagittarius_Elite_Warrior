@@ -588,21 +588,22 @@ exchange", "is not on the exchange" (the record says one stands and the exchange
 paused for `presenter_pacing.py` → `REJUDGE_MS`, the screen's clock), and on which thread?*
 
 The screen's reads of a bot (`ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`,
-`GetExchangeFactsQuery`, `GetPlanRiskFactsQuery`) run on the thread manager and answer through
-`bots/ui/bots_screen/fenced_reads.py` → `FencedReads`, which drops an answer for a selection no longer
-current; the Connect step's `GetVenueConnectionQuery` runs the same way (`connect_step.py` →
-`ConnectStep`). A refresh then runs on the Qt thread (`detail_effects.py` → `DetailEffects.refresh`;
-`selected_bot.py` → `SelectedBot.detail`):
+`GetExchangeFactsQuery`, `GetPlanRiskFactsQuery`, `GetBotRunFactsQuery`) run on the thread manager and
+answer through `bots/ui/bots_screen/fenced_reads.py` → `FencedReads`, which drops an answer for a
+selection no longer current; the Connect step's `GetVenueConnectionQuery` runs the same way
+(`connect_step.py` → `ConnectStep`). The Run facts, what only the host knows of the Run step, are asked
+on selection, whenever the bots are read again, when a command finishes and on the screen's clock
+(`run_facts_check.py` → `RunFactsCheck`), and held with the bot's other facts (`selected_bot.py` →
+`SelectedBot.take_run`).
 
-1. sends `GetBotRunFactsQuery` for the bot's venue and symbol and holds the answer, the host's Run facts
-   and its budget caps;
-2. builds `detail_for` over what it holds, which sends `AssessBotQuery`: a pure function of those facts
-   and the parameters on screen, so a re-judge after an edit reads nothing but the store's Run facts.
-
-Step 1 is a local read of this process's own state (the store, the symbol leases, the venues that are
-on), as it was before the doors; `EPIC-048B`'s next step moves it, and the venue choices and the plan
-export, onto the thread manager. Step 2 never leaves the screen's side: a remote backend answers the
-host's queries over its link and this one where the screen runs (`EPIC-048` D5).
+A refresh then runs on the Qt thread (`detail_effects.py` → `DetailEffects.refresh`;
+`selected_bot.py` → `SelectedBot.detail`) and reads nothing: `detail_for` sends `AssessBotQuery`, a pure
+function of the facts held and the parameters on screen, whose budget is judged from the caps the Run
+facts carry. A re-judge after an edit therefore never waits on a store or a link, and a remote backend
+answers the host's queries over its link and this one where the screen runs (`EPIC-048` D5). Until the
+Run facts are read, a bot with nothing else left is not offered Start: the Run step says it is being
+checked (`RUN_FACTS_READING`). The venue choices and the plan export are still read on the Qt thread;
+`EPIC-048B`'s second pull request moves them.
 
 ## Built: a backtest from the workbench (EPIC-040D)
 
