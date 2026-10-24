@@ -18,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 
+#: What the Design step says while the planner's market numbers are being read; the Bots screen's
+#: chart note says the same.
+MARKET_NOT_READ = "The market numbers for this symbol are still being read."
+#: What the first reading of the account says.
+READING_THE_ACCOUNT = "Reading the account…"
+
 
 class ReadinessStep(str, Enum):
     CONNECT = "Connect"

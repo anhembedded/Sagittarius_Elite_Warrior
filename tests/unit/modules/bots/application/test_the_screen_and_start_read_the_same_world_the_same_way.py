@@ -33,7 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.r
     ConnectionRead,
     ConnectionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.account_view import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.account_view import (
     account_view_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (

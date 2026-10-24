@@ -27,7 +27,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
@@ -46,12 +45,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    MARKET_NOT_READ,
+    READING_THE_ACCOUNT,
     BotReadiness,
     ReadinessFix,
     ReadinessItem,
     ReadinessStep,
     StepReadiness,
     StepStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connection_read import (
+    ConnectionRead,
+    ConnectionState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
@@ -60,59 +65,25 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
     VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_facts import RunFacts
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_LIMITS,
     ExposureLimits,
     VenueProfile,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
-    AccountView,
     BotKindInputs,
 )
 
-MARKET_NOT_READ = "The market numbers for this symbol are still being read."
-#: What the first reading of the account says.
-READING_THE_ACCOUNT = "Reading the account…"
-
-
-class ConnectionState(str, Enum):
-    READING = "READING"
-    FAILED = "FAILED"
-    CONNECTED = "CONNECTED"
-
-
-@dataclass(frozen=True, slots=True)
-class ConnectionRead:
-    """The Connect step's answer, as the assessment needs it."""
-
-    state: ConnectionState
-    #: The venue by its title, never its identifier.
-    venue_title: str
-    #: What a connected account says about money and permission.
-    account: AccountView | None = None
-    #: Why a failed read failed, and what to do, without how to read again.
-    reason: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class RunFacts:
-    """The Run step's facts; each is empty when it holds."""
-
-    #: Why the venue cannot run a Spot Grid.
-    venue_problem: str = ""
-    #: The id of another bot on the same venue and symbol that is still active (ADR D20).
-    other_active_bot: str = ""
-    #: `EPIC-029J` J1b — the ids of the other active bots of the venue when they already number
-    #: the venue's cap; empty while there is room.
-    venue_full_of: tuple[str, ...] = ()
-    #: `EPIC-029J` J1b (`EPIC-042E`) — the ids of the other bots of the venue that wait to
-    #: recover: they are reconciled with the exchange only by their own Resume, so no other bot
-    #: starts on the venue meanwhile (`other_active_bot.venue_recovering`, `BOT-201`).
-    venue_recovering: tuple[str, ...] = ()
-    #: Who else holds the symbol's lease.
-    lease_holder: str = ""
-    #: Which cap the owner budget exceeds.
-    budget_problem: str = ""
+__all__ = [
+    "MARKET_NOT_READ",
+    "READING_THE_ACCOUNT",
+    "ConnectionRead",
+    "ConnectionState",
+    "ReadinessInputs",
+    "RunFacts",
+    "assess_readiness",
+]
 
 
 @dataclass(frozen=True, slots=True)

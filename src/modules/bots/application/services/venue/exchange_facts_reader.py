@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connect_failure_words import (
     failure_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
