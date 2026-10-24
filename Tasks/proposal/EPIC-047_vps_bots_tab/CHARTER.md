@@ -4,8 +4,8 @@
 |-------|-------|
 | Document type | Epic Charter — Initiation phase (Clarify) |
 | Epic | EPIC-047 — A desktop tab that shows and controls the bots on the VPS host |
-| Version | 0.3 (Draft) |
-| Status | Waiting for the owner's scope approval; the solution is **not** chosen yet |
+| Version | 0.4 (Draft) |
+| Status | Scope and decisions G1–G9 settled on the owner's delegation (2026-10-24); G1, G6 and G7 are provisional until De-risk |
 | Author | Coordinator session (for the owner) |
 | Epic owner / approver | Nathan Tran |
 | Last updated | 2026-10-24 |
@@ -18,6 +18,7 @@
 | 0.1 | 2026-10-24 | Coordinator | Initial draft from the owner's request of 2026-10-24 |
 | 0.2 | 2026-10-24 | Coordinator | Owner's review: the solution is not approved, so §2.1 lists candidates only; O6 added (connection configuration and selectable protocols); the SSH client choice, the layer the remote link cuts at, and an Engine IPC port become open questions (G1, G6, G7); next step is Discover |
 | 0.3 | 2026-10-24 | Coordinator | Discover's Finding E (the UI reaches the application around the dispatcher and the bus) accepted by the owner: G9 and A7 added |
+| 0.4 | 2026-10-24 | Coordinator | G1–G9 decided on the owner's delegation, with the Constitution check; G1, G6, G7 provisional until De-risk R1–R4; next step De-risk |
 
 ---
 
@@ -131,10 +132,36 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 - Mobile or web access; more than one user; role-based permissions
 - The Trade tab (manual orders) on the VPS account
 
-**Grey area (needs a decision):**
+**Decisions** (2026-10-24). The owner delegated them in their own words: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). The coordinator decided each one, checked below against P1–P11. A decision marked *provisional* holds unless the named De-risk experiment disproves it. The owner may veto any row.
 
-| ID | Decision needed | Default proposed | Decision owner | Due |
-|----|-----------------|------------------|----------------|-----|
+| ID | Question | Decision | Status | Why |
+|----|----------|----------|--------|-----|
+| G1 | System OpenSSH client or a Python library? | **A Python SSH library, `asyncssh` first, `paramiko` as the fallback.** The library is pinned in `requirements.txt` and `requirements.lock` in the first PR that needs it, and the dependency is named in that PR's body | Provisional until R3 | Portability: same behaviour on every OS, owner's preference. Mechanism over memory (P1): errors are typed, not parsed from a child process's stderr. Testable in-process. Pageant and OpenSSH agent support (R3 checks it on the owner's Windows). It runs on the same asyncio model as `websockets` |
+| G2 | One host or several? | **One host at a time, chosen from the profiles.** Several hosts become one more profile and a picker, with no change to the seam | Decided | P7: a seam now (profiles), the variant later |
+| G3 | Real-money start from the tab? | **Allowed, through the host's own `*ForHost` handlers and the same venue confirmation as `M bot start --confirm-venue`.** No new real-money rule: the tab asks the same question, and the host judges it exactly as for the CLI | Decided | P3: the confirmation stays in one place (the host). Trust is the same as an SSH shell, which can already do it. A remote command never bypasses the host's checks (§5.1) |
+| G4 | The host's log lines in the tab? | **Yes, read-only, only the selected bot's own events.** Comes in a later child, not the first | Decided | Owner's pain (§1.3); bounded scope |
+| G5 | Two tabs or one with a switch? | **Two tabs (Bots, VPS Bots), built from the same classes**; AC7 proves it | Decided | Owner's request; O4 |
+| G6 | Where does the link cut in? | **At the application's doors: the command dispatcher (queries and commands) and bus events, plus an allowlist of UI-only ports**, which G9 standardises first. The screen receives read models from queries and does not compute readiness itself. Commands reach the host through `IHostControl`, whose port already names "a different transport" as its extension case, so the host's gate, audit, replay and expiry checks stay the one door | Provisional until R1 and R4 | P5: reuse the existing gated port, mirror the CQRS-bridge pattern (Discover §6). P6: fix the doors, not one screen. P3: one gate, not two |
+| G7 | Which protocols in v1? | **v1: SSH only, with the host listening on no socket.** The desktop runs a bridge command on the host over SSH (the Docker `dial-stdio` pattern) and speaks a versioned message protocol on its stdin and stdout. Later variants behind the same transport seam: a VPN (WireGuard or Tailscale) and an opt-in TLS endpoint | Provisional until R2 | P5: a battle-tested shape (Docker). P8: EPIC-038's "the host listens on no port" decision and its test are kept, not loosened. P7: one variant now, the seam for the others |
+| G8 | Engine change in this epic? | **No.** The bridge lives in the app (`support/` for the technical part, `operations` for the host's gate). It moves to the Engine only when a second consumer needs it; the Engine's `TraceServer` envelope is studied as a model, not changed | Decided | P5: repository mechanisms first. P7: no variant without a case. No Engine change needs confirming |
+| G9 | Standardise the UI's doors inside EPIC-047, or first, separately? | **A separate epic, done first and numbered at its scaffolding.** It contains: a rule in `architecture-rule.md`; a guard test with a baseline that only shrinks; read models instead of presenter computation; presenters receive a narrow application gateway instead of the container. EPIC-047's code starts after its guard is in place for the Bots screen | Decided | P1: a guard test, not prose. P6: the mechanism, every screen. P8: a ratchet baseline |
+
+**Constitution check (all decisions together)**
+| Invariant | Holds? | How |
+|-----------|--------|-----|
+| P1 Mechanism over memory | Yes | G9's guard test; G7 keeps the "no port" test; typed transport errors (G1) |
+| P2 Verify, don't restate | Yes | provisional rows wait for R1–R4 evidence; nothing claimed untested |
+| P3 A copy drifts | Yes | one gate (`IHostControl` + `HostCommandProcessor`); the confirmation judged only on the host (G3) |
+| P4 Green proves only what was tested | Yes | De-risk proves the risky points on the owner's real machines (R2, R3), not only in tests |
+| P5 Apply before you invent | Yes | repository port reused; Docker and CQRS-bridge shapes mirrored; a library, not a hand-written SSH |
+| P6 Fix the mechanism | Yes | G9 fixes the doors for every screen, not only Bots |
+| P7 Seam now, variant later | Yes | one transport, one host, one tab variant; seams for the rest |
+| P8 Ratchets only fall | Yes | no guard loosened; the new guard starts from a baseline that only shrinks |
+| P9 Decide alone | Yes | decided under the owner's delegation; escalation kept for vetoes |
+| P10 Pyramid and units | Yes | targets in §6 carry units (s, verdicts, sockets) |
+| P11 Prompt-grade artifacts | Yes | each decision names its evidence and its condition |
+
+----|-----------------|------------------|----------------|-----|
 | G1 | SSH through the system's OpenSSH client, or through a Python library (`asyncssh` or `paramiko`)? | Owner's preference: a Python library, for portability. A new dependency needs the owner's approval | Owner | After Discover |
 | G2 | Several VPS hosts in one tab, or one host at a time? | One at a time, with a host picker | Owner | Before design |
 | G3 | Is a real-money **start** allowed from the tab, or only pause, resume and stop? | Allowed, with the same venue confirmation as the CLI | Owner | Before design |
@@ -213,10 +240,10 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 - **Scope:** one host at a time; every Bots tab view and action; no VPS administration, no backtest on the VPS, no open port.
 - **Constraints:** real money; no inbound port by default; host is the single writer; new dependencies and any Engine change need the owner's approval; each concern in its layer.
 - **Acceptance:** AC1–AC9 (§6.1).
-- **Open questions:** G1 (SSH client or library), G2 (one host or several), G3 (real-money start from the tab), G4 (log lines in the tab), G5 (two tabs or one with a switch), G6 (the layer of the cut), G7 (protocols in v1), G8 (Engine change), G9 (standardise the UI's doors first); A1, A6, A7.
+- **Decisions:** §4, G1–G9 (G1, G6 and G7 are provisional until De-risk). Open assumptions: A1, A6, A7.
 - **Assumptions:** §5.2.
 
-**Next step:** Discover (`DISCOVER.md`): map the system in four layers, trace one flow, survey how others solve remote control of a headless bot, sort what must be learned. Then De-risk (prove the riskiest choices), then the decision record.
+**Next step:** De-risk (`DERISK.md`): run experiments R1–R7 from Discover §8 to confirm or overturn the provisional decisions; then the decision records, the preparatory epic (G9) and EPIC-047's own scaffolding.
 
 ---
 
