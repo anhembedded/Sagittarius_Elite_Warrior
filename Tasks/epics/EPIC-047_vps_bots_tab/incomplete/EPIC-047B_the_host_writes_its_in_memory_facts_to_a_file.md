@@ -5,7 +5,7 @@
 **Risk:** 🔴 — it changes the real-money host, even though it only writes a file; a write that blocks, tears or leaks a key would be a defect on the trading host.
 **Complexity:** M — one writer beside `health_snapshot.py`, four fact groups, owner-only atomic writes.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the epic's prerequisite)
+**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the epic's prerequisite)
 
 ---
 

@@ -1,0 +1,124 @@
+{
+  "around_the_doors": {
+    "alerting/ui/history": {
+      "APP_OTHER_fn": 1,
+      "PORT": 1
+    },
+    "alerting/ui/options": {
+      "APP_OTHER_fn": 14,
+      "PORT": 7
+    },
+    "backtesting/ui": {
+      "PORT": 8
+    },
+    "backtesting/ui/coordinators": {
+      "APP_OTHER_fn": 2,
+      "PORT": 8
+    },
+    "bots/ui/backtest_workbench": {
+      "PORT": 2
+    },
+    "bots/ui/bots_screen": {
+      "ADAPTER": 2,
+      "APP_SERVICE_fn": 10,
+      "PORT": 8
+    },
+    "bots/ui/kinds": {
+      "APP_OTHER_fn": 2,
+      "APP_SERVICE_fn": 2
+    },
+    "bots/ui/strategies": {
+      "PORT": 6
+    },
+    "market_data/ui": {
+      "PORT": 2
+    },
+    "market_data/ui/coordinators": {
+      "APP_OTHER_fn": 1,
+      "PORT": 5
+    },
+    "market_data/ui/logic": {
+      "PORT": 4
+    },
+    "trading/ui": {
+      "PORT": 1
+    },
+    "trading/ui/desk": {
+      "PORT": 20
+    },
+    "trading/ui/market": {
+      "PORT": 12
+    },
+    "trading/ui/trade": {
+      "PORT": 1
+    }
+  },
+  "application_data": {
+    "alerting/ui/options": {
+      "APP_OTHER_data": 44
+    },
+    "backtesting/ui": {
+      "APP_OTHER_data": 1
+    },
+    "backtesting/ui/coordinators": {
+      "APP_OTHER_data": 1
+    },
+    "bots/ui/bots_screen": {
+      "APP_OTHER_data": 2,
+      "APP_SERVICE_data": 14
+    },
+    "bots/ui/strategies": {
+      "APP_SERVICE_data": 2
+    },
+    "market_data/ui/coordinators": {
+      "APP_OTHER_data": 11
+    },
+    "trading/ui": {
+      "APP_OTHER_data": 1
+    },
+    "trading/ui/settings": {
+      "APP_OTHER_data": 2
+    }
+  },
+  "takes_the_container": {
+    "alerting/ui/history": {
+      "CONTAINER": 2
+    },
+    "alerting/ui/options": {
+      "CONTAINER": 3
+    },
+    "backtesting/ui": {
+      "CONTAINER": 4
+    },
+    "bots/ui/bots_screen": {
+      "CONTAINER": 4
+    },
+    "bots/ui/strategies": {
+      "CONTAINER": 1
+    },
+    "market_data/ui": {
+      "CONTAINER": 1
+    },
+    "market_data/ui/logic": {
+      "CONTAINER": 1
+    },
+    "market_data/ui/settings": {
+      "CONTAINER": 2
+    },
+    "trading/ui": {
+      "CONTAINER": 1
+    },
+    "trading/ui/desk": {
+      "CONTAINER": 3
+    },
+    "trading/ui/market": {
+      "CONTAINER": 3
+    },
+    "trading/ui/settings": {
+      "CONTAINER": 2
+    },
+    "trading/ui/trade": {
+      "CONTAINER": 3
+    }
+  }
+}

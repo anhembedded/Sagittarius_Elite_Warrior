@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a wrong wire form shows a wrong number on a real-money screen; the contract tests and the same-build handshake are what hold it.
 **Complexity:** M — about 140 lines of codec in the spike (R4), 15 root types behind 45 records, plus the handshake.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the epic's prerequisite)
+**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the epic's prerequisite)
 
 ---
 
