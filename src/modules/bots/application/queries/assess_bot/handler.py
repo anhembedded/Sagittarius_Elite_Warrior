@@ -101,7 +101,9 @@ def _readiness(query: AssessBotQuery) -> BotReadiness | None:
             query.config,
             query.connection,
             query.market,
-            run_facts_for(query.run, query.config) if query.run else RunFacts(),
+            run_facts_for(query.run, query.config)
+            if query.run is not None
+            else RunFacts(),
             query.exchange,
             profile=_profile_of(bot),
             limits=exposure_limits_of(bot.venue, GRID_MARKETS),
