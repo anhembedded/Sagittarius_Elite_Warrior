@@ -5,7 +5,7 @@
 **Risk:** 🟡 — it touches ten presenters and twenty factories; a missed dependency shows as a screen that fails to build, which the offscreen tests catch.
 **Complexity:** L — 30 functions and the `ScreenDescriptor.presenter_class` signature.
 **Epic:** [EPIC-048](../README.md)
-**Depends on:** [EPIC-048A](EPIC-048A_the_doors_rule_and_its_guard.md)
+**Depends on:** [EPIC-048A](../completed/EPIC-048A_the_doors_rule_and_its_guard.md)
 
 ---
 

@@ -1,7 +1,7 @@
 # EPIC-048 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🔵 Planned
+- **Status:** 🟡 In progress (1/4)
 - **Target Completion:** 2026-11-21
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -20,7 +20,7 @@ gantt
     Decision record and epic scaffold     :done,    s1, 2026-10-24, 1d
 
     section Phase 1 - the mechanism
-    PR 048A rule and guard                :         p1, after s1, 3d
+    PR 048A rule and guard                :done,    p1, after s1, 1d
     Phase 1 exit check                    :milestone, m1, after p1, 0d
 
     section Phase 2 - the Bots screen
@@ -40,7 +40,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-048A | [Rule and guard](incomplete/EPIC-048A_the_doors_rule_and_its_guard.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-10-28 |
+| EPIC-048A | [Rule and guard](completed/EPIC-048A_the_doors_rule_and_its_guard.md) | `claude/epic-048a-doors-guard` | 🟡 | ✅ Done (2026-10-24) | 2026-10-28 |
 | EPIC-048B | [The Bots screen through the doors](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-11-03 |
 | EPIC-048C | [A narrow gateway for presenters](incomplete/EPIC-048C_presenters_receive_a_narrow_gateway.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-04 |
 | EPIC-048D | [The other screens](incomplete/EPIC-048D_the_other_screens_cut_down_to_the_baseline.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-21 |
@@ -51,6 +51,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-24 | EPIC-048A | Rule and guard done; baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`. |
 | 2026-10-24 | Spec | Epic scaffolded with the G9 decision record and four children. |
 
 ---

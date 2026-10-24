@@ -6,7 +6,7 @@
 **Complexity:** L — two new queries, the 24 application-service imports of the screen (10 of them computation), 8 port imports outside the allowlist, one adapter import, and five reads off the UI thread.
 **Epic:** [EPIC-048](../README.md)
 **SPEC:** [`SPEC-014`](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-048A](EPIC-048A_the_doors_rule_and_its_guard.md) (the guard that measures this task)
+**Depends on:** [EPIC-048A](../completed/EPIC-048A_the_doors_rule_and_its_guard.md) (the guard that measures this task)
 
 ---
 

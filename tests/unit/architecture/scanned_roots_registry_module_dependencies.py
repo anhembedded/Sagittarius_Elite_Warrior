@@ -50,4 +50,9 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
             ("src/modules/bots/application/use_cases", "*.py"),
         ),
     ),
+    # `EPIC-048A` - the UI reaches the application only through its doors.
+    (
+        "tests/unit/architecture/test_ui_reaches_the_application_through_its_doors.py",
+        (("src/modules", "*.py"), ("src", "*.py")),
+    ),
 )

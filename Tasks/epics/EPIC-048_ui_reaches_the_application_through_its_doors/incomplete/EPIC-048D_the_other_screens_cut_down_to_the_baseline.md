@@ -5,7 +5,7 @@
 **Risk:** 🟡 — many small moves on screens that handle orders (the Trade and Desk areas) and alerts; each must render as before.
 **Complexity:** L — 170 of the 215 imports are outside the Bots screen, over the other areas of DERISK §7.3. **Split per screen when started**: one pull request per area, each lowering the baseline.
 **Epic:** [EPIC-048](../README.md)
-**Depends on:** [EPIC-048A](EPIC-048A_the_doors_rule_and_its_guard.md) (the guard), [EPIC-048C](EPIC-048C_presenters_receive_a_narrow_gateway.md) (the gateway each area uses)
+**Depends on:** [EPIC-048A](../completed/EPIC-048A_the_doors_rule_and_its_guard.md) (the guard), [EPIC-048C](EPIC-048C_presenters_receive_a_narrow_gateway.md) (the gateway each area uses)
 
 ---
 

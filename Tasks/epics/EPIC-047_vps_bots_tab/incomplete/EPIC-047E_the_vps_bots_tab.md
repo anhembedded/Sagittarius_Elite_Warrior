@@ -5,7 +5,7 @@
 **Risk:** 🔴 — it sends real-money commands from the desktop to the host; the tab must show which host and which account it is on, and refuse commands while disconnected.
 **Complexity:** L — a second backend for the same screen, the connection line, the read-only state and the "Add to VPS" flow.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the transport and profiles), [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the screen reaches the application only through the doors)
+**Depends on:** [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the transport and profiles), [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md) and [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (the screen reaches the application only through the doors)
 
 ---
 
