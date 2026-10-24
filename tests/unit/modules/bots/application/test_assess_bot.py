@@ -9,6 +9,7 @@ run is not assessed for Start, and an edit's budget is judged against the host's
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Mapping
 from datetime import timedelta
 
@@ -172,3 +173,10 @@ def test_an_edit_over_the_caps_is_refused_without_a_read(
         assert budget[0].reason == (
             "The ladder keeps 11 orders open; trading allows at most 10. Use fewer grids"
         )
+
+
+def test_the_assessment_holds_no_port() -> None:
+    """A remote backend answers the host-fact queries over its link and this one locally
+    (`EPIC-047E`), which is sound only while the handler can read no host: it is built with
+    nothing."""
+    assert list(inspect.signature(AssessBotQueryHandler).parameters) == []
