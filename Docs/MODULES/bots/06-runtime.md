@@ -524,7 +524,13 @@ bot's ledger before anything is asked of the exchange (`BotRunState.record_recov
 fresh price and, if it is beyond the stop loss or take profit, runs Stop and ends there, laying no
 ladder; (3) runs the person's own Resume, `GridResumeSequence.propose` (budget registered from exchange
 evidence, every tagged order cancelled, a ladder sized from the price now and the inventory held) and
-`GridResumeSequence.confirm` with `condition_cleared`, which re-reads the price and lays the ladder;
+`GridResumeSequence.confirm` with `condition_cleared`, which re-reads the price and lays the ladder
+into the run it resumes (`bots/domain/grid/grid_resumed_runtime.py` → `resumed_runtime`, `LADDER_FIELDS`;
+`BUG-268`): only the levels, the owed orders, the entry side, the halt reason and the stop-in-progress
+flag come from the new ladder, and every other field of the runtime (commissions, funding, realised
+figures, protective stops, earlier runs' base) is carried, so a field added later is kept by default.
+The inventory is trading's; its cost too only when the quantity changed, because trading's cost holds
+no quote fee and the run's holds the fees its buys paid;
 (4) publishes `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py`), which
 `alerting` carries to the owner from `EPIC-042D`; a wait that lasts `stalled_after` publishes
 `BotRecoveryStalledEvent` once, which `alerting` already carries as `BOT_RECOVERY_STALLED`. An attempt that meets a new cause (a moved price, a

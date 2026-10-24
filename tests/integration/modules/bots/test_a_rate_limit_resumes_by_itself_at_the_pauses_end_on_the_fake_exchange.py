@@ -138,3 +138,27 @@ def test_the_bot_waits_for_the_pause_then_lays_a_fresh_ladder_with_no_person(
     assert any("rate_limited is transient" in line for line in tagged)
     assert any("recovery attempt 1 of 3" in line for line in tagged)
     assert any("recovered from rate_limited" in line for line in tagged)
+
+
+def test_the_recovered_run_keeps_what_its_fills_paid_and_cost(
+    exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`BUG-268` - the recovery's STARTING -> RUNNING lays a fresh ladder over the run it resumes:
+    the commissions the run's fills paid, and the cost those fees sit in, are the run's, not the
+    new ladder's. The owner's Futures bot showed 0.50 of fees after one recovery, the fees of the
+    nine fills that followed it, against about 2.13 for the run."""
+    with booted(exchange, limits=NO_PERIODIC_REFRESH) as app:
+        bot_id = _held_by_the_pause(app)
+        before = app.runtime(bot_id)
+        assert before.commissions > 0, "the opening and the BUY at 48,800 paid fees"
+
+        _beats(app, _PAUSE - _BEAT)
+        monkeypatch.setattr(RateLimitGate, "remaining", lambda _gate: 0.0)
+        _beats(app, 4 * _BEAT)
+
+        assert app.bot(bot_id).state is S.RUNNING
+        after = app.runtime(bot_id)
+        assert after.commissions == before.commissions
+        assert after.inventory == before.inventory
+        assert after.cost == before.cost
+        assert after.realised_total == before.realised_total
