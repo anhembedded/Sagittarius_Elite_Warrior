@@ -4,10 +4,10 @@
 |-------|-------|
 | Document type | De-risk (step 3): throwaway experiments that confirm or overturn the provisional decisions |
 | Epic | EPIC-047 — a desktop tab that shows and controls the bots on the VPS host |
-| Version | 0.2 (Draft) |
-| Status | R1, R4, R5, R6, R7 measured; R2 and R3 proved on localhost; the owner's first run (2026-10-24) found **A1 false** (no SSH key yet); waiting for the re-run after the key setup of §R3.4 |
+| Version | 0.3 (Draft) |
+| Status | Complete: R1–R7 run; R2 and R3 confirmed on the owner's Windows desktop against the VPS (2026-10-24); A1 was false until the owner installed a key that day |
 | Inputs | `CHARTER.md` v0.4 (§4 G1–G9, §5.2 A6–A7) · `DISCOVER.md` v0.2 (§8 R1–R7) · code at `claude/dazzling-feynman-n23hrz` 5ddbd68 · Engine at the `engine.ref` pin f4ef582 |
-| Next step | The owner runs §R3.4; then the decision records for G1, G6, G7 and G9, with the amendments of §9 |
+| Next step | The decision records for G1, G6, G7 and G9, with the amendments of §9 (CHARTER v0.5) |
 
 **Revision history**
 
@@ -15,6 +15,7 @@
 |---------|------|-------------|
 | 0.1 | 2026-10-24 | R1–R7, A6, A7; the owner's script for R2 and R3 |
 | 0.2 | 2026-10-24 | The owner's first run: A1 is false (password login, no key); the key setup joins §R3.4; the script catches every check's error and goes on, skips the key-file checks without a key file, and checks `known_hosts` first |
+| 0.3 | 2026-10-24 | The owner's complete run against the VPS (§3.8): R2 confirmed, R3 confirmed for the key file with the agent path untested; G1 stays `asyncssh`; password login to be turned off once the key works |
 
 **How to read this document.** One section per experiment: the question, what was run, the measured result with its raw evidence, the verdict (*confirmed*, *overturned* or *inconclusive*) and what the verdict does to G1, G6, G7 or G9. §8 answers A6 and A7; §9 lists the decisions this evidence asks to change. Code excerpts are from throwaway spikes kept outside the repository; nothing under `src/`, `tests/`, `scripts/`, the requirements files or the configuration changed. `file:line` citations are at 5ddbd68.
 
@@ -25,14 +26,14 @@
 | ID | Question (short) | Verdict | Effect |
 |----|------------------|---------|--------|
 | R1 | Can the Bots tab's detail come entirely through a dispatcher-shaped seam? | **Confirmed**, with an amendment | G6 holds for *facts*; the pure judging stays on the desktop (§1.5). Seam = 6 queries, 2 of them new |
-| R2 | Can the desk reach the host with the host listening on no socket? | **Confirmed on localhost**; owner's run pending | G7 holds only for a **file-reading bridge** (the `bot show` pattern), not for Docker's literal shape, which bridges to a listening Unix socket (§2.5) |
-| R3 | `asyncssh` vs `paramiko` vs system `ssh`: key file, agent, host-key pinning, reconnect | **Inconclusive** until the owner's Windows run; on Linux all three pass every check | G1 unchanged: `asyncssh` first; one trap recorded (§3.3) |
+| R2 | Can the desk reach the host with the host listening on no socket? | **Confirmed** on localhost and on the owner's VPS (no listener opened) | G7 holds only for a **file-reading bridge** (the `bot show` pattern), not for Docker's literal shape, which bridges to a listening Unix socket (§2.5) |
+| R3 | `asyncssh` vs `paramiko` vs system `ssh`: key file, agent, host-key pinning, reconnect | **Confirmed for the key file** on the owner's Windows against the VPS: every key-file, pinning and round-trip check passes for all three clients; the agent path is **untested** (no agent held the key) | G1 stays `asyncssh`; agent support becomes an acceptance item of the transport child (§3.8) |
 | R4 | Wire forms for the ~15 types: hand-write or generate? | **Measured**: 45 records, 225 fields, 14 enums, 3 tagged unions behind the 15 roots | Generate the wire forms (one reflective codec, ~140 lines) and keep files' codecs hand-written (§4.5) |
 | R5 | Change-to-desk latency ≤ 5 s; no missed change after a reconnect | **Confirmed**: p95 ≤ 100 ms (poll-bound), 6 of 6 runs converge after a forced cut | AC2 met with margin; a desk heartbeat is needed for half-open links (§5.4) |
 | R6 | Version handshake detects a mismatch | **Confirmed**: refused in words, exit 3 | Hash wire *names*, not Python module paths; Scenario 4's "read-only on mismatch" needs a decision (§6.4) |
 | R7 | Size of the "UI around the doors" debt on every screen | **Measured**: 215 imports in 82 files over 18 screen areas; 30 functions take the container | G9's baseline; two allowlist questions (§7.4) |
 | A6 | Every Bots-screen query can be asynchronous | **Holds**, with 1 query and 4 non-query reads to move off the UI thread (§8.1) | — |
-| A1 | The owner has an SSH key that logs in to the VPS | **False** (owner's run, 2026-10-24): the owner logs in with a password and has no key | The epic's runbook needs a key-setup step (§R3.4); D6 |
+| A1 | The owner has an SSH key that logs in to the VPS | **Was false** (owner's first run, 2026-10-24: password login, no key); the owner installed a key the same day | The epic's runbook starts with a key-setup step and turns password login off once the key works (§3.4, §9 row 8) |
 | A7 | The Bots screen can reach the application only through the doors | **Likely true**; the 45 bypass imports of `bots/ui/bots_screen` are listed (§8.2) | — |
 
 ---
@@ -158,7 +159,7 @@ all listeners: [… 'tcp LISTEN 0 128 127.0.0.1:2222', …]          # sshd only
 | Bridges left after a *half-open* cut (the client frozen with `SIGSTOP`, no FIN) | **1 after 10 s** without a heartbeat; **0** with the bridge's idle watchdog at 6 s (§5.4) |
 
 ### 2.4 Verdict
-**Confirmed on localhost.** A stdio bridge started by `sshd` listens on nothing. The owner's run (§R3.4) proves the same round trip against the VPS; its `the echo opened no TCP listener` check compares `ss -Hltn` before and during the session.
+**Confirmed**, on localhost and on the owner's VPS. A stdio bridge started by `sshd` listens on nothing. On the VPS, the `the echo opened no TCP listener` check (`ss -Hltn` before and during the session) passed for asyncssh and for paramiko (§3.8).
 
 ### 2.5 What it does to G7
 G7 names "the Docker `dial-stdio` pattern". Docker's `dial-stdio` copies stdio to the daemon's **listening Unix socket**. Here the bridge is a *second process* on the host, as `M bot …` is, and the running host has no socket to dial. The experiment confirms G7 only in this shape:
@@ -283,7 +284,14 @@ ssh-add $env:USERPROFILE\.ssh\id_ed25519
 ssh -o BatchMode=yes <login>@<vps> true; $LASTEXITCODE                  # 0: the key logs in with no password
 ```
 
-Only the `.pub` file leaves the desktop. Turning password login off on the VPS (`PasswordAuthentication no`) is a separate hardening step, out of this experiment's scope; the epic's runbook (D6) carries this key setup as its first step.
+Only the `.pub` file leaves the desktop. **Once the key logs in, turn password login off** on the VPS, keeping the current session open until a new key login works:
+
+```bash
+echo 'PasswordAuthentication no' | sudo tee /etc/ssh/sshd_config.d/50-sew-keys-only.conf
+sudo sshd -t && sudo systemctl reload ssh       # check the syntax first; then, from the desktop: ssh -o BatchMode=yes <login>@<vps> true
+```
+
+The epic's runbook (D6) carries the key setup and this hardening as its first steps.
 
 **Commands** (PowerShell; the script is in §R3.5; save it as `derisk_r2_r3.py`):
 
@@ -590,10 +598,45 @@ if __name__ == "__main__":
 ```
 
 ### 3.6 Verdict
-**Inconclusive** until the owner's run: on Linux the three clients pass every check and differ by under 0.2 ms per round trip. What decides G1 is the Windows agent and Pageant support, which only the owner's run shows.
+**Confirmed for the key file; the agent path untested.** On the owner's Windows desktop against the VPS, every key-file login, host-key pinning, round-trip and no-listener check passed for asyncssh, paramiko and the system `ssh` (§3.8). Both libraries failed the agent check the same way because no agent held the key, so the run says nothing about Pageant or the Windows OpenSSH agent.
 
 ### 3.7 What it does to G1
-Nothing yet. The loopback evidence favours a library over the system client: typed errors (P1), the cut noticed at once, a passphrase-protected key without an agent. Between the two libraries the numbers do not decide; `asyncssh` stays first for its asyncio model and its documented Pageant and Windows-agent support, recorded with the `client_keys=None` trap.
+**G1 stays `asyncssh` first, `paramiko` as the fallback.** The real numbers do not separate the libraries (round trip p50 25.6 ms against 25.3 ms); the loopback evidence favours a library over the system client (typed errors, P1; the cut noticed at once; a passphrase-protected key without an agent). Two items move to the transport child's acceptance criteria:
+- **Agent login on Windows** (Pageant and the OpenSSH agent service), with the `client_keys=None` trap of §3.3 covered by a test.
+- **Reconnect time**: 1909 ms on the real link against 132–423 ms on loopback; the bridge's ~260 ms of imports is part of it, so the slim bridge entry point of §3.3 is in scope, with a target of under 2 s.
+
+### 3.8 The owner's run against the VPS (2026-10-24)
+
+Windows, Python 3.14.6, asyncssh 2.24.1, paramiko 5.1.0, the VPS over the Internet; a key file installed in the VPS login's `authorized_keys` the same day; no agent running. The run used version 0.1 of the script (no `known_hosts` line, no SKIP count); no check crashed because the key file existed.
+
+```text
+[PASS] asyncssh 2.24.1: login with the key file, host key pinned ready 534 ms
+[PASS] asyncssh 2.24.1: stdio round trip x50 p50=25.6 ms p95=65.4 ms
+[PASS] asyncssh 2.24.1: the echo opened no TCP listener
+[PASS] asyncssh 2.24.1: reconnect after an abrupt cut 1909 ms
+[FAIL] asyncssh 2.24.1: login through the SSH agent (no key file named) PermissionDenied
+[PASS] asyncssh 2.24.1: a wrong pinned host key is refused HostKeyNotVerifiable
+[PASS] paramiko 5.1.0: login with the key file, host key pinned ready 503 ms
+[PASS] paramiko 5.1.0: stdio round trip x50 p50=25.3 ms p95=32.7 ms
+[PASS] paramiko 5.1.0: the echo opened no TCP listener
+[FAIL] paramiko 5.1.0: login through the SSH agent (no key file named) SSHException
+[PASS] paramiko 5.1.0: a wrong pinned host key is refused BadHostKeyException
+[PASS] system ssh: login and stdio round trip x50 ready 657 ms, p50=27.9 ms p95=31.7 ms
+10 PASS, 2 FAIL
+```
+
+| Measure | asyncssh | paramiko | system ssh | Loopback (§3.3) |
+|---------|----------|----------|------------|-----------------|
+| Ready (login, echo started) | 534 ms | 503 ms | 657 ms | 103–311 ms |
+| Round trip p50 / p95 | 25.6 / 65.4 ms | 25.3 / 32.7 ms | 27.9 / 31.7 ms | 0.2–0.3 / 0.4–0.5 ms |
+| Reconnect after an abrupt cut | 1909 ms | — | — | 132–423 ms |
+| No TCP listener opened on the VPS | yes | yes | — | yes |
+| Wrong pinned host key refused | yes | yes | — | yes |
+| Agent login | untested (no agent held the key) | untested | — | ok |
+
+**AC2.** The real round trip p95 (65.4 ms, asyncssh) plus R5's host-side 100 ms poll is about 0.17 s, under the 5 s target by a factor of about 30.
+
+**The login account.** The key was installed for **root**. The design does not log the desk in as root: the bridge runs as `sew`, through a key restricted in `sew`'s `authorized_keys` to the bridge alone (§2.3, §2.5). The transport child installs that restricted key; root's key stays the owner's administration key, outside the app's profiles.
 
 ---
 
@@ -874,13 +917,13 @@ What must stay synchronous is the pure re-judge over facts already held (R1, §1
 | 1 | **G6** | Reword: every **host fact** reaches the screen through a query or a bus event; the **pure assessment** over those facts leaves `ui/` for the application layer and runs on the desktop. Two new queries: `GetBotRunFactsQuery`, `GetVenueChoicesQuery` | R1: same `BotDetail` from wire-borne facts; the 150 ms re-judge would otherwise be an SSH round trip | P3 (one assessment, used by the desk and the host), P6 |
 | 2 | **G7** | Name the shape: the bridge is a **second process** on the host (as `M bot …`), started by `sshd` through a key restricted to it in `sew`'s `authorized_keys`; reads from the store's files and from a facts file the host writes on change; commands through `DirectoryHostControl`; events from the store's writes. Drop "the Docker `dial-stdio` pattern" as the description: Docker dials a listening Unix socket. A Unix socket in `state/` (0600) stays a later variant behind the transport seam, if the ~1 s command latency or the facts file prove insufficient; it needs the owner's decision, as it reverses EPIC-038's "no socket" in spirit (the existing test checks TCP ports only) | R2: no listener, forced command holds; §2.5 table | P8 (EPIC-038's decision kept), P7, P5 |
 | 3 | **G7, new requirement** | The host publishes the facts a second process cannot read (symbol leases, enabled venues, budget caps, the exchange facts it already reads) to a file on change; the bridge never calls the exchange itself | §2.5: no other path without a socket; the bridge's own REST calls would share the bots' request weight | P3, real money |
-| 4 | **G1** | No change until the owner's run (§R3.4); record the `client_keys=None` trap; the SSH loop runs on its own thread with no blocking call | R3 | P1 |
+| 4 | **G1** | Stays `asyncssh` first, `paramiko` fallback; agent login on Windows and a reconnect under 2 s become acceptance items of the transport child; record the `client_keys=None` trap; the SSH loop runs on its own thread with no blocking call | R3, owner's run §3.8 | P1, P2 |
 | 5 | **Link protocol** | A per-bot revision in each record; a desk heartbeat with a bridge-side idle watchdog; the handshake hashes **wire names**; one reflective codec with a contract test per root type | R4, R5, R6 | P1, P8 |
 | 6 | **Charter Scenario 4** | v1 refuses the whole link on any version difference, in words naming both builds and `sudo sew-update`; read-only across versions becomes a later variant | R6 | P7 |
 | 7 | **G9** | Baseline 215 imports and 30 container-taking functions (§7.2 method); decide the two allowlist questions of §7.4 in its decision record | R7 | P1, P8 |
-| 8 | **A1, D6** | A1 is false: the epic's runbook starts with the key setup of §R3.4, and the connection profile (D5) references that key or the agent, never a password | the owner's run, 2026-10-24 | P2, no secret stored by the app (charter §5.1) |
+| 8 | **A1, D6** | A1 was false: the epic's runbook starts with the key setup of §3.4, then turns `PasswordAuthentication` off once the key works; the connection profile (D5) references the key or the agent, never a password; the desk logs in as `sew` with a key restricted to the bridge, never as root | the owner's runs, 2026-10-24 | P2, no secret stored by the app (charter §5.1) |
 
-Items 1, 4 and 5 are within the delegation that settled G1–G9: reversible, no real-money behaviour, no dependency. Items 2, 3 and 6 change what the owner reads in the charter and touch the host's behaviour, so they are put to the owner with the decision records; nothing is built until then.
+Items 1, 4, 5 and 8 are within the delegation that settled G1–G9: reversible, no real-money behaviour, no dependency. Items 2, 3 and 6 change what the owner reads in the charter and touch the host's behaviour, so they are put to the owner with the decision records; nothing is built until then.
 
 ---
 
