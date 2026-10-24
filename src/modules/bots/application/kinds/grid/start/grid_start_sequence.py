@@ -79,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
     accepted,
     placed,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resumed_runtime import (
+    resumed_runtime,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
@@ -179,28 +182,11 @@ class GridStartSequence:
     def place_ladder(self, plan: GridPlan, inventory: OwnerInventory) -> None:
         """Lay `plan`'s ladder without an opening buy (a confirmed resume, D13).
 
-        The run goes on: the inventory is the one trading derived, and what
-        the run has earned so far is kept."""
+        The run goes on (`resumed_runtime`, `BUG-268`): only the ladder is new; the inventory is
+        the one trading derived, and everything else the run has recorded is kept."""
         state = self._context.state
-        earned = state.runtime
         fresh = runtime_from_plan(plan, self._context.terms.step_size)
-        state.update(
-            replace(
-                fresh,
-                inventory=inventory.quantity,
-                cost=inventory.cost,
-                realised_profit=earned.realised_profit,
-                completed_cycles=earned.completed_cycles,
-                realised_total=earned.realised_total,
-                start_price=earned.start_price or fresh.start_price,
-                mark_price=earned.mark_price,
-                mark_price_at=earned.mark_price_at,
-                maker_fee=earned.maker_fee,
-                unpriced_fees=earned.unpriced_fees,
-                earlier_runs_base=earned.earlier_runs_base,
-                earlier_runs_cost=earned.earlier_runs_cost,
-            )
-        )
+        state.update(resumed_runtime(state.runtime, fresh, inventory))
         if self._place_ladder(plan):
             state.transition(BotLifecycleEvent.LADDER_READY)
 
