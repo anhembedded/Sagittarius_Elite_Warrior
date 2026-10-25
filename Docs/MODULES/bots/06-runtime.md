@@ -542,6 +542,40 @@ nothing while a person's resume proposal is held, and a person's Resume, a Stop 
 moves the bot out and the next beat forgets the wait. The cancel in step (3) is also the retry of an
 entry park that failed during the outage: no ladder is laid over orders that may still rest.
 
+**A quiet price stream is not a halt, and a Futures wait under a stop** (`BUG-269`, [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-25_a_silent_stream_is_not_a_halt.md)). The age check no longer looks at the WebSocket alone: `GridPriceAge` keeps the last tick and the last price **read over REST** (`note_poll`) and judges the younger (`.../watch/grid_price_age.py` → `GridPriceAge.stale_detail`). A position venue's bot reads its mark every beat for its exits (`GridMarkExit`), so `GridPriceReaction.on_mark` is that read: a stream that dies while the mark answers halts nothing, costs no extra request, and is told once at WARNING `[price-poll]` after `STREAM_SILENT_AFTER_SECONDS` (15 s). Spot has no such read and is unchanged. When neither source answers for `PRICE_STALE_AFTER_SECONDS` the bot halts for `price_feed_stale`. On a **Futures** venue that reason is now in the venue layer (`contracts/venue_profile.py` → `_FUTURES`: the default rule, 120 s dwell, three attempts per 24 h), but the halt is a wait only while a stop on the exchange covers the position: `GridPriceReaction.check_age` asks `GridCoveredWait.halt_plain_words` (`.../kinds/grid/recovery/grid_covered_wait.py`), which reads `IExposureProtection.read_coverage` fresh from the exchange and answers a plain halt (the old path: cancel the ladder, close at market) for anything but `COVERED`, an unread stop included. A covered wait keeps its ladder and its stop and closes nothing (`GridTaskGuard._orders_may_rest` parks nothing while `GridCoveredWait.holds`; `BotRunState.waits_for_a_quiet_feed`); its stop is supervised like a running bot's (`ProtectiveStopService.supervise`); each beat `GridHaltRecovery.check` asks `GridCoveredWait.ends_with`, and the wait ends in the plain halt, which now parks because the ladder was never taken off, when the stop stops covering, could not be read for three beats in a row, or the wait outlasts `COVERED_WAIT_LIMIT` (15 min, the owner's limit); a spent budget ends it the same way. `user_stream_down` and any reason a kind adds stay unrecovered on Futures.
+
+```mermaid
+sequenceDiagram
+    participant Stream as Price WebSocket
+    participant Runner as Bot runner (worker)
+    participant Reconciler as Reconciler (halt, park)
+    participant Exchange
+    participant UI as Owner (alerts, UI)
+    Stream--xRunner: connection dies (no tick)
+    loop every 5 s beat
+        Runner->>Exchange: REST mark price (exits judged)
+        Exchange-->>Runner: mark
+        Runner->>Runner: note_poll, age = younger of tick and poll
+    end
+    Note over Runner: stream quiet 15 s, told once [price-poll], no halt
+    opt neither source answers for 60 s
+        Runner->>Exchange: read stop coverage, fresh
+        alt COVERED
+            Runner->>Runner: halt_transient, AWAITING_RECOVERY, ladder and stop stay
+            loop every beat, at most 15 min
+                Runner->>Exchange: stop still covers?
+            end
+            Runner->>Exchange: 120 s clear then propose and confirm
+        else not covered or unread
+            Runner->>Reconciler: plain halt
+            Reconciler->>Exchange: cancel ladder, close at market
+            Reconciler->>UI: STOPPED
+        end
+    end
+```
+
+**The library's records, and a stream that stays blind after it drops** (`BUG-269`). The Binance client library's `binance.*` records are re-emitted on `App.BinanceClient` as `[binance-client] <logger>: <text>` at WARNING at most (`src/shell/binance_client_log.py` → `route_binance_client_logs`, installed by `create_app`). They showed what the stream's exit costs: on the library's `{"e": "error"}` message the market-data adapter leaves `async with socket` (`src/modules/market_data/adapters/binance/binance_websocket_service.py` → `BinanceWebsocketService._run_stream`), and the library's `__aexit__` waits for a read loop that its own reconnect keeps alive, so the consumer reads nothing until `BinanceWebsocketQueueOverflow` (100 messages, 25 s at the Futures rate) ends the loop; measured by `scripts/bug269_stream_exit_stall_probe.py`. That is a price knowingly paid, not a bug fixed here: a bot rides it on the REST price, or waits under its stop. Leaving the socket without waiting for the library is the open follow-up of the decision record (O3).
+
 **The exchange's pause** (`EPIC-042F`). A rate limit is one more reason of the policy, `rate_limited`,
 declared in the Grid's layer (`GRID_RECOVERY_LAYER`) with a dwell of `AUTO_RESUME_MARGIN` and the common
 budget (three per rolling 24 h per bot, counted with every other reason) and stalled alert; a Futures

@@ -41,6 +41,7 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | The state `AWAITING_RANGE`: a Grid started away from its range waits, places nothing, and lays its ladder when the price enters it | **Built** (the state, the entry and the checks; the surfaces and the backtest are `EPIC-044C`, `EPIC-044D`) | `EPIC-044B` ([`06-runtime.md`](06-runtime.md)) |
 | The state `AWAITING_RECOVERY`, the layered halt-recovery policy and the attempt ledger in the bot record | **Built** | `EPIC-042B` |
 | A Spot Grid halted by a quiet feed or a down user stream waits in `AWAITING_RECOVERY` and recovers by itself through the Resume path | **Built** | `EPIC-042C` ([`06-runtime.md`](06-runtime.md)) |
+| A Futures Grid whose price stream goes quiet keeps judging its exits on the mark it reads over REST, and waits out a halt for the feed under a covering stop, at most 15 min | **Built** | `BUG-269` ([`06-runtime.md`](06-runtime.md)) |
 | `bot order <id>`: the orders a bot's file records (stored, not live) | **Built** | `BOT-187` |
 | The stalled-wait and recovery alerts, the used-up words on the halt alert; `bot show`'s recovery table | **Built** | `EPIC-042C`, `EPIC-042D`, `EPIC-042G` |
 | `run --resume-halted`: the host gives a person's Resume and Confirm to every HALTED or AWAITING_RECOVERY bot | **Built** | `EPIC-042E` ([`06-runtime.md`](06-runtime.md)) |
