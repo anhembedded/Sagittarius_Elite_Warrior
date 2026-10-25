@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_park
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_covered_wait import (
+    GridCoveredWait,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_rate_limit_pause import (
     GridRateLimitPause,
 )
@@ -114,8 +117,10 @@ class GridTaskGuard:
         parking: GridParking,
         pause: GridRateLimitPause,
         storage: GridStorageWatch,
+        covered_wait: GridCoveredWait,
     ) -> None:
         self._context = context
+        self._covered_wait = covered_wait
         self._parking = parking
         self._pause = pause
         self._storage = storage
@@ -124,6 +129,7 @@ class GridTaskGuard:
         """Run `task`, named `what` in any fault it becomes."""
         state = self._context.state
         before = state.state
+        kept_before = self._covered_wait.holds()
         sent_before = self._context.gateway.submissions
         self._context.gateway.take_rate_limit()  # a pause from an earlier task is spent
         try:
@@ -135,7 +141,7 @@ class GridTaskGuard:
             logger.exception("Bot %s: %s failed", state.bot_id, what)
             fault_with(state, what, error)
         sent = self._context.gateway.submissions > sent_before
-        if self._orders_may_rest(before, sent):
+        if self._orders_may_rest(before, sent, kept_before):
             self._park()
         elif self._halted_unable_to_park(before, sent):
             self._say_position_stays_open()
@@ -144,11 +150,16 @@ class GridTaskGuard:
         self._pause.after_task()
         self._storage.pause_if_failing()
 
-    def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
+    def _orders_may_rest(
+        self, before: BotLifecycleState, sent: bool, kept_before: bool
+    ) -> bool:
+        """A wait under the stop (`GridCoveredWait`) keeps its ladder, so entering it parks nothing,
+        and leaving it for a halt is a park: the ladder was never taken off (`BUG-269`)."""
         state = self._context.state
         return (
             state.state in _PARKED
-            and (before not in _PARKED or sent)
+            and not self._covered_wait.holds()
+            and (before not in _PARKED or kept_before or sent)
             and state.runtime.reason not in _NOT_PARKED
         )
 

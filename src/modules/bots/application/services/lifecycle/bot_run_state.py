@@ -135,6 +135,16 @@ class BotRunState:
         return self.state in PRICE_STALENESS_HALTS and self.may_hold_exposure
 
     @property
+    def waits_for_a_quiet_feed(self) -> bool:
+        """Whether the bot waits in AWAITING_RECOVERY for its price feed and may hold exposure:
+        the one wait of a position venue that keeps its ladder under the stop (`BUG-269`)."""
+        return (
+            self._bot.state is BotLifecycleState.AWAITING_RECOVERY
+            and self._runtime.reason is GridReason.PRICE_FEED_STALE
+            and self.may_hold_exposure
+        )
+
+    @property
     def bot_id(self) -> str:
         return self._bot.bot_id.value
 

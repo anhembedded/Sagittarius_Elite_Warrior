@@ -33,6 +33,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_covered_wait import (
+    GridCoveredWait,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_resume_sequence import (
     GridResumeSequence,
 )
@@ -85,14 +88,18 @@ class GridHaltRecovery:
         resume: GridResumeSequence,
         stopper: GridStopper,
         proposal_held: Callable[[], bool],
+        covered_wait: GridCoveredWait,
     ) -> None:
-        """@param proposal_held Whether a person's resume proposal awaits their confirmation."""
+        """@param proposal_held Whether a person's resume proposal awaits their confirmation.
+        @param covered_wait The wait of a position venue that keeps its ladder under its stop and
+        ends in the plain halt (`BUG-269`)."""
         self._context = context
         self._halts = halts
         self._probe = probe
         self._resume = resume
         self._stopper = stopper
         self._proposal_held = proposal_held
+        self._covered_wait = covered_wait
         #: Monotonic seconds: when this wait was first seen, and since when the cause has been
         #: clear without a gap; `None` outside a wait.
         self._waiting_since: float | None = None
@@ -120,6 +127,8 @@ class GridHaltRecovery:
             )
             return
         code = HaltCode(reason.value)
+        if self._covered_wait_ends(now - self._waiting_since):
+            return
         if state.recovery_attempts_used(code) >= rule.max_attempts:
             # An attempt that raised (a rate limit met by a read) never reached `_after`, and the
             # bot is still waiting: with the budget spent it must not try again (`EPIC-042F`).
@@ -136,6 +145,27 @@ class GridHaltRecovery:
             self._clear_since = now
         if now - self._clear_since >= rule.dwell.total_seconds():
             self._attempt(code, rule)
+
+    def _covered_wait_ends(self, waited_seconds: float) -> bool:
+        """A wait that keeps its ladder under the stop ends in the plain halt, which cancels the
+        ladder and closes the position, when the stop no longer covers it or it has waited too long."""
+        if not self._covered_wait.holds():
+            return False
+        why = self._covered_wait.ends_with(waited_seconds)
+        if why is None:
+            return False
+        state = self._context.state
+        logger.warning(
+            "Bot %s: the wait under the stop ends: %s [bot-halt-recovery]",
+            state.bot_id,
+            why,
+        )
+        state.transition(
+            BotLifecycleEvent.HALT,
+            state.runtime.reason,
+            f"{state.runtime.reason_detail}; {why}",
+        )
+        return True
 
     def _every_cause_clear(self, waiting_since: float) -> bool:
         """Whether every reason this bot may recover from is clear, not only the one it halted

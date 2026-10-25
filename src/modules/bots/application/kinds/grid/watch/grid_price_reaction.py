@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_orde
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_covered_wait import (
+    GridCoveredWait,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stopper import (
     GridStopper,
 )
@@ -101,17 +104,20 @@ class GridPriceReaction:
         context: GridRunContext,
         stopper: GridStopper,
         entry: GridRangeEntry,
+        covered_wait: GridCoveredWait,
         *,
         exits_on_mark: bool,
     ) -> None:
         """@param entry Lays the ladder of a bot waiting for its range when the price enters it
         (`EPIC-044`); it is handed the price the exits are judged on.
         @param exits_on_mark A position venue's stop loss and take profit are judged on the
-        mark (`on_mark`); the streamed last price then only keeps the price and its age."""
+        mark (`on_mark`); the streamed last price then only keeps the price and its age.
+        @param covered_wait Whether a halt for a quiet feed may wait under the stop (`BUG-269`)."""
         self._context = context
         self._stopper = stopper
         self._entry = entry
         self._exits_on_mark = exits_on_mark
+        self._covered_wait = covered_wait
         #: Mark beats the range-exit close still skips: one, armed by an entry (ADR 044 D7).
         self._range_exit_skips = 0
         self._extremes = GridTickExtremes()
@@ -263,7 +269,12 @@ class GridPriceReaction:
             age.arm()
         elif (detail := age.stale_detail()) is not None:
             age.arm()
-            halt_with(state, GridReason.PRICE_FEED_STALE, detail)
+            halt_with(
+                state,
+                GridReason.PRICE_FEED_STALE,
+                detail,
+                self._covered_wait.halt_plain_words(),
+            )
 
 
 def _wick_of(

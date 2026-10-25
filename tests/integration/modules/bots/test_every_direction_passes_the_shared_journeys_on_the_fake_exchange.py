@@ -32,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness import (
-    PRICE_STALE_AFTER_SECONDS,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -197,21 +194,18 @@ def test_a_stop_that_would_keep_the_position_is_refused_in_words(
 
 
 @every_direction
-def test_a_halt_by_a_silent_feed_ends_flat_with_no_orders_and_says_why(
+def test_a_halt_ends_flat_with_no_orders_and_says_why(
     futures: FakeExchange, scenario: DirectionScenario
 ) -> None:
     with booted_futures_bots(futures) as app:
         bot_id = _started(app, scenario.config)
         app.move_price(scenario.entry_price)
         assert app.position() == scenario.position_after_entry
-        _publish_tick(app, float(scenario.entry_price))
 
-        app.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
-        app.ticker.fire()
-        app.deliver()
+        app.halt_for_a_down_stream(bot_id)
 
         runtime = app.runtime(bot_id)
-        assert runtime.reason is GridReason.PRICE_FEED_STALE
+        assert runtime.reason is GridReason.USER_STREAM_DOWN
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0, "a halt never leaves a leveraged position bare"
         assert app.resting() == {}

@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_task
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_spot import (
     NoProtection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_covered_wait import (
+    GridCoveredWait,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_halt_recovery import (
     GridHaltRecovery,
 )
@@ -129,9 +132,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
-    TradingSwitchCause,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -140,13 +140,6 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 
 _S = BotLifecycleState
 _E = BotLifecycleEvent
-
-_SWITCH_OFF_DETAIL = {
-    TradingSwitchCause.EMERGENCY_STOP: (
-        "Emergency Stop cancelled every order and sold what was bought since "
-        "the session opened"
-    ),
-}
 
 
 class GridExecutor(IBotExecutor):
@@ -191,6 +184,7 @@ class GridExecutor(IBotExecutor):
             context, self._reconciler, self._placer.release_held, self._post
         )
         self._pause = GridRateLimitPause(context)
+        self._covered_wait = GridCoveredWait(context, exposure.closer, self._protection)
         self._guard = GridTaskGuard(
             context,
             GridParking(
@@ -201,6 +195,7 @@ class GridExecutor(IBotExecutor):
             ),
             self._pause,
             self._storage,
+            self._covered_wait,
         )
         self._entry = GridRangeEntry(
             context, self._status, GridHousekeeping(context), self._start.run
@@ -209,6 +204,7 @@ class GridExecutor(IBotExecutor):
             context,
             self._stop,
             self._entry,
+            self._covered_wait,
             exits_on_mark=exposure.exit_marks is not None,
         )
         self._proposal: ResumeProposal | None = None
@@ -219,6 +215,7 @@ class GridExecutor(IBotExecutor):
             self._resume,
             self._stop,
             lambda: self._proposal is not None,
+            self._covered_wait,
         )
         self._facts = GridFacts(
             context,

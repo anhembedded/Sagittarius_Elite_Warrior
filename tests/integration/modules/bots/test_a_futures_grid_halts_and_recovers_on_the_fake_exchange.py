@@ -130,26 +130,46 @@ def _by_hand(app: BootedFuturesBots, quantity: str) -> None:
     )
 
 
-def test_a_halt_by_a_silent_feed_ends_flat_with_no_orders_and_says_why(
+def test_a_halt_ends_flat_with_no_orders_and_says_why(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
         bot_id = _started(app)
         app.move_price(62900)  # the 63,000 buy fills: the bot is long 0.018
         assert app.position() == OPENING_QUANTITY + ORDER_QUANTITY
-        _publish_tick(app, 63000.0)
 
-        app.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
-        app.ticker.fire()
-        app.deliver()
+        app.halt_for_a_down_stream(bot_id)
 
         runtime = app.runtime(bot_id)
-        assert runtime.reason is GridReason.PRICE_FEED_STALE
+        assert runtime.reason is GridReason.USER_STREAM_DOWN
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0, "a halt never leaves a leveraged position bare"
         assert app.resting() == {}
         assert runtime.inventory == 0
         assert "position is closed" in runtime.reason_detail
+
+
+def test_a_silent_feed_does_not_halt_a_bot_whose_mark_price_is_read(
+    futures: FakeExchange,
+) -> None:
+    """`BUG-269`: the stream went quiet and REST works, as on the owner's mainnet bot. The bot
+    judges its exits on the mark it reads every beat, so the quiet stream is no halt: the position,
+    the ladder and the stop stay as they were."""
+    with booted_futures_bots(futures) as app:
+        bot_id = _started(app)
+        app.move_price(62900)
+        assert app.position() == OPENING_QUANTITY + ORDER_QUANTITY
+        _publish_tick(app, 63000.0)
+        resting = app.resting()
+
+        for _ in range(int(PRICE_STALE_AFTER_SECONDS * 2 / 5)):
+            app.monotonic.advance(5)
+            app.ticker.fire()
+            app.deliver()
+
+        assert app.bot(bot_id).state is S.RUNNING
+        assert app.position() == OPENING_QUANTITY + ORDER_QUANTITY
+        assert app.resting() == resting
 
 
 def test_a_restart_in_the_middle_of_the_ladder_recovers_its_orders_and_its_position(

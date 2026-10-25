@@ -249,6 +249,7 @@
 ["s", "Bot ", ": the terms refresh failed; asking again"],
 ["ss", "Bot ", ": the venue's futures facts are unavailable: ", " [exchange-facts]"],
 ["ss", "Bot ", ": the venue's settings no longer match: ", " [futures-gate]"],
+["ss", "Bot ", ": the wait under the stop ends: ", " [bot-halt-recovery]"],
 ["ssdd", "Bot ", ": trading found the order sooner than the budget's spacing after the previous one, short by ", "; it takes another turn (", " of ", ") [order-pacing]"],
 ["sd", "Bot ", ": waiting for the exchange's pause of ", " s to end [bot-rate-limit-wait]"],
 ["ss", "Bot ", ": what earlier runs left is not known (", "); the start goes on [earlier-runs]"],

@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_RECOVERY_LAYER,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    PRICE_FEED_STALE,
     RATE_LIMITED,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
@@ -80,7 +81,10 @@ def test_every_futures_venue_clears_the_lower_layers() -> None:
         profile = venue_profile_of(venue)
         assert profile is not None
         assert profile.recovery_layer.clears_lower_layers
-        assert set(profile.recovery_layer.changes) == {RATE_LIMITED}, "the pause only"
+        assert set(profile.recovery_layer.changes) == {
+            RATE_LIMITED,
+            PRICE_FEED_STALE,
+        }, "the pause, and a quiet feed under a covering stop"
 
 
 def test_a_profile_built_without_a_layer_says_nothing() -> None:

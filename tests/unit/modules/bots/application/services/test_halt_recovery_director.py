@@ -87,11 +87,17 @@ def test_a_reason_with_no_rule_halts_plainly() -> None:
 @pytest.mark.parametrize(
     "venue", [TradingVenue.FUTURES_TESTNET, TradingVenue.FUTURES_MAINNET]
 )
-def test_a_futures_bot_never_halts_transiently(venue: TradingVenue) -> None:
-    """ADR 042 D5: its halt closes the position and `EPIC-039L` governs it."""
+def test_a_futures_bot_halts_transiently_for_a_quiet_feed_and_for_nothing_else_of_the_common_set(
+    venue: TradingVenue,
+) -> None:
+    """ADR 042 D5, widened by one reason (`BUG-269`): its halt closes the position and
+    `EPIC-039L` governs it, so a down user stream halts plainly; a quiet feed is waited out, and
+    `GridCoveredWait` makes the wait conditional on a covering stop."""
     bot = _bot(S.RUNNING, venue=venue)
+    director = _director(venue)
 
-    assert _director(venue).decide(bot, PRICE_FEED_STALE, NOW).event is E.HALT
+    assert director.decide(bot, PRICE_FEED_STALE, NOW).event is E.HALT_TRANSIENT
+    assert director.decide(bot, USER_STREAM_DOWN, NOW).event is E.HALT
 
 
 def test_a_bot_with_the_budget_spent_halts_plainly_and_says_so() -> None:

@@ -19,6 +19,7 @@ import asyncio
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
@@ -142,6 +143,15 @@ class BootedFuturesBots:
         self.exchange.urls.futures_book.move_price(
             SYMBOL, Decimal(price), fill_at_most=fill_at_most
         )
+        self.deliver()
+
+    def halt_for_a_down_stream(self, bot_id: str) -> None:
+        """The halt a user-data stream that stayed down too long makes (`UserStreamWatch`): a
+        reason a Futures venue does not wait out, so the halt takes the ladder off and closes the
+        position, the journey these tests prove. A quiet price feed is no longer one (`BUG-269`)."""
+        executor = self.engine.context.container.resolve(BotExecutors).get(bot_id)
+        assert executor is not None
+        executor.facts.halt_user_stream_down(timedelta(seconds=130))
         self.deliver()
 
     def bot(self, bot_id: str) -> Bot:
