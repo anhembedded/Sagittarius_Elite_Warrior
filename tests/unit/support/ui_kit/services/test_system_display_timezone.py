@@ -46,22 +46,29 @@ def _machine_in(iana_key: str) -> Callable[[datetime], datetime]:
 
 
 @pytest.mark.parametrize(
-    ("iana_key", "shown", "abbreviation"),
+    ("iana_key", "shown"),
     [
-        ("Asia/Ho_Chi_Minh", "2026-10-19 19:01:30", "+07"),
-        ("America/New_York", "2026-10-19 08:01:30", "EDT"),
-        ("Europe/London", "2026-10-19 13:01:30", "BST"),
+        ("Asia/Ho_Chi_Minh", "2026-10-19 19:01:30"),
+        ("America/New_York", "2026-10-19 08:01:30"),
+        ("Europe/London", "2026-10-19 13:01:30"),
     ],
 )
 def test_system_shows_the_machines_own_time(
-    monkeypatch: pytest.MonkeyPatch, iana_key: str, shown: str, abbreviation: str
+    monkeypatch: pytest.MonkeyPatch, iana_key: str, shown: str
 ) -> None:
-    monkeypatch.setattr(service, "machine_local_time", _machine_in(iana_key))
+    """The time shown is of the fixed instant `_PAUSE_END`. The label names the zone as of
+    the moment it is read, so its abbreviation is asked of the same machine at the same
+    moment, never written down: `BST` and `EDT` stop being true when daylight saving ends
+    (`BUG-269`)."""
+    machine = _machine_in(iana_key)
+    monkeypatch.setattr(service, "machine_local_time", machine)
 
     assert (
         service.format_display_datetime(_PAUSE_END, service.SYSTEM_TIMEZONE_KEY)
         == shown
     )
+    abbreviation = machine(datetime.now(UTC)).tzname()
+    assert abbreviation
     assert abbreviation in service.get_display_timezone_label(
         service.SYSTEM_TIMEZONE_KEY
     )
