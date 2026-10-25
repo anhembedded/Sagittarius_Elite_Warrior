@@ -27,9 +27,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_stored_c
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest import (
     RunBacktestQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
@@ -52,12 +49,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consen
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -85,12 +76,11 @@ from .venue_candles import venue_candles
 class BotsDependencies:
     """The pool, the commands, the bot kinds, the venues, each venue's
     symbol filters and the Spot candles the charts and the kinds' backtests
-    read."""
+    read. A bot's Run facts and its assessment are queries (`EPIC-048B`)."""
 
     threads: IThreadManager
     commands: ICommandDispatcher
     kinds: IBotKindCatalog
-    venues: IVenueTradingPorts
     #: Each venue's stored key, which New bot and the Plan's Venue field show as
     #: the venue's connection state (`BOT-171`).
     contexts: IVenueContexts
@@ -105,9 +95,6 @@ class BotsDependencies:
     #: Each served venue's tick and step sizes, which the selected bot's
     #: orders and fills are written in (`EPIC-033N`).
     filters: Mapping[TradingVenue, ISymbolPrecisions]
-    #: What stands in a Grid's way beyond its plan and its account: the venue,
-    #: the symbol's lease, the budget's caps (`EPIC-034H`).
-    run_facts: BotRunFactsReader
     #: How every failure of the screen reaches the user (`BOT-169`).
     notifier: INotifier
     #: The one question that names real money, asked before a mainnet venue's
@@ -138,7 +125,6 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         threads=threads,
         commands=commands,
         kinds=catalog,
-        venues=container.resolve(IVenueTradingPorts),
         contexts=container.resolve(IVenueContexts),
         feeds=lambda venue: candles(venue).feed,
         workbench_ports=lambda venue: WorkbenchPorts(
@@ -155,10 +141,6 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         ),
         symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
-        run_facts=BotRunFactsReader(
-            container.resolve(IVenueTradingPorts),
-            container.resolve(OwnerBudgetCaps),
-        ),
         notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
         instance=container.resolve(IInstanceAccess),

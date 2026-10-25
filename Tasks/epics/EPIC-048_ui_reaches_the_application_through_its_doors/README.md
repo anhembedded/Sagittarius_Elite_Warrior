@@ -29,7 +29,7 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-048A](completed/EPIC-048A_the_doors_rule_and_its_guard.md) | The rule in `architecture-rule.md` and the guard test with R7's method, the count as a baseline that only shrinks, and the allowlist with `IBotKind`, `IBotKindCatalog` and `ICandleFeed` | Elite | None | 🟡 | ✅ Done (2026-10-24) |
-| [EPIC-048B](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | The Bots screen through the doors: `GetBotRunFactsQuery` and `GetVenueChoicesQuery`, the pure assessment moved into the application layer and still run on the desktop, the reads off the UI thread | Elite | 048A | 🔴 | Planned |
+| [EPIC-048B](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | The Bots screen through the doors: `GetBotRunFactsQuery` and `GetVenueChoicesQuery`, the pure assessment moved into the application layer and still run on the desktop, the reads off the UI thread | Elite | 048A | 🔴 | 🟡 In progress — PR 1 of 2 (the queries and the assessment behind the doors) |
 | [EPIC-048C](incomplete/EPIC-048C_presenters_receive_a_narrow_gateway.md) | Presenters receive a narrow application gateway instead of the whole container | Elite | 048A | 🟡 | Planned |
 | [EPIC-048D](incomplete/EPIC-048D_the_other_screens_cut_down_to_the_baseline.md) | The other screens cut down against the baseline (split per screen when started) | Elite | 048A, 048C | 🟡 | Planned |
 
@@ -50,6 +50,7 @@ EPIC-047 may start after phase 2.
 - Any Engine file, setting or dependency.
 
 ## Notes (newest first)
+- **2026-10-24** — 048B PR 1: the Bots screen judges a bot through `AssessBotQuery` and reads its Run facts through `GetBotRunFactsQuery`; the readiness values and words moved to `bots/contracts/`. The guard for `bots/ui/bots_screen` reads 9 around the doors (ADAPTER 2, PORT 7) and 2 data, from 20 and 16; the frame comparison is identical. PR 2 moves the reads off the UI thread and the plan file behind a command.
 - **2026-10-24** — 048A done: the rule is `architecture-rule.md` §3.1 and the guard's first baseline, measured at `96cb27c`, reads **197 imports in 73 files over 16 areas** (119 around the doors, 78 application data) and **30 container-taking functions**; R7's own method reproduces its 215 / 82 / 18 exactly. `IDisplayTimezonePreference` and `IDisplayPreferences` name no class and were left off the allowlist ([048A notes](completed/EPIC-048A_the_doors_rule_and_its_guard.md)).
 - **2026-10-24** — Epic scaffolded with the decision record (G9) and four children, after De-risk R7 measured the debt (215 imports, 30 container-taking functions); EPIC-047 is gated on 048A and 048B.
 

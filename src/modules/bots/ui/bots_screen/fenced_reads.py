@@ -1,12 +1,13 @@
 """`EPIC-029F` — the Bots screen's reads, off the UI thread and fenced.
 
-Four reads, each its own kind: the list, the planner's market numbers for
-the selected bot, its fills, and what the exchange says about its symbol
-and account (`BOT-174`). A newer read of a kind supersedes the older
-one, whose answer is then dropped as stale (`async-ui-action-rule.md` §1):
-selecting another bot while the first one's fills load never shows the first
-one's fills. The presenter owns the trackers (one per kind) and hands them
-here; this coordinator only runs, marshals and checks.
+Each read is its own kind: the list, the planner's market numbers for
+the selected bot, its fills, what the exchange says about its symbol
+and account (`BOT-174`), its liquidation facts and its Run facts
+(`EPIC-048B`). A newer read of a kind supersedes the older one, whose answer
+is then dropped as stale (`async-ui-action-rule.md` §1): selecting another
+bot while the first one's fills load never shows the first one's fills. The
+presenter owns the trackers (one per kind) and hands them here; this
+coordinator only runs, marshals and checks.
 
 `drop_all()` is final: a read asked after it is refused here, never submitted,
 because by then the app's pool may have shut down and would raise
@@ -26,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
+    GetBotRunFactsQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_exchange_facts import (
     GetExchangeFactsQuery,
@@ -65,6 +69,9 @@ class ReadKind(str, Enum):
     #: `EPIC-039J` — the symbol's leverage brackets and the account's setting on a position
     #: venue, the facts a plan's liquidation is estimated from.
     RISK = "risk"
+    #: `EPIC-048B` — what only the host knows of the selected bot's Run step
+    #: (`GetBotRunFactsQuery`, `run_facts_check.py`).
+    RUN = "run"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
@@ -167,6 +174,13 @@ class BotQueries:
     def risk(self, bot: BotSnapshot) -> None:
         self._read(ReadKind.RISK, bot.bot_id, GetPlanRiskFactsQuery(bot.bot_id))
 
+    def run_facts(self, bot: BotSnapshot) -> None:
+        self._read(
+            ReadKind.RUN,
+            bot.bot_id,
+            GetBotRunFactsQuery(bot.bot_id, bot.venue, bot.symbol),
+        )
+
     def again(self, kind: ReadKind) -> None:
         """Asks `kind` once more, for the selected bot (Retry on its message bar)."""
         bot = self._selected()
@@ -178,6 +192,8 @@ class BotQueries:
             self.exchange(bot)
         elif kind is ReadKind.RISK and bot is not None:
             self.risk(bot)
+        elif kind is ReadKind.RUN and bot is not None:
+            self.run_facts(bot)
         else:
             self.fills(bot)
 
