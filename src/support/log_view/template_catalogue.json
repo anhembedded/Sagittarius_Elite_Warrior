@@ -650,6 +650,8 @@
 ["s", "[backtest-config] execution mode set to ", ""],
 ["s", "[backtest-config] market set to ", ""],
 ["sss", "[backtest-config] timeframe ", " is not offered on ", "; using ", ""],
+["ss", "[binance-client] ", ": ", ""],
+["ss", "[binance-client] the Binance client library's records go to ", " (capped at ", ")"],
 ["dd", "[boot-recovery] ", " recovering bot(s) read, ", " interrupted start(s) cleaned"],
 ["ss", "[bot-progress] bot ", ": its runtime cannot be read (", "); no progress shown"],
 ["s", "[cached-frame] ChartCard(", "): cached interaction DISABLED — pan/zoom go straight to pyqtgraph"],
