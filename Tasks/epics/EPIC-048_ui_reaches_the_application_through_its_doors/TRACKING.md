@@ -1,7 +1,7 @@
 # EPIC-048 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🟡 In progress (1/4)
+- **Status:** ⏸ Paused by the owner (2026-10-25) at 1/4
 - **Target Completion:** 2026-11-21
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -53,6 +53,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-24 | EPIC-048A | Rule and guard done; baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`. |
 | 2026-10-24 | Spec | Epic scaffolded with the G9 decision record and four children. |
+| 2026-10-25 | Epic | Paused by the owner; 048B's first pull request is finished, the rest waits. See the README's Resume section. |
 
 ---
 

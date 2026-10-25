@@ -42,6 +42,7 @@ Deferred: EPIC-039L D10 and D13 (a halt that leaves the position, stop custody).
 - EPIC-036E: heartbeat, so an app crash raises an alert.
 - The rest of EPIC-041 (docs).
 - A suspected `BinanceWebsocketQueueOverflow`.
+- **Paused by the owner (2026-10-25):** EPIC-047 (VPS Bots tab) and EPIC-048 (the UI's doors; 048A done, 048B's first pull request finished). Resume from each epic README's **Resume** section.
 
 ## Scheduled tasks and records
 
