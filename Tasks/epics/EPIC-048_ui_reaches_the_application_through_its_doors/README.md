@@ -1,6 +1,6 @@
 # EPIC-048 — The UI reaches the application only through the command dispatcher and bus events
 
-- **Status:** 🟡 In progress (1/4) — 048A done 2026-10-24
+- **Status:** ⏸ Paused by the owner (2026-10-25) at 1/4 — 048A done 2026-10-24; 048B's first pull request (#731) merged 2026-10-25 so no branch is left half-done; the rest waits (see **Resume**)
 - **Repositories:** Elite
 - **Origin:** [EPIC-047](../EPIC-047_vps_bots_tab/README.md)'s Discover Finding E (the UI reaches the application around the dispatcher and the bus), accepted by the owner on 2026-10-24, and charter decision G9 (a separate epic, done first), settled on the owner's delegation: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). De-risk R7 measured the debt.
 - **North star:** [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) and [`.claude/rules/architecture-rule.md`](../../../.claude/rules/architecture-rule.md); the rule's new text is child A's work.
@@ -53,3 +53,13 @@ EPIC-047 may start after phase 2.
 - **2026-10-24** — 048B PR 1: the Bots screen judges a bot through `AssessBotQuery` and reads its Run facts through `GetBotRunFactsQuery`; the readiness values and words moved to `bots/contracts/`. The guard for `bots/ui/bots_screen` reads 9 around the doors (ADAPTER 2, PORT 7) and 2 data, from 20 and 16; the frame comparison is identical. PR 2 moves the reads off the UI thread and the plan file behind a command.
 - **2026-10-24** — 048A done: the rule is `architecture-rule.md` §3.1 and the guard's first baseline, measured at `96cb27c`, reads **197 imports in 73 files over 16 areas** (119 around the doors, 78 application data) and **30 container-taking functions**; R7's own method reproduces its 215 / 82 / 18 exactly. `IDisplayTimezonePreference` and `IDisplayPreferences` name no class and were left off the allowlist ([048A notes](completed/EPIC-048A_the_doors_rule_and_its_guard.md)).
 - **2026-10-24** — Epic scaffolded with the decision record (G9) and four children, after De-risk R7 measured the debt (215 imports, 30 container-taking functions); EPIC-047 is gated on 048A and 048B.
+
+---
+
+## Resume
+The owner paused this epic on 2026-10-25 (*"tạm thời dừng epic đó ... sau này làm tiếp"*, "stop that epic for now ... continue later"). Nothing is lost:
+- **Done:** 048A, the rule and the guard (baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`).
+- **048B:** its first pull request (#731: the queries and the moved assessment) merged on 2026-10-25, so no half-done branch is left. Its **second pull request** (the reads off the UI thread, `GetVenueChoicesQuery`, the plan file behind a command) is not started. Everything a fresh session needs is in the task's own **Resume** section (the four items with files and code paths, the decisions taken, seven traps, the guard numbers to reach).
+- **048C, 048D:** not started.
+- **To resume:** read this README, the decision record, and 048B's Resume section; spawn one author for 048B's second pull request, then continue in order. The guard's baseline only falls, so any later change to `src/modules/*/ui/` stays measured while the epic sleeps.
+- **EPIC-047 stays blocked** until 048A and 048B are done.

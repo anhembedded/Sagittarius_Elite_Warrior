@@ -1,7 +1,7 @@
 # EPIC-047 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🔵 Planned
+- **Status:** ⏸ Paused by the owner (2026-10-25)
 - **Target Completion:** 2026-12-19
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -61,6 +61,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-24 | Spec | Charter v0.5, Discover v0.2 and De-risk v0.3 moved here; two decision records and seven children written. |
+| 2026-10-25 | Epic | Paused by the owner; nothing built. See the README's Resume section. |
 
 ---
 
