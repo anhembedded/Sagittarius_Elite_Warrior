@@ -12,11 +12,11 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -35,19 +35,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.bots_screen.bots_screen_fixtures import (
     stored,
 )
+
+#: The door to the assessment, as the screen's dispatcher answers it (`EPIC-048B`).
+_ASSESS = AssessBotQueryHandler().execute
 
 NOW = datetime(2026, 10, 21, 9, tzinfo=UTC)
 
@@ -78,7 +74,9 @@ def _unsaved_grid() -> BotSnapshot:
 
 
 def test_the_design_on_screen_fills_the_plan_figures_and_says_it_is_not_saved() -> None:
-    detail = detail_for(DetailInputs(_unsaved_grid(), None, None, NOW, edited=_DESIGN))
+    detail = detail_for(
+        DetailInputs(_unsaved_grid(), None, None, NOW, edited=_DESIGN), _ASSESS
+    )
 
     assert detail.facts.capital == "1000"
     assert detail.facts.unsaved is True
@@ -90,7 +88,7 @@ def test_the_design_on_screen_fills_the_plan_figures_and_says_it_is_not_saved() 
 def test_without_an_edit_the_figures_are_the_saved_ones_and_not_marked() -> None:
     saved = replace(_unsaved_grid(), config=_DESIGN)
 
-    detail = detail_for(DetailInputs(saved, None, None, NOW))
+    detail = detail_for(DetailInputs(saved, None, None, NOW), _ASSESS)
 
     assert detail.facts.capital == "1000"
     assert detail.facts.unsaved is False
@@ -105,10 +103,7 @@ def test_a_design_typed_back_to_what_is_saved_is_not_marked_unsaved(
     selected = SelectedBot(
         BotKindCatalog(()),
         lambda: datetime(2026, 10, 4, tzinfo=UTC),
-        BotRunFactsReader(
-            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
-            DEFAULT_OWNER_BUDGET_CAPS,
-        ),
+        screen.dispatcher,
     )
     bot = screen.view.model.bots[0]
     selected.select(bot)
@@ -124,7 +119,8 @@ def test_the_ladder_and_the_liquidation_row_of_a_design_say_what_they_are() -> N
     """The ladder's words name no 'saved' parameters for a draft; the liquidation row carries
     the guard's estimate where the record holds none."""
     detail = detail_for(
-        DetailInputs(_unsaved_grid(), None, None, NOW, edited={**_DESIGN, "upper": ""})
+        DetailInputs(_unsaved_grid(), None, None, NOW, edited={**_DESIGN, "upper": ""}),
+        _ASSESS,
     )
 
     assert isinstance(detail.ladder, LadderUnavailable)

@@ -146,13 +146,13 @@ The application services are split first by kind, then by feature (`BOT-177`). A
   - `orders/`: the order gateway, order history and outcome, order flags (Spot and Futures), the
     order-session opening and applied fills.
   - `venue/`: what the venue allows and costs: facts, needs, profiles, rules and the settings gates,
-    symbol brackets and status, the Futures rules and start checks, the mark source, account and
-    funding views, exchange terms.
+    symbol brackets and status, the Futures rules and start checks, the mark source, the funding
+    view, exchange terms (the account view is a contract, `bots/contracts/account_view.py`).
   - `positions/`: exposure books and checks, closers, opening strategies and cost models, each
     Spot/Futures pair side by side.
   - `risk/`: the risk guards and risk reads.
   - `readiness/`: the readiness reader and assessment, resume readiness, the progress reader and run
-    facts.
+    facts (`BotRunFactsReader`, `run_facts_for`).
   - `watches/`: the price, user-stream and sleep watches, the clock-gap detector, the wake-exit check
     and streamed fine klines.
 - `kinds/grid/` is everything that knows the Grid; a second kind gets its own `kinds/<kind>/` beside
@@ -167,6 +167,35 @@ The application services are split first by kind, then by feature (`BOT-177`). A
     pause (the fact the `rate_limited` probe reads), stream gap and tick extremes.
   - `recovery/`: the reconciler (with the missed fills it applies and the quantities it aligns, in
     their own files), the recovery reader and the resume sequence.
+
+## Built: the Bots screen's doors (EPIC-048B)
+
+The Bots screen reaches the application through the dispatcher, the bus and the allowlist of
+`architecture-rule.md` §3.1, and holds no application internal. What it used to compute itself
+from host facts is two queries:
+
+- `bots/application/queries/get_bot_run_facts/handler.py` → `GetBotRunFactsQueryHandler` answers the
+  host's Run facts of one bot (`bots/contracts/run_facts.py` → `BotRunFacts`): whether the venue is on
+  and trades the bot's market, who else holds the symbol's lease, which bots hold the symbol, fill the
+  venue or wait to recover on it (`.../lifecycle/other_active_bot.py` → `occupancy_of`, over the store
+  in the list's order, `list_bots/handler.py` → `listed`), and the owner budget caps. The budget itself is
+  not judged there: it is the parameters on screen.
+- `bots/application/queries/assess_bot/handler.py` → `AssessBotQueryHandler` is the pure assessment the
+  screen judges with (`EPIC-048` D5): `assess_readiness` for a bot at rest, with the budget judged from
+  the parameters on screen against the carried caps (`.../readiness/bot_run_facts.py` → `run_facts_for`),
+  `assess_resume` for a bot that proposes a Resume, and the parameter verdicts. It reads nothing, so it is
+  answered where the screen runs. While the Run facts are not read and nothing else is left, it adds
+  one waiting item (`RUN_FACTS_READING`) instead of judging a Start against facts nobody has read.
+  The screen reads the Run facts off the UI thread and holds them (`bots/ui/bots_screen/run_facts_check.py`
+  → `RunFactsCheck`).
+
+`bots/ui/bots_screen/bot_detail.py` → `detail_for` takes the assessment as its door (`Assess`) and keeps
+the presentation: figures, checks, availability, overlay, ladder. The values both sides hold are
+published with the contracts: `bots/contracts/connection_read.py` → `ConnectionRead`; the Run
+step's facts, `bots/contracts/run_facts.py` → `RunFacts`; the account view,
+`bots/contracts/account_view.py` → `account_view_of`; the words of
+`bots/contracts/connect_failure_words.py` → `failure_cause`, `state_words`; and
+`bots/contracts/bot_readiness.py` → `MARKET_NOT_READ`.
 
 ## Built: the contracts
 

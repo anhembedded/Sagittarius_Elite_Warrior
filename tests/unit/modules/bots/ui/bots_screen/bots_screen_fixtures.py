@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
@@ -245,6 +248,8 @@ class BotsScreen:
     #: What the testnet's trading account reports: the exchange snapshot's balances
     #: (`BOT-174`), beside the Connect step's own read above.
     exchange_account: FakeAccountSnapshot
+    #: The kinds the module registered, as the screen holds them.
+    kinds: IBotKindCatalog
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -367,4 +372,5 @@ def open_screen(
         market_sources,
         venue_terms,
         exchange_account,
+        container.resolve(IBotKindCatalog),
     )

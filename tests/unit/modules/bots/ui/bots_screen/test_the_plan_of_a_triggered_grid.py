@@ -16,6 +16,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
@@ -100,7 +103,8 @@ def _detail(state: S = S.DRAFT, market_price: str = "745", **changes: str) -> Bo
             PlannerMarket(_TERMS, MarketView(D(market_price)), None, None),
             _NOW,
             risk=risk,
-        )
+        ),
+        AssessBotQueryHandler().execute,
     )
 
 

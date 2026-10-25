@@ -31,17 +31,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_connection import (
     GetVenueConnectionQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
-    ACCOUNT_UNREADABLE,
-    THE_ACCOUNT,
-    failure_cause,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
     ReadinessStep,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connect_failure_words import (
+    ACCOUNT_UNREADABLE,
+    THE_ACCOUNT,
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
     CONNECTED_STATES,

@@ -15,6 +15,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
     bot_progress,
 )
@@ -87,7 +90,9 @@ def test_bot_show_and_the_bots_tab_both_show_the_recorded_rate(
         )
         stored = app.store.load(BotId(bot_id))
         snapshot = BotSnapshot.of(stored.bot, bot_progress(stored))
-        tab = detail_for(DetailInputs(snapshot, None, None, _NOW)).ladder
+        tab = detail_for(
+            DetailInputs(snapshot, None, None, _NOW), AssessBotQueryHandler().execute
+        ).ladder
 
         assert isinstance(entry.ladder, GridLadder)
         assert entry.ladder.summary.maker_fee == _FAKE_MAKER_RATE

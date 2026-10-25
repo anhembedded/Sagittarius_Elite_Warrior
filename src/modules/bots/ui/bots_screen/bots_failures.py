@@ -26,11 +26,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
-    state_words,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connect_failure_words import (
+    state_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
     BOTS_ROUTE,
@@ -51,6 +51,10 @@ _READ_HEADLINES = {
     ReadKind.LIST: "The bots could not be read. Retry, or check the venue connection.",
     ReadKind.PLANNER: "The market numbers for this bot could not be read. Retry.",
     ReadKind.FILLS: "The fills of this bot could not be read. Retry.",
+    ReadKind.RUN: (
+        "What else stands in this bot's way (other bots, the symbol's lease, the venue) "
+        "could not be checked. Start waits for it. Retry."
+    ),
 }
 _FILES_CAUSE = "bots.files.unreadable"
 _COMMAND_CAUSE = "bots.command"

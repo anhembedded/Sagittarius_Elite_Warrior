@@ -7,6 +7,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot.handler import (
+    _recorded_inventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
     bot_progress,
 )
@@ -19,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import (
-    _recorded_inventory,
 )
 
 from .bots_screen_fixtures import stored
