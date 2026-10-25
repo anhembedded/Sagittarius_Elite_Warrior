@@ -5,6 +5,11 @@ Held in the bot's run context and touched only on the bot's worker: a tick
 bot's queue, so a tick queued before a check is counted before it, and a long
 placing task cannot make a healthy feed look quiet.
 
+A price **read over REST** counts as a price heard (`note_poll`, `BUG-269`): a position venue
+judges its exits on the mark price it reads every beat, so a stream that went quiet while that read
+answers has not left the bot without a price. The age is the younger of the last tick and the last
+poll.
+
 Two limits, one clock (`IMonotonicClock`):
 
   · **before a tick since it was armed** the bot waits `PRICE_START_GRACE_SECONDS`
@@ -37,9 +42,29 @@ class GridPriceAge:
         self._clock = clock
         self._armed_at = clock.seconds()
         self._last_tick_at: float | None = None
+        self._last_poll_at: float | None = None
 
     def note_tick(self) -> None:
         self._last_tick_at = self._clock.seconds()
+
+    def note_poll(self) -> None:
+        """A price was read over REST now: it ages the bot's price as a tick does."""
+        self._last_poll_at = self._clock.seconds()
+
+    def stream_silence(self) -> float | None:
+        """Seconds since the stream's last tick, or `None` when it has not ticked since the bot
+        began to depend on its price (the start grace judges that, not this)."""
+        last = self._last_tick_at
+        if last is None or last < self._armed_at:
+            return None
+        return self._clock.seconds() - last
+
+    def _last_heard_at(self) -> float | None:
+        """The moment of the youngest price, heard on the stream or read over REST."""
+        heard = [
+            at for at in (self._last_tick_at, self._last_poll_at) if at is not None
+        ]
+        return max(heard, default=None)
 
     def arm(self) -> None:
         """The bot depends on its price from now: a tick heard before this no
@@ -53,7 +78,7 @@ class GridPriceAge:
         for a grace period after every `arm`, and the price watch arms the age on every beat of a
         bot outside the staleness states: a probe built on it would call a dead feed clear
         (`EPIC-042C`)."""
-        last = self._last_tick_at
+        last = self._last_heard_at()
         return (
             last is not None
             and last >= since
@@ -63,7 +88,8 @@ class GridPriceAge:
     def stale_detail(self) -> str | None:
         """What to tell the user when the feed is quiet too long, else `None`."""
         now = self._clock.seconds()
-        if self._last_tick_at is None or self._last_tick_at < self._armed_at:
+        last = self._last_heard_at()
+        if last is None or last < self._armed_at:
             if price_is_stale(self._armed_at, now, PRICE_START_GRACE_SECONDS):
                 return (
                     f"no tick {now - self._armed_at:.0f} s after the bot began to "
@@ -71,9 +97,9 @@ class GridPriceAge:
                     f"{PRICE_START_GRACE_SECONDS:.0f} s"
                 )
             return None
-        if price_is_stale(self._last_tick_at, now, PRICE_STALE_AFTER_SECONDS):
+        if price_is_stale(last, now, PRICE_STALE_AFTER_SECONDS):
             return (
-                f"last tick {now - self._last_tick_at:.0f} s ago; the limit is "
+                f"last tick {now - last:.0f} s ago; the limit is "
                 f"{PRICE_STALE_AFTER_SECONDS:.0f} s"
             )
         return None

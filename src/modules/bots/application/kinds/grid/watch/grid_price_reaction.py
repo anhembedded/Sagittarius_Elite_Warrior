@@ -66,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness import (
+    STREAM_SILENT_AFTER_SECONDS,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -113,6 +116,7 @@ class GridPriceReaction:
         self._range_exit_skips = 0
         self._extremes = GridTickExtremes()
         self._mark_saved_at: float | None = None
+        self._silence_told = False
         state = context.state
         self._range = GridRangeWatch(
             state.bot_id,
@@ -124,6 +128,7 @@ class GridPriceReaction:
     def on_tick(self, tick: PriceTick) -> None:
         self._context.reference_price.note_tick(tick.last)
         self._context.price_age.note_tick()
+        self._silence_told = False
         if not self._exits_on_mark:
             self._enter_if_waiting(tick.last)
         if not self._exits_watched():
@@ -156,7 +161,11 @@ class GridPriceReaction:
         return True
 
     def on_mark(self, tick: PriceTick) -> None:
-        """The mark price of a position venue's symbol: the price its exits are judged on."""
+        """The mark price of a position venue's symbol: the price its exits are judged on.
+        A mark read over REST is a price heard, so the age check does not halt a bot whose
+        stream went quiet while the mark answers (`BUG-269`)."""
+        self._context.price_age.note_poll()
+        self._say_stream_is_silent()
         if self._enter_if_waiting(tick.last):
             return
         if not self._exits_watched():
@@ -164,6 +173,24 @@ class GridPriceReaction:
         self._exit_if_crossed(tick, tick.low, tick.high, "mark price")
         if self._exits_watched():
             self._close_if_out_of_range(tick.last)
+
+    def _say_stream_is_silent(self) -> None:
+        """Once per silence: the stream is quiet and the bot lives on the price it reads over REST."""
+        silence = self._context.price_age.stream_silence()
+        if (
+            silence is None
+            or silence < STREAM_SILENT_AFTER_SECONDS
+            or self._silence_told
+        ):
+            return
+        self._silence_told = True
+        logger.warning(
+            "Bot %s: the price stream has been quiet for %d s; the bot judges its exits on the "
+            "mark price it reads over REST and does not halt for a quiet feed while that answers "
+            "[price-poll]",
+            self._context.state.bot_id,
+            int(silence),
+        )
 
     def _close_if_out_of_range(self, mark: Decimal) -> None:
         params = self._context.params
