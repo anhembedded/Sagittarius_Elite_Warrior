@@ -9,9 +9,16 @@ nothing: the budget of the edit is judged from the caps the held facts carry.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
+    JsonBotStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
     GetBotRunFactsQuery,
 )
@@ -154,3 +161,34 @@ def test_the_clock_reads_the_run_facts_again(open_bots_screen) -> None:
     enabled, reason = _start(screen)
     assert not enabled
     assert "strategy.1" in reason
+
+
+@pytest.mark.parametrize(
+    ("instance", "reads_per_beat"),
+    [
+        (InstanceAccess.unguarded(), 1),
+        (InstanceAccess.declined("another copy writes"), 1),
+    ],
+    ids=["writing-copy", "read-only-copy"],
+)
+def test_each_beat_asks_for_the_run_facts_once(
+    open_bots_screen,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    instance: InstanceAccess,
+    reads_per_beat: int,
+) -> None:
+    """The writing copy's beat asks itself; a read-only copy's beat re-reads the bots, whose
+    answer asks. Either way one read per beat, and never none."""
+    where = _Where(monkeypatch)
+    JsonBotStore(tmp_path).save(stored("a00001", S.DRAFT))
+    screen = open_bots_screen(instance=instance)
+    screen.settle()
+    screen.view.model.select_requested.emit("a00001")
+    screen.settle()
+    before = len(where.reads)
+
+    screen.presenter._clock.timeout.emit()
+    screen.settle()
+
+    assert len(where.reads) - before == reads_per_beat
