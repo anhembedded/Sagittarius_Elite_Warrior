@@ -69,5 +69,34 @@ Written so far for PR 1 (commits `6ae7c03`, `3e564be`, `8367918`); completed wit
 
 **Guard, `bots/ui/bots_screen`:** around the doors ADAPTER 2, APP_SERVICE_fn 10 → 0, PORT 8 → 7; data APP_SERVICE_data 14 → 0, APP_OTHER_data 2; CONTAINER 4 (048C).
 
-## Resume
-PR 2 from `master-warrior` after PR 1 merges: (1) `GetVenueChoicesQuery` (handler over `IVenueContexts` and the kind catalog; answer `VenueChoice`, never a key) read on the pool; New bot offers the held choices; (2) `ExportBotPlanQuery` on the pool; (3) the plan file written by a command; (4) the venue filters from `PlannerMarket.terms`. The remaining ports (`ISymbolCatalog` ×2, `IMarketDataSources`, `IMarketDataSync`) and the 4 container-taking functions are 048C's (coordinator's decision).
+## Resume — hand-off for PR 2 (a fresh session starts here)
+
+**State.** PR 1 is [#731](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/731) (branch `claude/epic-048b-bots-screen-doors`), reviewed PASS over four rounds. Start PR 2 from `master-warrior` **after #731 is merged**, never stacked on its branch (coordinator's decision). Keep this task in `incomplete/` until PR 2 merges; then finish the notes and move it.
+
+**What PR 2 must do** (the acceptance criteria still open):
+1. **Venue choices through `GetVenueChoicesQuery`, off the UI thread.** Today `venue_choice.py` → `venue_choices` reads each venue's stored key on the UI thread through `IVenueContexts` (`_connection_of`, `credentials_provider.resolve()`), called by `bot_venues.py` → `BotVenues.choices` at screen start, after every command, and at New bot's click. Build the query in `bots/application/queries/get_venue_choices/`: `query.py` (no fields), `result.py` (`VenueChoice`, `KEY_SAVED`, `NO_KEY`, `NOT_ENABLED`, moved from `venue_choice.py`), `handler.py` (`GetVenueChoicesQueryHandler(contexts: IVenueContexts, kinds: IBotKindCatalog)` running today's `venue_choices` unchanged). Bind it in `composition/query_bindings.py`. The answer holds a venue, a few words and a closed reason, **never a key**; test the field list. On the screen, read it as its own fenced read (a new `ReadKind`, as `RunFactsCheck` does for `ReadKind.RUN`), hold the answer in the model (`BotsViewModel.set_venue_choices`), and let **New bot offer the held choices** (`bots_presenter.py` → `_on_new_bot`) instead of reading at the click. `venue_choice.py` keeps only the Qt part (`add_venue_choice`) and re-exports the result types for the views and tests that import them from there.
+2. **`ExportBotPlanQuery` off the UI thread.** `plan_export_flow.py` → `PlanExport._document` dispatches it synchronously after the dialog. Run it on the pool (a fenced read or the screen's command coordinator) and continue to the save/copy step on the answer; `UnknownBotsError` must still become the `_GONE` message box.
+3. **The plan file behind a command.** `plan_export_flow.py` imports the adapter `bots/adapters/plan_file.py` (`write_new_plan_file`, `PlanFileRefused`) and the application types `BotPlanDocument`, `UnknownBotsError`. Write the file through a use case (for example `use_cases/export_bot_plan_to_file/`: the path, the bot ids and `all_stopped` in; the written path or a refusal with `exists`/`os_error` out) so the screen imports only the command and its result. The CLI (`bots/cli/bot_plan_verbs.py`) calls the same writer today; let it call the same command, so both still write the same text and neither overwrites a file (`BOT-176`).
+4. **The venue filters from what the screen reads.** `bots_dependencies.py` → `venue_filters` builds each venue's `FilterPrecisions` from `IVenueContexts` at construction; the orders, fills and ladder tables of the selected bot quote prices in them (`selected_bot_precisions.py` → `SelectedBotPrecisions`). The task says they ride in `PlannerMarket.terms` (`tick_size`, `step_size`). **Trap:** today the cache is read at each table read, so a symbol already in the cache is quoted correctly before the planner answers; with `terms` the precision is unknown until `GetPlannerMarketQuery` answers. Check with the frame comparison that no table shows other decimals in that window; if it does, hold the last answer per venue and symbol, or decide and record why the window is acceptable.
+
+**Decisions already taken** (keep them; they are in Implementation notes 1–7): values and words in `bots/contracts/`, computation behind queries; `detail_for` stays the presentation and takes `Assess`; `AssessBotQuery` reads no host and has no constructor dependency (`test_the_assessment_holds_no_port`); the Run facts are held and read on the pool; no allowlist change; the four composition-only ports (`ISymbolCatalog` ×2, `IMarketDataSources`, `IMarketDataSync`), the strategy rows' wiring read and the four container-taking functions belong to EPIC-048C.
+
+**Traps found in PR 1:**
+- `test_bots_failures.py::test_a_command_that_raised_is_a_message_box_whose_headline_has_no_exception` makes **every** dispatch raise; any new synchronous dispatch on a user gesture (New bot's click) breaks it. Read before the gesture, offer what is held.
+- A new log call needs `python3 scripts/render_log_templates.py --write` in the same commit, or `gate (Unit)` fails `test_the_committed_catalogue_is_what_the_source_generates` (PR 1 lost a CI round to it).
+- A doc citation in `Docs/MODULES/` is ``path`` → ``Symbol``; two paths in one sentence joined by a comma are read as one citation and fail `test_module_docs_cite_code_by_symbol.py`. Separate them with a semicolon.
+- `bots_presenter.py` is at 399 of 400 lines; put new wiring in a collaborator (as `RunFactsCheck`, `ExchangeCheck`) rather than in the presenter.
+- Every new wiring line needs a test that fails when it is removed (testing-rule §2); PR 1's reviewer asked for each one.
+- The screen tests run reads on `HeldPool`: nothing pooled runs until `screen.settle()`. A test that asserts before `settle()` sees the waiting state.
+- Freeze a before set first: PR 1 captured 37 frames and model states with a scratch test over `preview_frames`, `plan_dock_frames`, `plan_table_frames`, `centre_tab_frames`, the preview, and the real screen through `bots_screen_fixtures.open_screen` (draft, refused draft, running, halted, symbol held, venue off, key refused, an edit); compare pixel and field equality after.
+
+**Guard numbers to reach for `bots/ui/bots_screen`** (`tests/unit/architecture/baseline_ui_doors.json`), from what PR 1 leaves:
+
+| Section | After PR 1 | After PR 2 | Closed by |
+| :--- | :--- | :--- | :--- |
+| around the doors, `ADAPTER` | 2 (`plan_export_flow.py`) | 0 | item 3 |
+| around the doors, `PORT` | 7: `IVenueContexts` ×3 (`bot_venues.py`, `bots_dependencies.py`, `venue_choice.py`), `ISymbolCatalog` ×2, `IMarketDataSources`, `IMarketDataSync` | 4 | items 1 and 4 remove `IVenueContexts`; the other four are 048C's |
+| data, `APP_OTHER_data` | 2 (`BotPlanDocument`, `UnknownBotsError`) | 0 | item 3 |
+| `CONTAINER` | 4 | 4 | 048C |
+
+Lower the baseline only by what the pull request removed (`architecture-rule.md` §3.1).
