@@ -65,7 +65,7 @@ Not claimed as a "default" decision: the owner decided and the confirmation is p
 | :-- | :--- | :--- | :--- |
 | O1 | How long may a covered Futures wait last? **Answered: 15 minutes** (owner, 2026-10-25). | none | 2026-10-25 |
 | O2 | Does item 1 reach Spot? **Answered: Futures only** (owner, 2026-10-25). | none | 2026-10-25 |
-| O3 | **New, for the owner:** should the stream leave a failed socket without waiting for the library's read loop (D9)? It would turn about 65 s of blindness into about 45 s, and it touches the Engine-free market-data adapter only. Not built here. | a follow-up | 2026-10-25 |
+| O3 | **For the owner, after this PR merges:** should the stream stop leaving a socket the library is reconnecting (D9)? Filed as [BUG-271](../../bug_report/incomplete/BUG-271_a_dropped_price_websocket_leaves_the_app_reading_nothing_for_25_s_in_the_librarys_socket_shutdown.md) with the options decided by the Constitution (recommended: keep reading through the errors the library reconnects from). Not built here. | BUG-271 | 2026-10-25 |
 | O4 | **A note, not a question:** with D1 on Futures a quiet stream no longer halts a bot whose mark is readable, so D3 and D4 are reached only when the mark price cannot be read for 60 s while the position and protective-order reads still can. Item 2's value is therefore narrow; the owner approved it knowing the incident, and it is built as decided. | none | 2026-10-25 |
 
 ## 5. Implementation evidence
