@@ -1,4 +1,4 @@
-"""`BUG-269` - the Binance client library's records reach the application log.
+"""`BUG-270` - the Binance client library's records reach the application log.
 
 `python-binance` logs through `logging.getLogger("binance...")`, outside `App.*`, so its ERROR
 records (`ConnectionClosedError`, `BinanceWebsocketClosed`, `BinanceWebsocketQueueOverflow`) fell to

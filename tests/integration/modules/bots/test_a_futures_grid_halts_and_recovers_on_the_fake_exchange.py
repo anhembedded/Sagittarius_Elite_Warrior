@@ -152,7 +152,7 @@ def test_a_halt_ends_flat_with_no_orders_and_says_why(
 def test_a_silent_feed_does_not_halt_a_bot_whose_mark_price_is_read(
     futures: FakeExchange,
 ) -> None:
-    """`BUG-269`: the stream went quiet and REST works, as on the owner's mainnet bot. The bot
+    """`BUG-270`: the stream went quiet and REST works, as on the owner's mainnet bot. The bot
     judges its exits on the mark it reads every beat, so the quiet stream is no halt: the position,
     the ladder and the stop stay as they were."""
     with booted_futures_bots(futures) as app:

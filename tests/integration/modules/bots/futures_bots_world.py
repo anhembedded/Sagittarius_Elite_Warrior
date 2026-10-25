@@ -148,7 +148,7 @@ class BootedFuturesBots:
     def halt_for_a_down_stream(self, bot_id: str) -> None:
         """The halt a user-data stream that stayed down too long makes (`UserStreamWatch`): a
         reason a Futures venue does not wait out, so the halt takes the ladder off and closes the
-        position, the journey these tests prove. A quiet price feed is no longer one (`BUG-269`)."""
+        position, the journey these tests prove. A quiet price feed is no longer one (`BUG-270`)."""
         executor = self.engine.context.container.resolve(BotExecutors).get(bot_id)
         assert executor is not None
         executor.facts.halt_user_stream_down(timedelta(seconds=130))

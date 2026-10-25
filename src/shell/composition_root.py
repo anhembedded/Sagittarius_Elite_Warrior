@@ -228,7 +228,7 @@ def create_app(
         cli_log.log_decision()
     # `BOT-178` — the Engine's per-query INFO line is developer detail.
     quiet_query_dispatch_outside_developer_mode(config_manager)
-    # `BUG-269` — the Binance client library's records are the app's: timestamped, in the log file.
+    # `BUG-270` — the Binance client library's records are the app's: timestamped, in the log file.
     route_binance_client_logs()
     # `EPIC-035H` — said here because the run log exists only from this point,
     # and a read-only copy is the one fact a reader of the log needs first.

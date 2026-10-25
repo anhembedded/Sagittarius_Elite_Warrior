@@ -154,7 +154,7 @@ class GridTaskGuard:
         self, before: BotLifecycleState, sent: bool, kept_before: bool
     ) -> bool:
         """A wait under the stop (`GridCoveredWait`) keeps its ladder, so entering it parks nothing,
-        and leaving it for a halt is a park: the ladder was never taken off (`BUG-269`)."""
+        and leaving it for a halt is a park: the ladder was never taken off (`BUG-270`)."""
         state = self._context.state
         return (
             state.state in _PARKED

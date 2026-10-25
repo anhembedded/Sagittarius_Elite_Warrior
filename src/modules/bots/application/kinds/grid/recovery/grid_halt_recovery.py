@@ -92,7 +92,7 @@ class GridHaltRecovery:
     ) -> None:
         """@param proposal_held Whether a person's resume proposal awaits their confirmation.
         @param covered_wait The wait of a position venue that keeps its ladder under its stop and
-        ends in the plain halt (`BUG-269`)."""
+        ends in the plain halt (`BUG-270`)."""
         self._context = context
         self._halts = halts
         self._probe = probe

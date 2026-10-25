@@ -90,7 +90,7 @@ def test_a_reason_with_no_rule_halts_plainly() -> None:
 def test_a_futures_bot_halts_transiently_for_a_quiet_feed_and_for_nothing_else_of_the_common_set(
     venue: TradingVenue,
 ) -> None:
-    """ADR 042 D5, widened by one reason (`BUG-269`): its halt closes the position and
+    """ADR 042 D5, widened by one reason (`BUG-270`): its halt closes the position and
     `EPIC-039L` governs it, so a down user stream halts plainly; a quiet feed is waited out, and
     `GridCoveredWait` makes the wait conditional on a covering stop."""
     bot = _bot(S.RUNNING, venue=venue)

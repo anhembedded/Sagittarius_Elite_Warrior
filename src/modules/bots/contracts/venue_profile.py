@@ -132,7 +132,7 @@ _FUTURES = VenueProfile(
     # it by itself (`BUG-216`, `EPIC-042F`). A quiet price feed is waited out under the default
     # rule, but the halt is a wait only while a stop on the exchange covers the position; the
     # halt asks (`GridCoveredWait`), and any other answer is the plain halt that closes
-    # (`BUG-269`). Opening Futures to more reasons later deletes `clears_lower_layers` (ADR 042 D5).
+    # (`BUG-270`). Opening Futures to more reasons later deletes `clears_lower_layers` (ADR 042 D5).
     recovery_layer=RecoveryLayer(
         "futures",
         clears_lower_layers=True,

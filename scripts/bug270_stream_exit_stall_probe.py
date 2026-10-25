@@ -1,8 +1,8 @@
-"""`BUG-269` - why a dropped kline WebSocket left the app blind for 30 s, and what the overflow was.
+"""`BUG-270` - why a dropped kline WebSocket left the app blind for 30 s, and what the overflow was.
 
 Run it (about 45 s, no network, a local server)::
 
-    PYTHONPATH=.. .venv/bin/python scripts/bug269_stream_exit_stall_probe.py
+    PYTHONPATH=.. .venv/bin/python scripts/bug270_stream_exit_stall_probe.py
 
 A local server pushes Futures-rate klines (4 a second) and, on its first connection, closes with
 1011 after 12 of them, as the owner's mainnet connection did on 2026-10-25. The probe drives the

@@ -5,7 +5,7 @@ Held in the bot's run context and touched only on the bot's worker: a tick
 bot's queue, so a tick queued before a check is counted before it, and a long
 placing task cannot make a healthy feed look quiet.
 
-A price **read over REST** counts as a price heard (`note_poll`, `BUG-269`): a position venue
+A price **read over REST** counts as a price heard (`note_poll`, `BUG-270`): a position venue
 judges its exits on the mark price it reads every beat, so a stream that went quiet while that read
 answers has not left the bot without a price. The age is the younger of the last tick and the last
 poll.

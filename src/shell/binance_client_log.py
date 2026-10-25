@@ -1,4 +1,4 @@
-"""`BUG-269` - the Binance client library's log records go through the application's log.
+"""`BUG-270` - the Binance client library's log records go through the application's log.
 
 `python-binance` logs through loggers named `binance.*` (`binance.ws.reconnecting_websocket` says
 `ConnectionClosedError`, `BinanceWebsocketClosed` and `BinanceWebsocketQueueOverflow`), outside the

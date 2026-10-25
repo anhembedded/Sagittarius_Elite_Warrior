@@ -1,4 +1,4 @@
-"""`BUG-269` - the wait of a Futures bot that keeps its ladder under its protective stop is the one
+"""`BUG-270` - the wait of a Futures bot that keeps its ladder under its protective stop is the one
 wait in which the stop is still looked at: a stop that vanished is placed again, a stop that fired
 ends the bot. Any other wait (the exchange's pause, a down stream) reads nothing, as before.
 

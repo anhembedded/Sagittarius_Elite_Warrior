@@ -166,7 +166,7 @@ def test_futures_recovers_only_the_pause_and_a_quiet_feed_whatever_a_kind_adds(
 ) -> None:
     """ADR 042 D5: its halt closes the position and `EPIC-039L` governs it, so it clears every
     lower layer; it lists the exchange's pause (`EPIC-042F`, `BUG-216`) and a quiet price feed,
-    which the halt waits out only under a covering stop (`BUG-269`, `GridCoveredWait`). A down user
+    which the halt waits out only under a covering stop (`BUG-270`, `GridCoveredWait`). A down user
     stream and a reason a kind adds are not recovered by itself there."""
     futures = venue_profile_of(venue)
     assert futures is not None

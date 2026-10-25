@@ -32,7 +32,7 @@ _SRC_ROOT = Path(__file__).resolve().parents[2] / "src"
 #: data_management/signal_log_handler.py, which attaches a Qt-signal handler
 #: to a caller-supplied logger). Only loggers used to *emit* are in scope.
 #: `propagate` is the same kind of management: a route that re-emits a library's records on an
-#: `App.*` logger stops them reaching the root a second time (`BUG-269`).
+#: `App.*` logger stops them reaching the root a second time (`BUG-270`).
 _HANDLER_MANAGEMENT_METHODS = frozenset(
     {"addHandler", "removeHandler", "setLevel", "handlers", "propagate"}
 )

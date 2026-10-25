@@ -1,4 +1,4 @@
-"""`BUG-269` - a position venue's price read over REST counts as a price heard.
+"""`BUG-270` - a position venue's price read over REST counts as a price heard.
 
 The incident: a Futures bot's price WebSocket died while REST worked, its stop loss and take profit
 were being judged on the mark price every beat, and the age check, which looked at the stream alone,

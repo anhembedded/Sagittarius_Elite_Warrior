@@ -1,4 +1,4 @@
-"""`BUG-269` - a Futures bot whose protective stop covers its position waits out a dead price feed.
+"""`BUG-270` - a Futures bot whose protective stop covers its position waits out a dead price feed.
 
 The incident: a Futures bot with a stop standing on the exchange was halted by `price_feed_stale`
 and the halt cancelled its ladder and closed the position at market. On a Futures venue that reason

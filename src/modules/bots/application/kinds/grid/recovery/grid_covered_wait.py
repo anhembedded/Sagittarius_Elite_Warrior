@@ -1,4 +1,4 @@
-"""`BUG-269` - a position venue's bot that waits out a dead price feed under its protective stop.
+"""`BUG-270` - a position venue's bot that waits out a dead price feed under its protective stop.
 
 A Futures bot halted for `price_feed_stale` used to cancel its ladder and close its position at
 market, although a stop on the exchange covered it. Now the halt is a wait (`AWAITING_RECOVERY`,
@@ -38,7 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection 
 )
 
 #: How long a bot may wait with its ladder and its stop for the price to come back, before the
-#: existing path closes it (owner decision, 2026-10-25, `BUG-269`). A wait that outlasts it has had
+#: existing path closes it (owner decision, 2026-10-25, `BUG-270`). A wait that outlasts it has had
 #: a position with no managed ladder for that long.
 COVERED_WAIT_LIMIT = timedelta(minutes=15)
 

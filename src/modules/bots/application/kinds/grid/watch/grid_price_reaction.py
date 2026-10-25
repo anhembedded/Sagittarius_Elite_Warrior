@@ -112,7 +112,7 @@ class GridPriceReaction:
         (`EPIC-044`); it is handed the price the exits are judged on.
         @param exits_on_mark A position venue's stop loss and take profit are judged on the
         mark (`on_mark`); the streamed last price then only keeps the price and its age.
-        @param covered_wait Whether a halt for a quiet feed may wait under the stop (`BUG-269`)."""
+        @param covered_wait Whether a halt for a quiet feed may wait under the stop (`BUG-270`)."""
         self._context = context
         self._stopper = stopper
         self._entry = entry
@@ -169,7 +169,7 @@ class GridPriceReaction:
     def on_mark(self, tick: PriceTick) -> None:
         """The mark price of a position venue's symbol: the price its exits are judged on.
         A mark read over REST is a price heard, so the age check does not halt a bot whose
-        stream went quiet while the mark answers (`BUG-269`)."""
+        stream went quiet while the mark answers (`BUG-270`)."""
         self._context.price_age.note_poll()
         self._say_stream_is_silent()
         if self._enter_if_waiting(tick.last):
