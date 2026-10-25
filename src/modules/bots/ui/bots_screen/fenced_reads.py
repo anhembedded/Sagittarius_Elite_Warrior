@@ -2,11 +2,12 @@
 
 Each read is its own kind: the list, the planner's market numbers for
 the selected bot, its fills, what the exchange says about its symbol
-and account (`BOT-174`), its liquidation facts and its Run facts (`EPIC-048B`). A newer read of a kind supersedes the older
-one, whose answer is then dropped as stale (`async-ui-action-rule.md` §1):
-selecting another bot while the first one's fills load never shows the first
-one's fills. The presenter owns the trackers (one per kind) and hands them
-here; this coordinator only runs, marshals and checks.
+and account (`BOT-174`), its liquidation facts and its Run facts
+(`EPIC-048B`). A newer read of a kind supersedes the older one, whose answer
+is then dropped as stale (`async-ui-action-rule.md` §1): selecting another
+bot while the first one's fills load never shows the first one's fills. The
+presenter owns the trackers (one per kind) and hands them here; this
+coordinator only runs, marshals and checks.
 
 `drop_all()` is final: a read asked after it is refused here, never submitted,
 because by then the app's pool may have shut down and would raise

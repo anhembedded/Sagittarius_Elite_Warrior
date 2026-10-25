@@ -166,7 +166,9 @@ class BotsPresenter(CommandPresenter):
         self._clock = BotsClock(
             self, deps.instance, self._queries.bots, self._refresh_detail
         )
-        self._clock.timeout.connect(self._exchange.recheck_run)
+        if not deps.instance.read_only:
+            # A read-only copy's beat re-reads the bots, whose answer asks again.
+            self._clock.timeout.connect(self._exchange.recheck_run)
         self.strategies = strategies_for(
             container, self._dialogs, view.output_log.append, self._model.set_status
         )
