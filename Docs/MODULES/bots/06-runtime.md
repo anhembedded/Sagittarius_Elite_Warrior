@@ -562,7 +562,7 @@ sequenceDiagram
         Runner->>Exchange: read stop coverage, fresh
         alt COVERED
             Runner->>Runner: halt_transient, AWAITING_RECOVERY, ladder and stop stay
-            loop every beat, at most 15 min
+            loop every 3rd beat (15 s), at most 15 min
                 Runner->>Exchange: stop still covers?
             end
             Runner->>Exchange: 120 s clear then propose and confirm
