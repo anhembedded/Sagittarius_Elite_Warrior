@@ -58,6 +58,8 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.posi
 S = BotLifecycleState
 D = Decimal
 _BEAT = 5
+#: The wait reads the stop's coverage once in this many seconds (`COVERAGE_READ_EVERY_BEATS` beats).
+_COVERAGE_READ_EVERY = 15
 _FUTURES = TradingVenue.FUTURES_TESTNET
 
 
@@ -201,7 +203,7 @@ def test_a_wait_whose_stop_stops_covering_ends_in_the_close(
     assert world.state() is S.AWAITING_RECOVERY
     protection.coverage = StopCoverage.UNCOVERED
 
-    _beats(world, _BEAT)
+    _beats(world, _COVERAGE_READ_EVERY)
 
     assert world.state() is not S.AWAITING_RECOVERY
     assert world.book.open == {}
@@ -224,3 +226,20 @@ def test_a_wait_outlasting_fifteen_minutes_ends_in_the_close(
     assert world.state() is not S.AWAITING_RECOVERY
     assert world.book.open == {}
     assert len(_closing_orders(world)) > markets_before
+
+
+def test_a_waiting_bot_reads_its_coverage_once_in_three_beats_not_every_beat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The wait's own reads cost the exchange 2 requests each, for every waiting bot: a third of
+    them keeps a covered wait from being what closes the weight gate for the others, while the
+    stop's presence is still looked at every beat (`ProtectiveStopService.supervise`)."""
+    protection = Protection(StopCoverage.COVERED)
+    world, marks = _world(protection, monkeypatch)
+    _the_feed_dies(world, marks)
+    assert world.state() is S.AWAITING_RECOVERY
+    reads_on_entry = protection.reads
+
+    _beats(world, 6 * _BEAT)
+
+    assert protection.reads - reads_on_entry == 2

@@ -13,8 +13,8 @@ This class is the one place that says when such a wait may begin, what it is, an
     halt, which parks the bot and closes it as it always did;
   · **is** (`holds`): AWAITING_RECOVERY for `price_feed_stale` on a venue whose halt closes. A venue
     that closes nothing on a halt (Spot) never waits with its ladder: its wait is the old one;
-  · **end** (`ends_with`): the stop stopped covering, could not be read for `UNREAD_BEATS_BEFORE_ENDING`
-    beats in a row, or the wait outlasted `COVERED_WAIT_LIMIT` (the owner's 15 minutes, 2026-10-25).
+  · **end** (`ends_with`): the stop stopped covering, could not be read `UNREAD_READS_BEFORE_ENDING`
+    times in a row (it is read once in `COVERAGE_READ_EVERY_BEATS` beats), or the wait outlasted `COVERED_WAIT_LIMIT` (the owner's 15 minutes, 2026-10-25).
     The end is the existing path: the plain halt, which cancels the ladder and closes the position.
 
 Touched only on the bot's worker.
@@ -42,9 +42,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection 
 #: a position with no managed ladder for that long.
 COVERED_WAIT_LIMIT = timedelta(minutes=15)
 
-#: Beats (5 s) in a row a stop may be unreadable before the wait ends: one failed read is a blip of
-#: the network the wait is for, a quarter of a minute of them is not "covered".
-UNREAD_BEATS_BEFORE_ENDING = 3
+#: The wait reads the stop's coverage on one beat in this many (a beat is 5 s). A read is two
+#: requests (the position and the protective orders, about 6 weight), and every waiting bot makes
+#: it: a third of them keeps a covered wait from being what closes the venue's weight gate for the
+#: others (`BOT-226`), while the stop itself is still looked at every beat (`ProtectiveStopService.
+#: supervise`) and the limit below is still judged every beat.
+COVERAGE_READ_EVERY_BEATS = 3
+
+#: Reads in a row a stop may be unreadable before the wait ends: one failed read is a blip of the
+#: network the wait is for, three in a row (45 s) is not "covered".
+UNREAD_READS_BEFORE_ENDING = 3
 
 
 class GridCoveredWait:
@@ -59,7 +66,8 @@ class GridCoveredWait:
         self._context = context
         self._closer = closer
         self._protection = protection
-        self._unread_beats = 0
+        self._unread_reads = 0
+        self._beats = 0
 
     def halt_plain_words(self) -> str:
         """Why a halt for a quiet feed must not be a wait, or `""` when it may be (the venue closes
@@ -83,18 +91,21 @@ class GridCoveredWait:
     def ends_with(self, waited_seconds: float) -> str | None:
         """What ends this beat's wait, in words, or `None` while it goes on."""
         if waited_seconds >= COVERED_WAIT_LIMIT.total_seconds():
-            self._unread_beats = 0
+            self._unread_reads = 0
             return (
                 f"it waited {int(waited_seconds)} s under its stop, the most it may "
                 f"({int(COVERED_WAIT_LIMIT.total_seconds())} s)"
             )
+        self._beats += 1
+        if self._beats % COVERAGE_READ_EVERY_BEATS:
+            return None
         reading = self._protection.read_coverage()
         if reading.coverage is StopCoverage.COVERED:
-            self._unread_beats = 0
+            self._unread_reads = 0
             return None
         if reading.coverage is StopCoverage.UNREAD:
-            self._unread_beats += 1
-            if self._unread_beats < UNREAD_BEATS_BEFORE_ENDING:
+            self._unread_reads += 1
+            if self._unread_reads < UNREAD_READS_BEFORE_ENDING:
                 return None
-        self._unread_beats = 0
+        self._unread_reads = 0
         return f"its stop no longer covers its position ({reading.words})"
