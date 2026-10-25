@@ -41,7 +41,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-048A | [Rule and guard](completed/EPIC-048A_the_doors_rule_and_its_guard.md) | `claude/epic-048a-doors-guard` | 🟡 | ✅ Done (2026-10-24) | 2026-10-28 |
-| EPIC-048B | [The Bots screen through the doors](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-11-03 |
+| EPIC-048B | [The Bots screen through the doors](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | PR 1 [#731](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/731) merged 2026-10-25; PR 2 not opened | 🔴 | ⏸ Paused after PR 1 | 2026-11-03 |
 | EPIC-048C | [A narrow gateway for presenters](incomplete/EPIC-048C_presenters_receive_a_narrow_gateway.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-04 |
 | EPIC-048D | [The other screens](incomplete/EPIC-048D_the_other_screens_cut_down_to_the_baseline.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-21 |
 
@@ -53,7 +53,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-24 | EPIC-048A | Rule and guard done; baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`. |
 | 2026-10-24 | Spec | Epic scaffolded with the G9 decision record and four children. |
-| 2026-10-25 | Epic | Paused by the owner; 048B's first pull request is finished, the rest waits. See the README's Resume section. |
+| 2026-10-25 | Epic | Paused by the owner; 048B's first pull request (#731) merged, the rest waits. See the README's Resume section. |
 
 ---
 
