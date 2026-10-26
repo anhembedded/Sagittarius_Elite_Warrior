@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a new dependency and a credentials-adjacent setting; no trading rule changes, and the profile stores no secret.
 **Complexity:** L — the transport adapter, the reconnect, the profiles store, the Options page, and a measurement on the owner's Windows.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047A](EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec), [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the bridge to talk to)
+**Depends on:** [EPIC-047A](../completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec), [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the bridge to talk to)
 
 ---
 

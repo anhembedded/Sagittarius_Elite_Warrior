@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import wire_name
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
@@ -38,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 QUOTE_ASSET = "USDT"
 
 
+@wire_name("sew.venue-account-snapshot/1")
 @dataclass(frozen=True)
 class VenueAccountSnapshot:
     source: AccountSource

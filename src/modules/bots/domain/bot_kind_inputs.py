@@ -23,6 +23,7 @@ from datetime import timedelta
 from decimal import Decimal
 from types import MappingProxyType
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import wire_name
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_LIMITS,
     ExposureLimits,
@@ -191,6 +192,7 @@ class MarginView:
             raise ValueError("available_margin must not be negative")
 
 
+@wire_name("sew.plan-risk-facts/1")
 @dataclass(frozen=True, slots=True)
 class PlanRiskFacts:
     """`EPIC-039J` — what a position venue says about the symbol that a plan's liquidation is

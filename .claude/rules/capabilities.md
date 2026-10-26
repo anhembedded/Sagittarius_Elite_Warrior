@@ -75,6 +75,7 @@ paths:
 | Hand a worker thread's answer to the UI thread (also: background thread, QThread, signal, async result, main thread) | `UiThreadRelay` | `src/support/ui_kit/ui_thread_relay.py` | `src/modules/bots/ui/bots_screen/fenced_reads.py` |
 | Write a price, number, percentage or time for display (also: format, decimals, number to text, f-string, round) | `APP_VALUE_FORMATTER`, `write_value`, `signed_key` | `src/support/ui_kit/value_formatter.py` | `src/modules/backtesting/ui/coordinators/data_sync_coordinator.py` |
 | Ask a risky action's question, answered with its own verbs (also: confirm, are you sure, QMessageBox, yes no dialog) | `VerbQuestion`, `ask_with_verbs` | `src/support/ui_kit/verb_confirmation.py` | `src/modules/trading/ui/desk/order_entry/order_entry_panel.py` |
+| Carry a contract value over the remote link as JSON and back equal, from its type hints (money exact, enums typed) (also: wire form, serialise, serialize, to json, from json, codec, round trip, schema from type hints, dataclass to dict, remote link, bridge message, wire name, tagged union) | `WireRoots` | `src/support/wire/` | `src/shell/wire_roots.py` |
 <!-- capabilities:end -->
 
 ## Not declared in code (hand-written)

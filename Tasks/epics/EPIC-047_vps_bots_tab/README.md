@@ -1,6 +1,6 @@
 # EPIC-047 — A desktop tab shows and controls the bots on the VPS host
 
-- **Status:** 🟡 In progress (0/7) — resumed by the owner on 2026-10-26 (*"làm tiếp epic EPIC-047"*); 047A and 047B start first, in parallel; EPIC-048B's second pull request is queued for when 047E needs it
+- **Status:** 🟡 In progress (1/7) — 047A done 2026-10-26 (the wire codec and the handshake); resumed by the owner on 2026-10-26 (*"làm tiếp epic EPIC-047"*); 047A and 047B start first, in parallel; EPIC-048B's second pull request is queued for when 047E needs it
 - **Repositories:** Elite
 - **Origin:** the owner's request of 2026-10-24: a VPS Bots tab that connects to the VPS and controls its bots, with the same interface as the Bots tab, both sharing every module (charter §2.1). The owner delegated the design decisions on 2026-10-24: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). The charter, Discover and De-risk steps are in this folder.
 - **North star:** [`CHARTER.md`](CHARTER.md) v0.5 (scope, constraints, AC1–AC9), [`DISCOVER.md`](DISCOVER.md) v0.2, [`DERISK.md`](DERISK.md) v0.3. The headless operation it extends: [`Docs/OPERATIONS/headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md).
@@ -36,7 +36,7 @@
 <!-- Dependency order within risk: A and B have no EPIC-047 prerequisite; every child waits for EPIC-048A and 048B. -->
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-047A](incomplete/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | The reflective wire codec, a contract test per root type, and the version handshake on wire names | Elite | EPIC-048A, 048B | 🟡 | Planned |
+| [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | The reflective wire codec, a contract test per root type, and the version handshake on wire names | Elite | EPIC-048A and the first pull request of EPIC-048B | 🟡 | ✅ Done (2026-10-26) |
 | [EPIC-047B](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | The host writes the facts it holds in memory to a file when they change (G7a) | Elite | EPIC-048A and the first pull request of 048B (#731) | 🔴 | 🟡 In review |
 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | The bridge: a second process behind a forced-command key for the `sew` account, commands through `DirectoryHostControl` | Elite | 047A, 047B | 🔴 | Planned |
 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | The desktop transport on `asyncssh`, connection profiles and the Options page (O6, D5), with Windows agent login and a reconnect under 2 s | Elite | 047A, 047C | 🟡 | Planned |

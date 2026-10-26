@@ -197,6 +197,23 @@ step's facts, `bots/contracts/run_facts.py` → `RunFacts`; the account view,
 `bots/contracts/connect_failure_words.py` → `failure_cause`, `state_words`; and
 `bots/contracts/bot_readiness.py` → `MARKET_NOT_READ`.
 
+## Built: the types that cross the remote link (EPIC-047A)
+
+`bots` declares which of its contract types the remote link may carry, and nothing else crosses.
+`bots/composition/wire_roots.py` → `BOTS_WIRE_ROOTS` is the one list: each entry is a wire name
+(`sew.bot-snapshot/1`) and a root type, 14 in all (the results of the queries the Bots screen reads, the
+bot, a command's result, the host-control request and reply); `bots/module.py` → `wire_roots` hands it
+to the shell. The codec itself is `support/wire` and imports no module. A root is added by one entry here
+and one contract test (`tests/unit/support/wire/contract/`).
+
+A union member crosses with its own wire name, kept on the record: `@wire_name` (`core/contracts/wire_name.py`
+→ `wire_name`) on `bots/contracts/exchange_facts.py` → `ExchangeChecking`, `ExchangeUnavailable`,
+`ExchangeLoaded`, on `bots/contracts/futures_facts.py` → `FuturesLoaded`, on
+`bots/contracts/plan_risk_read.py` → `PlanRiskUnavailable`, on `bots/domain/bot_kind_inputs.py` →
+`PlanRiskFacts`, and on trading's `ConnectFailure` and `VenueAccountSnapshot`. Moving a class changes no
+name; changing a name is a version change. `BotAssessment` and `AssessBotQuery` do not cross (the pure
+assessment runs on the desktop, `EPIC-047` D1), and `BotStatusReport` is read by the command line only.
+
 ## Built: the contracts
 
 The ports in [`diagrams/05-contracts.puml`](diagrams/05-contracts.puml) are `IBotStore` with

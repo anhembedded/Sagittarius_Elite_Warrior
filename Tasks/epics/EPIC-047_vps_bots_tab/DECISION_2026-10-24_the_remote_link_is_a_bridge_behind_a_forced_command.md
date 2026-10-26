@@ -81,5 +81,5 @@ The owner wants the Bots tab on the VPS host, with the host's own checks and aud
 | D2 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md), [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified |
 | D3 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md), [EPIC-047G](incomplete/EPIC-047G_the_runbook_for_the_vps_link.md) | Not started | Not yet verified |
 | D4 | [EPIC-047B](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | Not started | Not yet verified |
-| D5 | [EPIC-047A](incomplete/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | Not started | Not yet verified |
-| D6 | [EPIC-047A](incomplete/EPIC-047A_the_wire_codec_and_the_version_handshake.md), [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) | Not started | Not yet verified |
+| D5 | [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | Built, except the revision's source (047C) and the heartbeat (047C) | One codec behind a closed list of 14 roots with a contract test each and a guard; the handshake hashes wire names; `RevisionGate` applies a record only if its revision is greater (the task's implementation notes) |
+| D6 | [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md), [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) | The refusal is built (047A); the bridge's exit and the tab's words are 047C and 047E | `link_handshake.judge` returns the words and what differs; not yet run on a real link |

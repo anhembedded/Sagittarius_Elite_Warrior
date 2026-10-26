@@ -25,6 +25,10 @@ ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src", "*.py"),),
     ),
     (
+        "tests/unit/architecture/test_every_wire_root_has_a_contract_test.py",
+        (("tests/unit/support/wire/contract", "test_root_*.py"),),
+    ),
+    (
         "tests/unit/architecture/test_only_the_session_factory_constructs_binance_client.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
