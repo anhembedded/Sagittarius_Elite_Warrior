@@ -1,6 +1,6 @@
 """`EPIC-047A` — the types of the Bots screen's reads that cross the remote link, each under its wire name.
 
-One entry per root; the records reachable from a root cross with it. The 15 roots are the
+One entry per root; the records reachable from a root cross with it. The 14 roots are the
 results of the queries the Bots screen reads (`BotList`, `BotFills`, `BotReadiness`,
 `BotRunFacts`, `VenueSnapshot`, `PlanRiskRead`, `PlannerMarket`, the venue connection), the
 bot itself, the command's result and the host-control request and reply.

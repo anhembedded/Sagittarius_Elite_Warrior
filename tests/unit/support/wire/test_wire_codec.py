@@ -245,3 +245,51 @@ def test_a_fixed_tuple_keeps_its_length() -> None:
     assert decode(doc, Pair) == pair
     with pytest.raises(WireDecodeError, match="expected 2 items"):
         decode({"bounds": ["1"]}, Pair)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1_0",
+        " 1 ",
+        "١٢٣",
+        "1E999999999",
+        "1e-999999999",
+        "1e5",
+        "+1",
+        "0x10",
+        "007",
+        "1" * 400,
+        "",
+    ],
+    ids=lambda t: repr(t)[:14],
+)
+def test_a_decimal_that_is_not_what_the_encoder_writes_is_refused(text: str) -> None:
+    doc = encode(_whole(), Whole)
+    doc["price"] = text
+    with pytest.raises(WireDecodeError, match="price"):
+        decode(doc, Whole)
+
+
+@pytest.mark.parametrize("text", ["0", "-0", "12.3400", "1E-8", "1E+2", "0E-8", "-5.5"])
+def test_every_text_the_encoder_can_write_for_a_decimal_is_read_back(text: str) -> None:
+    value = _whole(price=Decimal(text))
+    assert str(_over_the_wire(value).price) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "20260101",
+        "2026-01-01",
+        "2026-01-01T00:00:00Z",
+        "2026-10-26 09:30:00",
+        "2026-10-26T09:30:15.1",
+    ],
+    ids=lambda t: t[:14],
+)
+def test_a_datetime_that_is_not_what_the_encoder_writes_is_refused(text: str) -> None:
+    doc = encode(_whole(), Whole)
+    doc["at"] = text
+    with pytest.raises(WireDecodeError, match="at"):
+        decode(doc, Whole)

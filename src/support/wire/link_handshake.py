@@ -11,14 +11,19 @@ shapes (`wire_schema.py`), never Python paths, so moving a class refuses nobody.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import is_wire_name
 from Sagittarius_Elite_Warrior.src.support.wire.wire_errors import WireDecodeError
 from Sagittarius_Elite_Warrior.src.support.wire.wire_roots import WireRoots
 
 PROTOCOL = "sew.link/1"
 _HELLO_KEYS = {"protocol", "app_version", "roots"}
+#: What a peer may put in text the desktop will show: no control characters, bounded.
+_PRINTABLE = re.compile(r"[ -~]{1,64}")
+_DIGEST = re.compile(r"[0-9a-f]{16}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,14 +50,25 @@ class Hello:
                 f"a hello has exactly {', '.join(sorted(_HELLO_KEYS))}"
             )
         protocol, version, roots = doc["protocol"], doc["app_version"], doc["roots"]
-        if type(protocol) is not str or type(version) is not str:
-            raise WireDecodeError("a hello's protocol and app_version are text")
-        if type(roots) is not dict or not all(
-            type(k) is str and type(v) is str for k, v in roots.items()
-        ):
+        if type(protocol) is not str or not _PRINTABLE.fullmatch(protocol):
             raise WireDecodeError(
-                "a hello's roots map a wire name to a digest, both text"
+                "a hello's protocol is printable ASCII, up to 64 characters"
             )
+        if type(version) is not str or not _PRINTABLE.fullmatch(version):
+            raise WireDecodeError(
+                "a hello's app_version is printable ASCII, up to 64 characters"
+            )
+        if type(roots) is not dict:
+            raise WireDecodeError("a hello's roots map a wire name to a digest")
+        for name, digest in roots.items():
+            if not is_wire_name(name):
+                raise WireDecodeError(
+                    f"a hello's root {str(name)[:40]!r} is not a wire name"
+                )
+            if type(digest) is not str or not _DIGEST.fullmatch(digest):
+                raise WireDecodeError(
+                    f"a hello's digest for {name} is 16 lowercase hex digits"
+                )
         return Hello(protocol, version, dict(roots))
 
 

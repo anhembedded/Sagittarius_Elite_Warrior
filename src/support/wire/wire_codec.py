@@ -41,6 +41,8 @@ from Sagittarius_Elite_Warrior.src.support.wire.wire_shape import (
 type JsonData = object
 TYPE_KEY = "$type"
 _MICROSECOND = timedelta(microseconds=1)
+_MAX_DECIMAL_TEXT = 100
+_MAX_DECIMAL_EXPONENT = 100
 
 
 def encode(value: object, hint: object) -> JsonData:
@@ -160,26 +162,38 @@ def _decode_scalar(doc: JsonData, shape: ScalarShape, path: str) -> object:
 
 
 def _decode_decimal(doc: JsonData, path: str) -> Decimal:
+    """Only the text the encoder writes: `str(Decimal)` read back, bounded in length and exponent."""
     if type(doc) is not str:
         raise WireDecodeError(f"{path}: expected decimal as text, got {_describe(doc)}")
     try:
-        value = Decimal(doc)
+        value = Decimal(doc) if len(doc) <= _MAX_DECIMAL_TEXT else None
     except InvalidOperation:
-        raise WireDecodeError(f"{path}: {doc!r} is not a decimal") from None
-    if not value.is_finite():
-        raise WireDecodeError(f"{path}: {doc!r} is not a finite decimal")
+        value = None
+    if value is None or not value.is_finite() or str(value) != doc:
+        raise WireDecodeError(
+            f"{path}: {doc[:_MAX_DECIMAL_TEXT]!r} is not a decimal as the wire writes it"
+        )
+    exponent = value.as_tuple().exponent
+    if isinstance(exponent, int) and abs(exponent) > _MAX_DECIMAL_EXPONENT:
+        raise WireDecodeError(f"{path}: the exponent of {doc!r} is out of range")
     return value
 
 
 def _decode_datetime(doc: JsonData, path: str) -> datetime:
+    """Only the text `datetime.isoformat` writes, so a date alone or a compact form is refused."""
     if type(doc) is not str:
         raise WireDecodeError(
             f"{path}: expected datetime as text, got {_describe(doc)}"
         )
     try:
-        return datetime.fromisoformat(doc)
+        value = datetime.fromisoformat(doc)
     except ValueError:
         raise WireDecodeError(f"{path}: {doc!r} is not an ISO datetime") from None
+    if value.isoformat() != doc:
+        raise WireDecodeError(
+            f"{path}: {doc!r} is not a datetime as the wire writes it"
+        )
+    return value
 
 
 def _decode_duration(doc: JsonData, path: str) -> timedelta:

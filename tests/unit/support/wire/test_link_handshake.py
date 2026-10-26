@@ -114,3 +114,33 @@ def test_the_refusal_is_a_message_the_desktop_can_read() -> None:
         "differs": ["app_version"],
         "words": refusal.words,
     }
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["", "x" * 65, "build\n2", "bad\x1b[31m", "caf\u00e9"],
+    ids=["empty", "long", "newline", "escape", "non-ascii"],
+)
+def test_an_app_version_the_desktop_would_not_show_is_refused(version: str) -> None:
+    doc = hello_of(_roots("sew.test-a/1"), "1").to_wire()
+    doc["app_version"] = version
+    with pytest.raises(WireDecodeError, match="app_version"):
+        Hello.from_wire(doc)
+
+
+@pytest.mark.parametrize("name", ["not a wire name", "sew.Test/1", "x" * 200])
+def test_a_root_name_that_is_not_a_wire_name_is_refused(name: str) -> None:
+    doc = hello_of(_roots("sew.test-a/1"), "1").to_wire()
+    doc["roots"] = {name: "0123456789abcdef"}
+    with pytest.raises(WireDecodeError, match="wire name"):
+        Hello.from_wire(doc)
+
+
+@pytest.mark.parametrize(
+    "digest", ["", "short", "0123456789ABCDEF", "g123456789abcdef", "0" * 64]
+)
+def test_a_digest_is_sixteen_lowercase_hex_digits(digest: str) -> None:
+    doc = hello_of(_roots("sew.test-a/1"), "1").to_wire()
+    doc["roots"] = {"sew.test-a/1": digest}
+    with pytest.raises(WireDecodeError, match="digest"):
+        Hello.from_wire(doc)

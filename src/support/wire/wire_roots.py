@@ -1,10 +1,15 @@
 """`EPIC-047A` — the closed list of types that may cross the remote link, each under its wire name.
 
-Only a root named here, and the records reachable from it, can be encoded or decoded: a
-message naming anything else is refused. That is how no secret, key or unfiltered exception
-text reaches the wire by accident. The list is closed twice: at the door (an unnamed root is
-an `unknown wire name`) and at registration (`WireRoots` refuses a graph holding a field
-named like a secret, or a type with no wire form, before any message flows).
+Only a root named here, and the records reachable from it, can be encoded or decoded: a message
+naming anything else is refused. The list is closed twice: at the door (an unnamed root is an
+`unknown wire name`) and at registration (`WireRoots` refuses a graph holding a field *named* like
+a secret, or a type with no wire form, before any message flows).
+
+What that proves, and what it does not: the types are closed (no exception, float or foreign class
+can be a field) and no field is named like a key. The *content* of a free-text `str` field
+(`BotCommandResult.message`, `ConnectFailure.detail` and `reply`, `HostControlReply.message`, the
+`reason` fields) is the producer's: it writes words for the user, and the cause exception goes to the
+log, never into the field. The codec cannot see inside a string.
 
 A message is `{"schema": <root wire name>, "data": …}`, with `"revision"` when the sender
 numbers its changes (`RevisionGate` is the receiver's side).
@@ -15,6 +20,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import is_wire_name
 from Sagittarius_Elite_Warrior.src.core.contracts.wire_root import WireRoot
 from Sagittarius_Elite_Warrior.src.support.wire.wire_codec import decode, encode
 from Sagittarius_Elite_Warrior.src.support.wire.wire_errors import (
@@ -44,7 +50,6 @@ SCHEMA_KEY = "schema"
 DATA_KEY = "data"
 REVISION_KEY = "revision"
 
-_ROOT_NAME = re.compile(r"sew\.[a-z0-9]+(?:-[a-z0-9]+)*/[0-9]+")
 #: A field named like one of these never crosses the link; a key is not a fact the desktop reads.
 _SECRET_FIELD = re.compile(
     r"secret|password|passphrase|private_?key|api_?key|token|credential", re.IGNORECASE
@@ -57,7 +62,7 @@ class WireRoots:
     def __init__(self, roots: Iterable[WireRoot]) -> None:
         self._roots: dict[str, WireRoot] = {}
         for root in roots:
-            if _ROOT_NAME.fullmatch(root.name) is None:
+            if not is_wire_name(root.name):
                 raise WireSchemaError(
                     f"a root's wire name reads 'sew.some-words/1', not {root.name!r}"
                 )

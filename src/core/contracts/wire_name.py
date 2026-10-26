@@ -18,11 +18,21 @@ from collections.abc import Callable
 
 _NAME_SHAPE = re.compile(r"sew\.[a-z0-9]+(?:-[a-z0-9]+)*/[0-9]+")
 _ATTRIBUTE = "__wire_name__"
+_MAX_NAME_LENGTH = 80
+
+
+def is_wire_name(text: object) -> bool:
+    """Whether `text` has the shape of a wire name; used wherever a name arrives from the peer."""
+    return (
+        isinstance(text, str)
+        and len(text) <= _MAX_NAME_LENGTH
+        and _NAME_SHAPE.fullmatch(text) is not None
+    )
 
 
 def wire_name[T: type](name: str) -> Callable[[T], T]:
     """Give a record class the name it has on the wire. Apply it above `@dataclass`."""
-    if _NAME_SHAPE.fullmatch(name) is None:
+    if not is_wire_name(name):
         raise ValueError(f"a wire name reads 'sew.some-words/1', not {name!r}")
 
     def attach(cls: T) -> T:
