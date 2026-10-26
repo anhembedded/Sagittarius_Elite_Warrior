@@ -16,9 +16,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_held_facts import
     SymbolLease,
     VenueKeyState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_host_held_facts import (
+    IHostHeldFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     HostFactsDocument,
     HostFactsHeader,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_host_facts_sink import (
+    IHostFactsSink,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_operations_clock import (
+    IOperationsClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
     EarlierRunsInventory,
@@ -88,3 +97,49 @@ def document(
         HostFactsHeader(revision, written_at, heartbeat_s, pid=4242),
         held if held is not None else facts(),
     )
+
+
+class FakeHeldFacts(IHostHeldFacts):
+    """The host's facts as a test sets them; `reads` counts how often they were asked for."""
+
+    def __init__(self, current: HostHeldFacts | None = None) -> None:
+        self.current = current if current is not None else facts()
+        self.reads = 0
+
+    def read(self) -> HostHeldFacts:
+        self.reads += 1
+        return self.current
+
+
+class RecordingFactsSink(IHostFactsSink):
+    def __init__(self) -> None:
+        self.published: list[HostFactsDocument] = []
+
+    def publish(self, document: HostFactsDocument) -> None:
+        self.published.append(document)
+
+
+class FailingFactsSink(IHostFactsSink):
+    """Refuses every write with `failure`, until `failure` is set to `None`."""
+
+    def __init__(self, failure: Exception | None) -> None:
+        self.failure = failure
+        self.published: list[HostFactsDocument] = []
+        self.attempts = 0
+
+    def publish(self, document: HostFactsDocument) -> None:
+        self.attempts += 1
+        if self.failure is not None:
+            raise self.failure
+        self.published.append(document)
+
+
+class SteppingClock(IOperationsClock):
+    def __init__(self, now: datetime = NOW) -> None:
+        self.current = now
+
+    def now(self) -> datetime:
+        return self.current
+
+    def advance(self, seconds: float) -> None:
+        self.current += timedelta(seconds=seconds)
