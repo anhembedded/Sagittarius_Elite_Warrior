@@ -1,6 +1,6 @@
 # EPIC-047 — A desktop tab shows and controls the bots on the VPS host
 
-- **Status:** ⏸ Paused by the owner (2026-10-25), 0/7 — nothing has started; it waits on EPIC-048 A and B
+- **Status:** 🟡 In progress (0/7) — resumed by the owner on 2026-10-26 (*"làm tiếp epic EPIC-047"*); 047A and 047B start first, in parallel; EPIC-048B's second pull request is queued for when 047E needs it
 - **Repositories:** Elite
 - **Origin:** the owner's request of 2026-10-24: a VPS Bots tab that connects to the VPS and controls its bots, with the same interface as the Bots tab, both sharing every module (charter §2.1). The owner delegated the design decisions on 2026-10-24: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). The charter, Discover and De-risk steps are in this folder.
 - **North star:** [`CHARTER.md`](CHARTER.md) v0.5 (scope, constraints, AC1–AC9), [`DISCOVER.md`](DISCOVER.md) v0.2, [`DERISK.md`](DERISK.md) v0.3. The headless operation it extends: [`Docs/OPERATIONS/headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md).
@@ -61,7 +61,7 @@ As the charter §4: any inbound port; a change to a bot's behaviour or a trading
 
 ---
 
-## Resume
+## Resume (done: the owner resumed this epic on 2026-10-26)
 The owner paused this epic on 2026-10-25 (*"tạm thời dừng epic đó ... sau này làm tiếp"*, "stop that epic for now ... continue later"). Nothing was built; every document stays valid.
 - **Ready:** the charter v0.5, Discover, De-risk (v0.3, with the owner's own run against the VPS on 2026-10-24), the two decision records, and the seven children.
 - **Owner's run still on record:** key-based SSH works from the owner's Windows desktop to the VPS root account; the epic's runbook (child G) must have the `sew` account's forced-command key setup and `PasswordAuthentication no`.

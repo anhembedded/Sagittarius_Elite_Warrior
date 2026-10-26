@@ -1,6 +1,6 @@
 # EPIC-048 — The UI reaches the application only through the command dispatcher and bus events
 
-- **Status:** ⏸ Paused by the owner (2026-10-25) at 1/4 — 048A done 2026-10-24; 048B's first pull request (#731) merged 2026-10-25 so no branch is left half-done; the rest waits (see **Resume**)
+- **Status:** 🟡 In progress, 1/4 — paused 2026-10-25 and picked up again 2026-10-26 only as far as EPIC-047 needs it: 048B's second pull request when 047E starts; 048C and 048D stay paused. At 1/4 — 048A done 2026-10-24; 048B's first pull request (#731) merged 2026-10-25 so no branch is left half-done; the rest waits (see **Resume**)
 - **Repositories:** Elite
 - **Origin:** [EPIC-047](../EPIC-047_vps_bots_tab/README.md)'s Discover Finding E (the UI reaches the application around the dispatcher and the bus), accepted by the owner on 2026-10-24, and charter decision G9 (a separate epic, done first), settled on the owner's delegation: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). De-risk R7 measured the debt.
 - **North star:** [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) and [`.claude/rules/architecture-rule.md`](../../../.claude/rules/architecture-rule.md); the rule's new text is child A's work.
