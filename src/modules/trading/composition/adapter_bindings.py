@@ -62,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.exchange_adapters
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.shared_venue_inputs import (
     SharedVenueInputs,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.stored_venue_key_states import (
+    StoredVenueKeyStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
 )
@@ -79,6 +82,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_public_address_re
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_key_states import (
+    IVenueKeyStates,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
@@ -130,16 +136,24 @@ def bind_adapters(container: IContainer) -> None:
     # EPIC-028A: lazy, like every binding here — `register()` may not
     # `resolve(IConfig)` (this file's own module docstring).
     container.singleton(
+        SharedVenueInputs,
+        lambda c: SharedVenueInputs(
+            container=c,
+            secrets_file_path=secrets_file_path,
+            session_states=c.resolve(VenueSessionStates),
+            secret_store=build_secret_stores(),
+            instance=c.resolve(IInstanceAccess),
+        ),
+    )
+    container.singleton(
         VenueContexts,
-        lambda c: _build_venue_contexts(
-            c,
-            SharedVenueInputs(
-                container=c,
-                secrets_file_path=secrets_file_path,
-                session_states=c.resolve(VenueSessionStates),
-                secret_store=build_secret_stores(),
-                instance=c.resolve(IInstanceAccess),
-            ),
+        lambda c: _build_venue_contexts(c, c.resolve(SharedVenueInputs)),
+    )
+    # `EPIC-047C` - "is a key saved?" for a venue nothing has built.
+    container.singleton(
+        IVenueKeyStates,
+        lambda c: StoredVenueKeyStates(
+            c.resolve(VenueContexts).enabled(), c.resolve(SharedVenueInputs)
         ),
     )
     container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))

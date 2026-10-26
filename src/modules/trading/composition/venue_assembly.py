@@ -170,6 +170,21 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
+def stored_credentials_provider(
+    venue: TradingVenue, shared: SharedVenueInputs
+) -> IExchangeCredentialsProvider:
+    """The one place a venue's saved key is located (`EPIC-047C`): a venue's assembly builds its
+    provider here, and `StoredVenueKeyStates` builds one here to answer "is a key saved?" without
+    building anything else of the venue."""
+    if venue.is_mainnet:
+        # `EPIC-034` D10/D11 — a real-money secret is never in a file the app
+        # owns; `EPIC-038E` — it comes from the stores in their one order.
+        return MainnetCredentialsProvider(shared.secret_store, venue)
+    return EnvFirstCredentialsProvider(
+        SecretsFileSource(shared.secrets_file_path), venue
+    )
+
+
 class VenueAssembly:
     """Builds and caches one venue's adapters and per-venue state."""
 
@@ -205,13 +220,7 @@ class VenueAssembly:
     def credentials_provider(self) -> IExchangeCredentialsProvider:
         """The venue's stored key, as it is: what Options saves to and what the
         desk asks "is there a key" of. Adapters resolve `order_credentials`."""
-        if self._venue.is_mainnet:
-            # `EPIC-034` D10/D11 — a real-money secret is never in a file the app
-            # owns; `EPIC-038E` — it comes from the stores in their one order.
-            return MainnetCredentialsProvider(self._shared.secret_store, self._venue)
-        return EnvFirstCredentialsProvider(
-            SecretsFileSource(self._shared.secrets_file_path), self._venue
-        )
+        return stored_credentials_provider(self._venue, self._shared)
 
     @LockedCachedProperty
     def key_gate(self) -> IKeyPermissionGate | None:
