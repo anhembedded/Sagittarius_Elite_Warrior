@@ -95,6 +95,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     IOperationsRegistry,
     PreflightCheckDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_root import WireRoot
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
@@ -140,6 +141,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings import (
     bind_state,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.wire_roots import (
+    BOTS_WIRE_ROOTS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
@@ -273,3 +277,8 @@ class BotsModule(BoundedContextModule):
         context.container.resolve(BotPriceWatch).close()
         context.container.resolve(BotExecutors).close_all()
         logger.info("Bot price streams released, workers closed")
+
+
+def wire_roots() -> tuple[WireRoot, ...]:
+    """The types of this module's contracts that cross the remote link (`EPIC-047A`)."""
+    return BOTS_WIRE_ROOTS

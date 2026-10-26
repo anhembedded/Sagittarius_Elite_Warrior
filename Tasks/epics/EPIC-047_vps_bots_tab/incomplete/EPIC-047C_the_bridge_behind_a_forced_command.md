@@ -5,12 +5,14 @@
 **Risk:** 🔴 — it is the only door from the desktop to a real-money host; a command that bypassed the host's gate, a shell the key should not give, or a listener would break the epic's constraints.
 **Complexity:** L — the bridge entry point, the event stream, the commands, the watchdog, and the forced-command key.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047A](EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec, handshake), [EPIC-047B](EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) (the facts file)
+**Depends on:** [EPIC-047A](../completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec, handshake), [EPIC-047B](EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) (the facts file)
 
 ---
 
 ## 1. Context and problem
 `sshd` can start a command for each session, listening on nothing. De-risk R2 showed that a key restricted with `restrict,command="…"` runs only the bridge: a request for `whoami; cat /etc/passwd` returns the bridge's `hello`, a port forward is "administratively prohibited", a terminal is refused, and the bridge ends with the connection (0 left, 6 of 6 runs); a half-open link left 1 bridge after 10 s without a heartbeat and 0 with a 6 s idle watchdog. The bridge's start is dominated by imports: 258–269 ms of ~340 ms; the real reconnect was 1909 ms (DERISK §3.7).
+
+- **From [EPIC-047A](../completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md):** the codec, the handshake (`link_handshake.judge`, whose `Refusal.to_wire()` the bridge sends before any read, then exits 3) and `RevisionGate` exist. The bot record has no revision; this task decides the sender's: a counter in the record (a version-tolerant file codec, together with EPIC-047B's file) or the bridge's own sequence per bot. The envelope and the gate do not change with that choice.
 
 ## 2. Acceptance criteria
 - [ ] The bridge is started by `sshd` for each session as the **`sew`** account through `DirectoryHostControl`'s directory; it speaks newline-delimited JSON on stdin and stdout in the protocol of the remote link record (hello, welcome, calls with ids, events with a sequence).
