@@ -23,6 +23,12 @@ from __future__ import annotations
 PRICE_STALE_AFTER_SECONDS: float = 60.0
 PRICE_START_GRACE_SECONDS: float = 60.0
 
+#: `BUG-270` - a stream that has been quiet this long is said to be quiet once, and the bot is told
+#: to be living on the price it reads over REST (a position venue's mark, read every beat anyway).
+#: It is not a limit that halts: the halt stays `PRICE_STALE_AFTER_SECONDS`, counted from the
+#: youngest price of either source.
+STREAM_SILENT_AFTER_SECONDS: float = 15.0
+
 #: `EPIC-042C` - a feed that halted a bot counts as back only while the last tick it heard since
 #: the halt is younger than this: three beats of the price watch (5 s), where a live Spot ticker
 #: ticks about once a second. Two ticks a minute is not "healthy for 120 s". It is **not**

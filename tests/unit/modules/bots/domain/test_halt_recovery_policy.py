@@ -3,7 +3,7 @@
 ADR 042 §2.3: fold common, kind, venue; a layer clears the lower ones, withdraws codes, then
 changes rules; later wins. Each layer and the merged result is a value compared here, and the
 real layers (`COMMON_LAYER`, the Grid's, Spot's and Futures') are checked for what the owner
-decided: Spot keeps the common set, Futures recovers nothing.
+decided: Spot keeps the common set, Futures recovers the exchange's pause and a quiet feed.
 """
 
 from __future__ import annotations
@@ -161,22 +161,30 @@ def test_spot_keeps_the_common_set_and_the_grids_pause() -> None:
 @pytest.mark.parametrize(
     "venue", [TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET]
 )
-def test_futures_recovers_only_the_exchanges_pause_whatever_a_kind_adds(
+def test_futures_recovers_only_the_pause_and_a_quiet_feed_whatever_a_kind_adds(
     venue: TradingVenue,
 ) -> None:
     """ADR 042 D5: its halt closes the position and `EPIC-039L` governs it, so it clears every
-    lower layer; the exchange's pause is the one reason it lists (`EPIC-042F`, `BUG-216`)."""
+    lower layer; it lists the exchange's pause (`EPIC-042F`, `BUG-216`) and a quiet price feed,
+    which the halt waits out only under a covering stop (`BUG-270`, `GridCoveredWait`). A down user
+    stream and a reason a kind adds are not recovered by itself there."""
     futures = venue_profile_of(venue)
     assert futures is not None
     greedy = RecoveryLayer(
         GRID_KIND_ID,
-        changes={HaltCode("order_rejected"): RuleChange(), RATE_LIMITED: RuleChange()},
+        changes={
+            HaltCode("order_rejected"): RuleChange(),
+            RATE_LIMITED: RuleChange(),
+            USER_STREAM_DOWN: RuleChange(),
+        },
     )
     policy = effective_policy(COMMON_LAYER, greedy, futures.recovery_layer)
-    assert [row.code for row in policy.rows] == [RATE_LIMITED]
-    [pause] = policy.rows
-    assert pause.decided_by == "futures"
-    assert pause.rule.dwell == timedelta(seconds=2)
+    assert [row.code for row in policy.rows] == [PRICE_FEED_STALE, RATE_LIMITED]
+    rows = {row.code: row for row in policy.rows}
+    assert rows[RATE_LIMITED].decided_by == "futures"
+    assert rows[RATE_LIMITED].rule.dwell == timedelta(seconds=2)
+    assert rows[PRICE_FEED_STALE].decided_by == "futures"
+    assert rows[PRICE_FEED_STALE].rule == DEFAULT_RULE
 
 
 def test_the_policy_answers_for_one_code_and_for_the_longest_window() -> None:

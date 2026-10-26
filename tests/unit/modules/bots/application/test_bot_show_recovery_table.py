@@ -132,14 +132,15 @@ def test_the_kinds_own_layer_reaches_the_report() -> None:
 @pytest.mark.parametrize(
     "venue", [TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET]
 )
-def test_a_futures_grid_shows_only_the_exchanges_pause_and_the_layer_that_listed_it(
+def test_a_futures_grid_shows_the_pause_and_a_quiet_feed_and_the_layer_that_listed_them(
     venue: TradingVenue,
 ) -> None:
     entry = _shown(_dispatcher(venue))
 
     assert entry.recovery is not None
     assert [(r.code, r.decided_by) for r in entry.recovery.rules] == [
-        (RATE_LIMITED, "futures")
+        (PRICE_FEED_STALE, "futures"),
+        (RATE_LIMITED, "futures"),
     ]
     assert entry.recovery.none_decided_by == ""
 

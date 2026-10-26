@@ -98,6 +98,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_system_failure_reporter import (
     ISystemFailureReporter,
 )
+from Sagittarius_Elite_Warrior.src.shell.binance_client_log import (
+    route_binance_client_logs,
+)
 from Sagittarius_Elite_Warrior.src.shell.cli_log_routing import CliLogRouting
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
@@ -225,6 +228,8 @@ def create_app(
         cli_log.log_decision()
     # `BOT-178` — the Engine's per-query INFO line is developer detail.
     quiet_query_dispatch_outside_developer_mode(config_manager)
+    # `BUG-270` — the Binance client library's records are the app's: timestamped, in the log file.
+    route_binance_client_logs()
     # `EPIC-035H` — said here because the run log exists only from this point,
     # and a read-only copy is the one fact a reader of the log needs first.
     _log_instance(instance)

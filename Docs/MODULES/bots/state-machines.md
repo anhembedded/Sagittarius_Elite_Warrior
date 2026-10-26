@@ -95,7 +95,7 @@ the reconcile decides the next state, not the click.
 
 `AWAITING_RECOVERY` (`EPIC-042`) is a halt a kind named transient: the ladder is off (not for the
 exchange's pause, `EPIC-042F`: the cancels would be refused inside it, so the ladder rests until the
-attempt cancels it), the base is kept, the exits are watched, and the bot waits for its cause to stay clear for the dwell, then resumes
+attempt cancels it; and not for a Futures bot's quiet feed under a covering stop, `BUG-270`: the ladder and the stop stay, and the plain halt that ends the wait takes the ladder off and closes the position), the base is kept, the exits are watched, and the bot waits for its cause to stay clear for the dwell, then resumes
 through the person's Resume path (`condition_cleared`). Three events lead into and out of it
 (`halt_transient`, `condition_cleared`, `budget_exhausted`); a person's `resume`, `stop`, `switch_off`,
 `halt`, `fault` and a restart are declared too. `PAUSED` and `RECOVERING` have no `halt_transient` row:

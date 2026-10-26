@@ -43,11 +43,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_entry_readiness import (
     IEntryReadiness,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     IMarkSource,
     MarkReadError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_guard import IRiskGuard
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
 )
@@ -58,6 +64,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
+    venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     ENSURED,
@@ -101,11 +108,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
     RequestPriority,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.futures_world import (
     BRACKETS,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     LAST_PRICE,
+    VENUE,
     GridWorld,
     grid_world,
 )
@@ -178,6 +189,13 @@ class Marks(IMarkSource):
         return self.mark
 
 
+def _exposure_kind_of(venue: TradingVenue) -> ExposureKind:
+    """The kind the venue's profile holds: the key the world's one builder is registered under."""
+    profile = venue_profile_of(venue)
+    assert profile is not None
+    return profile.exposure_kind
+
+
 def a_position_world(
     gate: Gate | None = None,
     guard: Guard | None = None,
@@ -190,6 +208,9 @@ def a_position_world(
     recovering_from: BotLifecycleState | None = None,
     runtime: GridRuntime | None = None,
     entry_readiness: IEntryReadiness | None = None,
+    venue: TradingVenue = VENUE,
+    protection: IExposureProtection | None = None,
+    user_streams: IUserStreamStatus | None = None,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -202,9 +223,12 @@ def a_position_world(
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),
             exit_marks=marks,
+            protection=protection,
         )
 
-    exposures = GridExposures(VenueProfilesByMarket(), {ExposureKind.INVENTORY: build})
+    exposures = GridExposures(
+        VenueProfilesByMarket(), {_exposure_kind_of(venue): build}
+    )
     world = grid_world(
         state=state,
         exposures=exposures,
@@ -214,6 +238,8 @@ def a_position_world(
         runtime=runtime,
         settings_gate=gate,
         entry_readiness=entry_readiness,
+        venue=venue,
+        user_streams=user_streams,
     )
     # A position venue's registration always answers a derived position; a bot that has done
     # nothing yet derives none.

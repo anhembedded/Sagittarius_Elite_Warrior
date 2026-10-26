@@ -48,9 +48,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     COMMON_LAYER,
     PAUSE_RULE,
+    PRICE_FEED_STALE,
     RATE_LIMITED,
     EffectivePolicy,
     RecoveryLayer,
+    RuleChange,
     effective_policy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -125,12 +127,16 @@ _FUTURES = VenueProfile(
     held_word="position",
     close_at_market_label="Close the position at market",
     # Its halt closes the position and EPIC-039L governs it: it clears every lower layer, so a
-    # quiet feed, a down stream and whatever a kind adds are not recovered by itself. It lists the
-    # one exception: the exchange's pause halts nothing and closes nothing, and a Futures bot
-    # always resumed from it by itself (`BUG-216`, `EPIC-042F`). Opening Futures to more reasons
-    # later deletes `clears_lower_layers` (ADR 042 D5).
+    # down stream and whatever a kind adds are not recovered by itself. It lists two exceptions.
+    # The exchange's pause halts nothing and closes nothing, and a Futures bot always resumed from
+    # it by itself (`BUG-216`, `EPIC-042F`). A quiet price feed is waited out under the default
+    # rule, but the halt is a wait only while a stop on the exchange covers the position; the
+    # halt asks (`GridCoveredWait`), and any other answer is the plain halt that closes
+    # (`BUG-270`). Opening Futures to more reasons later deletes `clears_lower_layers` (ADR 042 D5).
     recovery_layer=RecoveryLayer(
-        "futures", clears_lower_layers=True, changes={RATE_LIMITED: PAUSE_RULE}
+        "futures",
+        clears_lower_layers=True,
+        changes={RATE_LIMITED: PAUSE_RULE, PRICE_FEED_STALE: RuleChange()},
     ),
 )
 

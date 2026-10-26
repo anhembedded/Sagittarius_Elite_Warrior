@@ -16,14 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness import (
-    PRICE_STALE_AFTER_SECONDS,
-)
 
 from .futures_bots_world import OPENING_QUANTITY, ORDER_QUANTITY, booted_futures_bots
 from .grid_fake_exchange import FakeExchange
 from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import (
-    _publish_tick,
     _started,
 )
 
@@ -38,17 +34,14 @@ def test_a_halt_after_a_clock_step_still_cancels_and_closes(
         bot_id = _started(app)
         app.move_price(62900)
         assert app.position() == OPENING_QUANTITY + ORDER_QUANTITY
-        _publish_tick(app, 63000.0)
         futures.urls.clock.enforcing = True
 
         with exchange_clock_skewed_by(_STEP_MS):
-            app.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
-            app.ticker.fire()
-            app.deliver()
+            app.halt_for_a_down_stream(bot_id)
 
             assert futures.urls.clock.rejected >= 1, "the step was felt by the session"
 
-        assert app.runtime(bot_id).reason is GridReason.PRICE_FEED_STALE
+        assert app.runtime(bot_id).reason is GridReason.USER_STREAM_DOWN
         assert app.bot(bot_id).state is BotLifecycleState.STOPPED
         assert app.position() == 0, "the close was not the call that failed"
         assert app.resting() == {}

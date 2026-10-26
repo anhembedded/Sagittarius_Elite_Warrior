@@ -112,9 +112,12 @@ def fault_with(state: BotRunState, what: str, error: Exception) -> None:
     _apply(state, BotLifecycleEvent.FAULT, GridReason.TASK_FAILED, detail)
 
 
-def halt_with(state: BotRunState, reason: GridReason, detail: str) -> None:
-    """Halt for `reason`; the state decides whether the bot waits to recover (`EPIC-042C`)."""
-    state.halt(reason, detail)
+def halt_with(
+    state: BotRunState, reason: GridReason, detail: str, plain_because: str = ""
+) -> None:
+    """Halt for `reason`; the state decides whether the bot waits to recover (`EPIC-042C`).
+    `plain_because` makes this one halt plain although the policy has a rule for the reason."""
+    state.halt(reason, detail, plain_because=plain_because)
 
 
 def pause_with(state: BotRunState, retry_after: timedelta | None, detail: str) -> None:
