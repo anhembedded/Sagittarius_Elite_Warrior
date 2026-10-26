@@ -26,7 +26,7 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
   `PauseBotForHostCommand`, `ResumeBotForHostCommand`, `ResumeRecoveringForHostCommand`, and, for the owner's
   `bot loss-cap-ack`, `AcknowledgeLossCapForHostCommand`) and the status report (`bots/contracts/bot_status_report.py` →
   `GetBotStatusReportQuery`, `BotStatusReport`), as `src/modules/operations/application/host_steps.py`
-  shows.
+  shows. It also reads the facts only the running host holds, `bots/contracts/i_host_held_facts.py` → `IHostHeldFacts`, and writes them to `state/host-facts.json` for a second process ([`07-deployment.md`](07-deployment.md), `EPIC-047B`).
 - **`alerting`** reads `BotChangedEvent` (`bots/contracts/events/bot_changed_event.py` →
   `BotChangedEvent`), `BotStopGaveUpEvent` (`bots/contracts/events/bot_stop_gave_up_event.py` →
   `BotStopGaveUpEvent`), `BotRecoveryStalledEvent` (`bots/contracts/events/bot_recovery_stalled_event.py` →

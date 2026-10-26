@@ -76,6 +76,55 @@ the report is built in `bots/cli/bot_order_reports.py` → `bot_order_report`. I
 nothing: live open orders need an order session and are a later source behind the same report.
 Design: design 038 §5.2 (`status` from a second process).
 
+## Built: the facts only the running host holds (EPIC-047B)
+
+A second process reads the store's files and sends commands through the host's command directory, but
+it can reach nothing the running host keeps in memory, and the host listens on no socket
+([`../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md`](../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md),
+D4). So the host writes those facts to **`state/host-facts.json`**, owner-only (`0600`) and atomically, the
+way it writes `state/health.json`, and the bridge (`EPIC-047C`) reads it; the bridge never calls the
+exchange and never holds a key.
+
+| Group | Where it is read | What it is |
+| :--- | :--- | :--- |
+| Enabled venues | `src/modules/trading/contracts/i_venue_trading_ports.py` → `IVenueTradingPorts.enabled` | the venues in configuration order |
+| Key state | `src/modules/trading/contracts/i_venue_contexts.py` → `IVenueContexts.built`, then the venue's `credentials_provider.resolve()` | *a key is saved or not*, per built venue, never the key |
+| Leases | the venue's `ITradingSession.lease_holder` (`src/modules/trading/contracts/i_trading_session.py`) | the holder (a bot's or the Trade tab's owner id, or `""`) of each symbol a stored bot is on, per built venue |
+| Budget caps | the `OwnerBudgetCaps` trading binds | the owner's three caps |
+| Exchange facts | `bots/adapters/recorded_venue_facts.py` → `RecordedVenueFacts`, remembered by `bots/adapters/latest_venue_reads.py` → `LatestVenueReads` | the latest `VenueSnapshot` each bot's own readiness read took, with its `read_at` |
+
+`bots/adapters/trading_host_held_facts.py` → `TradingHostHeldFacts` builds the value
+(`bots/contracts/host_held_facts.py` → `HostHeldFacts`, through `bots/contracts/i_host_held_facts.py` →
+`IHostHeldFacts`), bound by `bots/composition/host_facts_bindings.py` → `bind_host_facts`. It is read-only
+and local: it asks no exchange, and it reads only a venue `IVenueContexts.built` lists, because
+`IVenueContexts.get` builds a venue's adapters. **Two things follow, and a reader must know them:**
+
+- **An exchange fact is as old as the last read that took it.** `RecordedVenueFacts` decorates
+  `IVenueFacts` (`bots/composition/executor_bindings.py` → `_build_venue_facts`) and asks its inner reader
+  exactly as often as before, so the file adds no request on the account and IP the bots trade on. A snapshot
+  is therefore the one a Start, a Resume or a screen load took, and `read_at` says how old; a bot nobody has
+  read since the host started has none. A bounded refresh (one read per active bot every few minutes) would add
+  REST weight, which is the owner's call (`EPIC-047C` and `EPIC-047E` will say whether the tab needs it).
+- **A venue nothing has used has no key state and no lease in the file.** It is still listed among the enabled
+  venues. The tab's New bot offers it as "not read yet" rather than building it from the host.
+
+Everything else is `operations`' (it has no design folder yet; the file is the module's, `src/modules/operations/module.py`
+→ `OperationsModule.boot`):
+
+| Question | Answer |
+| :--- | :--- |
+| Who writes, and on which thread? | one daemon thread named `host-facts-writer` (`operations/application/host_facts_publishing.py` → `HostFactsPublishing`); the scheduler's job only raises a flag, so a full disk or a key store that hangs delays the file and nothing else; a stuck write is never joined by a second one |
+| When? | the facts are looked at every `FACTS_POLL_SECONDS` (2 s); the file is written when they differ from the last written ones (value equality, `operations/application/host_facts_publisher.py` → `HostFactsPublisher.tick`) and at least every `FACTS_HEARTBEAT_SECONDS` (15 s), both in `operations/contracts/host_facts_document.py` |
+| What does a reader check? | `schema` (`sew.host-facts/1`), `revision` (grows by one a write and continues across restarts: `first_revision_after`), `written_at` and `heartbeat_s`; `operations/application/host_facts_watch.py` → `HostFactsWatch` keeps the last good header across a torn, missing or older file and calls a host dead after `LIVE_AFTER_HEARTBEATS` (3) heartbeats |
+| What is never in it? | a key, a secret, an exception's text: the fields are written by name, and the two free-text fields an exchange failure fills (`bots/contracts/host_held_facts.py` → `UNPUBLISHED_TEXT_FIELDS`) are replaced by `operations/adapters/json_host_facts_codec.py` → `UNAVAILABLE_WORDS`; the reason stays in the host's log |
+| How is it written? | `operations/adapters/owner_only_atomic_file.py` → `write_owner_only_atomically`: a temporary file created `0600`, fsync, `os.replace` (Windows: the file inherits `state/`'s ACL) |
+| What if it fails? | logged at ERROR once per cause (`FailureCause`), at INFO once on recovery; never raised; the file then goes stale, which a reader sees |
+| What does a stop do? | the job is cancelled and the file is left: its age grows, which is how a reader tells a stopped host |
+| Which seam keeps the encoding replaceable? | `operations/contracts/i_host_facts_codec.py` → `IHostFactsCodec`: `EPIC-047A`'s codec replaces `JsonHostFactsCodec` without changing what the file holds; decoding the facts body is added by the child that reads it |
+
+**Known limit.** A lease is read for each symbol a stored bot is on; a lease on a symbol no bot is on (a Trade
+tab strategy's) is not in the file, because `ITradingSession` has no way to list its leases.
+
 ## Built: the headless host
 
 On the headless host `operations`' `run` boots the same module with no window. What stopping does to

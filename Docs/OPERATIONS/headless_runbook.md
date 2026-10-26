@@ -568,6 +568,7 @@ Bots run together on different venues (Spot or Futures, mainnet or testnet), and
 | `plan.json` (if you made one, §8) | your plan file | yes |
 | `state/alerts.sqlite3` and its `-wal`, `-shm` | the alert outbox (`outbox_path`): queued alerts, stale by the time of a restore | no |
 | `state/health.json`, `state/instance.lock`, `state/control/` | the live snapshot, the single-instance lock, the command files (`modules/operations/module.py`, `shell/composition_root.py` → `instance_lock_file`, `adapters/control_directory.py`): all rewritten by the next start | no |
+| `state/host-facts.json` | the facts only the running host holds in memory (enabled venues, whether each built venue has a key, who holds each bot symbol's lease, the owner's budget caps, the last exchange read per bot), written on a change and at least every 15 s, mode `0600`, never a key (`modules/operations/module.py`, design: `Docs/MODULES/bots/07-deployment.md`); a second process reads it (`EPIC-047C`); delete it and the host writes it again | no |
 | `database/`, `logs/` | the market-data cache, refetched from the exchange (`database_directory`); the CLI logs (§10); the journal is the host's log | no |
 
 The archive also carries three things outside the data root that you edited by hand: the unit's drop-in directory `/etc/systemd/system/sew-run.service.d` (for example `--start-planned`, §8), and `src/config/user_config.json` of the checkout (the `bots.account_loss_cap` figure, §6).

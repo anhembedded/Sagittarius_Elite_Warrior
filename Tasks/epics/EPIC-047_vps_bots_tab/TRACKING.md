@@ -47,7 +47,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-047A | [Wire codec and version handshake](incomplete/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-12 |
-| EPIC-047B | [The host writes its in-memory facts](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-11-12 |
+| EPIC-047B | [The host writes its in-memory facts](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | `claude/epic-047b-host-facts-file` | 🔴 | 🟡 In review | 2026-10-26 |
 | EPIC-047C | [The bridge](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-11-19 |
 | EPIC-047D | [Transport, profiles, Options page](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-27 |
 | EPIC-047E | [The VPS Bots tab](incomplete/EPIC-047E_the_vps_bots_tab.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-12-08 |
@@ -63,6 +63,7 @@ gantt
 | 2026-10-24 | Spec | Charter v0.5, Discover v0.2 and De-risk v0.3 moved here; two decision records and seven children written. |
 | 2026-10-25 | Epic | Paused by the owner; nothing built. See the README's Resume section. |
 | 2026-10-26 | Epic | Resumed by the owner. 047A and 047B run in parallel (neither needs the other); 047C waits for both; EPIC-048B's second pull request is taken up when 047E needs it. |
+| 2026-10-26 | EPIC-047B | Branch `claude/epic-047b-host-facts-file`: the host writes `state/host-facts.json` on a change and at a 15 s heartbeat, owner-only and atomically, from a worker thread; tested on the composed app over the fake exchange. In review. |
 
 ---
 
