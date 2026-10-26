@@ -1,6 +1,6 @@
 """The host-facts file as JSON, written by hand (`EPIC-047B`).
 
-The file is a stored-file contract, so it is encoded by hand and read tolerantly (`EPIC-047A`'s
+The file is a stored-file contract, so it is encoded by hand and read tolerantly (`decode`, `EPIC-047C`) (`EPIC-047A`'s
 note on stored files); the encoding sits behind `IHostFactsCodec`, and `EPIC-047A`'s reflective
 codec can replace it without changing what the file holds.
 
@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_held_facts import (
     UNPUBLISHED_TEXT_FIELDS,
     BotExchangeRead,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_facts_body_decoder import (
+    read_held_facts,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     HOST_FACTS_SCHEMA,
@@ -81,28 +84,40 @@ class JsonHostFactsCodec(IHostFactsCodec):
         }
         return json.dumps(body, indent=2, sort_keys=True).encode("utf-8")
 
+    def decode(self, raw: bytes) -> HostFactsDocument:
+        parsed = _parsed(raw)
+        return HostFactsDocument(_header_of(parsed), read_held_facts(parsed))
+
     def decode_header(self, raw: bytes) -> HostFactsHeader:
-        try:
-            parsed = json.loads(raw)
-        except ValueError as failure:
-            raise HostFactsUnreadableError("the file is not JSON") from failure
-        if not isinstance(parsed, dict):
-            raise HostFactsUnreadableError("the file is not a JSON object")
-        if parsed.get("schema") != HOST_FACTS_SCHEMA:
-            raise HostFactsUnreadableError(
-                f"the file's schema is {parsed.get('schema')!r}, not {HOST_FACTS_SCHEMA!r}"
-            )
-        try:
-            return HostFactsHeader(
-                revision=_whole_number(parsed["revision"]),
-                written_at=_aware_moment(parsed["written_at"]),
-                heartbeat_s=_whole_number(parsed["heartbeat_s"]),
-                pid=_whole_number(parsed["pid"]),
-            )
-        except (KeyError, TypeError, ValueError) as failure:
-            raise HostFactsUnreadableError(
-                f"the file's header is malformed ({type(failure).__name__})"
-            ) from failure
+        return _header_of(_parsed(raw))
+
+
+def _parsed(raw: bytes) -> dict[str, JsonValue]:
+    try:
+        parsed = json.loads(raw)
+    except ValueError as failure:
+        raise HostFactsUnreadableError("the file is not JSON") from failure
+    if not isinstance(parsed, dict):
+        raise HostFactsUnreadableError("the file is not a JSON object")
+    if parsed.get("schema") != HOST_FACTS_SCHEMA:
+        raise HostFactsUnreadableError(
+            f"the file's schema is {parsed.get('schema')!r}, not {HOST_FACTS_SCHEMA!r}"
+        )
+    return parsed
+
+
+def _header_of(parsed: dict[str, JsonValue]) -> HostFactsHeader:
+    try:
+        return HostFactsHeader(
+            revision=_whole_number(parsed["revision"]),
+            written_at=_aware_moment(parsed["written_at"]),
+            heartbeat_s=_whole_number(parsed["heartbeat_s"]),
+            pid=_whole_number(parsed["pid"]),
+        )
+    except (KeyError, TypeError, ValueError) as failure:
+        raise HostFactsUnreadableError(
+            f"the file's header is malformed ({type(failure).__name__})"
+        ) from failure
 
 
 def _exchange_read(read: BotExchangeRead) -> dict[str, JsonValue]:

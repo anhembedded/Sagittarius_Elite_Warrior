@@ -3,8 +3,9 @@
 **The context's one question:** *how does an operator, or a supervisor, know
 this process is alive and well, and make it start and stop cleanly?* It listens
 to the other contexts and is depended on by none (`DESIGN_2026-10-09_headless_operation.md`
-§3). It declares two dependencies: `bots`, a read of the bots' status report for
-`status`, and `alerting`, whether a bot's halt has a channel (`EPIC-036G`).
+§3). It declares three dependencies: `bots`, a read of the bots' status report for
+`status`, `alerting`, whether a bot's halt has a channel (`EPIC-036G`), and `trading`, the
+budget caps the host-facts file holds and the bridge reads back (`EPIC-047C`).
 
 What it holds today:
 
@@ -198,7 +199,7 @@ class OperationsModule(BoundedContextModule):
 
     #: Reads the bots' status report and the alerting module's status (`EPIC-036G`);
     #: checked by `test_module_declarations.py`.
-    dependencies: list[str] = ["bots", "alerting"]  # noqa: RUF012 — the Engine reads a plain attribute
+    dependencies: list[str] = ["bots", "alerting", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     _publishing: HealthPublishing | None = None
     _job: ScheduledJob | None = None
