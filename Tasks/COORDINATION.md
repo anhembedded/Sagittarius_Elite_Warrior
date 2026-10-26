@@ -11,7 +11,7 @@ This file holds state, not rules. Rules live in `.claude/`; decisions live in th
 | Decision | Where it binds |
 | :--- | :--- |
 | The coordinator may merge code PRs itself once it has verified the head (gates read, reviewer PASS where one is required, scope matches). Owner's words: *"bạn theo dõi và tự merge hết đi, cho phép"* | `coordinate` skill step 5 |
-| Authors run on the strongest permitted model; reviewers run on the cheaper general model; a reviewer is never on the author's model (owner, 2026-10-22, reversing the earlier split; the owner named the two models in chat) | `coordinate` skill step 3 |
+| Every session, author and reviewer, runs on the one model the owner names (2026-10-25: the owner no longer has the stronger model); the author and the reviewer stay in separate sessions, and a reviewer is created with the repository checked out at the PR branch. When more than one model is available again, the reviewer goes back to a different model from the author's | `coordinate` skill step 3 |
 | At most two delivery streams in flight; a weekly digest; design decisions are taught and written to `Docs/LEARNING/` | `report-rule.md` §3 |
 | Speak Vietnamese to the owner; repository text in English | `ONBOARDING.md` §10 |
 | The model named Fable is never used: not for a session, a created session or a subagent; "strongest model" means the strongest other model (2026-10-17) | `ONBOARDING.md` §7, "Excluded model" |
@@ -42,6 +42,7 @@ Deferred: EPIC-039L D10 and D13 (a halt that leaves the position, stop custody).
 - EPIC-036E: heartbeat, so an app crash raises an alert.
 - The rest of EPIC-041 (docs).
 - A suspected `BinanceWebsocketQueueOverflow`.
+- **Paused by the owner (2026-10-25):** EPIC-047 (VPS Bots tab) and EPIC-048 (the UI's doors; 048A done, 048B's first pull request finished). Resume from each epic README's **Resume** section.
 
 ## Scheduled tasks and records
 

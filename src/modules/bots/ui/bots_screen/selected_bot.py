@@ -11,22 +11,26 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime
+from typing import cast
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.assess_bot import (
+    AssessBotQuery,
+    BotAssessment,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_run_facts import (
+    BotRunFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
-    BotSlot,
-    occupancy_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
-    BotRunFactsReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
-    ConnectionRead,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connection_read import (
+    ConnectionRead,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
@@ -73,15 +77,12 @@ class SelectedBot:
         self,
         catalog: IBotKindCatalog,
         now: Callable[[], datetime],
-        run_facts: BotRunFactsReader,
+        commands: ICommandDispatcher,
     ) -> None:
         self._catalog = catalog
         self._now = now
-        self._run_facts = run_facts
-        #: Every bot the list shows, and the files it refused: what "another
-        #: bot is active" is read from (ADR D20).
-        self._bots: tuple[BotSnapshot, ...] = ()
-        self._refused: tuple[str, ...] = ()
+        #: The door to the assessment (`EPIC-048B`).
+        self._commands = commands
         self.bot: BotSnapshot | None = None
         self.market: PlannerMarket | None = None
         self.edited: Mapping[str, str] | None = None
@@ -97,6 +98,9 @@ class SelectedBot:
         #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
         #: read, and none for a bot whose venue carries no such risk.
         self.risk: PlanRiskFacts | None = None
+        #: What only the host knows of the Run step (`EPIC-048B`, `RunFactsCheck`): none
+        #: until read, and Start waits for them meanwhile.
+        self.run: BotRunFacts | None = None
 
     @property
     def connection(self) -> ConnectionRead | None:
@@ -118,6 +122,7 @@ class SelectedBot:
         self.bot, self.market, self.edited = bot, None, None
         self.exchange = ExchangeChecking()
         self.risk = None
+        self.run = None
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
             profile = venue_profile_of(bot.venue)
@@ -127,17 +132,15 @@ class SelectedBot:
             self._share_plan_facts()
         return self.panel
 
-    def take_bots(
-        self, bots: tuple[BotSnapshot, ...], refused_files: tuple[str, ...]
-    ) -> None:
-        self._bots, self._refused = bots, refused_files
-
     def take_snapshot(self, bot: BotSnapshot) -> None:
         """The same bot, re-read: its state and progress may have moved."""
         self.bot = bot
 
     def take_exchange(self, exchange: VenueSnapshot) -> None:
         self.exchange = exchange
+
+    def take_run(self, facts: BotRunFacts) -> None:
+        self.run = facts
 
     def take_risk(self, read: PlanRiskRead | None) -> None:
         """The liquidation facts the venue gave; what it could not give, or `None`, leaves
@@ -192,23 +195,6 @@ class SelectedBot:
             kind = self._catalog.kind(self.bot.kind)
         except UnknownBotKindError:
             kind = None
-        config = self.edited if self.edited is not None else self.bot.config
-        run = self._run_facts.read(
-            self.bot.bot_id,
-            self.bot.venue,
-            self.bot.symbol,
-            config,
-            occupancy_of(
-                self.bot.bot_id,
-                self.bot.venue,
-                self.bot.symbol,
-                (
-                    BotSlot(other.bot_id, other.venue, other.symbol, other.state)
-                    for other in self._bots
-                ),
-                self._refused,
-            ),
-        )
         return detail_for(
             DetailInputs(
                 self.bot,
@@ -217,11 +203,15 @@ class SelectedBot:
                 self._now(),
                 self.edited,
                 self.connection,
-                run,
+                self.run,
                 self.exchange,
                 self.risk,
-            )
+            ),
+            self._assess,
         )
+
+    def _assess(self, query: AssessBotQuery) -> BotAssessment:
+        return cast(BotAssessment, self._commands.dispatch(AssessBotQuery, query))
 
 
 def _editor_for(bot: BotSnapshot | None) -> BotKindPanel | None:

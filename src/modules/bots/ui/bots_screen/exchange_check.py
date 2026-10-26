@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_risk_check import (
     PlanRiskCheck,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.run_facts_check import (
+    RunFactsCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
@@ -66,6 +69,7 @@ class ExchangeCheck:
         refresh_detail: Callable[[], None],
     ) -> None:
         self._risk = PlanRiskCheck(queries, reads, selected, refresh_detail)
+        self._run = RunFactsCheck(queries, reads, selected, refresh_detail)
         self._queries = queries
         self._reads = reads
         self._selected = selected
@@ -77,6 +81,7 @@ class ExchangeCheck:
         """`bot` was selected, or its state changed: ask again, or cancel the
         ask when nothing is left to check."""
         self._selected.take_exchange(ExchangeChecking())
+        self._run.follow(bot)
         if bot is None:
             self._reads.abandon(ReadKind.EXCHANGE)
             self._risk.follow(None)
@@ -97,6 +102,10 @@ class ExchangeCheck:
         state moved (the executor halted it, a command stopped it)."""
         if shown.state is not fresh.state:
             self.follow(fresh)
+
+    def recheck_run(self) -> None:
+        """The Run facts of the selected bot again (the bots were read again, the clock)."""
+        self._run.recheck()
 
     def refresh(self) -> None:
         """Ask again for the selected bot (the command, the Run step's fix, a

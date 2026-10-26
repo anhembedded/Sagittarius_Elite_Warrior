@@ -1,6 +1,6 @@
 # EPIC-047 — A desktop tab shows and controls the bots on the VPS host
 
-- **Status:** 🔵 Planned
+- **Status:** ⏸ Paused by the owner (2026-10-25), 0/7 — nothing has started; it waits on EPIC-048 A and B
 - **Repositories:** Elite
 - **Origin:** the owner's request of 2026-10-24: a VPS Bots tab that connects to the VPS and controls its bots, with the same interface as the Bots tab, both sharing every module (charter §2.1). The owner delegated the design decisions on 2026-10-24: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). The charter, Discover and De-risk steps are in this folder.
 - **North star:** [`CHARTER.md`](CHARTER.md) v0.5 (scope, constraints, AC1–AC9), [`DISCOVER.md`](DISCOVER.md) v0.2, [`DERISK.md`](DERISK.md) v0.3. The headless operation it extends: [`Docs/OPERATIONS/headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md).
@@ -58,3 +58,12 @@ As the charter §4: any inbound port; a change to a bot's behaviour or a trading
 
 ## Notes (newest first)
 - **2026-10-24** — Epic scaffolded: the charter, Discover and De-risk documents moved from `Tasks/proposal/EPIC-047_vps_bots_tab/` with `git mv`; two decision records (the remote link; the SSH client) and seven children; the UI's-doors epic is [EPIC-048](../EPIC-048_ui_reaches_the_application_through_its_doors/README.md).
+
+---
+
+## Resume
+The owner paused this epic on 2026-10-25 (*"tạm thời dừng epic đó ... sau này làm tiếp"*, "stop that epic for now ... continue later"). Nothing was built; every document stays valid.
+- **Ready:** the charter v0.5, Discover, De-risk (v0.3, with the owner's own run against the VPS on 2026-10-24), the two decision records, and the seven children.
+- **Owner's run still on record:** key-based SSH works from the owner's Windows desktop to the VPS root account; the epic's runbook (child G) must have the `sew` account's forced-command key setup and `PasswordAuthentication no`.
+- **To resume:** first finish EPIC-048 children A and B (the guard and the Bots screen through the doors); then start with child A (the wire codec and the version handshake) and B (the host's facts file), which do not depend on each other.
+- **Re-check before resuming:** the De-risk numbers were measured at `5ddbd68`; re-run the R7 count against the then-current guard baseline and say what changed.

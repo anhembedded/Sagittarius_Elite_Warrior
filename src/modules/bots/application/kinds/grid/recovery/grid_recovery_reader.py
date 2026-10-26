@@ -26,7 +26,7 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connect_failure_words import (
     kind_state_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (

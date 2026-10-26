@@ -34,14 +34,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.r
     ReadinessInputs,
     assess_readiness,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.account_view import (
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.account_view import (
     account_view_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
-    failure_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.connect_failure_words import (
+    failure_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (

@@ -496,6 +496,7 @@
 ["sss", "Restored bot ", ": ", " -> ", ""],
 ["s", "Retrying ", " from its message bar [notice-retry]"],
 ["sss", "Route ", " on ", " is ", " [alert-settings]"],
+["s", "Run facts: the facts of ", " arrived after the selection moved"],
 ["hhhh", "Saved ", " klines for ", "/", " to database in chunks of ", "."],
 ["ds", "Saved ", " tradeable symbols to ", ""],
 ["ss", "Saved bot ", " (", ")"],
