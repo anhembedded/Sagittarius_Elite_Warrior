@@ -1,5 +1,9 @@
 """Write a file only its owner can read, whole or not at all (`EPIC-047B`).
 
+The catalog of shared mechanisms lists only `src/support`, `src/core` and `src/shell`; this one
+lives beside its first consumer and moves to `src/support` when a second one (`health.json`,
+`DirectoryHostControl`) adopts it.
+
 The bytes go to a temporary file beside the target, which is **created** `0600` (a `chmod` after
 the write would leave a window in which another account could open it), flushed to disk and renamed
 over the target. A rename within one directory is atomic on both platforms (`os.replace`), so a

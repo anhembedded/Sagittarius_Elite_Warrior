@@ -132,6 +132,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings imp
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
     bind_executors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.host_facts_bindings import (
+    bind_host_facts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.loss_cap_bindings import (
     bind_loss_cap,
 )
@@ -192,6 +195,7 @@ class BotsModule(BoundedContextModule):
         bind_state(context.container)
         bind_loss_cap(context.container)
         bind_executors(context.container)
+        bind_host_facts(context.container)
         bind_commands(context.container)
         bind_queries(context.container)
 
