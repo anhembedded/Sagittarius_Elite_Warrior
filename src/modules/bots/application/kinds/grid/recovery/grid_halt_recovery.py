@@ -170,8 +170,13 @@ class GridHaltRecovery:
     def _every_cause_clear(self, waiting_since: float) -> bool:
         """Whether every reason this bot may recover from is clear, not only the one it halted
         on: a feed that returns while the user-data stream is still down would lay a ladder
-        whose fills nothing records (review of PR #552)."""
+        whose fills nothing records (review of PR #552). A wait under a stop (`GridCoveredWait`)
+        recovers from a quiet feed alone on a venue whose policy lists no stream reason, so the
+        stream is asked for here (`BUG-270`)."""
         clear = [self._probe.is_clear(c, waiting_since) for c in self._halts.codes]
+        if self._covered_wait.holds():
+            venue = self._context.state.bot.definition.venue
+            clear.append(self._context.streams.is_connected(venue))
         return all(clear)
 
     def _forget(self) -> None:

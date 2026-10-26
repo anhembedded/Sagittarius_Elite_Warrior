@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     MarkReadError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_guard import IRiskGuard
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
 )
@@ -207,6 +210,7 @@ def a_position_world(
     entry_readiness: IEntryReadiness | None = None,
     venue: TradingVenue = VENUE,
     protection: IExposureProtection | None = None,
+    user_streams: IUserStreamStatus | None = None,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -235,6 +239,7 @@ def a_position_world(
         settings_gate=gate,
         entry_readiness=entry_readiness,
         venue=venue,
+        user_streams=user_streams,
     )
     # A position venue's registration always answers a derived position; a bot that has done
     # nothing yet derives none.

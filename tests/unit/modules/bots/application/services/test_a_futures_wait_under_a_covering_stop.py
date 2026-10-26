@@ -11,153 +11,44 @@ Without a covering stop the halt is the one it always was.
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_stop_coverage import (
     StopCoverage,
-    StopCoverageReading,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
-    IExposureProtection,
-    ProtectionVerdict,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness import (
-    PRICE_STALE_AFTER_SECONDS,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
-    LivePosition,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority import (
-    RequestPriority,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
-from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
-    GridWorld,
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.covered_wait_world import (
+    BEAT,
+    COVERAGE_READ_EVERY,
+    Protection,
+    a_covered_world,
+    beats,
+    closing_orders,
+    the_feed_dies,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.halt_recovery_world import (
     attempts_of,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.position_world import (
-    Marks,
-    a_long_position,
-    a_position_world,
-)
 
 S = BotLifecycleState
-D = Decimal
-_BEAT = 5
-#: The wait reads the stop's coverage once in this many seconds (`COVERAGE_READ_EVERY_BEATS` beats).
-_COVERAGE_READ_EVERY = 15
-_FUTURES = TradingVenue.FUTURES_TESTNET
-
-
-class Protection(IExposureProtection):
-    """The stop on the exchange as the test says it: what a fresh read of its coverage answers."""
-
-    def __init__(self, coverage: StopCoverage = StopCoverage.COVERED) -> None:
-        self.coverage = coverage
-        self.reads = 0
-
-    def protect(self, plan: GridPlan) -> bool:
-        return True
-
-    def supervise(self) -> ProtectionVerdict:
-        return ProtectionVerdict.OK
-
-    def describe_stop(self) -> str:
-        return "its protective stop stands on the exchange"
-
-    def read_coverage(self) -> StopCoverageReading:
-        self.reads += 1
-        return StopCoverageReading(self.coverage, f"the stop is {self.coverage.value}")
-
-    def release(self) -> bool:
-        return True
-
-
-def _world(
-    protection: Protection, monkeypatch: pytest.MonkeyPatch
-) -> tuple[GridWorld, Marks]:
-    """A running Long Futures grid holding what its opening bought, under `protection`; a sale reduces what it holds."""
-    marks = Marks("121")
-    world, _ = a_position_world(
-        marks=marks, venue=_FUTURES, protection=protection, opens_positions=True
-    )
-    world.executor.start()
-    assert world.state() is S.RUNNING
-    _the_exchange_holds_what_the_market_orders_net(world, monkeypatch)
-    return world, marks
-
-
-def _the_exchange_holds_what_the_market_orders_net(
-    world: GridWorld, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The exchange's position: the bot's market buys less its market sales (a long)."""
-
-    def positions(
-        priority: RequestPriority = RequestPriority.ROUTINE,
-    ) -> tuple[LivePosition, ...]:
-        net = sum(
-            (
-                r.quantity if r.side is OrderSide.BUY else -r.quantity
-                for r in world.book.requests
-                if r.order_type is OrderType.MARKET
-            ),
-            D(0),
-        )
-        return (a_long_position(str(net)),) if net != 0 else ()
-
-    monkeypatch.setattr(world.snapshot, "open_positions", positions)
-
-
-def _beats(world: GridWorld, seconds: int) -> None:
-    for _ in range(0, seconds, _BEAT):
-        world.monotonic.advance(_BEAT)
-        world.executor.facts.on_price_age_check()
-
-
-def _closing_orders(world: GridWorld) -> list:
-    """The market sales of a Long grid: what a close of its position sends."""
-    return [
-        r
-        for r in world.book.requests
-        if r.order_type is OrderType.MARKET and r.side is OrderSide.SELL
-    ]
-
-
-def _the_feed_dies(world: GridWorld, marks: Marks) -> int:
-    """No tick and no mark for the limit: the halt of the incident. Returns the ladder's size."""
-    ladder = len(world.book.open)
-    assert ladder > 0
-    marks.unreadable = "no answer"
-    _beats(world, int(PRICE_STALE_AFTER_SECONDS) + _BEAT)
-    return ladder
 
 
 def test_a_covered_futures_bot_waits_and_keeps_its_ladder_and_closes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    world, marks = _world(Protection(StopCoverage.COVERED), monkeypatch)
-    markets_before = len(_closing_orders(world))
+    world, marks = a_covered_world(Protection(StopCoverage.COVERED), monkeypatch)
+    markets_before = len(closing_orders(world))
 
-    ladder = _the_feed_dies(world, marks)
+    ladder = the_feed_dies(world, marks)
 
     assert world.state() is S.AWAITING_RECOVERY
     assert world.runtime().reason is GridReason.PRICE_FEED_STALE
     assert len(world.book.open) == ladder, "the ladder rests on the exchange"
-    assert len(_closing_orders(world)) == markets_before, "nothing is closed at market"
+    assert len(closing_orders(world)) == markets_before, "nothing is closed at market"
 
 
 @pytest.mark.parametrize(
@@ -168,14 +59,14 @@ def test_a_covered_futures_bot_waits_and_keeps_its_ladder_and_closes_nothing(
 def test_without_a_covering_stop_the_halt_still_closes_at_market(
     coverage: StopCoverage, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    world, marks = _world(Protection(coverage), monkeypatch)
-    markets_before = len(_closing_orders(world))
+    world, marks = a_covered_world(Protection(coverage), monkeypatch)
+    markets_before = len(closing_orders(world))
 
-    _the_feed_dies(world, marks)
+    the_feed_dies(world, marks)
 
     assert world.state() is not S.AWAITING_RECOVERY
     assert world.book.open == {}, "the ladder is taken off"
-    assert len(_closing_orders(world)) > markets_before, (
+    assert len(closing_orders(world)) > markets_before, (
         "the position is closed at market"
     )
 
@@ -183,11 +74,11 @@ def test_without_a_covering_stop_the_halt_still_closes_at_market(
 def test_the_wait_recovers_by_itself_once_the_price_has_stayed_clear(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    world, marks = _world(Protection(StopCoverage.COVERED), monkeypatch)
-    _the_feed_dies(world, marks)
+    world, marks = a_covered_world(Protection(StopCoverage.COVERED), monkeypatch)
+    the_feed_dies(world, marks)
     marks.unreadable = None
 
-    _beats(world, 130)
+    beats(world, 130)
 
     assert world.state() is S.RUNNING
     assert attempts_of(world) == 1
@@ -197,35 +88,35 @@ def test_a_wait_whose_stop_stops_covering_ends_in_the_close(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     protection = Protection(StopCoverage.COVERED)
-    world, marks = _world(protection, monkeypatch)
-    markets_before = len(_closing_orders(world))
-    _the_feed_dies(world, marks)
+    world, marks = a_covered_world(protection, monkeypatch)
+    markets_before = len(closing_orders(world))
+    the_feed_dies(world, marks)
     assert world.state() is S.AWAITING_RECOVERY
     protection.coverage = StopCoverage.UNCOVERED
 
-    _beats(world, _COVERAGE_READ_EVERY)
+    beats(world, COVERAGE_READ_EVERY)
 
     assert world.state() is not S.AWAITING_RECOVERY
     assert world.book.open == {}
-    assert len(_closing_orders(world)) > markets_before
+    assert len(closing_orders(world)) > markets_before
 
 
 def test_a_wait_outlasting_fifteen_minutes_ends_in_the_close(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    world, marks = _world(Protection(StopCoverage.COVERED), monkeypatch)
-    markets_before = len(_closing_orders(world))
-    _the_feed_dies(world, marks)
+    world, marks = a_covered_world(Protection(StopCoverage.COVERED), monkeypatch)
+    markets_before = len(closing_orders(world))
+    the_feed_dies(world, marks)
 
-    _beats(world, 14 * 60)
+    beats(world, 14 * 60)
     assert world.state() is S.AWAITING_RECOVERY
-    assert len(_closing_orders(world)) == markets_before
+    assert len(closing_orders(world)) == markets_before
 
-    _beats(world, 2 * 60)
+    beats(world, 2 * 60)
 
     assert world.state() is not S.AWAITING_RECOVERY
     assert world.book.open == {}
-    assert len(_closing_orders(world)) > markets_before
+    assert len(closing_orders(world)) > markets_before
 
 
 def test_a_waiting_bot_reads_its_coverage_once_in_three_beats_not_every_beat(
@@ -235,11 +126,49 @@ def test_a_waiting_bot_reads_its_coverage_once_in_three_beats_not_every_beat(
     them keeps a covered wait from being what closes the weight gate for the others, while the
     stop's presence is still looked at every beat (`ProtectiveStopService.supervise`)."""
     protection = Protection(StopCoverage.COVERED)
-    world, marks = _world(protection, monkeypatch)
-    _the_feed_dies(world, marks)
+    world, marks = a_covered_world(protection, monkeypatch)
+    the_feed_dies(world, marks)
     assert world.state() is S.AWAITING_RECOVERY
     reads_on_entry = protection.reads
 
-    _beats(world, 6 * _BEAT)
+    beats(world, 6 * BEAT)
 
     assert protection.reads - reads_on_entry == 2
+
+
+def test_two_unreadable_reads_in_a_row_keep_the_wait_and_a_covered_read_forgets_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stop that cannot be read is not a covering stop, but one blip of the network the wait is
+    for must not close a position: three reads in a row end the wait, a covered one in between
+    starts the count again."""
+    protection = Protection(StopCoverage.COVERED)
+    world, marks = a_covered_world(protection, monkeypatch)
+    the_feed_dies(world, marks)
+    closes_before = len(closing_orders(world))
+
+    protection.coverage = StopCoverage.UNREAD
+    beats(world, 2 * COVERAGE_READ_EVERY)
+    protection.coverage = StopCoverage.COVERED
+    beats(world, COVERAGE_READ_EVERY)
+    protection.coverage = StopCoverage.UNREAD
+    beats(world, 2 * COVERAGE_READ_EVERY)
+
+    assert world.state() is S.AWAITING_RECOVERY
+    assert len(closing_orders(world)) == closes_before
+
+
+def test_three_unreadable_reads_in_a_row_end_the_wait_in_the_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    protection = Protection(StopCoverage.COVERED)
+    world, marks = a_covered_world(protection, monkeypatch)
+    the_feed_dies(world, marks)
+    closes_before = len(closing_orders(world))
+
+    protection.coverage = StopCoverage.UNREAD
+    beats(world, 3 * COVERAGE_READ_EVERY)
+
+    assert world.state() is not S.AWAITING_RECOVERY
+    assert world.book.open == {}
+    assert len(closing_orders(world)) > closes_before
