@@ -21,6 +21,12 @@ from Sagittarius_Elite_Warrior.src.support.wire.wire_errors import (
     WireDecodeError,
     WireSchemaError,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.wire_schema import (
+    combined_hash,
+    hash_of_schema,
+    schema_of,
+    union_member_names,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.wire_shape import (
     EnumShape,
     FixedTupleShape,
@@ -63,6 +69,24 @@ class WireRoots:
     @property
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._roots))
+
+    def root_hashes(self) -> dict[str, str]:
+        """One digest per root, over its wire name and the schema of its wire form."""
+        return {
+            n: hash_of_schema(n, schema_of(r.hint))
+            for n, r in sorted(self._roots.items())
+        }
+
+    def contract_hash(self) -> str:
+        """One digest over every root's: equal on two builds exactly when their wire forms are."""
+        return combined_hash(self.root_hashes())
+
+    def wire_names(self) -> tuple[str, ...]:
+        """Every wire name this build carries: the roots and the members of every union."""
+        names = set(self._roots)
+        for root in self._roots.values():
+            names |= union_member_names(root.hint)
+        return tuple(sorted(names))
 
     def hint_of(self, name: str) -> object:
         return self._root(name, WireSchemaError).hint
