@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.recorded_venue_facts import (
+    RecordedVenueFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_ticker import (
     ThreadBotTicker,
 )
@@ -134,6 +137,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader i
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
     IGridBudgets,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_latest_venue_reads import (
+    ILatestVenueReads,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_hold import (
     ILossCapHold,
@@ -321,13 +327,17 @@ def _build_futures_facts_reader(container: IContainer) -> FuturesFactsReader:
 
 
 def _build_venue_facts(container: IContainer) -> IVenueFacts:
-    """The readiness facts of whichever venue a bot is on, by the venue's profile."""
-    return VenueFactsByProfile(
-        container.resolve(IVenueProfiles),
-        {
-            ExposureKind.INVENTORY: container.resolve(ExchangeFactsReader),
-            ExposureKind.POSITION: container.resolve(FuturesFactsReader),
-        },
+    """The readiness facts of whichever venue a bot is on, by the venue's profile, each read
+    remembered for the host's facts file (`EPIC-047B`; the exchange is asked no more often)."""
+    return RecordedVenueFacts(
+        VenueFactsByProfile(
+            container.resolve(IVenueProfiles),
+            {
+                ExposureKind.INVENTORY: container.resolve(ExchangeFactsReader),
+                ExposureKind.POSITION: container.resolve(FuturesFactsReader),
+            },
+        ),
+        container.resolve(ILatestVenueReads),
     )
 
 

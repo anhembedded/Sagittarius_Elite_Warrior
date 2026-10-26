@@ -37,7 +37,7 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | The reflective wire codec, a contract test per root type, and the version handshake on wire names | Elite | EPIC-048A and the first pull request of EPIC-048B | 🟡 | ✅ Done (2026-10-26) |
-| [EPIC-047B](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | The host writes the facts it holds in memory to a file when they change (G7a) | Elite | EPIC-048A, 048B | 🔴 | Planned |
+| [EPIC-047B](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | The host writes the facts it holds in memory to a file when they change (G7a) | Elite | EPIC-048A and the first pull request of 048B (#731) | 🔴 | 🟡 In review |
 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | The bridge: a second process behind a forced-command key for the `sew` account, commands through `DirectoryHostControl` | Elite | 047A, 047B | 🔴 | Planned |
 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | The desktop transport on `asyncssh`, connection profiles and the Options page (O6, D5), with Windows agent login and a reconnect under 2 s | Elite | 047A, 047C | 🟡 | Planned |
 | [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) | The VPS Bots tab: two tabs, the same classes (AC7) | Elite | 047D | 🔴 | Planned |
