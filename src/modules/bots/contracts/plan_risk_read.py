@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import wire_name
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     PlanRiskFacts,
 )
 
 
+@wire_name("sew.plan-risk-unavailable/1")
 @dataclass(frozen=True, slots=True)
 class PlanRiskUnavailable:
     """Asked, and the venue did not give the facts (or has no position risk)."""

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import wire_name
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
     EarlierRunsInventory,
 )
@@ -78,11 +79,13 @@ class ExchangeFacts:
             raise ValueError("an exchange snapshot needs a timezone-aware instant")
 
 
+@wire_name("sew.exchange-checking/1")
 @dataclass(frozen=True, slots=True)
 class ExchangeChecking:
     """Asked, not answered yet."""
 
 
+@wire_name("sew.exchange-unavailable/1")
 @dataclass(frozen=True, slots=True)
 class ExchangeUnavailable:
     """Asked, and the exchange (or the way to it) did not answer."""
@@ -94,6 +97,7 @@ class ExchangeUnavailable:
             raise ValueError("an unavailable snapshot names why")
 
 
+@wire_name("sew.exchange-loaded/1")
 @dataclass(frozen=True, slots=True)
 class ExchangeLoaded:
     facts: ExchangeFacts

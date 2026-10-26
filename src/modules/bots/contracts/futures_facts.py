@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import wire_name
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
     ExchangeSnapshot,
@@ -82,6 +83,7 @@ class FuturesFacts:
         return self.brackets.bracket_for(notional)
 
 
+@wire_name("sew.futures-loaded/1")
 @dataclass(frozen=True, slots=True)
 class FuturesLoaded:
     facts: FuturesFacts
