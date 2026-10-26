@@ -92,9 +92,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
-    FileLockInstanceProbe,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_system_failure_reporter import (
     ISystemFailureReporter,
 )
@@ -125,6 +122,9 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_rendere
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.instance_lock.instance_probe import (
+    FileLockInstanceProbe,
 )
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (

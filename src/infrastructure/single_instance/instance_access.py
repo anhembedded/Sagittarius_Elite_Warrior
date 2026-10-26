@@ -16,7 +16,7 @@ from typing import BinaryIO, Self
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.file_lock import (
+from Sagittarius_Elite_Warrior.src.support.instance_lock.file_lock import (
     ensure_lockable_size,
     try_lock_exclusive,
     unlock,

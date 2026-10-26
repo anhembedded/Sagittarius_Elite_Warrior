@@ -9,15 +9,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.file_lock import (
-    try_lock_exclusive,
-    unlock,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     RETRY_ATTEMPTS,
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
+from Sagittarius_Elite_Warrior.src.support.instance_lock.file_lock import (
+    try_lock_exclusive,
+    unlock,
+)
+from Sagittarius_Elite_Warrior.src.support.instance_lock.instance_probe import (
     CONFIRMATIONS,
     FileLockInstanceProbe,
 )
