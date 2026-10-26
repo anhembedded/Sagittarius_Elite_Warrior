@@ -109,10 +109,10 @@ class HostFactsPublishing:
 
     def _failed(self, failure: Exception) -> None:
         cause = FailureCause.of(failure)
-        logger.debug("[host-facts] the failure's own words", exc_info=failure)
         if cause == self._failing:
             return
         self._failing = cause
+        logger.debug("[host-facts] the failure's own words", exc_info=failure)
         logger.error(
             "[host-facts] could not write the host's facts (%s, errno %s); the file is stale until a write succeeds",
             cause.kind,

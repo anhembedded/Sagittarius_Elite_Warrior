@@ -9,12 +9,8 @@ from datetime import UTC, datetime
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts import host_held_facts
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
-    ExchangeFacts,
-    ExchangeUnavailable,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
-    FuturesFacts,
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.json_host_facts_codec import (
     JsonHostFactsCodec,
@@ -23,19 +19,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_docum
     HOST_FACTS_SCHEMA,
     HostFactsHeader,
     HostFactsUnreadableError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
-    EarlierRunsInventory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
-    FuturesSymbolSetting,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
-    LeverageBracket,
-    LeverageBrackets,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.host_facts.host_facts_world import (
     NOW,
@@ -63,30 +46,32 @@ SECRET_NAME_PARTS = (
 )
 
 
-#: Every dataclass the file can reach through its types, found by walking the annotations.
+def _leaves(annotation: object) -> list[object]:
+    """Every type an annotation is made of: `str | None` is `str` and `NoneType`, `tuple[str, ...]`
+    is `str`, a PEP 695 alias is its value."""
+    value = getattr(annotation, "__value__", annotation)
+    args = typing.get_args(value)
+    if not args:
+        return [value]
+    return [leaf for arg in args for leaf in _leaves(arg)]
+
+
+#: Every dataclass the file can reach, found by walking the annotations from what the file holds:
+#: the facts value and every snapshot variant `VenueSnapshot` covers (a new variant is walked
+#: because it joins the alias, not because someone remembered to list it here).
 def _reachable_dataclasses() -> set[type]:
     found: set[type] = set()
-    pending: list[object] = [
-        host_held_facts.HostHeldFacts,
-        FuturesFacts,
-        ExchangeFacts,
-        ExchangeUnavailable,
-        OwnerBudgetCaps,
-        FuturesSymbolSetting,
-        LeverageBrackets,
-        LeverageBracket,
-        EarlierRunsInventory,
-    ]
+    pending: list[object] = [host_held_facts.HostHeldFacts, VenueSnapshot]
     while pending:
-        candidate = pending.pop()
-        if dataclasses.is_dataclass(candidate) and isinstance(candidate, type):
+        for candidate in _leaves(pending.pop()):
+            if not (
+                dataclasses.is_dataclass(candidate) and isinstance(candidate, type)
+            ):
+                continue
             if candidate in found:
                 continue
             found.add(candidate)
-            hints = typing.get_type_hints(candidate)
-            pending.extend(hints.values())
-        else:
-            pending.extend(typing.get_args(candidate))
+            pending.extend(typing.get_type_hints(candidate).values())
     return found
 
 
@@ -172,10 +157,17 @@ def test_every_text_field_the_file_can_reach_is_known() -> None:
         (cls.__name__, field.name)
         for cls in _reachable_dataclasses()
         for field in dataclasses.fields(cls)
-        if typing.get_type_hints(cls)[field.name] is str
+        if str in _leaves(typing.get_type_hints(cls)[field.name])
     }
 
     assert texts == KNOWN_TEXT_FIELDS
+
+
+def test_the_walk_covers_every_snapshot_variant_the_alias_names() -> None:
+    variants = {leaf for leaf in _leaves(VenueSnapshot) if isinstance(leaf, type)}
+
+    assert variants <= _reachable_dataclasses()
+    assert len(variants) >= 4
 
 
 def test_the_reachable_types_are_found_by_the_walk() -> None:
