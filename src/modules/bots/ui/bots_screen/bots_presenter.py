@@ -312,7 +312,7 @@ class BotsPresenter(CommandPresenter):
         if self._busy():
             return
         kinds = [kind.kind_id for kind in self._catalog.kinds()]
-        command = self._dialogs.ask_new_bot(kinds, self._venues.choices())
+        command = self._venues.new_bot(self._dialogs.ask_new_bot, kinds)
         if command is not None:
             self._begin(PendingAction(f"Create {command.name}"), command)
 

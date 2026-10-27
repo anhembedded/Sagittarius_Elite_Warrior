@@ -13,10 +13,13 @@ them), with the parameters the user had not saved still on screen.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue import (
     ChangeBotVenueCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
+    CreateBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -45,6 +48,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
+NOT_READ_YET = (
+    "The venues are not read yet, so New bot waits. Try it again in a moment."
+)
+
 
 class BotVenues:
     """@brief The venue a bot may be moved to, and the screen following a move."""
@@ -71,9 +78,20 @@ class BotVenues:
         too, so a key saved in Settings shows within a beat, not only after a command."""
         self._queries.venue_choices()
 
-    def choices(self) -> tuple[VenueChoice, ...]:
-        """The venues last read, which New bot offers at the click."""
-        return self._model.venue_choices
+    def new_bot(
+        self,
+        ask: Callable[[Sequence[str], Sequence[VenueChoice]], CreateBotCommand | None],
+        kinds: Sequence[str],
+    ) -> CreateBotCommand | None:
+        """New bot's command, asked with the venues last read; with none read yet (the first
+        answer is on its way, or the read failed and its message bar offers Retry) the dialog
+        would hold no venue, so it is not opened: the venues are asked again and the screen says so."""
+        choices = self._model.venue_choices
+        if choices:
+            return ask(kinds, choices)
+        self.refresh()
+        self._model.set_status(NOT_READ_YET, False)
+        return None
 
     def _on_read_answered(self, kind: ReadKind, _label: str, answer: object) -> None:
         if kind is not ReadKind.VENUES:

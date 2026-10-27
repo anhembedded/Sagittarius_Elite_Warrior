@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_venues import (
+    NOT_READ_YET,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_failures import (
     read_cause,
 )
@@ -166,3 +169,46 @@ def test_a_venues_read_that_failed_is_one_message_bar_with_retry(
     screen.settle()
 
     assert screen.view.model.venue_choices[0].connection == KEY_SAVED
+
+
+def test_new_bot_before_the_first_answer_opens_no_empty_dialog(
+    open_bots_screen,
+) -> None:
+    """Nothing read yet: the dialog would hold no venue, so it is not opened, the screen says
+    why, and the venues are asked again."""
+    screen = open_bots_screen([])
+
+    screen.view.model.new_bot_requested.emit()
+
+    assert "new bot" not in screen.answers.asked
+    assert screen.view.model.statusMessage == NOT_READ_YET
+    assert _venue_reads(screen) == 2  # the one from opening, and the ask the click made
+
+    screen.settle()
+    screen.view.model.new_bot_requested.emit()
+
+    assert screen.answers.offered
+
+
+def test_new_bot_after_a_failed_read_opens_no_empty_dialog(
+    open_bots_screen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dispatch = ContainerDispatcher.dispatch
+
+    def refused(
+        dispatcher: ContainerDispatcher,
+        handler_class: type,
+        input_dto: object | None = None,
+    ) -> Any:
+        if handler_class is GetVenueChoicesQuery:
+            raise ConnectionError("the link dropped")
+        return dispatch(dispatcher, handler_class, input_dto)
+
+    monkeypatch.setattr(ContainerDispatcher, "dispatch", refused)
+    screen = open_bots_screen([])
+    screen.settle()
+
+    screen.view.model.new_bot_requested.emit()
+
+    assert screen.answers.offered == []
+    assert screen.view.model.statusMessage == NOT_READ_YET
