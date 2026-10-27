@@ -14,6 +14,11 @@ none and still opens nothing: a late order must not undo an Emergency Stop.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from decimal import Decimal
+
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
     bot_progress,
 )
@@ -42,7 +47,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
+    FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
+from .crowd_bots_world import create_bot, start_bot
 from .grid_fake_exchange import FakeExchange
 from .test_a_recovering_futures_bot_resumes_under_the_position_a_host_stop_left_on_the_fake_exchange import (
     ETH,
@@ -52,8 +63,10 @@ from .test_a_recovering_futures_bot_resumes_under_the_position_a_host_stop_left_
     _position,
     _restarted_with_two_bots_left,
 )
+from .two_venues_bots_world import booted_two_venues
 
 S = BotLifecycleState
+D = Decimal
 
 
 def _screen_stop(app: BootedTwoVenues, bot_id: str) -> BotCommandResult:
@@ -112,3 +125,44 @@ def test_an_automated_stop_opens_no_session_and_waits_saying_how_to_open_it(
         assert app.bot(btc).state is S.STOPPING
         assert "the order session is not open" in app.runtime(btc).reason_detail
         assert "press Stop" in app.runtime(btc).reason_detail
+
+
+@contextmanager
+def _restarted_after_a_fill_while_down(
+    both_venues: FakeExchange,
+) -> Iterator[tuple[BootedTwoVenues, str]]:
+    """One Futures bot running; the app closes; the 62,900 buy fills on the way down, so its
+    counter order is owed; the app starts again with the session closed (RECOVERING)."""
+    with booted_two_venues(both_venues) as first:
+        bot_id = create_bot(first, FUTURES, SYMBOL)
+        assert start_bot(first, bot_id).accepted
+    book = both_venues.urls.futures_book
+    book.move_price(SYMBOL, D(62900))
+    book.drain_user_data_events()
+    with booted_two_venues(both_venues, open_sessions=False) as second:
+        second.futures_stream.start = lambda: None  # type: ignore[method-assign]
+        assert second.bot(bot_id).state is S.RECOVERING
+        yield second, bot_id
+
+
+def test_the_stop_lays_no_new_ladder_order_before_it_takes_the_ladder_off(
+    both_venues: FakeExchange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opening the session for a RECOVERING bot must not wake it: its reconcile would lay the
+    counter order it owes (a new real-money order) ahead of the Stop already queued behind it."""
+    real = FuturesTradingClient.place_order
+    sent: list[Order] = []
+
+    def place_order(self: FuturesTradingClient, order: Order) -> Order:
+        sent.append(order)
+        return real(self, order)
+
+    with _restarted_after_a_fill_while_down(both_venues) as (app, bot_id):
+        monkeypatch.setattr(FuturesTradingClient, "place_order", place_order)
+
+        answer = _screen_stop(app, bot_id)
+
+        assert answer.accepted, answer.message
+        assert app.bot(bot_id).state is S.STOPPED
+        laid = [order for order in sent if order.order_type is OrderType.LIMIT]
+        assert laid == [], f"the Stop laid {len(laid)} new ladder order(s) first"

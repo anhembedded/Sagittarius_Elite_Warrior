@@ -10,7 +10,7 @@ The choice is refused in words, because a leveraged position left standing has n
 exchange yet (`EPIC-039L` lets a standing stop make "keep" an honest answer).
 
 `BUG-274`: a person's Stop on a closed order session opens it first (as Resume and the headless
-`bot stop` do, through `order_session_refusal`, passing the venue's position claims as they do,
+`bot stop` do, through `order_session_refusal_for_stop`, passing the venue's position claims as they do,
 `BUG-250`), or is refused in the session's words; before, the bot went to STOPPING and waited for
 a session nobody opened. A Stop that carries no answer of a person's opens nothing.
 """
@@ -28,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
     BotLookup,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
-    order_session_refusal,
+    order_session_refusal_for_stop,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot.command import (
     StopBotCommand,
@@ -91,7 +91,7 @@ class StopBotCommandHandler(ICommandHandler[StopBotCommand, BotCommandResult]):
         session = self._ports.get(venue).trading_session
         if session.snapshot().enabled:
             return None
-        return order_session_refusal(
+        return order_session_refusal_for_stop(
             session,
             command.bot_id,
             venue_position_claims(

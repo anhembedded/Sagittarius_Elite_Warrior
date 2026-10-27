@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -168,3 +171,17 @@ def test_a_session_that_will_not_open_refuses_the_stop_in_its_words_and_queues_n
     assert result.refusal is BotRefusal.VENUE_NOT_READY
     assert "unexpected open positions" in result.message
     assert world.runner.sent == []
+
+
+def test_the_session_is_opened_for_the_person_so_a_recovering_bot_is_not_woken() -> (
+    None
+):
+    """Opened for the bot itself, a RECOVERING bot reconciles and lays what it holds before the
+    Stop queued behind the opening runs (`BUG-274`, review of #742)."""
+    world = _World(
+        TradingVenue.FUTURES_TESTNET, BotLifecycleState.RECOVERING, session_open=False
+    )
+
+    world.stop(by_person=True)
+
+    assert world.session.opened_for == [OpenedByPerson.PERSON]

@@ -1,18 +1,24 @@
 """`BUG-202` — a deliberate bot action opens the venue's order session, in one place.
 
 @details The venue's order session closes by Emergency Stop and opens by a deliberate
-action (`EPIC-034C`, `ITradingSession.ensure_ready`). Four bot-side actions open it,
+action (`EPIC-034C`, `ITradingSession.ensure_ready`). Five bot-side actions open it,
 each through this module and nowhere else: Start (`GridStartPreconditions`), a Resume
 from HALTED (`BotRunner.resume`, whose proposal registers the budget the session
 refuses while closed), a Resume from RECOVERING (the same call, `BUG-204`: the session a
-restart leaves closed is what the bot waits for) and the headless
-operator's `bot stop` on a running host (`StopBotForOperatorCommandHandler`, `EPIC-038J`); the headless
-`run --resume-recovering` sends each RECOVERING bot its own Resume (`ResumeRecoveringForHostCommandHandler`). They share the reconciliation, the refusal's
-words and the log line: `order_session_refusal_words` is the primitive,
-`order_session_refusal` its answer as a `BotCommandResult`. An automated caller (a
-reconciliation, a stop retry) never asks: a late order must not undo an Emergency Stop.
+restart leaves closed is what the bot waits for), the headless operator's `bot stop` on a
+running host (`StopBotForOperatorCommandHandler`, `EPIC-038J`) and the Bots screen's Stop
+(`StopBotCommandHandler`, `BUG-274`); the headless `run --resume-recovering` sends each
+RECOVERING bot its own Resume (`ResumeRecoveringForHostCommandHandler`). They share the
+reconciliation, the refusal's words and the log line: `order_session_refusal_words` is the
+primitive, `order_session_refusal` its answer as a `BotCommandResult` for a bot's Start or
+Resume, `order_session_refusal_for_stop` the same for a Stop. An automated caller (a
+reconciliation, a stop retry, the loss cap, the shutdown policy) never asks: a late order
+must not undo an Emergency Stop.
 
 The opening is announced as opened for the bot that asked (`BOT-183`), so it wakes no other bot.
+A Stop is the exception (`BUG-274`): the session it opens is announced as opened for the person,
+because a RECOVERING bot opened for itself reconciles and lays what it holds, a new real-money
+order ahead of the Stop already queued behind it.
 
 `BUG-250` — a Resume and a Stop pass the venue's position claims (`grid_position_claims`): a host
 stop leaves a Futures bot's position under its protective stop, and the session a restart leaves
@@ -37,6 +43,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words
     refusal_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
     SessionOpener,
 )
 
@@ -81,6 +88,23 @@ def order_session_refusal(
 ) -> BotCommandResult | None:
     """The same, for a command on one bot: the refusal as a `VENUE_NOT_READY` result."""
     words = order_session_refusal_words(session, f"Bot {bot_id}", bot_id, claims)
+    if words is None:
+        return None
+    return BotCommandResult.refused(BotRefusal.VENUE_NOT_READY, words, bot_id)
+
+
+def order_session_refusal_for_stop(
+    session: ITradingSession,
+    bot_id: str,
+    claims: tuple[OwnerPositionClaim, ...] = (),
+) -> BotCommandResult | None:
+    """`BUG-274` — the same, for a person's Stop: the opening is announced as opened for the
+    person, so it wakes no bot, the stopped one included. Opened for the bot, a RECOVERING bot
+    would reconcile and lay what it holds before the Stop already queued behind the opening
+    cancels it."""
+    words = order_session_refusal_words(
+        session, f"Bot {bot_id}", OpenedByPerson.PERSON, claims
+    )
     if words is None:
         return None
     return BotCommandResult.refused(BotRefusal.VENUE_NOT_READY, words, bot_id)
