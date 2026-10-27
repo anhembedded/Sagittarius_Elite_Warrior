@@ -60,6 +60,11 @@ _BOT_SESSION_OPENERS = {
         "deliberate action, after the lifecycle table allows the stop, for a mainnet venue "
         "only with the typed `--confirm-venue`; the host's shutdown stop opens nothing"
     ),
+    "src/modules/bots/application/use_cases/stop_bot/handler.py": (
+        "the Bots screen's Stop (`BUG-274`): opens a closed session only when the command "
+        "carries the person's answer to the real-money question; the loss cap's and the "
+        "host's shutdown stop carry none and open nothing"
+    ),
 }
 
 #: Where `ensure_ready()` may be called from, and why.
@@ -156,7 +161,12 @@ def calls_bot_session_opening(source: str) -> bool:
     it has; a new one would need this scanner widened)."""
     return any(
         isinstance(call.func, ast.Name)
-        and call.func.id in ("order_session_refusal", "order_session_refusal_words")
+        and call.func.id
+        in (
+            "order_session_refusal",
+            "order_session_refusal_words",
+            "order_session_refusal_for_stop",
+        )
         for call in _calls(source)
     )
 
@@ -277,6 +287,7 @@ def test_the_scanners_can_fail() -> None:
     assert not calls_state_enable("widget.enable(True)\n")
     assert calls_bot_session_opening("order_session_refusal(session, bot_id)\n")
     assert calls_bot_session_opening("order_session_refusal_words(session, 'x')\n")
+    assert calls_bot_session_opening("order_session_refusal_for_stop(session, 'x')\n")
     assert not calls_bot_session_opening('"""order_session_refusal(s, b)"""\nx = 1\n')
     assert calls_ensure_ready("session.ensure_ready()\n")
     assert not calls_ensure_ready('"""ensure_ready()"""\nx = 1\n')

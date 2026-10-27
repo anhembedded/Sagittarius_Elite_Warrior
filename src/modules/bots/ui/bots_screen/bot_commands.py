@@ -74,6 +74,10 @@ _TRADING_ACTION = {
 }
 
 
+#: What the real-money question says a Stop may do: open the order session when it is closed.
+_OPENS_SESSION_TO_STOP = "open the order session to stop this bot"
+
+
 def command_for(
     action: BotAction,
     bot: BotSnapshot,
@@ -88,7 +92,12 @@ def command_for(
         return None
     if action is BotAction.STOP:
         base = dialogs.ask_stop(bot)
-        return StopBotCommand(bot_id, base) if base is not None else None
+        if base is None:
+            return None
+        # `BUG-274`: the answer opens a closed order session for this Stop. Declining still stops
+        # (a Stop only reduces what the account is exposed to): it opens nothing and waits.
+        agreed = dialogs.allow_real_money(bot.venue, _OPENS_SESSION_TO_STOP)
+        return StopBotCommand(bot_id, base, real_money_confirmed=agreed)
     if action is BotAction.DELETE:
         return DeleteBotCommand(bot_id) if dialogs.confirm_delete(bot) else None
     if action is BotAction.SAVE:

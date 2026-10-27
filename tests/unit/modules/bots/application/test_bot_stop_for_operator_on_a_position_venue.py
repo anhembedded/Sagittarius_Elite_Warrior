@@ -64,6 +64,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.test_bot_life
     _RecordingRunner,
 )
 
+_SPOT_PORTS = FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET))
 _ID = "abc123"
 _CLOCK = FakeBotClock()
 _OPEN = SessionReadyResult(
@@ -102,7 +103,7 @@ class _World:
         self.session.set_enabled(enabled=session_open)
         dispatcher = _RoutingDispatcher()
         dispatcher.handlers = {
-            StopBotCommand: StopBotCommandHandler(self.store, self.runner),
+            StopBotCommand: StopBotCommandHandler(self.store, self.runner, _SPOT_PORTS),
             StopBotForHostCommand: StopBotForHostCommandHandler(dispatcher),
         }
         self.handler = StopBotForOperatorCommandHandler(

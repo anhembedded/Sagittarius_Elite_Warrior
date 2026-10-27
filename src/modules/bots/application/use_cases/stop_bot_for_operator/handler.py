@@ -3,7 +3,7 @@
 The screen's Stop does not open the venue's order session, so after an Emergency Stop or a restart
 (both leave it closed) a Stop is accepted and waits in STOPPING for a session nobody opens: the
 headless host has no switch to flip. The owner's answer "B" (2026-10-17) is that `bot stop` opens it
-itself, as Resume and Start do, through the one place that does (`order_session_refusal`).
+itself, as Resume and Start do, through the one place that does (`order_session_refusal_for_stop`).
 
 Order, so that nothing is opened for a stop that would be refused:
   1. the bot exists and the lifecycle table allows `stop` from its state;
@@ -44,7 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
     BotLookup,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
-    order_session_refusal,
+    order_session_refusal_for_stop,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
@@ -130,7 +130,7 @@ class StopBotForOperatorCommandHandler(
                     command.bot_id,
                 )
             # `BUG-250`: the position a host stop left under the bot's stop is its own.
-            opened = order_session_refusal(
+            opened = order_session_refusal_for_stop(
                 session,
                 command.bot_id,
                 venue_position_claims(

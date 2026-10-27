@@ -60,7 +60,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import BotLifecycle
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
+_SPOT_PORTS = FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET))
 _REASON = "Another copy is running; this one is read-only."
 
 
@@ -188,7 +196,7 @@ def test_a_pause_on_a_read_only_copy_is_a_named_refusal_through_the_handler() ->
     runner = ReadOnlyBotRunner(_Runner(), _REASON)
     handlers = (
         PauseBotCommandHandler(store, runner).execute(PauseBotCommand("abc123")),
-        StopBotCommandHandler(store, runner).execute(
+        StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
             StopBotCommand("abc123", ExposureHandling.KEEP)
         ),
     )

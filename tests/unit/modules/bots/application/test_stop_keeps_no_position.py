@@ -34,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -41,6 +45,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.test_bot_life
     _RecordingRunner,
 )
 
+_SPOT_PORTS = FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET))
 _ID = "abc123"
 _CLOCK = FakeBotClock()
 
@@ -66,7 +71,7 @@ def test_keeping_a_futures_position_is_refused_in_words_and_queues_nothing() -> 
     store = _store_with(TradingVenue.FUTURES_TESTNET)
     runner = _RecordingRunner(store, _CLOCK)
 
-    result = StopBotCommandHandler(store, runner).execute(
+    result = StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
         StopBotCommand(_ID, ExposureHandling.KEEP)
     )
 
@@ -79,7 +84,7 @@ def test_closing_a_futures_position_is_accepted() -> None:
     store = _store_with(TradingVenue.FUTURES_TESTNET)
     runner = _RecordingRunner(store, _CLOCK)
 
-    result = StopBotCommandHandler(store, runner).execute(
+    result = StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
         StopBotCommand(_ID, ExposureHandling.CLOSE_AT_MARKET)
     )
 
@@ -91,7 +96,7 @@ def test_a_spot_bot_still_keeps_its_base_when_asked() -> None:
     store = _store_with(TradingVenue.SPOT_TESTNET)
     runner = _RecordingRunner(store, _CLOCK)
 
-    result = StopBotCommandHandler(store, runner).execute(
+    result = StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
         StopBotCommand(_ID, ExposureHandling.KEEP)
     )
 
@@ -103,7 +108,7 @@ def test_a_stop_for_a_bot_that_does_not_exist_is_the_not_found_refusal() -> None
     store = FakeBotStore()
     runner = _RecordingRunner(store, _CLOCK)
 
-    result = StopBotCommandHandler(store, runner).execute(
+    result = StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
         StopBotCommand(_ID, ExposureHandling.KEEP)
     )
 

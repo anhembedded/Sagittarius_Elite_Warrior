@@ -328,6 +328,7 @@ class GridExecutor(IBotExecutor):
 
     def _run_stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.clear()
+        self._facts.book_missed_fills()
         self._stop.run(base, GridReason.USER_STOP)
 
     def _run_pause(self) -> None:
