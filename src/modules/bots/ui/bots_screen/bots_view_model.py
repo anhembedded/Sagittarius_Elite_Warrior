@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     GridLadder,
     LadderUnavailable,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.planner_market import (
+    PlannerMarket,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     ActionAvailability,
     BotAction,
@@ -43,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_checks import (
     PlanChecks,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot_precisions import (
+    SelectedBotPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
@@ -99,6 +105,8 @@ class BotsViewModel(StatusMessageViewModel):
     venue_change_requested = Signal(str)
     #: The venues the Plan's Venue field offers changed.
     venue_choices_changed = Signal()
+    #: The planner read a venue and symbol's tick and step sizes the tables quote in (`EPIC-048B`).
+    precisions_changed = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -118,6 +126,8 @@ class BotsViewModel(StatusMessageViewModel):
         self.fills = BotFills()
         self.connect_view = ConnectView()
         self.venue_choices: tuple[VenueChoice, ...] = ()
+        #: The tick and step sizes the selected bot's orders and fills are written in.
+        self.precisions = SelectedBotPrecisions(lambda: self.selected)
         self.action_in_flight = False
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
@@ -201,6 +211,12 @@ class BotsViewModel(StatusMessageViewModel):
     def set_fills(self, fills: BotFills) -> None:
         self.fills = fills
         self.fills_changed.emit()
+
+    def learn_market(self, market: PlannerMarket) -> None:
+        """The planner's answer for the selected bot: its sizes quote the tables, which show
+        again when new."""
+        if self.selected is not None and self.precisions.learn(self.selected, market):
+            self.precisions_changed.emit()
 
     @Slot(str)
     def append_log_line(self, line: str) -> None:

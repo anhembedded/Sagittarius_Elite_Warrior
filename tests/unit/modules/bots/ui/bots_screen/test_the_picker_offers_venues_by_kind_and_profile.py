@@ -8,6 +8,13 @@ from __future__ import annotations
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_choices import (
+    GetVenueChoicesQuery,
+    GetVenueChoicesQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
+    BotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts import venue_profile
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
@@ -23,7 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOve
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     NOT_ENABLED,
-    venue_choices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -71,7 +77,11 @@ class _Kind(IBotKind):
 
 
 def _listed(markets: frozenset[MarketType]) -> list[TradingVenue]:
-    choices = venue_choices(_NothingEnabled(), [_Kind(markets)])
+    choices = (
+        GetVenueChoicesQueryHandler(_NothingEnabled(), BotKindCatalog([_Kind(markets)]))
+        .execute(GetVenueChoicesQuery())
+        .choices
+    )
     assert {choice.connection for choice in choices} == {NOT_ENABLED}
     return [choice.venue for choice in choices]
 
@@ -101,7 +111,11 @@ def test_futures_mainnet_is_listed_open_like_every_other_venue(
     """The owner opened it on 2026-10-17 (`EPIC-039L`, decision O2): no venue is closed."""
     choices = {
         choice.venue: choice
-        for choice in venue_choices(_NothingEnabled(), [_Kind(_BOTH)])
+        for choice in GetVenueChoicesQueryHandler(
+            _NothingEnabled(), BotKindCatalog([_Kind(_BOTH)])
+        )
+        .execute(GetVenueChoicesQuery())
+        .choices
     }
     assert choices[TradingVenue.FUTURES_MAINNET].connection == NOT_ENABLED
     assert all(choice.closed_reason is None for choice in choices.values())

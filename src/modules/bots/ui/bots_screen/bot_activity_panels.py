@@ -63,6 +63,7 @@ class BotOrdersPanel(QWidget):
         layout.addWidget(self._table.body, 1)
         model.selection_changed.connect(self._show_orders)
         model.facts_changed.connect(self._show_orders)
+        model.precisions_changed.connect(self._show_orders)
         self._show_orders()
 
     def use_precisions(self, precisions: ISymbolPrecisions) -> None:
@@ -103,6 +104,7 @@ class BotFillsPanel(QWidget):
         layout.addWidget(self.note)
         layout.addWidget(self._table.body, 1)
         model.fills_changed.connect(self._show_fills)
+        model.precisions_changed.connect(self._show_fills)
         self._show_fills()
 
     def use_display_timezone(self, timezone: DisplayTimezonePreference) -> None:

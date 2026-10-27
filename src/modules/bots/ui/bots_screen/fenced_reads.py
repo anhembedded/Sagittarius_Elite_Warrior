@@ -2,8 +2,8 @@
 
 Each read is its own kind: the list, the planner's market numbers for
 the selected bot, its fills, what the exchange says about its symbol
-and account (`BOT-174`), its liquidation facts and its Run facts
-(`EPIC-048B`). A newer read of a kind supersedes the older one, whose answer
+and account (`BOT-174`), its liquidation facts its Run facts and the
+venues a bot may be on (`EPIC-048B`). A newer read of a kind supersedes the older one, whose answer
 is then dropped as stale (`async-ui-action-rule.md` §1): selecting another
 bot while the first one's fills load never shows the first one's fills. The
 presenter owns the trackers (one per kind) and hands them here; this
@@ -25,6 +25,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
+    ExportBotPlanQuery,
+    UnknownBotsError,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
 )
@@ -40,8 +44,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_plan_ris
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_choices import (
+    GetVenueChoicesQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.export_bot_plan_to_file import (
+    ExportBotPlanToFileCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -72,6 +82,12 @@ class ReadKind(str, Enum):
     #: `EPIC-048B` — what only the host knows of the selected bot's Run step
     #: (`GetBotRunFactsQuery`, `run_facts_check.py`).
     RUN = "run"
+    #: `EPIC-048B` — the venues a bot may be on, each with its connection state
+    #: (`GetVenueChoicesQuery`, `bot_venues.py`).
+    VENUES = "venues"
+    #: `EPIC-048B` — Export plan…: the plan document to copy, or the file to write
+    #: (`plan_export_flow.py`).
+    EXPORT = "export"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
@@ -144,7 +160,7 @@ class FencedReads(UiThreadRelay):
 
 
 class BotQueries:
-    """@brief The screen's three bots queries, each a fenced read."""
+    """@brief The screen's bots queries, each a fenced read."""
 
     def __init__(
         self,
@@ -181,6 +197,21 @@ class BotQueries:
             GetBotRunFactsQuery(bot.bot_id, bot.venue, bot.symbol),
         )
 
+    def venue_choices(self) -> None:
+        self._read(ReadKind.VENUES, "", GetVenueChoicesQuery())
+
+    @property
+    def reads(self) -> FencedReads:
+        return self._reads
+
+    def plan_document(self, bot_ids: tuple[str, ...], *, all_stopped: bool) -> None:
+        """The plan to copy; an id that names no bot answers the `UnknownBotsError` itself."""
+        query = ExportBotPlanQuery(bot_ids, all_stopped=all_stopped)
+        self._reads.read(ReadKind.EXPORT, "", lambda: self._document(query))
+
+    def plan_file(self, command: ExportBotPlanToFileCommand) -> None:
+        self._read(ReadKind.EXPORT, "", command)
+
     def again(self, kind: ReadKind) -> None:
         """Asks `kind` once more, for the selected bot (Retry on its message bar)."""
         bot = self._selected()
@@ -194,8 +225,16 @@ class BotQueries:
             self.risk(bot)
         elif kind is ReadKind.RUN and bot is not None:
             self.run_facts(bot)
+        elif kind is ReadKind.VENUES:
+            self.venue_choices()
         else:
             self.fills(bot)
+
+    def _document(self, query: ExportBotPlanQuery) -> object:
+        try:
+            return self._dispatcher.dispatch(ExportBotPlanQuery, query)
+        except UnknownBotsError as unknown:
+            return unknown
 
     def _read(self, kind: ReadKind, label: str, query: object) -> None:
         dispatcher = self._dispatcher

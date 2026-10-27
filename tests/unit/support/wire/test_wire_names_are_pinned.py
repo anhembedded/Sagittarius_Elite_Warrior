@@ -35,6 +35,7 @@ PINNED = (
     "sew.plan-risk-unavailable/1",
     "sew.planner-market/1",
     "sew.venue-account-snapshot/1",
+    "sew.venue-choices/1",
     "sew.venue-connection/1",
     "sew.venue-snapshot/1",
 )

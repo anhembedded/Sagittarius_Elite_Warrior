@@ -49,6 +49,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot i
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot_for_host import (
     EditBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.export_bot_plan_to_file import (
+    ExportBotPlanToFileCommand,
+    ExportBotPlanToFileCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.move_bot_for_host import (
     MoveBotForHostCommandHandler,
 )
@@ -118,6 +122,7 @@ def bind_commands(container: IContainer) -> None:
     container.bind(CreateBotCommand, CreateBotCommandHandler)
     container.bind(EditBotCommand, EditBotCommandHandler)
     container.bind(ChangeBotVenueCommand, ChangeBotVenueCommandHandler)
+    container.bind(ExportBotPlanToFileCommand, ExportBotPlanToFileCommandHandler)
     container.bind(StartBotCommand, StartBotCommandHandler)
     container.bind(PauseBotCommand, PauseBotCommandHandler)
     container.bind(ResumeBotCommand, ResumeBotCommandHandler)

@@ -1,7 +1,7 @@
 """The selected bot's orders and fills are written in its symbol's filters
 (`EPIC-033N`): a price in the tick size, a quantity in the step size, read
-from the bot's own venue's metadata cache, as the desk and the Watchlist
-write theirs. A column of something else (a grid level) is not quoted, and
+from the order terms the planner read for the bot's own venue and symbol
+(`EPIC-048B`), the screen touching no venue. A column of something else (a grid level) is not quoted, and
 a bot on a venue this run does not serve keeps the magnitude rule."""
 
 from __future__ import annotations
@@ -79,6 +79,11 @@ def _fills() -> BotFills:
 
 def _select(screen: BotsScreen, venue: TradingVenue | None = None) -> None:
     screen.settle()
+    # Selected as a person selects it, so the planner reads the bot's order terms; then
+    # shown afresh with its orders, the sizes being kept per venue and symbol.
+    screen.view.model.select_requested.emit(screen.view.model.bots[0].bot_id)
+    screen.settle()
+    screen.view.model.set_selected(None)
     bot: BotSnapshot = dataclasses.replace(
         screen.view.model.bots[0], progress=_progress()
     )

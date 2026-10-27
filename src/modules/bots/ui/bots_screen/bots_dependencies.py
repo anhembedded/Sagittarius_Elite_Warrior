@@ -11,7 +11,7 @@ which the threshold exists to prevent).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -47,20 +47,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
     IRealMoneyConsent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
-    IVenueContexts,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
-    FilterPrecisions,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
-    ISymbolPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
     DisplayTimezonePreference,
@@ -74,16 +65,13 @@ from .venue_candles import venue_candles
 
 @dataclass(frozen=True)
 class BotsDependencies:
-    """The pool, the commands, the bot kinds, the venues, each venue's
-    symbol filters and the Spot candles the charts and the kinds' backtests
-    read. A bot's Run facts and its assessment are queries (`EPIC-048B`)."""
+    """The pool, the commands, the bot kinds and the Spot candles the charts and the
+    kinds' backtests read. A bot's Run facts, its assessment, the venues a bot may be
+    on and the symbol filters its tables quote in are answers to queries (`EPIC-048B`)."""
 
     threads: IThreadManager
     commands: ICommandDispatcher
     kinds: IBotKindCatalog
-    #: Each venue's stored key, which New bot and the Plan's Venue field show as
-    #: the venue's connection state (`BOT-171`).
-    contexts: IVenueContexts
     #: Each bot venue's Spot candle feed, for a bot's chart (`BUG-172`): it
     #: shows the market the bot's orders fill in.
     feeds: Callable[[TradingVenue], ICandleFeed]
@@ -92,9 +80,6 @@ class BotsDependencies:
     workbench_ports: Callable[[TradingVenue], WorkbenchPorts]
     #: The Spot symbols New bot's picker lists (`BUG-155`).
     symbols: ISymbolCatalog
-    #: Each served venue's tick and step sizes, which the selected bot's
-    #: orders and fills are written in (`EPIC-033N`).
-    filters: Mapping[TradingVenue, ISymbolPrecisions]
     #: How every failure of the screen reaches the user (`BOT-169`).
     notifier: INotifier
     #: The one question that names real money, asked before a mainnet venue's
@@ -125,7 +110,6 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         threads=threads,
         commands=commands,
         kinds=catalog,
-        contexts=container.resolve(IVenueContexts),
         feeds=lambda venue: candles(venue).feed,
         workbench_ports=lambda venue: WorkbenchPorts(
             threads,
@@ -140,20 +124,8 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
             plan_market_of(venue),
         ),
         symbols=container.resolve(ISymbolCatalog),
-        filters=venue_filters(container.resolve(IVenueContexts)),
         notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
         instance=container.resolve(IInstanceAccess),
         display_timezone=display_timezone,
     )
-
-
-def venue_filters(
-    contexts: IVenueContexts,
-) -> Mapping[TradingVenue, ISymbolPrecisions]:
-    """Each enabled venue's own metadata cache: the same symbol has other
-    filters on another venue, so no cache is shared."""
-    return {
-        venue: FilterPrecisions(contexts.get(venue).metadata_cache)
-        for venue in contexts.enabled()
-    }

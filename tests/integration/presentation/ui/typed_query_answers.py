@@ -11,6 +11,10 @@ Retire when: `app_engine` stops replacing the dispatcher's `dispatch`.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_choices import (
+    GetVenueChoicesQuery,
+    VenueChoices,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusReport,
     GetBotStatusReportQuery,
@@ -27,9 +31,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venu
 #: `secrets.local.json` and keyring. Callers want a real tuple back, not a round
 #: trip, so "no open position / no venue has a key" is the answer. A
 #: `GetBotStatusReportQuery` is answered by the report of an app with no bot file:
-#: this suite starts no bot.
+#: this suite starts no bot. `GetVenueChoicesQuery` (`EPIC-048B`) reads each venue's stored key,
+#: and the Bots screen raises on an answer that is not `VenueChoices`: no venue is offered here.
 TYPED_QUERY_ANSWERS: dict[type, object] = {
     GetOpenPositionsQuery: (),
     ListVenueKeysQuery: (),
     GetBotStatusReportQuery: BotStatusReport(),
+    GetVenueChoicesQuery: VenueChoices(),
 }

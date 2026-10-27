@@ -97,6 +97,10 @@ def test_a_plan_exported_from_the_screen_applies_as_no_changes(
             qtbot.waitUntil(export.isEnabled, timeout=_WAIT_MS)
 
             export.trigger()
+            # The file is written off the UI thread (`EPIC-048B`); the status line says when.
+            qtbot.waitUntil(
+                lambda: "Wrote the plan" in view.model.statusMessage, timeout=_WAIT_MS
+            )
 
             document = parse_plan(
                 target.read_text(encoding="utf-8"), container.resolve(IBotKindCatalog)

@@ -1,6 +1,6 @@
 # EPIC-048 — The UI reaches the application only through the command dispatcher and bus events
 
-- **Status:** 🟡 In progress, 1/4 — paused 2026-10-25 and picked up again 2026-10-26 only as far as EPIC-047 needs it: 048B's second pull request when 047E starts; 048C and 048D stay paused. At 1/4 — 048A done 2026-10-24; 048B's first pull request (#731) merged 2026-10-25 so no branch is left half-done; the rest waits (see **Resume**)
+- **Status:** 🟡 In progress, 2/4 — 048A done 2026-10-24; 048B done 2026-10-27 (#731 and its second pull request: every read of the Bots screen off the UI thread, the plan file behind a command), so EPIC-047 may start. 048C and 048D stay paused (see **Resume**)
 - **Repositories:** Elite
 - **Origin:** [EPIC-047](../EPIC-047_vps_bots_tab/README.md)'s Discover Finding E (the UI reaches the application around the dispatcher and the bus), accepted by the owner on 2026-10-24, and charter decision G9 (a separate epic, done first), settled on the owner's delegation: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). De-risk R7 measured the debt.
 - **North star:** [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) and [`.claude/rules/architecture-rule.md`](../../../.claude/rules/architecture-rule.md); the rule's new text is child A's work.
@@ -29,7 +29,7 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-048A](completed/EPIC-048A_the_doors_rule_and_its_guard.md) | The rule in `architecture-rule.md` and the guard test with R7's method, the count as a baseline that only shrinks, and the allowlist with `IBotKind`, `IBotKindCatalog` and `ICandleFeed` | Elite | None | 🟡 | ✅ Done (2026-10-24) |
-| [EPIC-048B](incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) | The Bots screen through the doors: `GetBotRunFactsQuery` and `GetVenueChoicesQuery`, the pure assessment moved into the application layer and still run on the desktop, the reads off the UI thread | Elite | 048A | 🔴 | 🟡 In progress — PR 1 of 2 (the queries and the assessment behind the doors) |
+| [EPIC-048B](completed/EPIC-048B_the_bots_screen_through_the_doors.md) | The Bots screen through the doors: `GetBotRunFactsQuery` and `GetVenueChoicesQuery`, the pure assessment moved into the application layer and still run on the desktop, the reads off the UI thread | Elite | 048A | 🔴 | ✅ Done (2026-10-27) |
 | [EPIC-048C](incomplete/EPIC-048C_presenters_receive_a_narrow_gateway.md) | Presenters receive a narrow application gateway instead of the whole container | Elite | 048A | 🟡 | Planned |
 | [EPIC-048D](incomplete/EPIC-048D_the_other_screens_cut_down_to_the_baseline.md) | The other screens cut down against the baseline (split per screen when started) | Elite | 048A, 048C | 🟡 | Planned |
 
@@ -37,7 +37,7 @@
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | 1 — the mechanism (048A) | The rule is in `architecture-rule.md`; the guard runs in the full gate with a baseline; adding a bypass import fails it | The guard's mutation check (a planted import fails it): done, recorded in [048A](completed/EPIC-048A_the_doors_rule_and_its_guard.md); the PR's `ci-local.ps1 -Full` log |
-| 2 — the Bots screen (048B) | `bots/ui/bots_screen` has no import outside the allowlist; the screen renders as before; the host-fact reads of DERISK §8.1 are off the UI thread | The guard's per-area count for the Bots screen reads 0; the Bots screen's existing tests unchanged and green; a frame comparison before and after. Not run |
+| 2 — the Bots screen (048B) | `bots/ui/bots_screen` has no import outside the allowlist; the screen renders as before; the host-fact reads of DERISK §8.1 are off the UI thread | Done: the guard reads ADAPTER 0, PORT 4 (the four composition-only ports, 048C's), data 0 for `bots/ui/bots_screen`; the screen's tests green with no assertion changed; 26 frames, model states and table texts identical before and after ([048B notes](completed/EPIC-048B_the_bots_screen_through_the_doors.md)); the PR's `ci-local.ps1 -Full` log |
 | 3 — the gateway (048C) | No function under `ui/` takes `IContainer` | The guard's container count reads 0. Not run |
 | 4 — the other screens (048D) | Every area at its target count | The guard's baseline file shows each area's count fell. Not run |
 
@@ -50,6 +50,7 @@ EPIC-047 may start after phase 2.
 - Any Engine file, setting or dependency.
 
 ## Notes (newest first)
+- **2026-10-27** — 048B PR 2: the venues a bot may be on are `GetVenueChoicesQuery`'s answer, read on the pool and held (New bot reads nothing at its click); Export plan… runs on the pool, the file written by `ExportBotPlanToFileCommand` through `IPlanFileWriter`, which `bot export` dispatches too; the tables' tick and step sizes come from the planner's answer. The guard for `bots/ui/bots_screen` reads ADAPTER 0, PORT 4, data 0; the frame comparison is identical. 048B done: EPIC-047 may start.
 - **2026-10-24** — 048B PR 1: the Bots screen judges a bot through `AssessBotQuery` and reads its Run facts through `GetBotRunFactsQuery`; the readiness values and words moved to `bots/contracts/`. The guard for `bots/ui/bots_screen` reads 9 around the doors (ADAPTER 2, PORT 7) and 2 data, from 20 and 16; the frame comparison is identical. PR 2 moves the reads off the UI thread and the plan file behind a command.
 - **2026-10-24** — 048A done: the rule is `architecture-rule.md` §3.1 and the guard's first baseline, measured at `96cb27c`, reads **197 imports in 73 files over 16 areas** (119 around the doors, 78 application data) and **30 container-taking functions**; R7's own method reproduces its 215 / 82 / 18 exactly. `IDisplayTimezonePreference` and `IDisplayPreferences` name no class and were left off the allowlist ([048A notes](completed/EPIC-048A_the_doors_rule_and_its_guard.md)).
 - **2026-10-24** — Epic scaffolded with the decision record (G9) and four children, after De-risk R7 measured the debt (215 imports, 30 container-taking functions); EPIC-047 is gated on 048A and 048B.
@@ -57,9 +58,8 @@ EPIC-047 may start after phase 2.
 ---
 
 ## Resume
-The owner paused this epic on 2026-10-25 (*"tạm thời dừng epic đó ... sau này làm tiếp"*, "stop that epic for now ... continue later"). Nothing is lost:
-- **Done:** 048A, the rule and the guard (baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`).
-- **048B:** its first pull request (#731: the queries and the moved assessment) merged on 2026-10-25, so no half-done branch is left. Its **second pull request** (the reads off the UI thread, `GetVenueChoicesQuery`, the plan file behind a command) is not started. Everything a fresh session needs is in the task's own **Resume** section (the four items with files and code paths, the decisions taken, seven traps, the guard numbers to reach).
-- **048C, 048D:** not started.
-- **To resume:** read this README, the decision record, and 048B's Resume section; spawn one author for 048B's second pull request, then continue in order. The guard's baseline only falls, so any later change to `src/modules/*/ui/` stays measured while the epic sleeps.
-- **EPIC-047 stays blocked** until 048A and 048B are done.
+The owner paused this epic on 2026-10-25 (*"tạm thời dừng epic đó ... sau này làm tiếp"*, "stop that epic for now ... continue later") and resumed it on 2026-10-26 only as far as EPIC-047 needs it. Nothing is lost:
+- **Done:** 048A, the rule and the guard (baseline 197 imports in 73 files over 16 areas, 30 container-taking functions, measured at `96cb27c`); 048B, the Bots screen through the doors (two pull requests, #731 and the second; [notes](completed/EPIC-048B_the_bots_screen_through_the_doors.md)).
+- **048C, 048D:** not started. 048C takes the Bots screen's last four port imports (`ISymbolCatalog` ×2, `IMarketDataSources`, `IMarketDataSync`, held only by the container-taking composition files), the strategy rows' wiring read and its four container-taking functions.
+- **To resume:** read this README, the decision record, and 048C's task; the guard's baseline only falls, so any later change to `src/modules/*/ui/` stays measured while the epic sleeps.
+- **EPIC-047 is unblocked:** 048A and 048B are done.

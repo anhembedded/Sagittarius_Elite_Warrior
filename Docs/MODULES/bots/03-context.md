@@ -45,8 +45,10 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
 Writing a plan is shared by every bot kind and by two callers: the Bots mode's **Export plan…** (a
 menu item and a toolbar button, one `QAction`: `bots_commands.py` → `EXPORT_PLAN`; the dialog and the
 flow in `bots/ui/bots_screen/export_plan_dialog.py` and `plan_export_flow.py`) and `bot export` both
-dispatch `ExportBotPlanQuery` (`bots/application/queries/export_bot_plan/`) and write through
-`bots/adapters/plan_file.py`. Nothing on that path names a kind: `BotSnapshot.kind` and `config` pass
+dispatch `ExportBotPlanToFileCommand` (`bots/application/use_cases/export_bot_plan_to_file/`), which
+assembles the document with `ExportBotPlanQuery` (`bots/application/queries/export_bot_plan/`) and writes
+it through `bots/contracts/i_plan_file_writer.py` → `IPlanFileWriter` (`bots/adapters/plan_file.py` →
+`PlanFileWriter`); the screen's Copy JSON dispatches the query alone. Nothing on that path names a kind: `BotSnapshot.kind` and `config` pass
 through as opaque data, and only the parser asks `IBotKindCatalog`
 (`test_bots_export_path_names_no_kind.py`, `test_export_of_a_second_kind.py`; `BOT-179`).
 

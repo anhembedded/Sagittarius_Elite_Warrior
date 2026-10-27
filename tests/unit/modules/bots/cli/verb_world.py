@@ -20,12 +20,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_report_printer import (
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.plan_file import PlanFileWriter
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
     ExportBotPlanQuery,
     ExportBotPlanQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.export_bot_plan_to_file import (
+    ExportBotPlanToFileCommand,
+    ExportBotPlanToFileCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
@@ -42,12 +47,14 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.plan.plan_wor
 
 class _WithExportQuery(ICommandDispatcher):
     """The app's dispatcher resolves `ExportBotPlanQuery` to its handler over the real
-    record store (`composition/query_bindings.py`); here the handler is built over the
-    test's own `plans` and every other call goes to the test's dispatcher."""
+    record store (`composition/query_bindings.py`), and `ExportBotPlanToFileCommand` to its
+    handler over the real file writer; here the handlers are built over the test's own `plans`
+    and every other call goes to the test's dispatcher."""
 
     def __init__(self, inner: ICommandDispatcher, plans: IAppliedPlanStore) -> None:
         self._inner = inner
         self._export = ExportBotPlanQueryHandler(inner, plans)
+        self._to_file = ExportBotPlanToFileCommandHandler(self, PlanFileWriter())
         #: The export queries that reached the handler (an engine dispatch logs ERROR on a raise).
         self.exports: list[ExportBotPlanQuery] = []
 
@@ -56,6 +63,9 @@ class _WithExportQuery(ICommandDispatcher):
             assert isinstance(input_dto, ExportBotPlanQuery)
             self.exports.append(input_dto)
             return self._export.execute(input_dto)
+        if handler_class is ExportBotPlanToFileCommand:
+            assert isinstance(input_dto, ExportBotPlanToFileCommand)
+            return self._to_file.execute(input_dto)
         return self._inner.dispatch(handler_class, input_dto)
 
 
