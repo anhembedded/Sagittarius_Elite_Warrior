@@ -104,7 +104,7 @@ and local: it asks no exchange, and it reads a venue's session only when `IVenue
   exactly as often as before, so the file adds no request on the account and IP the bots trade on. A snapshot
   is therefore the one a Start, a Resume or a screen load took, and `read_at` says how old; a bot nobody has
   read since the host started has none. A bounded refresh (one read per active bot every few minutes) would add
-  REST weight, which is the owner's call (`EPIC-047C` and `EPIC-047E` will say whether the tab needs it).
+  REST weight, which is the owner's call (the tab does need it once it reads nothing at Binance itself: `EPIC-047H` and `DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md` D4 propose a bounded refresh, awaiting the owner).
 - **A venue nothing has used shows its key state and a lease with no holder** (`EPIC-047C`: the owner's
   default decision, `DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md`). `IVenueKeyStates` builds a provider
   for each question and keeps none, because the mainnet provider keeps its first read for the life of the process and a kept

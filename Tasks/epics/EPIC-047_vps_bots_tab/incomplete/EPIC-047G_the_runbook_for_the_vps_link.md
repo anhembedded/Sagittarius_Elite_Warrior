@@ -5,7 +5,7 @@
 **Risk:** 🟢 — documentation; a wrong step in `authorized_keys` or `sshd_config` can lock the owner out of the VPS, so the order of steps and the open session matter.
 **Complexity:** S — one runbook section, one page of troubleshooting, one Learning page.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the exact forced command and the bridge launcher), [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the profile fields); the steps can be drafted earlier
+**Depends on:** [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the exact forced command and the bridge launcher), [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the profile fields), [EPIC-047H](EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) (the host's market-data and refreshed-facts files, for the troubleshooting rows); the steps can be drafted earlier
 
 ---
 
@@ -17,7 +17,7 @@
 - [ ] It then turns **`PasswordAuthentication no`** on: write the drop-in, run `sshd -t`, reload `ssh`, and keep the current session open until `ssh -o BatchMode=yes <login>@<vps> true` succeeds from the desktop with the key; the order is stated so a mistake cannot lock the owner out.
 - [ ] It tells the owner to log in once and accept the host key so `known_hosts` holds it, and what the app does with a wrong key (047D).
 - [ ] The three checks of De-risk R2 are in it as a verification the owner can run: the restricted key gets the bridge's `hello` for a shell request, "administratively prohibited" for a port forward, and a refusal for a terminal.
-- [ ] A troubleshooting table maps each error the app shows (refused key, unknown or changed host key, host unreachable, version difference, bridge not started, data age growing) to its cause and its fix; the version difference says `sudo sew-update`.
+- [ ] A troubleshooting table maps each error the app shows (refused key, unknown or changed host key, host unreachable, version difference, bridge not started, data age growing, market data or exchange facts older than the host's cadence, "not published by the host") to its cause and its fix; the version difference says `sudo sew-update`.
 - [ ] It names the facts file of 047B, the bridge's idle watchdog, and that `root`'s key stays the owner's administration key outside the app's profiles.
 - [ ] It records the open items: the untested Windows agent path until 047D's run, the Unix socket variant as not built.
 - [ ] A `Docs/LEARNING/` page explains the design (the doors, the bridge, the forced command, why no port), indexed in `Docs/LEARNING/README.md` (charter D6).

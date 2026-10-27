@@ -4,11 +4,11 @@
 |-------|-------|
 | Document type | Epic Charter — Initiation phase (Clarify) |
 | Epic | EPIC-047 — A desktop tab that shows and controls the bots on the VPS host |
-| Version | 0.5 (Draft) |
-| Status | Scope and decisions G1–G10 settled on the owner's delegation (2026-10-24); De-risk confirmed G6 and G7 on localhost; G1 and the VPS run wait for the owner's script (DERISK §R3.4) |
+| Version | 0.6 (Draft) |
+| Status | Scope and decisions G1–G10 settled on the owner's delegation (2026-10-24); De-risk confirmed G6 and G7 on localhost; G1 and the VPS run wait for the owner's script (DERISK §R3.4). 2026-10-27: the VPS tab connects to nothing at Binance (O7, G11, AC10); its market-data and refresh parts wait for the owner (O1, O2 of the 2026-10-27 record) |
 | Author | Coordinator session (for the owner) |
 | Epic owner / approver | Nathan Tran |
-| Last updated | 2026-10-24 |
+| Last updated | 2026-10-27 |
 | Related documents | `Docs/OPERATIONS/headless_runbook.md` · EPIC-038 (headless operation) · EPIC-045 (every Bots tab action has a host verb) · EPIC-036F decision record (remote control from Discord, "no inbound port") |
 
 **Revision history**
@@ -20,6 +20,7 @@
 | 0.3 | 2026-10-24 | Coordinator | Discover's Finding E (the UI reaches the application around the dispatcher and the bus) accepted by the owner: G9 and A7 added |
 | 0.4 | 2026-10-24 | Coordinator | G1–G9 decided on the owner's delegation, with the Constitution check; G1, G6, G7 provisional until De-risk R1–R4; next step De-risk |
 | 0.5 | 2026-10-24 | Coordinator | De-risk (`DERISK.md`, PR #728) amendments accepted on the owner's delegation: G6 and G7 reworded, G7a and G10 added, G9's baseline set, Scenario 4 narrowed; G1 still waits for the owner's Windows run (R3) |
+| 0.6 | 2026-10-27 | Author session (for the coordinator) | The owner's rule of 2026-10-27, *"Khi vào bot VPS thì tất cả dữ liệu từ Binance phải được lấy thông qua VPS. Bot sẽ không kết nối bất cứ gì tới Binance nữa"*: objective O7, deliverable D7, decision G11, constraint §5.1, acceptance AC10, assumption A8, Scenario 5; G7a's reach widened (the host also serves market data and refreshed exchange facts; the bridge still calls no exchange); child EPIC-047H added. Record: [`DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md`](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md) |
 
 ---
 
@@ -88,6 +89,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | O3 | **Same safety** as on the VPS | A remote command is refused or accepted exactly as the same `M bot …` command would be, and appears in the host's audit; a real-money start or resume asks for the venue confirmation | Real money |
 | O4 | **One codebase** for both tabs | The VPS tab adds no second copy of the Bots screen's widgets or presenters; a test proves both tabs are built from the same classes | Owner's requirement: "2 modules share everything" |
 | O6 | **Configurable connection** | The owner sets up a VPS connection in the app (a profile: name, host, port, user, credentials reference, the protocol to use, timeouts, reconnect) and can choose among more than one supported protocol without a code change; adding a protocol later does not change the Bots screen | Owner's requirement, 2026-10-24: portable, not tied to one transport |
+| O7 | **No Binance contact from the VPS tab** | In the VPS Bots tab the desktop opens no connection to Binance, signed or public; every Binance-derived fact (account facts, orders, positions, mark price, live ticks, candles, exchange info, venue choices) comes from the VPS host over the bridge | Owner's rule, 2026-10-27. The host stays the only Binance client of its keys |
 | O5 | **Honest connection state** | The tab always says which host and which exchange account it shows, whether it is connected, and how old its data is; losing the connection never affects the bots | Prevents the 2026-10-22 confusion |
 
 ---
@@ -101,6 +103,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | D3 | **The host's remote command side** | Remote commands reach the host's own command mechanism behind the same checks as the CLI: a request id, the audit and the mainnet confirmation | O2, O3 |
 | D4 | **The VPS Bots tab** | The same screen on the remote adapter: a host picker, the connection line (host, account, connected or not, data age), read-only while disconnected | O1, O2, O5 |
 | D5 | **Connection profiles and protocols** | An Options page for VPS connections: one profile per host, the protocol chosen per profile, credentials referenced (a key file or an agent), never stored as plain text by the app; at least one protocol in v1, the others behind the same seam | O5, O6 |
+| D7 | **The host serves market data and refreshed facts** | The host writes the candles, the live candle, the last and mark price, the planner's inputs, the fills and the exchange facts the VPS tab needs, with the age of each, within a weight ceiling on the trading IP; the bridge only reads them (EPIC-047H) | O1, O5, O7 |
 | D6 | **Documentation** | Runbook section (set up the tunnel, troubleshoot), module design update, a `Docs/LEARNING/` page on the design | All |
 
 **Inputs and outputs of the tab**
@@ -110,7 +113,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | What goes in? | The owner's clicks on the VPS Bots tab, as on the Bots tab |
 | What comes out? | The VPS host's bots, their figures and the host's answer to each command |
 | Where does it run? | The desktop (Windows), connected to the VPS (Ubuntu, `sew-run`) over SSH |
-| What happens when the VPS is unreachable? | The tab shows the last data with its age, refuses commands, and reconnects by itself; the bots on the VPS carry on |
+| What happens when the VPS is unreachable? | The tab shows the last data with its age ("disconnected, data as of …"), refuses commands, and reconnects by itself; it never falls back to a direct Binance read; the bots on the VPS carry on |
 
 ---
 
@@ -123,11 +126,13 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 - Adding a bot to the VPS from a plan designed on the desktop, with no file copy by hand
 - Connection state, host and account named on screen; reconnection
 - A refusal when the desktop and the host run incompatible versions ("run `sew-update`")
+- The host serving, over the bridge, every Binance-derived fact the tab shows, so that the tab connects to nothing at Binance (O7)
 
 **Out of scope:**
 - Opening any port on the VPS to the Internet
 - Changing the bots' behaviour, or any trading rule
 - Running backtests on the VPS (the backtest stays on the desktop, on its own candles)
+- A direct Binance read from the desktop in the VPS tab, public or signed (O7); the Backtest workbench and the exchange symbol list in the VPS tab in v1 (decision D6 of 2026-10-27, default, owner may veto)
 - Managing the VPS itself from the tab: `sew-update`, `sew-key`, systemd, backups
 - Editing exchange keys, alert channels or the loss cap remotely
 - Mobile or web access; more than one user; role-based permissions
@@ -144,12 +149,13 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | G5 | Two tabs or one with a switch? | **Two tabs (Bots, VPS Bots), built from the same classes**; AC7 proves it | Decided | Owner's request; O4 |
 | G6 | Where does the link cut in? | **At the application's doors.** Host facts reach the desktop only through queries and events: the six reads the detail is built from, plus two new queries, `GetBotRunFactsQuery` and `GetVenueChoicesQuery` (connection state only, never a key). The pure assessment (readiness, ladder, earnings) moves out of the presenter into the application layer, but **runs on the desktop** over those read models, so a re-judge every 150 ms is not an SSH round trip. Commands reach the host through `IHostControl`, so the host's gate, audit, replay and expiry checks stay the one door | Confirmed by R1 (amended) and R4 | P5: reuse the gated port. P6: fix the doors. P3: one gate. R1: a detail built from six reads that crossed a JSON wire equals the in-process one |
 | G7 | Which protocols in v1? | **v1: SSH only, the host listening on no socket.** The desktop runs a **bridge**: a second process on the host, started by `sshd` for each session. It reads the host's store and facts files and sends commands through `DirectoryHostControl`. The desktop's key is restricted in the `sew` account's `authorized_keys` with `restrict,command=…`, so that key can run only the bridge, with no shell, no port forwarding and no terminal. A 0600 Unix socket on the host, a VPN and an opt-in TLS endpoint are later variants behind the same transport seam | Confirmed by R2 on localhost; the owner's VPS run is pending (R3.4) | P5, P8: EPIC-038's "listens on no port" and its test are kept. P1: the forced command is a mechanical barrier. R2: no listener, shell refused |
-| G7a | Where do the facts only the host holds in memory come from? | **The host writes them to a file when they change.** These are the trading leases, the enabled venues, the budget caps and the exchange facts. It writes them like `state/health.json`, owner-only and atomically, and the bridge reads that file. The bridge never calls the exchange itself and never holds a key | Decided | P3: the host stays the single writer and the single exchange client. No key crosses the link (§5.1) |
+| G7a | Where do the facts only the host holds in memory come from? | **The host writes them to a file when they change.** These are the trading leases, the enabled venues, the budget caps and the exchange facts. It writes them like `state/health.json`, owner-only and atomically, and the bridge reads that file. The bridge never calls the exchange itself and never holds a key. From v0.6 the host also writes the market data and the refreshed exchange facts the VPS tab needs (G11); the bridge still only reads | Decided | P3: the host stays the single writer and the single exchange client. No key crosses the link (§5.1) |
 | G10 | Link protocol rules | Every message carries a **per-bot revision** and the link a **heartbeat** (the bridge has an idle watchdog, the desktop a heartbeat), so a half-open link is detected. The version handshake hashes the **wire names**, not Python module paths. Wire forms come from **one reflective codec** (about 140 lines in R4's spike) plus one contract test per root type, instead of about 550 hand-written lines | Decided | R4 (45 records, 225 fields), R5 (half-open link), R6 (hash of wire names) |
+| G11 | Where does a VPS bot's Binance data come from? | **Only from the VPS.** The desktop opens no connection to Binance in the VPS tab, signed or public. The host fetches (a market-data recorder writing files, a bounded refresh of exchange facts) and the bridge only reads; the bridge still calls no exchange and loads no key (G7a kept). Offline the tab shows "disconnected, data as of …" and never falls back. A guard holds it: no Binance client in the tab's composition, and a zero-call runtime test. The recorder and the refresh cadence and weight ceiling (REST weight on the account and IP the bots trade on, a new control verb) are **the owner's decision**, not defaulted | Decided by the owner (the rule); the market-data transport and the refresh wait for the owner (O1, O2) | P1: the guard. P3: one Binance client per key and IP. P4: a zero-call runtime test. P7: a relay by events stays a later variant. Record: [`DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md`](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md) |
 | G8 | Engine change in this epic? | **No.** The bridge lives in the app (`support/` for the technical part, `operations` for the host's gate). It moves to the Engine only when a second consumer needs it; the Engine's `TraceServer` envelope is studied as a model, not changed | Decided | P5: repository mechanisms first. P7: no variant without a case. No Engine change needs confirming |
 | G9 | Standardise the UI's doors inside EPIC-047, or first, separately? | **A separate epic, done first and numbered when it is scaffolded.** Its parts: a rule in `architecture-rule.md`; a guard test that uses R7's method (DERISK §7.2), with R7's count as its baseline, which only shrinks (215 imports around the doors in 82 files across 18 screen areas, and 30 UI functions that take the whole `IContainer`); read models instead of computation in the presenter; presenters that receive a narrow application gateway instead of the container. Pure-code ports (`IBotKind`, `IBotKindCatalog`, `ICandleFeed`) join the UI allowlist. EPIC-047's code starts once its guard holds for the Bots screen | Decided | P1: a guard, not prose. P6: the mechanism, every screen. P8: a ratchet baseline. R7 measured it |
 
-**Constitution check (all decisions together)**
+**Constitution check (all decisions together).** G11 is checked one invariant at a time in [the 2026-10-27 record](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md) §2a; its two real-money and REST-load parts are the owner's and are not defaulted.
 | Invariant | Holds? | How |
 |-----------|--------|-----|
 | P1 Mechanism over memory | Yes | G9's guard test; G7 keeps the "no port" test; typed transport errors (G1) |
@@ -182,6 +188,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 ### 5.1 Constraints
 - **Real money.** The VPS runs mainnet bots. A remote command must never bypass the host's checks; a real-money start or resume keeps the venue confirmation.
 - **No inbound port by default.** The owner's rule for remote control (EPIC-036F, D3): the trading host opens no port to the Internet. A protocol that needs one may exist only if the owner turns it on explicitly for a profile.
+- **The VPS tab connects to nothing at Binance (O7, G11).** Every Binance-derived fact it shows comes from the host over the bridge. The host fetches; the bridge calls no exchange and loads no key; the host's REST reads stay under a weight ceiling the owner sets, below the exit reserve (`ExchangeCallPolicy`, `RequestPriority`).
 - **Single writer.** The host is the only writer of its bots' state; the desktop sends commands only.
 - **Losing the connection is harmless.** No bot on the VPS depends on the desktop being connected.
 - **No secret on the wire or on disk in the app.** SSH keys stay in the user's own SSH setup; the app stores host and user names only; no exchange key ever crosses the tunnel.
@@ -201,6 +208,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | A4 | The host's control door (`DirectoryHostControl`) accepts every command the tab needs (EPIC-045 parity guard) | The parity test that exists today | Likely true |
 | A5 | One owner, one or two VPS hosts | Owner | Open |
 | A7 | The Bots screen can reach the application only through the dispatcher, the bus and an allowlist of UI-only ports, without a visible change (Discover, Finding E) | Discover R7, then the standardisation's own work | Open |
+| A8 | The host can serve candles, the live candle and refreshed facts beside its bots without slowing them or spending the exit reserve | EPIC-047H's measurements: the used-weight header on testnet, then on the owner's VPS | Open |
 | A6 | Every query the Bots screen runs can be made asynchronous without changing what it shows (a remote query is slower than a local one) | Inventory in Discover | Open |
 
 ---
@@ -219,6 +227,7 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 | AC6 | Connection loss is safe | Cut the tunnel during a command and while idle | Bots unaffected; the tab says "disconnected, data as of …"; no command sent twice | Test plus a manual cut |
 | AC7 | One screen, two backends | Classes of the two tabs' widgets and presenters | The same classes | Architecture test |
 | AC9 | Connection is configurable | Create, edit and delete a profile; switch a profile's protocol | Works with no code change; credentials never stored as plain text by the app | Test plus the owner's use |
+| AC10 | The VPS tab connects to nothing at Binance | Exchange calls and non-loopback connections made by the VPS tab, composed over a fake host and a recording fake exchange; Binance clients in the tab's composition | Zero calls and zero connections; baseline 0 clients, only falling; a link cut shows "disconnected, data as of …" with no fallback | Guard test (import closure) plus a runtime test; then a packet-level check on the owner's desktop that the tab opens no connection to Binance |
 | AC8 | The local tab is unchanged | The Bots tab's existing tests and the owner's daily use | All green, no visible change | The full gate after D1 |
 
 ### 6.2 What success looks like
@@ -235,15 +244,18 @@ The choice is recorded in the epic's decision record after De-risk, with the Con
 **Scenario 4 — Versions differ**
 > The owner updates the desktop but not the VPS. The tab refuses the link and says "the VPS host runs another build; run `sudo sew-update`". In v1 any version mismatch refuses the whole link; read-only access to an older host is a later variant (De-risk R6).
 
+**Scenario 5 — The tab connects to nothing at Binance**
+> The owner opens the VPS Bots tab with the desktop's Binance keys removed and its network to Binance blocked. The list, the chart with its live candle, the Checks, the Plan rows, the orders and the fills all appear, each with the age of its data from the host. A packet capture on the desktop shows connections to the VPS only. The owner cuts the link: the tab says "disconnected, data as of …", the chart stops at its last candle, and nothing is fetched from Binance to fill the gap.
+
 ---
 
 ## 7. Summary
 
 - **Objective:** see and control the VPS bots from a desktop tab that is the Bots tab itself on a remote backend, over a configurable connection, with the host's own checks and audit.
 - **Scope:** one host at a time; every Bots tab view and action; no VPS administration, no backtest on the VPS, no open port.
-- **Constraints:** real money; no inbound port by default; host is the single writer; new dependencies and any Engine change need the owner's approval; each concern in its layer.
-- **Acceptance:** AC1–AC9 (§6.1).
-- **Decisions:** §4, G1–G9 (G1, G6 and G7 are provisional until De-risk). Open assumptions: A1, A6, A7.
+- **Constraints:** real money; no inbound port by default; the VPS tab connects to nothing at Binance; host is the single writer; new dependencies and any Engine change need the owner's approval; each concern in its layer.
+- **Acceptance:** AC1–AC10 (§6.1).
+- **Decisions:** §4, G1–G11 (G1, G6 and G7 are provisional until De-risk). Open assumptions: A1, A6, A7, A8.
 - **Assumptions:** §5.2.
 
 **Next step:** De-risk (`DERISK.md`): run experiments R1–R7 from Discover §8 to confirm or overturn the provisional decisions; then the decision records, the preparatory epic (G9) and EPIC-047's own scaffolding.

@@ -4,7 +4,7 @@
 **Date:** 2026-10-26
 **Status:** Accepted
 **Decided by:** D1 by the author of [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md), which [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) handed it; D2 and D3 by the coordinating session under ONBOARDING §7 ("Settle an owner decision that carries a recommendation"), handed to the author in its brief of 2026-10-26. The owner may veto any row; a veto reverts it. The Constitution check is §2a.
-**Supersedes / superseded by (optional):** none. Read with [the remote link record](DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) D4 and D5.
+**Supersedes / superseded by (optional):** none. Read with [the 2026-10-27 record](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md), whose D4 replaces D3 here once the owner accepts it, and with [the remote link record](DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) D4 and D5.
 
 | Label | Meaning |
 | :--- | :--- |
