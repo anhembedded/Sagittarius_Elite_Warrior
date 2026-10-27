@@ -72,8 +72,8 @@ The desktop (Windows) starts the bridge on the VPS over SSH and talks to it on s
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified |
-| D2 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified; no requirements file edited by this record |
-| D3 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md), with the slim entry point in [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | Not started | Not yet verified |
-| D4 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified |
+| D1 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | In review | `AsyncSshTransport` against a real `asyncssh` server on loopback (typed errors, no blocking call in the loop) |
+| D2 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | In review | `asyncssh==2.24.1` in `requirements.txt` and the recompiled lock, approved by the owner in the author session on 2026-10-27; `cryptography`, `cffi` and `pycparser` are locked for Windows too; the owner's veto point is the pull request |
+| D3 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md), with the slim entry point in [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | In review | (b) the `client_keys=None` test and (d) the loop that never blocks are proved; (a) the Windows agent and (c) the real-link reconnect are the owner's measurements, pending |
+| D4 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | In review | The wrong-key and first-use refusals against a real server; `known_hosts` is never `None`; the profile holds no secret |
 | D5 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not applicable until D3(a) fails | Not applicable |
