@@ -51,11 +51,19 @@ def is_contracts_package(module: str) -> bool:
     return sub_package_of(module) == "contracts"
 
 
+#: The two files of a module that `shell/` may import: `module.py`, the module as an Engine
+#: extension, and `link.py` (`EPIC-047C`), the module's surface on the remote link. `module.py`
+#: loads every handler and adapter of the module; the bridge is started by `sshd` for each session
+#: and must not pay for that, so a module that serves the link has a second, slim file that
+#: imports only the wire roots and the readers the bridge needs.
+_ENTRY_POINT_FILES = frozenset({"module", "link"})
+
+
 def is_module_entry_point(module: str) -> bool:
-    """`modules.<name>.module` — the one file `shell/` may import from a module."""
+    """`modules.<name>.module` or `modules.<name>.link` — the files `shell/` may import from a module."""
     parts = module.split(".")
     return (
         len(parts) == _SUB_PACKAGE_INDEX + 1
         and parts[0] == "modules"
-        and parts[-1] == "module"
+        and parts[-1] in _ENTRY_POINT_FILES
     )
