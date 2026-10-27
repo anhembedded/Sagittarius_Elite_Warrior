@@ -65,6 +65,15 @@ _FORBIDDEN_PREFIXES = (
     "Sagittarius_Elite_Warrior.src.modules.market_data.adapters",
     "Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters",
 )
+#: The candle store's read-only side: the only `market_data.adapters` modules a feed file may import (no client, no stream).
+_MARKET_DATA = "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence"
+_STORE_READER_NEIGHBOURS = frozenset(
+    {
+        f"{_MARKET_DATA}.readonly_candle_shards",
+        f"{_MARKET_DATA}.shard_name",
+        f"{_MARKET_DATA}.venue_subdirectory",
+    }
+)
 #: Names that place, cancel, hold a lease or a key: a feed file imports none of them.
 _FORBIDDEN_NAMES = frozenset(
     {
@@ -85,7 +94,6 @@ _FORBIDDEN_NAMES = frozenset(
 def breaches(source: str, path: str) -> list[str]:
     """What `source` imports that a feed file may not."""
     found: list[str] = []
-    own = "Sagittarius_Elite_Warrior." + path.removesuffix(".py").replace("/", ".")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             modules = [alias.name for alias in node.names]
@@ -97,10 +105,9 @@ def breaches(source: str, path: str) -> list[str]:
         for module in modules:
             if module.split(".")[0] in _NETWORK:
                 found.append(f"{path}: imports the network library {module}")
-            # a file inside a forbidden package (the store reader beside the store) may name its neighbours
-            if module.startswith(_FORBIDDEN_PREFIXES) and not any(
-                own.startswith(prefix) and module.startswith(prefix)
-                for prefix in _FORBIDDEN_PREFIXES
+            if (
+                module.startswith(_FORBIDDEN_PREFIXES)
+                and module not in _STORE_READER_NEIGHBOURS
             ):
                 found.append(f"{path}: imports the client-building module {module}")
         found += [
@@ -146,5 +153,16 @@ def test_the_scanner_can_fail() -> None:
     assert breaches(
         "from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import C\n",
         "x",
+    )
+    assert breaches(
+        "from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import X\n",
+        "x",
+    )
+    assert (
+        breaches(
+            f"from {_MARKET_DATA}.readonly_candle_shards import ReadonlyCandleShards\n",
+            "x",
+        )
+        == []
     )
     assert breaches("import json\nfrom pathlib import Path\n", "x") == []

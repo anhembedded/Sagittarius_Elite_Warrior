@@ -19,8 +19,8 @@ read is 20); the fills 10 a window of seven days on Futures (two history endpoin
 every read after it: a cost above the ceiling is a read that can never go, and nothing would then ever
 re-measure it. The expected cost rises only when the *median* of the last `OBSERVATIONS_KEPT` reads of the
 kind does, and only once `MIN_OBSERVATIONS` have been seen. Where the median still lands above the ceiling
-(a busy stretch, or a ceiling lowered by setting), the refresher calls `forget`: the kind is tried again at
-its planning figure and re-measured. A planning figure that alone exceeds the ceiling stays held, and is logged.
+(a busy stretch, or a ceiling lowered by setting), the refresher calls `forget` (through `VenueBudget.reprobe`, at most
+every ten minutes): the kind is tried again at its planning figure and re-measured. A planning figure that alone exceeds the ceiling stays held, and is logged.
 """
 
 from __future__ import annotations

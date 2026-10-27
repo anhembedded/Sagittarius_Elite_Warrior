@@ -27,6 +27,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.weight_reading impo
 _SECONDS_PER_MINUTE = 60.0
 #: How long a venue waits when nothing can be measured or a single read can never fit.
 BLOCKED_HOLD_S = 60.0
+#: A kind held as too dear is measured afresh no oftener than this: a read that stays dearer than the ceiling
+#: (a ceiling lowered by setting) then overshoots it by `MIN_OBSERVATIONS` reads per interval, each one alone in
+#: its minute (the ledger waits for an empty window), never in a loop.
+REPROBE_EVERY_S = 600.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +52,7 @@ class VenueBudget:
         self.ledger = WeightLedger()
         self.costs = ExpectedCosts()
         self._held_until = 0.0
+        self._probed_at: dict[ReadKind, float] = {}
 
     def ceiling_weight(self, reading: WeightReading) -> int:
         return int(reading.limit * self._ceiling_pct / 100)
@@ -65,6 +70,14 @@ class VenueBudget:
         if math.isinf(wait):
             return Verdict(BLOCKED_HOLD_S, "too_dear")
         return Verdict(wait, "ceiling") if wait > 0 else Verdict(0.0)
+
+    def reprobe(self, kind: ReadKind, now: float) -> None:
+        """A kind held as too dear on what was seen is forgotten, so it is tried at its planning figure and measured
+        afresh; at most once per `REPROBE_EVERY_S`, so a kind that is truly dearer than the ceiling costs
+        `MIN_OBSERVATIONS` reads over it per interval (each alone in its minute) and not a loop."""
+        if now - self._probed_at.get(kind, -REPROBE_EVERY_S) >= REPROBE_EVERY_S:
+            self._probed_at[kind] = now
+            self.costs.forget(kind)
 
     def hold(self, wait_s: float, now: float) -> None:
         """Nothing on this venue is read before `now + wait_s`."""

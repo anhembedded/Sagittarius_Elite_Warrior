@@ -81,6 +81,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 logger = logging.getLogger("App.Operations.VpsRefresh")
+_READ_RAISED = "the read raised"
 
 
 class FactsRefresher(IFactsRefreshRequests):
@@ -238,7 +239,7 @@ class FactsRefresher(IFactsRefreshRequests):
                 self._deferred[(job.bot_id, job.asked)] = now + verdict.wait_s
                 return BETWEEN_READS_S
             if verdict.reason == "too_dear":
-                budget.costs.forget(job.kind)
+                budget.reprobe(job.kind, now)
             self._hold(job.venue, verdict.wait_s, verdict.reason, now)
             return min(verdict.wait_s, IDLE_S)
         self._read(job, meter, now)
@@ -282,13 +283,14 @@ class FactsRefresher(IFactsRefreshRequests):
         try:
             return self._do(job)
         except Exception as failure:  # noqa: BLE001 - the seam to the exchange reads: a raise is a word, and the weight spent is still charged
-            logger.warning(
-                "[vps-feed] a %s read of %s raised: %s [vps-feed-read]",
+            # the exception's words may carry what a key store or a URL said: DEBUG only; the report logs the cause once
+            logger.debug(
+                "a %s read of %s raised: %s",
                 job.kind.value,
                 job.bot_id or job.venue.value,
                 failure,
             )
-            return RefreshOutcome(None, f"the read raised: {failure}")
+            return RefreshOutcome(None, _READ_RAISED)
 
     def _do(self, job: Job) -> RefreshOutcome:
         if job.kind is ReadKind.STATIC:
