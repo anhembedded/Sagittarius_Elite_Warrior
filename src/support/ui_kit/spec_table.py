@@ -34,6 +34,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import (
     frame_instruction_page,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.inserted_rows_column_growth import (
+    InsertedRowsColumnGrowth,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -91,24 +94,11 @@ class SpecTable[TRow]:
             formatter=formatter,
             selection=selection,
         )
-        self.proxy.rowsInserted.connect(self._grow_columns_to_content)
+        self._growth = InsertedRowsColumnGrowth(self.view, self.proxy, model.COLUMNS)
         stack = EmptyStateStack(self.view, empty_text)
         frame_instruction_page(stack)
         self.body: QWidget = stack
         self.body.setObjectName(f"{object_name}Body")
-
-    def _grow_columns_to_content(self) -> None:
-        """The Engine fits the columns when the first rows arrive and not again, but a live
-        table is fed rows later: one named longer than the first batch would stay elided
-        (`BUG-272`, the Developer mode's event log). A column only ever widens here, so a
-        width the person narrowed stays until a row needs more."""
-        header = self.view.horizontalHeader()
-        for column in range(header.count()):
-            need = max(
-                header.sectionSizeHint(column), self.view.sizeHintForColumn(column)
-            )
-            if header.sectionSize(column) < need:
-                header.resizeSection(column, need)
 
     def row_at(self, proxy_index: AnyIndex) -> TRow | None:
         """The row behind an index of the view, which is the proxy's."""
