@@ -10,6 +10,12 @@ changes nothing itself. In order:
      never sees half a file - and the audit is polled for that id;
   4. the verdict the host recorded becomes the reply.
 
+**The same command id sent again does the work once** (`EPIC-047C`: the remote link's bridge sends
+the id the desktop made, and a desktop that lost its connection sends it again). An id the host
+has already settled is answered from the audit, whatever the host does now, and nothing is written;
+an id whose file still waits for the host, or that the host has claimed, is waited for and not
+written again. The command line's ids are fresh random ones, so it never meets either case.
+
 **A timeout never leaves a hidden command.** The writer tries to remove its own file. The host
 claims a file by renaming it **before** reading it (`DirectoryHostCommandInbox`), so the removal
 succeeds only while the host has not taken it: then the reply says "withdrawn, nothing happened"
@@ -39,6 +45,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
+    claimed_name,
     command_file_name,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_codec import (
@@ -90,6 +97,10 @@ class DirectoryHostControl(IHostControl):
             raise ValueError(
                 f"wait_s must be a finite, non-negative number, not {wait_s}"
             )
+        command_id = self._new_command_id()
+        settled = self._audit.final_entry_of(command_id)
+        if settled is not None:
+            return _reply_of(settled)
         if not self._probe.is_held():
             return HostControlReply(
                 HostControlStatus.NOT_RUNNING,
@@ -102,7 +113,7 @@ class DirectoryHostControl(IHostControl):
                 "`main.py run` accepts commands, and only for the account it runs as.",
             )
         command = HostCommand(
-            self._new_command_id(),
+            command_id,
             request.action,
             request.bot_id,
             request.confirmed_venue,
@@ -115,10 +126,18 @@ class DirectoryHostControl(IHostControl):
             request.strategy_venue,
             request.desired_state,
         )
-        written = self._write(command)
-        if written is not None:
-            return written
+        if not self._is_waiting_for_the_host(command_id):
+            written = self._write(command)
+            if written is not None:
+                return written
         return self._await_outcome(command, wait_s)
+
+    def _is_waiting_for_the_host(self, command_id: str) -> bool:
+        """An earlier send of this id left its file for the host, or the host has taken it."""
+        name = command_file_name(command_id)
+        return (self._directory / name).exists() or (
+            self._directory / claimed_name(name)
+        ).exists()
 
     def _write(self, command: HostCommand) -> HostControlReply | None:
         final = self._directory / command_file_name(command.command_id)

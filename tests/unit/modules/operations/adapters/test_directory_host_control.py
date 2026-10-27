@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
+    HostControlReply,
     HostControlRequest,
     HostControlStatus,
 )
@@ -21,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.directory_host_co
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.jsonl_host_control_audit import (
     JsonlHostControlAudit,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
+    HostCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_host_command_executor import (
     ExecutionOutcome,
 )
@@ -29,11 +33,13 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.operations.adapters.host_contr
     HostAndWriter,
     inbox_over,
     posix_only,
+    write_command_file,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.control_world import (
     BOT,
     ID_A,
     MovableClock,
+    command,
 )
 
 
@@ -185,3 +191,68 @@ def test_a_refusal_by_the_bot_reaches_the_operator_in_the_bots_words(
         HostControlStatus.REFUSED,
         "Bot 44wa1x is already stopped.",
     )
+
+
+@posix_only
+def test_the_same_id_sent_again_after_the_host_ran_it_is_answered_from_the_audit_and_runs_once(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-047C`: a desktop that lost its connection sends the command it made again."""
+    rig = HostAndWriter(tmp_path)
+    first = rig.send()
+
+    again = rig.send()
+
+    assert (again.status, again.command_id) == (first.status, first.command_id)
+    assert again.message == first.message
+    assert len(rig.executor.executed) == 1
+    assert [p.name for p in rig.directory.iterdir()] == ["audit.jsonl"]
+
+
+class _ForbidsWriting(DirectoryHostControl):
+    """The same door, which fails the test if it writes a command file."""
+
+    def _write(self, command: HostCommand) -> HostControlReply | None:
+        raise AssertionError("the command was written again")
+
+
+def _door_beside(rig: HostAndWriter, *, host_runs: bool) -> _ForbidsWriting:
+    return _ForbidsWriting(
+        rig.directory,
+        HeldProbe(host_runs),
+        JsonlHostControlAudit(rig.directory / "audit.jsonl"),
+        MovableClock(),
+        lambda: ID_A,
+        rig._sleep,
+        lambda: rig.clock_now,
+    )
+
+
+@posix_only
+def test_a_settled_id_is_answered_even_when_no_host_runs_any_more(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path)
+    rig.send()
+
+    again = _door_beside(rig, host_runs=False).send(
+        HostControlRequest(HostControlAction.STOP, BOT), 5.0
+    )
+
+    assert again.status is HostControlStatus.DONE
+    assert len(rig.executor.executed) == 1
+
+
+@posix_only
+def test_a_file_an_earlier_send_left_for_the_host_is_waited_for_and_not_written_again(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path)
+    write_command_file(rig.directory, command(ID_A, HostControlAction.STOP, BOT))
+
+    reply = _door_beside(rig, host_runs=True).send(
+        HostControlRequest(HostControlAction.STOP, BOT), 5.0
+    )
+
+    assert reply.status is HostControlStatus.DONE
+    assert len(rig.executor.executed) == 1
