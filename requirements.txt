@@ -16,3 +16,4 @@ flake8
 mypy==2.1.0
 keyring
 rich
+asyncssh
