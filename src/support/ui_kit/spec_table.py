@@ -34,6 +34,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import (
     frame_instruction_page,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.inserted_rows_column_growth import (
+    InsertedRowsColumnGrowth,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -91,6 +94,7 @@ class SpecTable[TRow]:
             formatter=formatter,
             selection=selection,
         )
+        self._growth = InsertedRowsColumnGrowth(self.view, self.proxy, model.COLUMNS)
         stack = EmptyStateStack(self.view, empty_text)
         frame_instruction_page(stack)
         self.body: QWidget = stack

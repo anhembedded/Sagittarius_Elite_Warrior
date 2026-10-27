@@ -241,3 +241,70 @@ def test_a_batch_larger_than_the_log_keeps_its_newest(qtbot) -> None:
     model.append([_record("A"), _record("B"), _record("C")])
 
     assert [row.event for row in model.rows] == ["B", "C"]
+
+
+def test_a_name_longer_than_the_first_batch_still_shows_whole(qtbot) -> None:
+    """`BUG-272`: the Engine fits a table's columns when its first rows arrive, and the log is a
+    live feed, so an event named longer than anything in the first drain was elided."""
+    view = DeveloperView()
+    qtbot.addWidget(view)
+    view.show()
+    table = view.event_log.view
+    header = table.horizontalHeader()
+    column = EventLogTableModel.COLUMNS.index(
+        next(spec for spec in EventLogTableModel.COLUMNS if spec.key == "event")
+    )
+
+    view.append_events([_record("Boot")])
+    view.append_events([_record("AHostFactsFileWasReplacedAtStartUpEvent")])
+
+    assert header.sectionSize(column) >= table.sizeHintForColumn(column)
+
+
+def _event_column() -> int:
+    return EventLogTableModel.COLUMNS.index(
+        next(spec for spec in EventLogTableModel.COLUMNS if spec.key == "event")
+    )
+
+
+def test_a_width_the_person_narrowed_survives_a_row_that_is_no_wider_than_the_widest(
+    qtbot,
+) -> None:
+    """`BUG-272`: the growth is measured against the widest row seen, not against the shown
+    rows, so a drag is not undone by every drain of the log."""
+    view = DeveloperView()
+    qtbot.addWidget(view)
+    view.show()
+    header = view.event_log.view.horizontalHeader()
+    column = _event_column()
+    view.append_events([_record("AHostFactsFileWasReplacedAtStartUpEvent")])
+    header.resizeSection(column, 70)
+
+    view.append_events([_record("Boot"), _record("AMediumLengthEventName")])
+    assert header.sectionSize(column) == 70
+
+    view.append_events(
+        [_record("AHostFactsFileWasReplacedAtStartUpEventAgainAndAgain")]
+    )
+    assert header.sectionSize(column) > 70
+
+
+def test_a_growth_measures_only_the_rows_just_inserted(qtbot, monkeypatch) -> None:
+    """`BUG-272`: measuring every shown row on each insert cost about 340 ms a drain at a
+    thousand rows (the Engine's `StretchColumnFiller` documents the same trap)."""
+    view = DeveloperView()
+    qtbot.addWidget(view)
+    view.show()
+    table = view.event_log.view
+    view.append_events([_record(f"Event{number}") for number in range(300)])
+    measured: list[int] = []
+    real = table.sizeHintForIndex
+    monkeypatch.setattr(
+        table,
+        "sizeHintForIndex",
+        lambda index: measured.append(index.row()) or real(index),
+    )
+
+    view.append_events([_record("One")])
+
+    assert set(measured) == {300}
