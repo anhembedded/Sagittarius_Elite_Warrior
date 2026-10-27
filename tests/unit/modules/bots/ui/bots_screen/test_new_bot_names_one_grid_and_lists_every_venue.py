@@ -14,6 +14,13 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier imp
     RecordingNotifier,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_choices import (
+    GetVenueChoicesQuery,
+    GetVenueChoicesQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
+    BotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
 )
@@ -35,7 +42,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     NOT_ENABLED,
     VenueChoice,
-    venue_choices,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import kind_title
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
@@ -93,7 +99,13 @@ class _InlinePool(IThreadManager):
 
 
 def _choices() -> tuple[VenueChoice, ...]:
-    return venue_choices(_NothingEnabled(), [_GridLikeKind()])
+    return (
+        GetVenueChoicesQueryHandler(
+            _NothingEnabled(), BotKindCatalog([_GridLikeKind()])
+        )
+        .execute(GetVenueChoicesQuery())
+        .choices
+    )
 
 
 def _dialog(qtbot, choices: tuple[VenueChoice, ...]) -> NewBotDialog:

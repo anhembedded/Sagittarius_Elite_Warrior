@@ -50,6 +50,10 @@ PARITY: dict[str, HostVerb | Excluded] = {
         "confirm-resume", HostControlAction.CONFIRM_RESUME
     ),
     "ChangeBotVenueCommand": HostVerb("move", HostControlAction.MOVE),
+    "ExportBotPlanToFileCommand": Excluded(
+        "It writes a plan file and changes no stored bot (`EPIC-048B`); `bot export` dispatches "
+        "this same command on the read-only copy beside a running host."
+    ),
 }
 
 #: Menu commands that dispatch no bot command of `PARITY`, by command id.

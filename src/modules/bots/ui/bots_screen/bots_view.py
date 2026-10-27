@@ -19,7 +19,7 @@ watching a bot and editing its plan were never on screen together.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
@@ -55,19 +55,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.identity_strip import (
     IdentityStrip,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot_precisions import (
-    SelectedBotPrecisions,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
-from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
-    ISymbolPrecisions,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
@@ -209,6 +200,7 @@ class BotsView(OutputSourceView):
         outer.addWidget(self.surface)
         self.set_chart(None)
         self.set_backtest_page(None, NO_SELECTION_BACKTEST_TEXT)
+        self._use_precisions()
         self._connect()
 
     def apply_ui_mode(self, state: BotsUiState, section_key: str | None = None) -> None:
@@ -224,12 +216,10 @@ class BotsView(OutputSourceView):
         if panel is not None:
             panel.set_editable(self._mode is BotsUiState.EDITING_DRAFT)
 
-    def use_venue_filters(
-        self, filters: Mapping[TradingVenue, ISymbolPrecisions]
-    ) -> None:
-        """Writes the selected bot's orders and fills in its own venue's
-        symbol filters (`EPIC-033N`)."""
-        precisions = SelectedBotPrecisions(filters, lambda: self.model.selected)
+    def _use_precisions(self) -> None:
+        """Writes the selected bot's orders and fills in its own venue's symbol filters, as
+        the planner read them (`EPIC-033N`, `EPIC-048B`)."""
+        precisions = self.model.precisions
         self.orders.use_precisions(precisions)
         self.ladder.use_precisions(precisions)
         self.fills.use_precisions(precisions)

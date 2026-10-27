@@ -11,8 +11,7 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.plan_file import (
-    PlanFileWritten,
-    write_new_plan_file,
+    PlanFileWriter,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_parser import (
     InvalidBotPlanError,
@@ -31,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.plan_file import (
+    PlanFileWritten,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -65,7 +67,9 @@ def test_a_second_kind_exports_through_the_real_query_and_writer_and_applies_as_
         ExportBotPlanQuery()
     )
 
-    written = write_new_plan_file(tmp_path / "plan.json", document.to_json_text())
+    written = PlanFileWriter().write_new(
+        tmp_path / "plan.json", document.to_json_text()
+    )
     assert isinstance(written, PlanFileWritten)
     reread = parse_plan(
         written.path.read_text(encoding="utf-8"), BotKindCatalog([StubKind(_KIND)])

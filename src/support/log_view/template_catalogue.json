@@ -271,6 +271,7 @@
 ["ss", "Bots screen: ", " for ", " arrived after the selection moved"],
 ["", "Bots screen: a bot change after shutdown is ignored"],
 ["s", "Bots screen: backtest workbench built for ", ""],
+["", "Bots screen: export plan asked while one is running; ignored"],
 ["s", "Bots screen: export plan failed: ", ""],
 ["s", "Bots screen: no editor for kind ", ""],
 ["d", "Bots screen: plan of ", " bot(s) copied"],

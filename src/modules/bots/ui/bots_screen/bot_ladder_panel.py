@@ -49,6 +49,7 @@ class BotLadderPanel(QWidget):
         layout.addWidget(self._table.body, 1)
         model.selection_changed.connect(self._show_grids)
         model.ladder_changed.connect(self._show_grids)
+        model.precisions_changed.connect(self._show_grids)
         self._show_grids()
 
     def use_precisions(self, precisions: ISymbolPrecisions) -> None:

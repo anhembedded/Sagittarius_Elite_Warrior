@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.file_applied_plan_store
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.plan_file import PlanFileWriter
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import (
     SystemBotClock,
 )
@@ -70,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_waiter import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_plan_file_writer import (
+    IPlanFileWriter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_profiles import (
     IVenueProfiles,
 )
@@ -98,6 +102,8 @@ def bind_state(container: IContainer) -> None:
     # `EPIC-038I` - what `bot apply` recorded; `run --start-planned` reads only this.
     container.singleton(IAppliedPlanStore, _build_applied_plan_store)
     container.singleton(IBotPlan, _build_bot_plan)
+    # `EPIC-048B` - where Export plan… and `bot export` write a plan file: the machine the app runs on.
+    container.singleton(IPlanFileWriter, PlanFileWriter())
     # `EPIC-039A` - what a venue allows; the answer `venue_profile_of` gives, injected.
     container.singleton(IVenueProfiles, VenueProfilesByMarket())
 

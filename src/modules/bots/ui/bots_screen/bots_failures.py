@@ -51,6 +51,7 @@ _READ_HEADLINES = {
     ReadKind.LIST: "The bots could not be read. Retry, or check the venue connection.",
     ReadKind.PLANNER: "The market numbers for this bot could not be read. Retry.",
     ReadKind.FILLS: "The fills of this bot could not be read. Retry.",
+    ReadKind.VENUES: "The venues a bot may be on could not be read. Retry.",
     ReadKind.RUN: (
         "What else stands in this bot's way (other bots, the symbol's lease, the venue) "
         "could not be checked. Start waits for it. Retry."
@@ -90,6 +91,9 @@ class BotsFailures:
         self._show_fills(BotFills(problem=f"not read: {state_words(refusal)}"))
 
     def read_failed(self, kind: ReadKind, _label: str, detail: str) -> None:
+        if kind is ReadKind.EXPORT:
+            # Told by Export plan… itself, as a command that failed.
+            return
         if kind is ReadKind.EXCHANGE:
             # Told by the snapshot itself: the Run step names it unavailable.
             return

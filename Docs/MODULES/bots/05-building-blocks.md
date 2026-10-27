@@ -171,8 +171,8 @@ The application services are split first by kind, then by feature (`BOT-177`). A
 ## Built: the Bots screen's doors (EPIC-048B)
 
 The Bots screen reaches the application through the dispatcher, the bus and the allowlist of
-`architecture-rule.md` §3.1, and holds no application internal. What it used to compute itself
-from host facts is two queries:
+`architecture-rule.md` §3.1, and holds no application internal, no adapter and no venue port. What
+it used to compute or read itself is three queries and a command:
 
 - `bots/application/queries/get_bot_run_facts/handler.py` → `GetBotRunFactsQueryHandler` answers the
   host's Run facts of one bot (`bots/contracts/run_facts.py` → `BotRunFacts`): whether the venue is on
@@ -189,6 +189,20 @@ from host facts is two queries:
   The screen reads the Run facts off the UI thread and holds them (`bots/ui/bots_screen/run_facts_check.py`
   → `RunFactsCheck`).
 
+- `bots/application/queries/get_venue_choices/handler.py` → `GetVenueChoicesQueryHandler` answers the
+  venues a bot may be on, each with its connection words (`bots/contracts/venue_choice.py` →
+  `VenueChoices`, `VenueChoice`, `KEY_SAVED`, `NO_KEY`, `NOT_ENABLED`): whether a saved API key exists,
+  never the key. New bot and the Plan's Venue field offer what the screen holds
+  (`bots/ui/bots_screen/bot_venues.py` → `BotVenues`); `venue_choice.py` keeps only the combo box row
+  (`add_venue_choice`).
+- `bots/application/use_cases/export_bot_plan_to_file/handler.py` → `ExportBotPlanToFileCommandHandler`
+  writes the plan of the chosen bots to a new file through `bots/contracts/i_plan_file_writer.py` →
+  `IPlanFileWriter`, and answers `PlanFileExported` or `PlanFileNotExported` (`exists`, `os_error`,
+  `unknown_bots`, the ids checked before the query runs). `bot export` dispatches the same command.
+- The selected bot's tables quote prices in the tick and step sizes the planner read
+  (`PlannerMarket.terms`), kept per venue and symbol (`bots/ui/bots_screen/selected_bot_precisions.py` →
+  `SelectedBotPrecisions`), not in a venue's metadata cache.
+
 `bots/ui/bots_screen/bot_detail.py` → `detail_for` takes the assessment as its door (`Assess`) and keeps
 the presentation: figures, checks, availability, overlay, ladder. The values both sides hold are
 published with the contracts: `bots/contracts/connection_read.py` → `ConnectionRead`; the Run
@@ -201,8 +215,8 @@ step's facts, `bots/contracts/run_facts.py` → `RunFacts`; the account view,
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.
 `bots/composition/wire_roots.py` → `BOTS_WIRE_ROOTS` is the one list: each entry is a wire name
-(`sew.bot-snapshot/1`) and a root type, 14 in all in `bots` (the results of the queries the Bots screen reads, the
-bot, a command's result, the host-control request and reply); `bots/link.py` → `wire_roots` hands it
+(`sew.bot-snapshot/1`) and a root type, 15 in all in `bots` (the results of the queries the Bots screen reads, the
+venues a bot may be on included (`EPIC-048B`), the bot, a command's result, the host-control request and reply); `bots/link.py` → `wire_roots` hands it
 to the shell (`EPIC-047C` moved it from `module.py`, which loads the whole module; `operations/link.py` hands over the host-facts
 document, the fifteenth root). The codec itself is `support/wire` and imports no module. A root is added by one entry here
 and one contract test (`tests/unit/support/wire/contract/`).

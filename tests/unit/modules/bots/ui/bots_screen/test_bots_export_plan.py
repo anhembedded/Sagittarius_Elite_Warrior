@@ -93,6 +93,7 @@ def test_save_writes_what_bot_export_would_write(
     screen = _screen(open_bots_screen, answers)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     assert target.read_text(encoding="utf-8") == _expected(screen).to_json_text()
     assert any(a.startswith("plan path bot-plan-") for a in answers.asked)
@@ -109,6 +110,7 @@ def test_the_success_message_names_the_file_the_count_and_the_server_commands(
     screen = _screen(open_bots_screen, answers)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     ((headline, detail),) = screen.notifier.events
     assert str(target) in headline and "2 bot(s)" in headline
@@ -128,6 +130,7 @@ def test_all_stopped_writes_every_entry_stopped(
     assert any(b.desired_state is DesiredState.RUNNING for b in kept.bots)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     assert (
         target.read_text(encoding="utf-8")
@@ -147,6 +150,7 @@ def test_the_selected_scope_exports_only_the_selected_bot(
     screen.settle()
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     assert (
         target.read_text(encoding="utf-8")
@@ -167,6 +171,7 @@ def test_an_existing_file_is_refused_by_name_and_left_untouched(
     screen = _screen(open_bots_screen, answers)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     assert target.read_text(encoding="utf-8") == "keep me"
     notice = screen.notifier.last
@@ -184,6 +189,7 @@ def test_a_write_failure_shows_its_reason_and_the_screen_keeps_running(
     screen = _screen(open_bots_screen, answers)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     notice = screen.notifier.last
     assert str(target) in notice.headline and notice.detail
@@ -197,10 +203,12 @@ def test_cancelling_either_question_writes_and_says_nothing(
     answers = Answers(export_plan=None)
     screen = _screen(open_bots_screen, answers)
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
     answers.export_plan = ExportPlanChoice(_ALL, False, _SAVE)
     answers.plan_path = ""
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     assert list(out.iterdir()) == []
     assert not screen.notifier.failures and not screen.notifier.events
@@ -213,6 +221,7 @@ def test_copy_json_puts_exactly_the_text_a_save_would_write(
     screen = _screen(open_bots_screen, answers)
 
     screen.actions.action(EXPORT_PLAN).trigger()
+    screen.settle()
 
     clipboard = QGuiApplication.clipboard()
     assert clipboard.text() == _expected(screen, all_stopped=True).to_json_text()

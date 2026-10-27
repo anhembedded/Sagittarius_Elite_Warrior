@@ -19,8 +19,7 @@
       "PORT": 2
     },
     "bots/ui/bots_screen": {
-      "ADAPTER": 2,
-      "PORT": 7
+      "PORT": 4
     },
     "bots/ui/kinds": {
       "APP_OTHER_fn": 2,
@@ -61,9 +60,6 @@
     },
     "backtesting/ui/coordinators": {
       "APP_OTHER_data": 1
-    },
-    "bots/ui/bots_screen": {
-      "APP_OTHER_data": 2
     },
     "bots/ui/strategies": {
       "APP_SERVICE_data": 2

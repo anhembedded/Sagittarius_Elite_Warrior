@@ -1,99 +1,25 @@
-"""`BOT-171` — the venues a bot may be on, each with its connection state.
+"""`BOT-171` — the venue pickers' combo box rows.
 
-@details New bot and the Plan's Venue field offer the same list: every venue a bot kind
-runs on, each in its market's words. A kind is offered a venue only when it declares the
-venue's market (`IBotKind.supported_profiles`). A venue a build closes is listed too, greyed
-out with its reason (`VenueChoice.closed_reason`), never silently left out (`BUG-208`); no
-venue is closed today (Futures mainnet was opened by `EPIC-039L`, the owner's decision of
-2026-10-17). The state is what is known without a network call: whether the venue has an
-API key (`credentials_provider` is the stored key, ungated — it never reaches the
-exchange). Whether the key *works* is the Connect step's read, made once a bot is
-on the venue, and its failure is told once, in the message bar (`BUG-181`).
+@details New bot and the Plan's Venue field offer the same list, which `GetVenueChoicesQuery`
+answers (`EPIC-048B`): every venue a bot kind runs on, each with its connection state, a closed
+one greyed out with its reason (`BUG-208`). The values live in `bots/contracts/venue_choice.py`
+and are re-exported here for the views that list them. Whether a key *works* is the Connect
+step's read, made once a bot is on the venue, and its failure is told once, in the message bar
+(`BUG-181`).
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
-
 from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QComboBox
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    plan_market_of,
-    runs_bots_on,
-    venue_profile_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
-    IVenueContexts,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_choice import (
+    KEY_SAVED,
+    NO_KEY,
+    NOT_ENABLED,
+    VenueChoice,
 )
 
-KEY_SAVED = "API key saved"
-NO_KEY = "no API key"
-NOT_ENABLED = "not enabled"
-
-
-@dataclass(frozen=True, slots=True)
-class VenueChoice:
-    """One venue a bot may be on, and what is known of its connection."""
-
-    venue: TradingVenue
-    connection: str
-    #: Why no bot may be created on this venue yet; `None` when one may.
-    closed_reason: str | None = None
-
-    @property
-    def option_text(self) -> str:
-        return f"{self.venue.display_name} — {self.connection}"
-
-
-def venue_choices(
-    contexts: IVenueContexts, kinds: Iterable[IBotKind]
-) -> tuple[VenueChoice, ...]:
-    """Every venue some kind runs on, those with an API key first, then in `TradingVenue`
-    order, the closed ones last, so the preselected one is a venue a bot can start on whenever
-    one has a key (`BUG-155`)."""
-    enabled = contexts.enabled()
-    markets = frozenset(
-        market for kind in kinds for market in kind.supported_profiles()
-    )
-    choices = [
-        _choice_of(contexts, venue, enabled)
-        for venue in TradingVenue
-        if _runs_bots(venue) and plan_market_of(venue) in markets
-    ]
-    return tuple(
-        sorted(
-            choices,
-            key=lambda choice: (
-                choice.closed_reason is not None,
-                choice.connection != KEY_SAVED,
-            ),
-        )
-    )
-
-
-def _runs_bots(venue: TradingVenue) -> bool:
-    profile = venue_profile_of(venue)
-    return profile is not None and runs_bots_on(profile)
-
-
-def _choice_of(
-    contexts: IVenueContexts, venue: TradingVenue, enabled: tuple[TradingVenue, ...]
-) -> VenueChoice:
-    return VenueChoice(venue, _connection_of(contexts, venue, enabled))
-
-
-def _connection_of(
-    contexts: IVenueContexts, venue: TradingVenue, enabled: tuple[TradingVenue, ...]
-) -> str:
-    if venue not in enabled:
-        return NOT_ENABLED
-    saved = contexts.get(venue).credentials_provider.resolve().credentials
-    return KEY_SAVED if saved is not None else NO_KEY
+__all__ = ["KEY_SAVED", "NOT_ENABLED", "NO_KEY", "VenueChoice", "add_venue_choice"]
 
 
 def add_venue_choice(combo: QComboBox, choice: VenueChoice) -> None:

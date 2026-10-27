@@ -622,7 +622,7 @@ exchange", "is not on the exchange" (the record says one stands and the exchange
 paused for `presenter_pacing.py` → `REJUDGE_MS`, the screen's clock), and on which thread?*
 
 The screen's reads of a bot (`ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`,
-`GetExchangeFactsQuery`, `GetPlanRiskFactsQuery`, `GetBotRunFactsQuery`) run on the thread manager and
+`GetExchangeFactsQuery`, `GetPlanRiskFactsQuery`, `GetBotRunFactsQuery`, `GetVenueChoicesQuery`) run on the thread manager and
 answer through `bots/ui/bots_screen/fenced_reads.py` → `FencedReads`, which drops an answer for a
 selection no longer current; the Connect step's `GetVenueConnectionQuery` runs the same way
 (`connect_step.py` → `ConnectStep`). The Run facts, what only the host knows of the Run step, are asked
@@ -636,8 +636,17 @@ function of the facts held and the parameters on screen, whose budget is judged 
 facts carry. A re-judge after an edit therefore never waits on a store or a link, and a remote backend
 answers the host's queries over its link and this one where the screen runs (`EPIC-048` D5). Until the
 Run facts are read, a bot with nothing else left is not offered Start: the Run step says it is being
-checked (`RUN_FACTS_READING`). The venue choices and the plan export are still read on the Qt thread;
-`EPIC-048B`'s second pull request moves them.
+checked (`RUN_FACTS_READING`).
+
+No read of the screen runs on the Qt thread. The venues a bot may be on are asked when the screen opens,
+after every command and on the screen's clock (`bot_venues.py` → `BotVenues.refresh`), and New bot offers
+what is held, so its click reads nothing. Export plan… asks its dialogs on the Qt thread, then sends
+`ExportBotPlanQuery` (Copy JSON) or `ExportBotPlanToFileCommand` (Save…) as one fenced read of its own
+(`ReadKind.EXPORT`; `plan_export_flow.py` → `PlanExport`); a second export waits for the first, so the
+answer of a written file is never superseded. The planner's answer also carries the symbol's tick and
+step sizes, which the orders, fills and ladder tables are quoted in from then on
+(`bots_view_model.py` → `BotsViewModel.learn_market`); before it, on the first selection of a venue and
+symbol, the tables keep the formatter's magnitude rule.
 
 ## Built: a backtest from the workbench (EPIC-040D)
 

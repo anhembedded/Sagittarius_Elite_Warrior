@@ -1,7 +1,9 @@
 """`BOT-171` — which venues a bot may be on, and moving a draft between them.
 
 @details Held apart from the presenter, which already orchestrates every read and
-action of the screen. It offers the venues (`venue_choices`), builds the command
+action of the screen. It asks for the venues (`GetVenueChoicesQuery`, a fenced read of its
+own: at screen start and after every command, never at a click), holds the answer in the view
+model for New bot and the Plan's Venue field to offer, builds the command
 for the Plan's Venue field, and — because the Connect step, the chart, the
 planner and the fills are all bound to the selected bot's venue — makes the
 screen follow a bot whose venue moved, whichever writer moved it: selecting it
@@ -19,8 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
-    IBotKindCatalog,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_choice import (
+    VenueChoice,
+    VenueChoices,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands import (
     PendingAction,
@@ -31,15 +34,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_step import (
     ConnectStep,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
+    BotQueries,
+    ReadKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
-    VenueChoice,
-    venue_choices,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
-    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -51,26 +51,38 @@ class BotVenues:
 
     def __init__(
         self,
-        contexts: IVenueContexts,
-        catalog: IBotKindCatalog,
+        queries: BotQueries,
         model: BotsViewModel,
         selected: SelectedBot,
         account: ConnectStep,
         select: Callable[[BotSnapshot], None],
     ) -> None:
-        self._contexts = contexts
-        self._catalog = catalog
+        self._queries = queries
         self._model = model
         self._selected = selected
         self._account = account
         self._select = select
+        queries.reads.answered.connect(self._on_read_answered)
+        self.refresh()
+
+    def refresh(self) -> None:
+        """Ask for every offered venue a kind runs on, with its connection state; the
+        answer is what the Plan's Venue field and New bot show. Asked on the screen's beat
+        too, so a key saved in Settings shows within a beat, not only after a command."""
+        self._queries.venue_choices()
 
     def choices(self) -> tuple[VenueChoice, ...]:
-        """Every offered venue a kind runs on, with its connection state, read now and
-        shown by the Plan's Venue field and by New bot."""
-        choices = venue_choices(self._contexts, self._catalog.kinds())
-        self._model.set_venue_choices(choices)
-        return choices
+        """The venues last read, which New bot offers at the click."""
+        return self._model.venue_choices
+
+    def _on_read_answered(self, kind: ReadKind, _label: str, answer: object) -> None:
+        if kind is not ReadKind.VENUES:
+            return
+        if not isinstance(answer, VenueChoices):
+            raise TypeError(
+                f"a venues read answers VenueChoices, not {type(answer).__name__}"
+            )
+        self._model.set_venue_choices(answer.choices)
 
     def move_to(self, value: str) -> tuple[PendingAction, object] | None:
         """The action and command for the user's pick of `value` in the Plan's

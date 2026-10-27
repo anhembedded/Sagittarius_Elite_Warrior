@@ -109,7 +109,6 @@ class BotsPresenter(CommandPresenter):
         deps = bots_dependencies_for(container)
         threads, commands = deps.threads, deps.commands
         self._model = view.model
-        view.use_venue_filters(deps.filters)
         view.use_display_timezone(deps.display_timezone)
         self._dialogs = dialogs or dialogs_for(
             view,
@@ -136,13 +135,14 @@ class BotsPresenter(CommandPresenter):
             self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
-        self._export = PlanExport(self._model, commands, self._dialogs, deps.notifier)
+        self._export = PlanExport(
+            self._model, self._queries, self._dialogs, deps.notifier
+        )
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, commands)
         self._venues = BotVenues(
-            deps.contexts,
-            self._catalog,
+            self._queries,
             self._model,
             self._selected,
             self._account,
@@ -166,6 +166,7 @@ class BotsPresenter(CommandPresenter):
         self._clock = BotsClock(
             self, deps.instance, self._queries.bots, self._refresh_detail
         )
+        self._clock.timeout.connect(self._venues.refresh)
         if not deps.instance.read_only:
             # A read-only copy's beat re-reads the bots, whose answer asks again.
             self._clock.timeout.connect(self._exchange.recheck_run)
@@ -175,7 +176,6 @@ class BotsPresenter(CommandPresenter):
         for event_type, handler in self.strategies.subscriptions:
             self.subscribe(event_type, handler)
         self._connect()
-        self._venues.choices()
         self._clock.start()
         self._queries.bots()
 
@@ -213,7 +213,7 @@ class BotsPresenter(CommandPresenter):
         selected = self._model.selected
         if kind is ReadKind.LIST and isinstance(answer, BotList):
             self._on_list(answer)
-        elif selected is None or label != selected.bot_id:
+        elif label and (selected is None or label != selected.bot_id):
             logger.debug(
                 "Bots screen: %s for %s arrived after the selection moved",
                 kind.value,
@@ -221,6 +221,7 @@ class BotsPresenter(CommandPresenter):
             )
         elif kind is ReadKind.PLANNER and isinstance(answer, PlannerMarket):
             self._selected.take_market(answer)
+            self._model.learn_market(answer)
             self._refresh_detail()
         elif kind is ReadKind.FILLS and isinstance(answer, BotFills):
             self._failures.fills_answered(answer)
@@ -353,7 +354,7 @@ class BotsPresenter(CommandPresenter):
         self._dispatch(settled_event(self._model.selected))
         self._follow_selection()
         self._exchange.refresh()
-        self._venues.choices()
+        self._venues.refresh()
         self._queries.bots()
 
     def _follow_selection(self) -> None:
