@@ -104,10 +104,10 @@ Basis: Futures IP limit 2 400 per minute, soft line 1 680, hard line 2 160, exit
 | :--- | :--- | :--- |
 | Today's idle load of the three exit-guard reads | 96, 240, ~780 per minute at 1, 5, 20 bots (4 %, 10 %, 33 % of a Futures IP) | `request_priority.py`, `BOT-226` (assumption A10 re-measures it) |
 | Ceiling for everything this record adds | 72 per minute on Futures (3 %), 180 on Spot (3 %); settable, hard maximum 10 % | this record, D4 |
-| One facts read of a Futures bot (account, position, resting orders, settings, brackets) | planning figure 15 (range 10 to 20); `positionRisk` v3 is 5 and one whole-account read serves every bot | estimate, unverified (A5) |
-| Scheduled refresh at the 120 s default | 5 bots: about 38 per minute (1.6 %); 20 bots: a round costs about 300, so the interval stretches to about 250 s and stays at 72 per minute | follows from the lines above |
-| Static exchange info | once at start and once a day, tens of weight | estimate, unverified (A5) |
-| Candle backfill | about 30 weight per symbol across six timeframes, one at a time, inside the ceiling; streams cost no REST weight | Binance's published kline weights, unverified (A1, A4) |
+| One facts read of a Futures bot (account, position, resting orders, settings, brackets) | **20 warm**, 81 for the first read after a start, +30 when the Multi-Assets mode ages past five minutes (measured, A5); the planner inputs 25; the fills 10 a seven-day window | measured on the real chain 2026-10-27 |
+| Scheduled refresh at the 120 s default | simulated three hours on a fake clock at these weights: the median gap between two facts reads of one bot is 120 s with 1 and with 5 bots and about 410 s with 20; the most spent in any minute was 55, 70 and 70 of 72 | `tests/unit/modules/operations/vps_feed/` |
+| Static exchange info | once at start and once a day, **1 weight** (measured on testnet, A5; the body is about 900 KB, so the cost is bandwidth) | measured 2026-10-27 |
+| Candle backfill | one window of at most 999 candles per call, charged **10 weight** by estimate (the `market_data` REST client does not pass `ExchangeCallPolicy`, so its weight is not observed, A4); waits while the trading gate is closed to routine requests; streams cost no REST weight (A1, measured on testnet) | A1 measured, A4 estimate |
 | Peak with the defaults at 20 bots | 780 + 72 = 852 per minute, 35.5 % of the IP, under the 70 % line with 828 weight of headroom, plus the 480 reserve | arithmetic on the figures above |
 
 Two consequences. The load is **flat in the number of tabs and clients**: today's desktop reads add load on the *desktop's* IP; after D1 only the host reads, on a fixed budget, however many times the owner opens the tab. And a refresh is `ROUTINE`, so while the gate is closed at 70 % it waits and the tab's facts age, while the exit reads keep their reserve: the tab degrades before a stop loss does.
@@ -145,14 +145,29 @@ Each is something the defaults rely on and a green test cannot prove (P4). 047H 
 | A9 | The bridge can read the host's candle store read-only while the host writes it | Open the store from a second process while the host writes, on testnet; check the journal mode | 047H author | The recorder writes closed candles to a file instead |
 | A10 | The exit-guard load is still 96, 240 and ~780 per minute at 1, 5 and 20 bots, and the refresh never takes the 480 reserve | On the VPS, read the used-weight header per minute at the real bot count for a day with the refresh on, and the priority class of each request in the host log | The owner runs it, 047H records it | Lower the ceiling or the cadence by setting before leaving the refresh on |
 
+### Results of the first step (2026-10-27, 047H author, testnet and code; the full table is in 047H's Implementation notes)
+
+| # | Result |
+| :-- | :--- |
+| A1 | Holds on testnet: a two-symbol kline stream for 25 s left the used-weight header at 1 to 2. The exchange's websocket limits page was not fetched; those limits stay unverified |
+| A2 | Futures testnet reports 6 000 per minute and Spot 6 000; the code keeps 2 400 for every Futures venue (stricter, kept). Mainnet unreadable from the author's region (HTTP 451): the owner's step |
+| A3 | Holds, with a correction: the host streams the **1m** kline for each bot not at rest, so the other timeframes' forming candles are folded from 1m (flagged incomplete when the host started inside the bucket) and a stopped bot's symbol has no live price |
+| A4 | Not measurable on testnet (the kline endpoint's header is shared noise). `market_data`'s REST client is outside the weight gate, so the backfill is charged to the ceiling by estimate and waits on the gate |
+| A5 | `premiumIndex` 1 and about 10 for the whole market, `exchangeInfo` 1, `bookTicker` 1 (testnet). On the composed host over the fake exchange charging Binance's documented weights: a facts read is **81 cold, 20 warm** (plus 30 whenever the Multi-Assets mode has aged five minutes), the planner inputs 25, the fills 10 a seven-day window (20 a day on Spot). The §4 planning figure of 15 was low; fills and planner ride every **tenth** round and an asked-for refresh |
+| A6 | 0.12 % of one core per file at 100 ms; the VPS run is the owner's |
+| A7 | Re-read; no missing source. The recording run is 047E's zero-call test |
+| A8 | Holds: no mark price in a snapshot |
+| A9 | Holds: WAL, 3 553 read-only reads against 57 226 commits, 0 errors; the `sew` account's access to the shard is the owner's check |
+| A10 | The owner's run |
+
 ## 7. Implementation evidence
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) (AC10), [EPIC-047H](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | Not started | Not yet verified |
 | D2 | EPIC-047H | Not started | Not yet verified; the bridge's "calls no exchange" test (047C) must still pass |
-| D3 | EPIC-047H | Not started; the assumptions A1, A3, A4, A6, A8, A9 first | Not yet verified |
-| D4 | EPIC-047H | Not started; the assumptions A2, A5, A10 first | Not yet verified |
+| D3 | EPIC-047H | In review (2026-10-27); assumptions A1, A3, A4, A6, A8, A9 verified (A4 by estimate) | [047H notes, Step one](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) |
+| D4 | EPIC-047H | In review (2026-10-27); A2, A5 verified as far as a key-free testnet allows, A10 is the owner's | [047H notes, Step one](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) |
 | D5 | EPIC-047E | Not started | Not yet verified |
 | D6 | EPIC-047E | Not started | Not yet verified |
 | D7 | EPIC-047E | Not started | Not yet verified |

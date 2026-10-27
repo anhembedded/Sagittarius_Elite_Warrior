@@ -1,11 +1,11 @@
 # EPIC-047D — The desktop reaches the bridge over SSH from a connection profile set in the Options page
 
-**Status:** 🟡 In review — built and proved against a real `asyncssh` server on loopback with the real bridge behind it; the owner approved the dependency in the author session on 2026-10-27. The Windows agent login and the real-link reconnect time wait on the owner's machine
+**Status:** ✅ Done (2026-10-27) — merged as #744; marked Done in the pull request of EPIC-047H on the coordinator's instruction. Built and proved against a real `asyncssh` server on loopback with the real bridge behind it; the owner approved the dependency in the author session on 2026-10-27. Two observations stay the owner's, on the owner's machine, and open in "Owner step" below: the Windows agent login (criterion 6) and the real-link reconnect time (criterion 7)
 **Source:** the owner's request of 2026-10-24 (O6: a configurable connection with selectable protocols) and delegation, settled as G1; [the SSH client record](../DECISION_2026-10-24_the_ssh_client_is_asyncssh.md) D1–D5; charter D5.
 **Risk:** 🟡 — a new dependency and a credentials-adjacent setting; no trading rule changes, and the profile stores no secret.
 **Complexity:** L — the transport adapter, the reconnect, the profiles store, the Options page, and a measurement on the owner's Windows.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047A](../completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec), [EPIC-047C](../completed/EPIC-047C_the_bridge_behind_a_forced_command.md) (the bridge to talk to)
+**Depends on:** [EPIC-047A](EPIC-047A_the_wire_codec_and_the_version_handshake.md) (codec), [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the bridge to talk to)
 
 ---
 
@@ -59,7 +59,7 @@ Tier: unit (the protocol, link and supervisor against the real `BridgeSession` b
 | M13 | a command whose write raised is a plain lost link | `test_a_command_whose_write_raised_is_unknown_not_never_sent` |
 
 ## 6. Docs touched
-`Docs/OPERATIONS/headless_runbook.md` through [EPIC-047G](EPIC-047G_the_runbook_for_the_vps_link.md). `Docs/VOCABULARY/README.md` (a row for the connection profile and the link transport). `Docs/HLD/11_desktop_workbench.md` describes Options pages in general only, so it is unchanged. No `Docs/MODULES/<m>/` folder: no `src/modules/` file changed (design in step: no design change).
+`Docs/OPERATIONS/headless_runbook.md` through [EPIC-047G](../incomplete/EPIC-047G_the_runbook_for_the_vps_link.md). `Docs/VOCABULARY/README.md` (a row for the connection profile and the link transport). `Docs/HLD/11_desktop_workbench.md` describes Options pages in general only, so it is unchanged. No `Docs/MODULES/<m>/` folder: no `src/modules/` file changed (design in step: no design change).
 
 ## Implementation notes
 - **Where it lives.** `support/wire/desk/` is the desktop's half of the link beside `support/wire/bridge/`: `DeskProtocol` (the conversation, no I/O, driven by lines and a clock like `BridgeSession`), `DeskLink` (a transport plus a reader thread; blocking `call`/`command`), `LinkSupervisor` (connect, notice a cut, reconnect on the profile's policy; one fresh `ConnectionEpoch` and `RevisionGate` per connection), `TransportRegistry` and `default_transports.py` (protocol to adapter; the SSH line, a `Deferred` by path, arrives with the adapter), `asyncssh_transport.py` (the adapter), `ssh_connect_options.py` (the profile as `connect` arguments, a pure function). The profile and its validation are in `core/contracts/link_profile.py` because `support/ui_kit` (the state holder) may not import `support/wire` (boundary guard) and `core` is open to both. `LinkProfiles` is in `support/ui_kit/services/` beside `TickFlashPreference`; the page is `shell/link_options/`.
