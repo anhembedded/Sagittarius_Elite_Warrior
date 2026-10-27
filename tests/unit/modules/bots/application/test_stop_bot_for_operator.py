@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_opener import (
+    OpenedByPerson,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
     SessionBlockReason,
     SessionReadyResult,
@@ -229,10 +232,11 @@ def test_the_mainnet_refusal_names_the_other_recovering_bots_that_keep_waiting()
     assert "keep waiting for their own resume" in refused.message
 
 
-def test_the_session_a_stop_opens_is_opened_for_the_stopped_bot() -> None:
-    """`BOT-183`: the stop wakes no other bot of the venue."""
+def test_the_session_a_stop_opens_is_opened_for_the_person_and_wakes_no_bot() -> None:
+    """`BOT-183`: the stop wakes no other bot of the venue; `BUG-274`: nor the stopped one, whose
+    reconcile would lay what it holds ahead of the Stop."""
     world = _World(TradingVenue.SPOT_TESTNET, S.HALTED)
 
     world.stop()
 
-    assert world.session.opened_for == ["aaaaaa"]
+    assert world.session.opened_for == [OpenedByPerson.PERSON]

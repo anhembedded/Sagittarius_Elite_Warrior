@@ -337,6 +337,18 @@ class GridFacts(IBotFacts):
         if self._state() is _S.RUNNING:
             self._parts.placer.release_held()
 
+    def book_missed_fills(self) -> None:
+        """`BUG-274`: a RECOVERING bot's Stop reconciles it first, on the worker, so the fills that
+        landed while the app was closed are booked before the stop. `GridReconciler.run` claims
+        the lease, registers the budget, applies the fills and adopts the orders the exchange
+        shows, checks the exposure and moves the bot to its prior state (RUNNING, PAUSED or
+        AWAITING_RANGE), or to HALTED on a mismatch; it places nothing, and `release_held`, the
+        step that lays orders, is not run. Otherwise the close is measured against a cost that
+        lacks those fills and books their whole proceeds as profit. On a closed session the
+        registration is refused and the bot stays RECOVERING for the stop to move, as before."""
+        if self._state() is _S.RECOVERING:
+            self._parts.reconciler.run()
+
     def _state(self) -> BotLifecycleState:
         """The bot's state now: read through here so a type checker does not keep the one it
         narrowed to before a step that moves it."""

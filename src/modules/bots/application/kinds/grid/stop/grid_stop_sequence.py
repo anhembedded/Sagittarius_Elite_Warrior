@@ -135,10 +135,15 @@ class GridStopSequence:
     def _budget_refused(
         self, registration: OwnerBudgetRegistrationResult
     ) -> StopProgress:
+        closed = registration.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF
+        # `BUG-274`: a Stop a person presses opens the closed session; this wait is the one an
+        # automated Stop (or a declined real-money question) parks in, so it says how to end it.
+        advice = "; press Stop to open it" if closed else ""
         wait_in_stopping(
-            self._context, f"the budget was refused: {refusal_text(registration)}"
+            self._context,
+            f"the budget was refused: {refusal_text(registration)}{advice}",
         )
-        if registration.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF:
+        if closed:
             return StopProgress.WAITING_FOR_TRADING
         return StopProgress.WAITING_ON_EXCHANGE
 

@@ -214,6 +214,10 @@ sound, I start it, and I watch what it does."*
    2 min and 5 min); **Stop** is offered again while it waits and starts a fresh round. After the
    last retry the bot stays Stopping and says to press Stop. It is never Stopped while an order
    carrying its tag is open (`EPIC-035C`).
+   When the venue's order session is closed (a restart leaves it closed), **Stop** opens it first, as
+   Resume does, and on a mainnet venue asks the real-money question once per session; declining still
+   stops but opens nothing, so the bot waits in Stopping saying to press Stop. If the session will not
+   open, Stop is refused in the session's words and the bot stays as it was (`BUG-274`).
 11. Closing the app while any bot is not at rest asks first, naming the bots and what closing
    leaves behind (O4); **Cancel** keeps the app open.
 
