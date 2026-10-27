@@ -28,7 +28,11 @@ def known_hosts_path(profile: LinkProfile) -> Path:
 
 
 def connect_options(profile: LinkProfile) -> dict[str, object]:
-    """The keyword arguments for `asyncssh.connect(**…)`; it never holds a secret."""
+    """The keyword arguments for `asyncssh.connect(**…)`; it never holds a secret.
+
+    An agent profile leaves `client_keys` out, so asyncssh asks the agent **and** reads the default
+    key files of `~/.ssh` (the same as OpenSSH). It cannot be narrowed to the agent alone: an empty
+    list still loads the defaults and `None` turns key login off. The Options page says so."""
     options: dict[str, object] = {
         "host": profile.host,
         "port": profile.port,

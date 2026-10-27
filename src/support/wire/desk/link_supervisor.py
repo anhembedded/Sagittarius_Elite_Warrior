@@ -20,7 +20,7 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -28,7 +28,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.link_profile import (
     LinkProfile,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_errors import (
+    CallFailedError,
+    CallTimedOutError,
     LinkError,
+    LinkLostError,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_status import (
     LinkState,
@@ -45,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.support.wire.revision_gate import RevisionGat
 logger = logging.getLogger("App.LinkDesk")
 
 _WATCH_SLICE_S = 0.1
+#: How long a link must stay up before its next failure counts as a first one. A link that fails
+#: sooner is flapping, and the next try waits the policy's next delay instead of coming at once.
+STABLE_AFTER_S = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,10 +69,27 @@ class ILinkObserver(ABC):
 
     @abstractmethod
     def on_link_up(self, link: DeskLink, epoch: ConnectionEpoch) -> None:
-        """A welcomed link: take the snapshot, subscribe. A `LinkError` here ends this connection."""
+        """A welcomed link: take the snapshot, subscribe.
+
+        A `LinkError`, a refused call (`CallFailedError`) or a read that times out
+        (`CallTimedOutError`) ends this connection: a refusal for good, anything else as a lost link
+        that is retried on the policy's delays."""
 
     @abstractmethod
     def on_event(self, epoch: ConnectionEpoch, event: dict[str, object]) -> None: ...
+
+
+class _Closure:
+    """Why one connection ended: the first reason given wins, and `event` is set with it."""
+
+    def __init__(self) -> None:
+        self.event = threading.Event()
+        self.reason: LinkError | None = None
+
+    def finish(self, reason: LinkError | None) -> None:
+        if not self.event.is_set():
+            self.reason = reason
+            self.event.set()
 
 
 class LinkSupervisor:
@@ -79,7 +102,9 @@ class LinkSupervisor:
         *,
         monotonic: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        stable_after_s: float = STABLE_AFTER_S,
     ) -> None:
+        self._stable_after_s = stable_after_s
         self._profile = profile
         self._transports = transports
         self._hello = own_hello
@@ -140,16 +165,9 @@ class LinkSupervisor:
                 attempt,
             )
             try:
-                link, epoch, closed = self._connect()
+                link, epoch, closure = self._connect()
             except LinkError as failure:
-                delay = next(delays, None) if failure.retriable else None
-                if delay is None:
-                    self._publish(LinkState.FAILED, failure.words, attempt)
-                    return
-                self._publish(
-                    LinkState.RECONNECTING, f"{failure.words}; trying again", attempt
-                )
-                if self._stopped.wait(delay):
+                if not self._wait_to_retry(failure, delays, attempt):
                     return
                 continue
             if cut_at is not None:
@@ -158,46 +176,79 @@ class LinkSupervisor:
                     round((self._monotonic() - cut_at) * 1000),
                     attempt,
                 )
-            delays, attempt = self._profile.reconnect.delays(), 0
-            if not self._serve(link, epoch, closed):
+            welcomed_at, attempt = self._monotonic(), 0
+            ended = self._serve(link, epoch, closure)
+            if ended is None:
                 return
             cut_at = self._monotonic()
+            if cut_at - welcomed_at >= self._stable_after_s:
+                delays = (
+                    self._profile.reconnect.delays()
+                )  # a link that held earns a fresh start
+                if not ended.retriable:
+                    self._publish(LinkState.FAILED, ended.words)
+                    return
+            elif not self._wait_to_retry(ended, delays, attempt):
+                return
 
-    def _connect(self) -> tuple[DeskLink, ConnectionEpoch, threading.Event]:
+    def _wait_to_retry(
+        self, failure: LinkError, delays: Iterator[float], attempt: int
+    ) -> bool:
+        """Say why and wait the policy's next delay; `False` when the loop should end (a failure no
+        retry can change, a spent policy, or a stop)."""
+        delay = next(delays, None) if failure.retriable else None
+        if delay is None:
+            self._publish(LinkState.FAILED, failure.words, attempt)
+            return False
+        self._publish(LinkState.RECONNECTING, f"{failure.words}; trying again", attempt)
+        return not self._stopped.wait(delay)
+
+    def _connect(self) -> tuple[DeskLink, ConnectionEpoch, _Closure]:
         self._epochs += 1
         epoch = ConnectionEpoch(self._epochs, RevisionGate())
-        closed = threading.Event()
+        closure = _Closure()
         link = DeskLink(
             self._transports.create(self._profile.protocol),
             self._hello,
             on_event=lambda event: self._observer.on_event(epoch, event),
-            on_closed=lambda _reason: closed.set(),
+            on_closed=closure.finish,
             wall_clock=self._wall_clock,
         )
         link.connect(self._profile)
-        return link, epoch, closed
+        return link, epoch, closure
 
     def _serve(
-        self, link: DeskLink, epoch: ConnectionEpoch, closed: threading.Event
-    ) -> bool:
-        """Hold the link until it is lost (`True`) or the supervisor is stopped (`False`)."""
+        self, link: DeskLink, epoch: ConnectionEpoch, closure: _Closure
+    ) -> LinkError | None:
+        """Hold the link until it ends; why it ended (a link the desktop closed itself is a
+        `LinkLostError`), or `None` when the supervisor is stopped."""
         self._publish(
             LinkState.CONNECTED, f"connected to {self._profile.host}", 0, link
         )
         try:
             self._observer.on_link_up(link, epoch)
-        except LinkError as failure:
-            logger.warning(
-                "[link-supervisor] the first reads failed: %s", failure.words
+        except (LinkError, CallFailedError, CallTimedOutError) as failure:
+            # The first reads failed: a lost link, retried on the policy; a refusal is not.
+            logger.warning("[link-supervisor] the first reads failed: %s", failure)
+            closure.finish(
+                failure
+                if isinstance(failure, LinkError)
+                else LinkLostError(f"the first reads failed ({failure})")
             )
             link.close()
-        while not closed.wait(_WATCH_SLICE_S):
-            if self._stopped.is_set():
-                link.close()
-                return False
-        link.close()  # a lost link still holds its transport's loop and thread
+        except Exception:
+            link.close()  # the supervisor's last resort logs it; the link must not outlive it
+            raise
+        try:
+            while not closure.event.wait(_WATCH_SLICE_S):
+                if self._stopped.is_set():
+                    return None
+        finally:
+            link.close()  # a lost link still holds its transport's loop and thread
         self._data_as_of = link.data_as_of or self._data_as_of
-        return not self._stopped.is_set()
+        if self._stopped.is_set():
+            return None
+        return closure.reason or LinkLostError("the link was closed")
 
     # -- status ---------------------------------------------------------------------------
 

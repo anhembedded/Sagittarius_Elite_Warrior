@@ -10,6 +10,7 @@ import threading
 import pytest
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_errors import (
     CallFailedError,
+    CallTimedOutError,
     CommandInFlightLostError,
     HostUnreachableError,
     KeyRefusedError,
@@ -220,3 +221,32 @@ def test_close_is_idempotent_and_ends_the_reader(host: BridgeHost) -> None:
     assert transport.closed
     assert rig.closed.wait(BOUND_S)
     assert rig.closed_with == [None]
+
+
+# -- review round 1 ------------------------------------------------------------------------
+
+
+def test_a_transport_whose_open_raises_is_closed(host: BridgeHost) -> None:
+    transport = BridgeTransport(host)
+    transport.fail_open(HostUnreachableError("vps.example", 22, "timed out"))
+    rig = Rig(transport)
+
+    with pytest.raises(HostUnreachableError):
+        rig.link.connect(PROFILE)
+
+    assert transport.closed
+
+
+def test_a_call_that_times_out_is_forgotten_and_a_late_answer_is_dropped(
+    host: BridgeHost,
+) -> None:
+    rig, transport = _up(host)
+    transport.go_silent()
+
+    with pytest.raises(CallTimedOutError):
+        rig.link.call("snapshot", timeout_s=0.05)
+
+    assert rig.link.unanswered == 0
+    transport.cut()
+    assert rig.closed.wait(BOUND_S)
+    assert rig.closed_with and isinstance(rig.closed_with[0], LinkLostError)

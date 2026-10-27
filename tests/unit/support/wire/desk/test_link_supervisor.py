@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import threading
+import time
 from dataclasses import replace
+from itertools import pairwise
 
 from Sagittarius_Elite_Warrior.src.core.contracts.link_profile import (
     LinkProtocol,
     ReconnectPolicy,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_errors import (
+    CallTimedOutError,
     HostUnreachableError,
     KeyRefusedError,
     LinkError,
@@ -235,3 +238,144 @@ def test_the_time_from_the_cut_to_the_next_welcome_is_logged(caplog) -> None:
         r.getMessage() for r in caplog.records if "[link-reconnect]" in r.getMessage()
     ]
     assert len(lines) == 1 and " ms after the cut" in lines[0]
+
+
+# -- review round 1: what happens when a welcomed link fails ---------------------------------
+
+
+class Flapper(Watcher):
+    """An observer that cuts every link the moment it is up, as a firewall that resets sessions would."""
+
+    def __init__(self, transports: Transports) -> None:
+        super().__init__()
+        self._transports = transports
+
+    def on_link_up(self, link: DeskLink, epoch: ConnectionEpoch) -> None:
+        self._transports.made[-1].cut()
+        self.up.release()
+
+
+def test_a_refusal_after_the_welcome_is_not_retried() -> None:
+    transports = Transports(BridgeHost())
+    supervisor, watcher = _supervise(transports)
+    assert watcher.up.acquire(timeout=BOUND_S)
+
+    transports.made[0].host_says(
+        {"type": "refused", "reason": "internal", "differs": [], "words": "it broke"}
+    )
+
+    assert watcher.finished.wait(BOUND_S)
+    assert supervisor.join(BOUND_S)
+    assert len(transports.made) == 1
+    assert "it broke" in supervisor.status.words
+
+
+def test_a_link_that_is_cut_right_after_each_welcome_backs_off_and_does_not_storm() -> (
+    None
+):
+    transports = Transports(BridgeHost())
+    flapper = Flapper(transports)
+    policy = replace(
+        QUICK, reconnect=ReconnectPolicy(first_delay_s=0.0, max_delay_s=0.3, factor=2.0)
+    )
+    opened: list[float] = []
+    original = transports._next
+
+    def stamped() -> BridgeTransport:
+        opened.append(time.monotonic())
+        return original()
+
+    registry = TransportRegistry()
+    registry.register(LinkProtocol.SSH, stamped)
+    supervisor = LinkSupervisor(policy, registry, DESK_HELLO, flapper)
+    supervisor.start()
+
+    for _ in range(4):
+        assert flapper.up.acquire(timeout=BOUND_S)
+    supervisor.stop()
+
+    gaps = [later - earlier for earlier, later in pairwise(opened)]
+    assert (
+        gaps[1] >= 0.25 and gaps[2] >= 0.25
+    )  # past the one free try, each waits the policy's delay
+
+
+def test_a_flapping_link_gives_up_when_the_policy_is_spent() -> None:
+    transports = Transports(BridgeHost())
+    flapper = Flapper(transports)
+    policy = replace(
+        QUICK,
+        reconnect=ReconnectPolicy(first_delay_s=0.0, max_delay_s=0.0, max_attempts=2),
+    )
+    supervisor = LinkSupervisor(policy, transports.registry(), DESK_HELLO, flapper)
+    supervisor.start()
+
+    assert flapper.finished.wait(BOUND_S)
+
+    assert supervisor.status.state is LinkState.FAILED
+    assert len(transports.made) == 3
+
+
+def test_a_link_that_held_earns_a_fresh_start_after_a_cut() -> None:
+    transports = Transports(BridgeHost())
+    watcher = Watcher()
+    policy = replace(
+        QUICK,
+        reconnect=ReconnectPolicy(first_delay_s=0.0, max_delay_s=0.0, max_attempts=1),
+    )
+    supervisor = LinkSupervisor(
+        policy, transports.registry(), DESK_HELLO, watcher, stable_after_s=0.0
+    )
+    supervisor.start()
+
+    for _ in range(
+        3
+    ):  # more cuts than the policy allows attempts: each held, so none is counted
+        assert watcher.up.acquire(timeout=BOUND_S)
+        transports.made[-1].cut()
+    assert watcher.up.acquire(timeout=BOUND_S)
+
+    assert supervisor.status.state is LinkState.CONNECTED
+    assert len(transports.made) == 4
+    supervisor.stop()
+
+
+class Timeout(Watcher):
+    def on_link_up(self, link: DeskLink, epoch: ConnectionEpoch) -> None:
+        self.epochs.append(epoch)
+        self.up.release()
+        raise CallTimedOutError("snapshot", 10.0)
+
+
+def test_a_first_read_that_times_out_closes_the_link_and_is_retried_not_fatal() -> None:
+    transports = Transports(BridgeHost())
+    watcher = Timeout()
+    policy = replace(
+        QUICK,
+        reconnect=ReconnectPolicy(first_delay_s=0.0, max_delay_s=0.0, max_attempts=3),
+    )
+    supervisor = LinkSupervisor(policy, transports.registry(), DESK_HELLO, watcher)
+    supervisor.start()
+
+    assert watcher.finished.wait(BOUND_S)
+
+    assert transports.made[0].closed
+    assert all(t.closed for t in transports.made)
+    assert len(transports.made) == 4  # the first try and the three the policy allows
+    assert "first reads failed" in supervisor.status.words
+
+
+class Crash(Watcher):
+    def on_link_up(self, link: DeskLink, epoch: ConnectionEpoch) -> None:
+        raise KeyError("observer bug")
+
+
+def test_an_observer_bug_still_closes_the_link_it_was_given() -> None:
+    transports = Transports(BridgeHost())
+    watcher = Crash()
+    supervisor = LinkSupervisor(QUICK, transports.registry(), DESK_HELLO, watcher)
+    supervisor.start()
+
+    assert watcher.finished.wait(BOUND_S)
+
+    assert transports.made[0].closed

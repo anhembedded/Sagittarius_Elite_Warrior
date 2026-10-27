@@ -37,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.shell.link_options import link_options_words 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 _SECONDS_MAX = 3600.0
+_TIMEOUT_MIN_S = 0.1
 
 
 class ProfileForm(QWidget):
@@ -59,6 +60,7 @@ class ProfileForm(QWidget):
         self._known_hosts = self._line("known_hosts")
         self._known_hosts.setPlaceholderText(words.KNOWN_HOSTS_HINT)
         self._timeout = self._seconds()
+        self._timeout.setMinimum(_TIMEOUT_MIN_S)
         self._attempts = QSpinBox()
         self._attempts.setRange(0, 1000)
         self._attempts.setSpecialValueText(words.ATTEMPTS_ANY)

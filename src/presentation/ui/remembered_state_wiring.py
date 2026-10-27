@@ -141,4 +141,6 @@ def register_remembered_state(
     state_coordinator.restore_into(link_profiles)
     link_profiles.set_on_changed(lambda: state_coordinator.mark_dirty(link_profiles))
     container.singleton(LinkProfiles, link_profiles)
+    # Beside the profiles because both are the link's composition; the VPS tab (`EPIC-047E`) is the
+    # first consumer and may move this to the link's own wiring.
     container.singleton(TransportRegistry, build_transport_registry())

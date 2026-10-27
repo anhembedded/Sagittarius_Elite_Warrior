@@ -24,7 +24,8 @@ class ILinkTransport(ABC):
 
     @abstractmethod
     def open(self, profile: LinkProfile) -> None:
-        """Connect, authenticate, and start the bridge.
+        """Connect, authenticate, and start the bridge. The caller closes the transport when this
+        raises (`close` is idempotent), so a failed `open` need not clean up after itself.
 
         @raise LinkError the typed reason it could not (`link_errors.py`)."""
 

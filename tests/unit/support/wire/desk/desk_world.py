@@ -97,6 +97,10 @@ class BridgeTransport(ILinkTransport):
         self._cut = True
         self._out.put(_END)
 
+    def host_says(self, message: dict[str, object]) -> None:
+        """The bridge sends a line of its own, as a bridge that fails after the welcome would."""
+        self._out.put(json.dumps(message))
+
     def go_silent(self) -> None:
         """A half-open link: writes are accepted and swallowed, nothing ever comes back."""
         self._silent = True

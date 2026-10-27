@@ -174,6 +174,10 @@ class DeskProtocol:
             raise
         return call_id
 
+    def forget(self, call_id: int) -> None:
+        """Stop waiting for a call's answer (its caller gave up); one that comes is ignored."""
+        self._pending.discard(call_id)
+
     def close(self) -> None:
         """The desktop ends it."""
         self._close(None)

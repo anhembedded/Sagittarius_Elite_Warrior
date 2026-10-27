@@ -27,7 +27,9 @@ MAX_DELAY_LABEL: Final = "&Longest wait (s):"
 IN_USE_TEXT: Final = "&Use this connection for the VPS Bots tab"
 
 KEY_GROUP: Final = "Key"
-AGENT_TEXT: Final = "The SSH a&gent (Pageant, the OpenSSH agent)"
+AGENT_TEXT: Final = (
+    "The SSH a&gent (Pageant, the OpenSSH agent) and the default keys in ~/.ssh"
+)
 KEY_FILE_TEXT: Final = "A key &file:"
 BROWSE_TEXT: Final = "&Browse…"
 BROWSE_TITLE: Final = "Choose the private key file"

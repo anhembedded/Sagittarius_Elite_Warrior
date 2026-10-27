@@ -97,13 +97,22 @@ class DeskLink(IDeskListener):
     def is_up(self) -> bool:
         return self._protocol.is_ready
 
+    @property
+    def unanswered(self) -> int:
+        """How many calls wait for an answer."""
+        return len(self._pending)
+
     # -- the caller's side ----------------------------------------------------------------
 
     def connect(self, profile: LinkProfile) -> LinkTimings:
         """Open the transport and finish the greeting.
 
         @raise LinkError the typed reason the link did not come up."""
-        self._transport.open(profile)
+        try:
+            self._transport.open(profile)
+        except LinkError:
+            self._transport.close()  # a failed open may have left a half-built session
+            raise
         with self._lock:
             self._protocol.begin(self._monotonic())
         self._reader = threading.Thread(
@@ -213,6 +222,11 @@ class DeskLink(IDeskListener):
         try:
             return future.result(timeout=timeout_s)
         except FutureTimeout:
+            with (
+                self._lock
+            ):  # the caller has its answer (none); a late one is dropped, not kept
+                self._pending.pop(call_id, None)
+                self._protocol.forget(call_id)
             raise CallTimedOutError(method, timeout_s) from None
 
     def _write(self, message: dict[str, object]) -> None:
