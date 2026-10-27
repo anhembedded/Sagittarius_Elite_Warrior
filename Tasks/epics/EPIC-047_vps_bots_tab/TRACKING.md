@@ -51,7 +51,7 @@ gantt
 | EPIC-047B | [The host writes its in-memory facts](completed/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | `claude/epic-047b-host-facts-file` (#738) | 🔴 | ✅ Done (2026-10-27) | 2026-10-27 |
 | EPIC-047C | [The bridge](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | `claude/epic-047c-bridge` | 🔴 | 🟡 In review (VPS run pending) | 2026-11-19 |
 | EPIC-047D | [Transport, profiles, Options page](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-27 |
-| EPIC-047H | [The host serves market data and refreshed facts](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | `Not opened` | 🔴 | 🔵 Planned (waits for the owner: O1, O2) | 2026-11-30 |
+| EPIC-047H | [The host serves market data and refreshed facts](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | `Not opened` | 🔴 | 🔵 Planned (assumptions A1–A10 verified first) | 2026-11-30 |
 | EPIC-047E | [The VPS Bots tab](incomplete/EPIC-047E_the_vps_bots_tab.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-12-08 |
 | EPIC-047F | [Log lines in the tab](incomplete/EPIC-047F_the_bots_log_lines_in_the_tab.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-12 |
 | EPIC-047G | [The runbook](incomplete/EPIC-047G_the_runbook_for_the_vps_link.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-01 |
@@ -80,6 +80,6 @@ gantt
 | [EPIC-048](../EPIC-048_ui_reaches_the_application_through_its_doors/README.md) children A and B | every child | The guard holds for the Bots screen | 🟡 Open |
 | Windows agent login untested (De-risk §3.8) | EPIC-047D | A run on the owner's machine with the key loaded into Pageant or the OpenSSH agent | 🟡 Open |
 | A key restricted to the bridge in `sew`'s `authorized_keys` | EPIC-047C, 047G | The owner runs 047C's "Owner step" on the VPS (and 047G writes the permanent runbook) | 🟡 Open |
-| **Owner decides:** the market-data recorder on the host (O1), the exchange-facts refresh cadence, weight ceiling and on-demand verb (O2), the backfill timing (O3) — real-money host, REST weight | EPIC-047H, 047E (market data, fresh facts) | The owner answers [the 2026-10-27 record](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md) §5 | 🟡 Open |
+| Assumptions A1–A10 of the [2026-10-27 record](DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md) §6 (public streams cost no REST weight, the venue limits, the host's stream, per-read weight, the file-tail load, the exit reserve on the VPS) | EPIC-047H, 047E (market data, fresh facts) | 047H verifies them first; the VPS rows are the owner's run | 🟡 Open |
 | 047C merged | EPIC-047H | 047H extends the bridge 047C builds | 🟡 Open |
 | The `asyncssh` dependency | EPIC-047D | Named in the pull request body; the owner may veto before merge | 🟡 Open |
