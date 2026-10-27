@@ -241,3 +241,21 @@ def test_a_batch_larger_than_the_log_keeps_its_newest(qtbot) -> None:
     model.append([_record("A"), _record("B"), _record("C")])
 
     assert [row.event for row in model.rows] == ["B", "C"]
+
+
+def test_a_name_longer_than_the_first_batch_still_shows_whole(qtbot) -> None:
+    """`BUG-272`: the Engine fits a table's columns when its first rows arrive, and the log is a
+    live feed, so an event named longer than anything in the first drain was elided."""
+    view = DeveloperView()
+    qtbot.addWidget(view)
+    view.show()
+    table = view.event_log.view
+    header = table.horizontalHeader()
+    column = EventLogTableModel.COLUMNS.index(
+        next(spec for spec in EventLogTableModel.COLUMNS if spec.key == "event")
+    )
+
+    view.append_events([_record("Boot")])
+    view.append_events([_record("AHostFactsFileWasReplacedAtStartUpEvent")])
+
+    assert header.sectionSize(column) >= table.sizeHintForColumn(column)

@@ -91,10 +91,24 @@ class SpecTable[TRow]:
             formatter=formatter,
             selection=selection,
         )
+        self.proxy.rowsInserted.connect(self._grow_columns_to_content)
         stack = EmptyStateStack(self.view, empty_text)
         frame_instruction_page(stack)
         self.body: QWidget = stack
         self.body.setObjectName(f"{object_name}Body")
+
+    def _grow_columns_to_content(self) -> None:
+        """The Engine fits the columns when the first rows arrive and not again, but a live
+        table is fed rows later: one named longer than the first batch would stay elided
+        (`BUG-272`, the Developer mode's event log). A column only ever widens here, so a
+        width the person narrowed stays until a row needs more."""
+        header = self.view.horizontalHeader()
+        for column in range(header.count()):
+            need = max(
+                header.sectionSizeHint(column), self.view.sizeHintForColumn(column)
+            )
+            if header.sectionSize(column) < need:
+                header.resizeSection(column, need)
 
     def row_at(self, proxy_index: AnyIndex) -> TRow | None:
         """The row behind an index of the view, which is the proxy's."""
