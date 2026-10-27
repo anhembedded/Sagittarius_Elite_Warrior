@@ -138,6 +138,14 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("support.ui_kit.page_shell", "modules.trading.contracts.i_session", False),
         ("shell.modules", "modules.trading.module", True),
         ("shell.modules", "modules.trading.application.x", False),
+        # `EPIC-047C` - a module's slim surface on the remote link is the second file `shell/`
+        # may import; nothing else of the module is opened by it.
+        ("shell.link_bridge_main", "modules.bots.link", True),
+        ("shell.link_bridge_main", "modules.bots.adapters.store_bridge_bots", False),
+        ("shell.link_bridge_main", "modules.bots.composition.wire_roots", False),
+        ("shell.link_bridge_main", "modules.bots.link.extra", False),
+        ("modules.trading.application.x", "modules.bots.link", False),
+        ("support.wire.bridge.bridge_session", "modules.bots.link", False),
         # --- config/ is vocabulary: everyone reads it, it reads nobody -------
         ("domain.trading.order", "config.config_keys", True),
         ("shell.dev_mode", "config.config_keys", True),
@@ -178,6 +186,10 @@ def test_rule_table(importing: str, imported: str, allowed: bool) -> None:
         ("modules.trading.application.x", "modules.trading.ui.panel", False),
         ("modules.trading.application.x", "modules.trading.composition.x", False),
         ("modules.trading.application.x", "modules.trading.module", False),
+        ("modules.trading.application.x", "modules.trading.link", False),
+        ("modules.trading.domain.order", "modules.trading.link", False),
+        ("modules.trading.contracts.i_x", "modules.trading.link", False),
+        ("modules.trading.link", "modules.trading.adapters.x", True),
         ("modules.trading.contracts.i_x", "modules.trading.application.x", False),
         ("modules.trading.contracts.i_x", "modules.trading.adapters.x", False),
         # contracts → domain: the documented decision in

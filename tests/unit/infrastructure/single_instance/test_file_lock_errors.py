@@ -12,10 +12,10 @@ import logging
 from pathlib import Path
 
 import pytest
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance import file_lock
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.support.instance_lock import file_lock
 
 pytestmark = pytest.mark.skipif(
     not hasattr(file_lock, "fcntl"), reason="the POSIX lock call"

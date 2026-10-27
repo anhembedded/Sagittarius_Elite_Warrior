@@ -3,8 +3,8 @@
 @par Extension cases
   · `EPIC-047A`'s reflective codec - one more implementation; the file's shape (`HostFactsDocument`)
     and the writer do not change;
-  · decoding the facts body - added to this port by the child that reads it (`EPIC-047C`); the
-    header is all the writer's own side needs.
+  · decoding the facts body - `decode`, added by the bridge (`EPIC-047C`) that reads the file;
+    the writer's own side needs only the header.
 """
 
 from __future__ import annotations
@@ -21,6 +21,12 @@ class IHostFactsCodec(ABC):
     @abstractmethod
     def encode(self, document: HostFactsDocument) -> bytes:
         """The file's bytes. Holds only the fields of the document's types."""
+
+    @abstractmethod
+    def decode(self, raw: bytes) -> HostFactsDocument:
+        """The whole file: header and facts. Reads tolerantly: a key the types do not know is
+        ignored, a missing one takes the field's default.
+        @raise HostFactsUnreadableError Not a host-facts file of this schema, or malformed."""
 
     @abstractmethod
     def decode_header(self, raw: bytes) -> HostFactsHeader:

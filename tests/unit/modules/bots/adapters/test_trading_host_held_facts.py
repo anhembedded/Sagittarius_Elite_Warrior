@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
     FakeVenueContexts,
     fake_venue_context,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_key_states import (
+    FakeVenueKeyStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     FakeVenueTradingPorts,
     fake_venue_ports,
@@ -61,7 +64,8 @@ FUTURES = TradingVenue.FUTURES_TESTNET
 
 class OnlyBuilt(FakeVenueContexts):
     """Contexts where only some venues have been asked for, and asking for another one is a fault:
-    reading the host's facts must never be what builds a venue."""
+    reading the host's facts must never be what builds a venue (`EPIC-047C`: the key state of an
+    unbuilt venue comes from `IVenueKeyStates`, not from a context)."""
 
     def __init__(
         self, built: tuple[TradingVenue, ...], *contexts: VenueContext
@@ -85,21 +89,32 @@ class World:
         self.futures_session = FakeTradingSession()
         self.store = FakeBotStore()
         self.reads = LatestVenueReads()
+        self.has_key = has_key
         self.provider = FakeCredentialsProvider(has_key=has_key)
         self.ports = FakeVenueTradingPorts(
             fake_venue_ports(SPOT, trading_session=self.spot_session),
             fake_venue_ports(FUTURES, trading_session=self.futures_session),
         )
         built = (SPOT, FUTURES) if built_futures else (SPOT,)
-        self.contexts: IVenueContexts = OnlyBuilt(
+        self.only_built = OnlyBuilt(
             built,
             fake_venue_context(SPOT, credentials_provider=self.provider),
             fake_venue_context(FUTURES, credentials_provider=FakeCredentialsProvider()),
         )
+        self.contexts: IVenueContexts = self.only_built
+        self.futures_has_key = False
 
     def held(self) -> TradingHostHeldFacts:
+        with_key = (SPOT,) if self.has_key else ()
+        if self.futures_has_key:
+            with_key = (*with_key, FUTURES)
         return TradingHostHeldFacts(
-            self.ports, self.contexts, self.store, DEFAULT_OWNER_BUDGET_CAPS, self.reads
+            self.ports,
+            self.contexts,
+            FakeVenueKeyStates((SPOT, FUTURES), with_key),
+            self.store,
+            DEFAULT_OWNER_BUDGET_CAPS,
+            self.reads,
         )
 
 
@@ -118,8 +133,8 @@ def test_a_built_venue_with_a_key_says_a_key_is_saved_and_one_without_says_it_is
     saved = World(has_key=True).held().read()
     missing = World(has_key=False).held().read()
 
-    assert saved.venue_keys == (VenueKeyState(SPOT, key_saved=True),)
-    assert missing.venue_keys == (VenueKeyState(SPOT, key_saved=False),)
+    assert VenueKeyState(SPOT, key_saved=True) in saved.venue_keys
+    assert VenueKeyState(SPOT, key_saved=False) in missing.venue_keys
 
 
 def test_the_key_itself_is_nowhere_in_what_is_read() -> None:
@@ -132,17 +147,20 @@ def test_the_key_itself_is_nowhere_in_what_is_read() -> None:
     assert PLANTED_KEY_LIKE[::-1] not in repr(read)
 
 
-def test_a_venue_nothing_has_built_is_not_built_by_reading_it() -> None:
-    """`OnlyBuilt.get` fails the test if the reader asks a venue nothing has used. The venue is
-    still listed as enabled; its key state and leases are simply not known yet."""
+def test_a_venue_nothing_has_built_still_shows_its_key_state_and_is_not_built_by_it() -> (
+    None
+):
+    """`OnlyBuilt.get` fails the test if the reader asks a venue nothing has used. The venue's key
+    state comes from `IVenueKeyStates` and its symbols are listed with no holder (`EPIC-047C`)."""
     world = World(built_futures=False)
+    world.futures_has_key = True
     seed(world.store, "aaaaaa", BotLifecycleState.STOPPED, venue=FUTURES)
 
     read = world.held().read()
 
-    assert FUTURES in read.enabled_venues
-    assert [key.venue for key in read.venue_keys] == [SPOT]
-    assert {lease.venue for lease in read.leases} <= {SPOT}
+    assert VenueKeyState(FUTURES, key_saved=True) in read.venue_keys
+    assert SymbolLease(FUTURES, "BTCUSDT", "") in read.leases
+    assert FUTURES not in world.only_built.asked
 
 
 def test_a_lease_is_read_for_each_symbol_a_stored_bot_is_on() -> None:
@@ -152,7 +170,7 @@ def test_a_lease_is_read_for_each_symbol_a_stored_bot_is_on() -> None:
 
     read = world.held().read()
 
-    assert read.leases == (SymbolLease(SPOT, "BTCUSDT", "grid:aaaaaa"),)
+    assert SymbolLease(SPOT, "BTCUSDT", "grid:aaaaaa") in read.leases
 
 
 def test_a_symbol_nobody_holds_is_listed_with_no_holder() -> None:
@@ -161,7 +179,7 @@ def test_a_symbol_nobody_holds_is_listed_with_no_holder() -> None:
 
     read = world.held().read()
 
-    assert read.leases == (SymbolLease(SPOT, "BTCUSDT", ""),)
+    assert SymbolLease(SPOT, "BTCUSDT", "") in read.leases
 
 
 def test_the_lease_of_a_built_futures_venue_is_read_beside_spots() -> None:
@@ -222,7 +240,7 @@ def test_a_refused_bot_file_does_not_stop_the_read() -> None:
 
     read = world.held().read()
 
-    assert read.leases == (SymbolLease(SPOT, "BTCUSDT", ""),)
+    assert SymbolLease(SPOT, "BTCUSDT", "") in read.leases
 
 
 def test_nothing_in_what_is_read_needs_the_exchange() -> None:
@@ -231,4 +249,11 @@ def test_nothing_in_what_is_read_needs_the_exchange() -> None:
     constructor does not already say; this pins the constructor."""
     assert spot_facts().symbol == "BTCUSDT"
     held = World().held()
-    assert set(vars(held)) == {"_ports", "_contexts", "_store", "_caps", "_reads"}
+    assert set(vars(held)) == {
+        "_ports",
+        "_contexts",
+        "_key_states",
+        "_store",
+        "_caps",
+        "_reads",
+    }

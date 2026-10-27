@@ -27,8 +27,12 @@ from .zones import sub_package_of, zone_of
 
 #: The layer name of a module's top-level `module.py` (its entry point).
 MODULE_ENTRY_LAYER = "module"
+#: The layer name of a module's top-level `link.py` (its surface on the remote link, `EPIC-047C`).
+LINK_ENTRY_LAYER = "link"
 
-_OUTER_LAYERS = frozenset({"adapters", "ui", "composition", "cli", MODULE_ENTRY_LAYER})
+_OUTER_LAYERS = frozenset(
+    {"adapters", "ui", "composition", "cli", MODULE_ENTRY_LAYER, LINK_ENTRY_LAYER}
+)
 
 #: Layer → the layers of the **same** module it may not import.
 FORBIDDEN_LAYER_IMPORTS: dict[str, frozenset[str]] = {

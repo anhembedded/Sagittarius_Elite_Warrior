@@ -19,7 +19,7 @@ from pathlib import Path
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.file_lock import (
+from Sagittarius_Elite_Warrior.src.support.instance_lock.file_lock import (
     try_lock_exclusive,
     unlock,
 )

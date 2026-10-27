@@ -21,7 +21,6 @@ import threading
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.bot_record_codec import (
-    BotRecordError,
     decode,
     encode,
 )
@@ -98,7 +97,8 @@ class JsonBotStore(IBotStore):
     def _read(self, path: Path) -> StoredBot:
         try:
             stored = decode(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError, BotRecordError) as exc:
+        # ValueError covers bad JSON, bytes that are not UTF-8 and `BotRecordError`.
+        except (OSError, ValueError) as exc:
             raise UnreadableBotError(path.name, str(exc)) from exc
         if f"{stored.bot.bot_id.value}{_SUFFIX}" != path.name:
             raise UnreadableBotError(path.name, "the file name is not its bot id")

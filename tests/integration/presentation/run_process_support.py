@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
+from Sagittarius_Elite_Warrior.src.support.instance_lock.instance_probe import (
     FileLockInstanceProbe,
 )
 from Sagittarius_Elite_Warrior.tests.run_host_child import (

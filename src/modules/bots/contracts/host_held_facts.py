@@ -83,10 +83,10 @@ class HostHeldFacts:
 
     #: The enabled venues, in configuration order.
     enabled_venues: tuple[TradingVenue, ...]
-    #: Key state of the enabled venues that something has built; an enabled venue nothing has
-    #: used yet is absent, because asking would build it.
+    #: Key state of every enabled venue, built or not (`IVenueKeyStates` reads the stored key alone).
     venue_keys: tuple[VenueKeyState, ...]
-    #: One entry per built venue and per symbol a stored bot is on.
+    #: One entry per enabled venue and per symbol a stored bot is on; a venue nothing has built has
+    #: no session to hold a lease, so its holder is `""`.
     leases: tuple[SymbolLease, ...]
     caps: OwnerBudgetCaps
     exchange_reads: tuple[BotExchangeRead, ...] = field(default=())

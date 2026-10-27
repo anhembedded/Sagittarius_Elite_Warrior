@@ -2,13 +2,14 @@
 
 @details One look is local and builds nothing: the enabled venues and the lease holders come from
 `IVenueTradingPorts` (the reads `BotRunFactsReader` makes), the caps are the owner's budget caps it
-is given, the key state is `IExchangeCredentialsProvider.resolve()` as the Plan's venue choices read
-it, and the snapshots are the readiness reads already taken (`ILatestVenueReads`). It never asks the
-exchange and never reads a venue nothing has built: `IVenueContexts.get` builds a venue's adapters,
-so a venue is read only when `IVenueContexts.built()` says something asked for it already.
+is given, the key state comes from `IVenueKeyStates` (the stored key alone, so a venue nothing has
+built still shows it, `EPIC-047C`), and the snapshots are the readiness reads already taken
+(`ILatestVenueReads`). It never asks the exchange. A lease is read only on a venue something has
+built (`IVenueContexts.built()`): the lease lives in the venue's session, which does not exist
+before, so an unbuilt venue's symbols are listed with no holder and nothing is built to say so.
 
-A lease is read for each symbol a stored bot is on, on each built venue: the Run step asks it for a
-venue and symbol the screen shows, which may be a draft's.
+A lease is listed for each symbol a stored bot is on, on each enabled venue: the Run step asks it
+for a venue and symbol the screen shows, which may be a draft's.
 """
 
 from __future__ import annotations
@@ -28,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_latest_venue_reads i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_key_states import (
+    IVenueKeyStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -44,30 +48,35 @@ class TradingHostHeldFacts(IHostHeldFacts):
         self,
         ports: IVenueTradingPorts,
         contexts: IVenueContexts,
+        key_states: IVenueKeyStates,
         store: IBotStore,
         caps: OwnerBudgetCaps,
         reads: ILatestVenueReads,
     ) -> None:
         self._ports = ports
         self._contexts = contexts
+        self._key_states = key_states
         self._store = store
         self._caps = caps
         self._reads = reads
 
     def read(self) -> HostHeldFacts:
         enabled = self._ports.enabled()
-        built = tuple(venue for venue in enabled if venue in self._contexts.built())
+        built = self._contexts.built()
         stored = self._store.load_all().bots
         symbols = sorted({item.bot.definition.symbol for item in stored})
         known = {item.bot.bot_id.value for item in stored}
         return HostHeldFacts(
             enabled_venues=enabled,
             venue_keys=tuple(
-                VenueKeyState(venue, self._key_saved(venue)) for venue in built
+                VenueKeyState(venue, self._key_states.key_saved(venue))
+                for venue in enabled
             ),
             leases=tuple(
-                SymbolLease(venue, symbol, self._holder(venue, symbol))
-                for venue in built
+                SymbolLease(
+                    venue, symbol, self._holder(venue, symbol) if venue in built else ""
+                )
+                for venue in enabled
                 for symbol in symbols
             ),
             caps=self._caps,
@@ -75,10 +84,6 @@ class TradingHostHeldFacts(IHostHeldFacts):
                 read for read in self._reads.latest() if read.bot_id in known
             ),
         )
-
-    def _key_saved(self, venue: TradingVenue) -> bool:
-        resolved = self._contexts.get(venue).credentials_provider.resolve()
-        return resolved.credentials is not None
 
     def _holder(self, venue: TradingVenue, symbol: str) -> str:
         return self._ports.get(venue).trading_session.lease_holder(symbol) or ""

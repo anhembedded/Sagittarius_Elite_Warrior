@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_latest_venue_reads i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_key_states import (
+    IVenueKeyStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -39,6 +42,7 @@ def _build_host_held_facts(container: IContainer) -> IHostHeldFacts:
     return TradingHostHeldFacts(
         container.resolve(IVenueTradingPorts),
         container.resolve(IVenueContexts),
+        container.resolve(IVenueKeyStates),
         container.resolve(IBotStore),
         container.resolve(OwnerBudgetCaps),
         container.resolve(ILatestVenueReads),

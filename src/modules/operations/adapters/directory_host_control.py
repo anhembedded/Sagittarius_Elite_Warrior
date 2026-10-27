@@ -10,6 +10,12 @@ changes nothing itself. In order:
      never sees half a file - and the audit is polled for that id;
   4. the verdict the host recorded becomes the reply.
 
+**The same command id sent again does the work once** (`EPIC-047C`: the remote link's bridge sends
+the id the desktop made, and a desktop that lost its connection sends it again). An id the host
+has already settled is answered from the audit, whatever the host does now, and nothing is written;
+an id whose file still waits for the host, or that the host has claimed, is waited for and not
+written again. The command line's ids are fresh random ones, so it never meets either case.
+
 **A timeout never leaves a hidden command.** The writer tries to remove its own file. The host
 claims a file by renaming it **before** reading it (`DirectoryHostCommandInbox`), so the removal
 succeeds only while the host has not taken it: then the reply says "withdrawn, nothing happened"
@@ -27,6 +33,7 @@ import logging
 import math
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
@@ -39,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
+    claimed_name,
     command_file_name,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_codec import (
@@ -90,6 +98,10 @@ class DirectoryHostControl(IHostControl):
             raise ValueError(
                 f"wait_s must be a finite, non-negative number, not {wait_s}"
             )
+        command_id = self._new_command_id()
+        settled = self._audit.final_entry_of(command_id)
+        if settled is not None:
+            return _replay_of(settled, request)
         if not self._probe.is_held():
             return HostControlReply(
                 HostControlStatus.NOT_RUNNING,
@@ -102,7 +114,7 @@ class DirectoryHostControl(IHostControl):
                 "`main.py run` accepts commands, and only for the account it runs as.",
             )
         command = HostCommand(
-            self._new_command_id(),
+            command_id,
             request.action,
             request.bot_id,
             request.confirmed_venue,
@@ -115,16 +127,32 @@ class DirectoryHostControl(IHostControl):
             request.strategy_venue,
             request.desired_state,
         )
-        written = self._write(command)
-        if written is not None:
-            return written
-        return self._await_outcome(command, wait_s)
+        wrote = False
+        if not self._is_waiting_for_the_host(command_id):
+            written = self._write(command)
+            if written.reply is not None:
+                return written.reply
+            wrote = written.wrote
+        return self._await_outcome(command, wait_s, wrote=wrote)
 
-    def _write(self, command: HostCommand) -> HostControlReply | None:
+    def _is_waiting_for_the_host(self, command_id: str) -> bool:
+        """An earlier send of this id left its file for the host, or the host has taken it."""
+        name = command_file_name(command_id)
+        return (self._directory / name).exists() or (
+            self._directory / claimed_name(name)
+        ).exists()
+
+    def _write(self, command: HostCommand) -> _Written:
         final = self._directory / command_file_name(command.command_id)
         scratch = self._directory / f".{command.command_id}.tmp"
         try:
             descriptor = os.open(scratch, _CREATE_NEW, _PRIVATE_FILE)
+        except FileExistsError:
+            # Another send of this id is writing its file right now: wait for it, never touch its scratch.
+            return _Written(wrote=False)
+        except OSError as failure:
+            return _Written(wrote=False, reply=self._cannot_write(failure))
+        try:
             with os.fdopen(descriptor, "wb") as opened:
                 opened.write(encode_command(command).encode("utf-8"))
                 opened.flush()
@@ -132,17 +160,24 @@ class DirectoryHostControl(IHostControl):
             os.replace(scratch, final)
         except OSError as failure:
             scratch.unlink(missing_ok=True)
-            return HostControlReply(
-                HostControlStatus.NO_CONTROL,
-                f"This account cannot write to {self._directory} ({type(failure).__name__}): "
-                "only the account the host runs as may send it a command.",
-            )
-        return None
+            return _Written(wrote=False, reply=self._cannot_write(failure))
+        return _Written(wrote=True)
 
-    def _await_outcome(self, command: HostCommand, wait_s: float) -> HostControlReply:
+    def _cannot_write(self, failure: OSError) -> HostControlReply:
+        return HostControlReply(
+            HostControlStatus.NO_CONTROL,
+            f"This account cannot write to {self._directory} ({type(failure).__name__}): "
+            "only the account the host runs as may send it a command.",
+        )
+
+    def _await_outcome(
+        self, command: HostCommand, wait_s: float, *, wrote: bool
+    ) -> HostControlReply:
         settled = self._wait_for(command.command_id, wait_s)
         if settled is not None:
             return _reply_of(settled)
+        if not wrote:
+            return self._unanswered_earlier_send(command, wait_s)
         file = self._directory / command_file_name(command.command_id)
         try:
             file.unlink()
@@ -161,6 +196,30 @@ class DirectoryHostControl(IHostControl):
             "nothing happened. Is the host running, and is it a `run` host?",
             command.command_id,
         )
+
+    def _unanswered_earlier_send(
+        self, command: HostCommand, wait_s: float
+    ) -> HostControlReply:
+        """This send wrote nothing: an earlier send of the id did. It is not this send's to withdraw,
+        and what it says must be true of what it saw (the file there, taken, or gone)."""
+        name = command_file_name(command.command_id)
+        if (self._directory / claimed_name(name)).exists():
+            words = (
+                "The host took the command an earlier send of this id left and recorded no outcome "
+                f"within {wait_s:g} s. Check `bot show` for the bot's state."
+            )
+        elif (self._directory / name).exists():
+            words = (
+                f"The command an earlier send of this id left is still waiting for the host after "
+                f"{wait_s:g} s; it was not withdrawn. Is the host running, and is it a `run` host?"
+            )
+        else:
+            words = (
+                "The command an earlier send of this id left is gone and the host recorded no "
+                "outcome: if that send withdrew it, nothing happened. Check `bot show`, or send "
+                "the command again under a new id."
+            )
+        return HostControlReply(HostControlStatus.NO_ANSWER, words, command.command_id)
 
     def _after_taken(self, command: HostCommand) -> HostControlReply:
         settled = self._wait_for(command.command_id, TAKEN_GRACE_S)
@@ -182,6 +241,28 @@ class DirectoryHostControl(IHostControl):
             if self._monotonic() >= deadline:
                 return None
             self._sleep(POLL_STEP_S)
+
+
+@dataclass(frozen=True, slots=True)
+class _Written:
+    """Whether this send wrote the command file, and the reply when it could not."""
+
+    wrote: bool
+    reply: HostControlReply | None = None
+
+
+def _replay_of(
+    entry: ControlAuditEntry, request: HostControlRequest
+) -> HostControlReply:
+    """An id the host already settled: its recorded outcome, if the request is the same action."""
+    if entry.action != request.action.value:
+        return HostControlReply(
+            HostControlStatus.REJECTED,
+            f"The command id {entry.command_id} already settled a '{entry.action}' command, not "
+            f"'{request.action.value}': send this command under a new id.",
+            entry.command_id,
+        )
+    return _reply_of(entry)
 
 
 def _reply_of(entry: ControlAuditEntry) -> HostControlReply:

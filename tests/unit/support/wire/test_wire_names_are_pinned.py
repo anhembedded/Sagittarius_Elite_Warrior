@@ -26,6 +26,7 @@ PINNED = (
     "sew.futures-loaded/1",
     "sew.host-control-reply/1",
     "sew.host-control-request/1",
+    "sew.host-facts-document/1",
     "sew.plan-risk-facts/1",
     "sew.plan-risk-read/1",
     "sew.plan-risk-unavailable/1",
