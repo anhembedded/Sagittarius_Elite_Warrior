@@ -102,7 +102,20 @@ def _seed_bot(app: BootedApp) -> None:
 def _lease_of(content: dict[str, object]) -> str:
     leases = content["leases"]
     assert isinstance(leases, list)
-    return next((str(row["holder"]) for row in leases if row["symbol"] == SYMBOL), "")
+    return next(
+        (
+            str(row["holder"])
+            for row in leases
+            if row["symbol"] == SYMBOL and row["venue"] == SPOT.value
+        ),
+        "",
+    )
+
+
+def _spot_key_saved(content: dict[str, object]) -> object:
+    keys = content["venue_keys"]
+    assert isinstance(keys, list)
+    return next((row["key_saved"] for row in keys if row["venue"] == SPOT.value), None)
 
 
 def test_a_host_publishes_its_facts_and_the_file_follows_a_lease_a_key_and_an_exchange_read(
@@ -132,9 +145,11 @@ def test_a_host_publishes_its_facts_and_the_file_follows_a_lease_a_key_and_an_ex
         monkeypatch.delenv(SPOT_ENV_API_SECRET)
         _wait_for(
             "the key gone",
-            lambda: (
-                _content()["venue_keys"] == [{"venue": SPOT.value, "key_saved": False}]
-            ),
+            lambda: _spot_key_saved(_content()) is False,
+        )
+        # `EPIC-047C`: every enabled venue shows its key state, a venue nothing built included.
+        assert {row["venue"] for row in _content()["venue_keys"]} == set(  # type: ignore[attr-defined]
+            _content()["enabled_venues"]  # type: ignore[arg-type]
         )
 
         # 4. An exchange read the host's own reader takes is carried, with its own `read_at`.
