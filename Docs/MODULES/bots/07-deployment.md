@@ -88,16 +88,16 @@ exchange and never holds a key.
 | Group | Where it is read | What it is |
 | :--- | :--- | :--- |
 | Enabled venues | `src/modules/trading/contracts/i_venue_trading_ports.py` → `IVenueTradingPorts.enabled` | the venues in configuration order |
-| Key state | `src/modules/trading/contracts/i_venue_contexts.py` → `IVenueContexts.built`, then the venue's `credentials_provider.resolve()` | *a key is saved or not*, per built venue, never the key |
-| Leases | the venue's `ITradingSession.lease_holder` (`src/modules/trading/contracts/i_trading_session.py`) | the holder (a bot's or the Trade tab's owner id, or `""`) of each symbol a stored bot is on, per built venue |
+| Key state | `src/modules/trading/contracts/i_venue_key_states.py` → `IVenueKeyStates.key_saved` (`EPIC-047C`), over `src/modules/trading/composition/venue_assembly.py` → `stored_credentials_provider` | *a key is saved or not*, for **every enabled venue**, built or not, never the key |
+| Leases | the venue's `ITradingSession.lease_holder` (`src/modules/trading/contracts/i_trading_session.py`), read only on a venue `IVenueContexts.built` lists | the holder (a bot's or the Trade tab's owner id, or `""`) of each symbol a stored bot is on, per enabled venue; `""` on a venue nothing has built, whose session (and so whose lease) does not exist yet |
 | Budget caps | the `OwnerBudgetCaps` trading binds | the owner's three caps |
 | Exchange facts | `bots/adapters/recorded_venue_facts.py` → `RecordedVenueFacts`, remembered by `bots/adapters/latest_venue_reads.py` → `LatestVenueReads` | the latest `VenueSnapshot` each bot's own readiness read took, with its `read_at` |
 
 `bots/adapters/trading_host_held_facts.py` → `TradingHostHeldFacts` builds the value
 (`bots/contracts/host_held_facts.py` → `HostHeldFacts`, through `bots/contracts/i_host_held_facts.py` →
 `IHostHeldFacts`), bound by `bots/composition/host_facts_bindings.py` → `bind_host_facts`. It is read-only
-and local: it asks no exchange, and it reads only a venue `IVenueContexts.built` lists, because
-`IVenueContexts.get` builds a venue's adapters. **Two things follow, and a reader must know them:**
+and local: it asks no exchange, and it reads a venue's session only when `IVenueContexts.built` lists the venue, because
+`IVenueContexts.get` builds a venue's adapters; the key state comes from `IVenueKeyStates`, which builds nothing but the stored key's provider. **Two things follow, and a reader must know them:**
 
 - **An exchange fact is as old as the last read that took it.** `RecordedVenueFacts` decorates
   `IVenueFacts` (`bots/composition/executor_bindings.py` → `_build_venue_facts`) and asks its inner reader
@@ -105,8 +105,11 @@ and local: it asks no exchange, and it reads only a venue `IVenueContexts.built`
   is therefore the one a Start, a Resume or a screen load took, and `read_at` says how old; a bot nobody has
   read since the host started has none. A bounded refresh (one read per active bot every few minutes) would add
   REST weight, which is the owner's call (`EPIC-047C` and `EPIC-047E` will say whether the tab needs it).
-- **A venue nothing has used has no key state and no lease in the file.** It is still listed among the enabled
-  venues. The tab's New bot offers it as "not read yet" rather than building it from the host.
+- **A venue nothing has used shows its key state and a lease with no holder** (`EPIC-047C`: the owner's
+  default decision, `DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md`). `IVenueKeyStates` builds a provider
+  for each question and keeps none, because the mainnet provider keeps its first read for the life of the process and a kept
+  one would hide a key the enrolment script saved later; the cost is one read of the secret stores per enabled venue per
+  look (every `FACTS_POLL_SECONDS`).
 
 Everything else is `operations`' (it has no design folder yet; the file is the module's, `src/modules/operations/module.py`
 → `OperationsModule.boot`):
@@ -120,10 +123,67 @@ Everything else is `operations`' (it has no design folder yet; the file is the m
 | How is it written? | `operations/adapters/owner_only_atomic_file.py` → `write_owner_only_atomically`: a temporary file created `0600`, fsync, `os.replace` (Windows: the file inherits `state/`'s ACL) |
 | What if it fails? | logged at ERROR once per cause (`FailureCause`), at INFO once on recovery; never raised; the file then goes stale, which a reader sees |
 | What does a stop do? | the job is cancelled and the file is left: its age grows, which is how a reader tells a stopped host |
-| Which seam keeps the encoding replaceable? | `operations/contracts/i_host_facts_codec.py` → `IHostFactsCodec`: `EPIC-047A`'s codec replaces `JsonHostFactsCodec` without changing what the file holds; decoding the facts body is added by the child that reads it |
+| Which seam keeps the encoding replaceable? | `operations/contracts/i_host_facts_codec.py` → `IHostFactsCodec`: `EPIC-047A`'s codec replaces `JsonHostFactsCodec` without changing what the file holds; `decode` reads the whole file back (`EPIC-047C`), tolerantly: an unknown key is ignored, a missing one takes the field's default, a wrong one is `HostFactsUnreadableError` (`operations/adapters/host_facts_body_decoder.py` → `read_held_facts`) |
 
 **Known limit.** A lease is read for each symbol a stored bot is on; a lease on a symbol no bot is on (a Trade
 tab strategy's) is not in the file, because `ITradingSession` has no way to list its leases.
+
+## Built: the bridge on the host (EPIC-047C)
+
+The desktop reaches the host through a **second process** that `sshd` starts for each session behind a
+forced-command key for the `sew` account ([`../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md`](../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md),
+D2 and D3). It listens on nothing, loads no key and calls no exchange; it reads the store's files and the host-facts
+file and writes a command into the host's control directory.
+
+```mermaid
+sequenceDiagram
+    participant D as Desktop
+    participant S as sshd (forced command)
+    participant B as Bridge (sew-bridge)
+    participant F as Files (state/bots, host-facts.json)
+    participant H as Host (sew-run)
+    D->>S: ssh sew@vps (restricted key)
+    S->>B: exec deploy/linux/sew-bridge
+    B-->>D: hello (protocol, build, one digest per wire root)
+    D->>B: hello
+    alt a different build
+        B-->>D: refused (what differs), exit 3, before any file is read
+    else the same build
+        B-->>D: welcome (heartbeat, idle watchdog)
+        D->>B: call snapshot
+        B->>F: scandir, read the bots, read the facts
+        B-->>D: bots with a revision each, facts, seq
+        D->>B: call subscribe
+        loop every 100 ms
+            B->>F: scandir (a changed stamp: read that file)
+            B-->>D: event bot (revision+1)
+        end
+        D->>B: call command (request id, request)
+        B->>H: command file (cmd-id.json) in state/control
+        H-->>B: audit entry (verdict) after about 1 s
+        B-->>D: result (the host's verdict, the audit reference)
+        D->>B: ping every 2 s
+        Note over B: no line for 6 s: the bridge exits with status 6
+    end
+```
+
+| Question | Answer |
+| :--- | :--- |
+| Where is it? | the loop is `support/wire/bridge/bridge_session.py` → `BridgeSession` (no I/O of its own) with `bridge_runner.py` → `serve` (the pipes and threads); the ports are `support/wire/contracts/` (`IBridgeBots`, `IBridgeFacts`, `ICommandDoor`); `bots/link.py` → `bridge_bots` and `operations/link.py` → `bridge_facts`, `bridge_door` implement them; `shell/link_bridge_main.py` → `main` composes them |
+| Why a `link.py` beside `module.py`? | `module.py` loads every handler and adapter of the module (about a second on the VPS) and the bridge starts for each session; `link.py` imports the wire roots and the reader only. `tests/unit/architecture/boundaries/zones.py` → `is_module_entry_point` lets `shell/` import both, and nothing else of a module |
+| How does it start? | `deploy/linux/sew-bridge` is the key's `command=`; it ignores what the client asked for and execs `python -m Sagittarius_Elite_Warrior.src.shell.link_bridge_main` with `SEW_DATA_ROOT`. The `authorized_keys` line is an operator step (`EPIC-047G`) |
+| Which threads? | the main thread (feeds the session, ticks it every 50 ms), a reader thread on standard input, and one short-lived thread per waiting command, at most four (`bridge_protocol.py` → `MAX_PENDING_COMMANDS`); every message is one line written under one lock |
+| What is a revision? | the bridge's own counter per bot, +1 each time a bot file's stamp (modification time, size, inode) changes; a session-long number, so the desktop makes a new `RevisionGate` for each connection and takes a snapshot first. A counter in the bot record was rejected, see the decision record |
+| How is a command sent twice, once? | the desktop's 32-hex request id becomes the command id (`operations/adapters/replaying_command_door.py` → `ReplayingCommandDoor`); `operations/adapters/directory_host_control.py` → `DirectoryHostControl.send` answers an id the host's audit already settled, and waits for a file still left for the host instead of writing it again |
+| How long may a desktop be silent? | `bridge_protocol.py` → `IDLE_WATCHDOG_S` (6 s), a third of which is `HEARTBEAT_S`; any line resets it. The process exits with status 6, whatever `sshd` believes |
+| Exit statuses | 0 the session ended, 3 refused (a different build), 4 a protocol violation, 6 the idle watchdog (`bridge_protocol.py`) |
+| What can it not do? | open a socket (the process holds none, `tests/integration/modules/operations/test_the_bridge_process.py`), load a key, call an exchange, write a bot (the store it holds is `ReadOnlyBotStore`), or reach any command but the host's own door |
+| What does it read? | `<data root>/state/bots/` (the default place; `bots.state_dir` is not honoured, a key that exists for a test boot) and `<data root>/state/host-facts.json`, and writes only `<data root>/state/control/` through the door |
+
+**Known limits.** A bot's fills and the readiness reads are not in the bridge: they come from the exchange through
+the host's ports and are the VPS tab's question (`EPIC-047E`); the bridge hands over the bots and the facts file, from
+which the desktop assembles the Run step's facts (`GetBotRunFactsQuery` is a pure function of the file and the bots).
+A command adds up to about a second (the host polls its control directory every second).
 
 ## Built: the headless host
 

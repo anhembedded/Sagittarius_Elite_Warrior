@@ -201,9 +201,10 @@ step's facts, `bots/contracts/run_facts.py` → `RunFacts`; the account view,
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.
 `bots/composition/wire_roots.py` → `BOTS_WIRE_ROOTS` is the one list: each entry is a wire name
-(`sew.bot-snapshot/1`) and a root type, 14 in all (the results of the queries the Bots screen reads, the
-bot, a command's result, the host-control request and reply); `bots/module.py` → `wire_roots` hands it
-to the shell. The codec itself is `support/wire` and imports no module. A root is added by one entry here
+(`sew.bot-snapshot/1`) and a root type, 14 in all in `bots` (the results of the queries the Bots screen reads, the
+bot, a command's result, the host-control request and reply); `bots/link.py` → `wire_roots` hands it
+to the shell (`EPIC-047C` moved it from `module.py`, which loads the whole module; `operations/link.py` hands over the host-facts
+document, the fifteenth root). The codec itself is `support/wire` and imports no module. A root is added by one entry here
 and one contract test (`tests/unit/support/wire/contract/`).
 
 A union member crosses with its own wire name, kept on the record: `@wire_name` (`core/contracts/wire_name.py`

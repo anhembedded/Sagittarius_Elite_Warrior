@@ -1,11 +1,12 @@
 # EPIC-047 — A desktop tab shows and controls the bots on the VPS host
 
-- **Status:** 🟡 In progress (1/7) — 047A done 2026-10-26 (the wire codec and the handshake); resumed by the owner on 2026-10-26 (*"làm tiếp epic EPIC-047"*); 047A and 047B start first, in parallel; EPIC-048B's second pull request is queued for when 047E needs it
+- **Status:** 🟡 In progress (2/7) — 047A done 2026-10-26 (the wire codec and the handshake), 047B done 2026-10-27 (the host's facts file, #738); 047C in review (the bridge; the VPS run is the owner's); resumed by the owner on 2026-10-26 (*"làm tiếp epic EPIC-047"*); EPIC-048B's second pull request is queued for when 047E needs it
 - **Repositories:** Elite
 - **Origin:** the owner's request of 2026-10-24: a VPS Bots tab that connects to the VPS and controls its bots, with the same interface as the Bots tab, both sharing every module (charter §2.1). The owner delegated the design decisions on 2026-10-24: *"các quyết định, bạn thay tôi quyết định phù hợp tất cả hiến pháp"* ("decide them for me, consistent with the whole Constitution"). The charter, Discover and De-risk steps are in this folder.
 - **North star:** [`CHARTER.md`](CHARTER.md) v0.5 (scope, constraints, AC1–AC9), [`DISCOVER.md`](DISCOVER.md) v0.2, [`DERISK.md`](DERISK.md) v0.3. The headless operation it extends: [`Docs/OPERATIONS/headless_runbook.md`](../../../Docs/OPERATIONS/headless_runbook.md).
 - **Decisions:**
   - [`DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md`](DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) — G6, G7, G7a, G10: the doors, the bridge, the identity, the facts file, the protocol, the version rule.
+  - [`DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md`](DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md) — the bridge's own per-bot revision, an unbuilt venue's key state in the facts file, exchange facts as fresh as the last read (D1–D3, defaults by the coordinator, owner may veto).
   - [`DECISION_2026-10-24_the_ssh_client_is_asyncssh.md`](DECISION_2026-10-24_the_ssh_client_is_asyncssh.md) — G1: `asyncssh`, the dependency as a change, the acceptance items.
   - The UI's doors (G9) are [EPIC-048](../EPIC-048_ui_reaches_the_application_through_its_doors/DECISION_2026-10-24_the_ui_reaches_the_application_through_its_doors.md)'s record.
 - **Dependencies:** **[EPIC-048](../EPIC-048_ui_reaches_the_application_through_its_doors/README.md) children A and B must be done first** ([EPIC-048A](../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md), the rule and the guard; [EPIC-048B](../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md), the Bots screen through the doors). No EPIC-047 code starts until the guard holds for the Bots screen (G9). Every child below carries this prerequisite. EPIC-048C and 048D may finish after EPIC-047.
@@ -37,8 +38,8 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | The reflective wire codec, a contract test per root type, and the version handshake on wire names | Elite | EPIC-048A and the first pull request of EPIC-048B | 🟡 | ✅ Done (2026-10-26) |
-| [EPIC-047B](incomplete/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | The host writes the facts it holds in memory to a file when they change (G7a) | Elite | EPIC-048A and the first pull request of 048B (#731) | 🔴 | 🟡 In review |
-| [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | The bridge: a second process behind a forced-command key for the `sew` account, commands through `DirectoryHostControl` | Elite | 047A, 047B | 🔴 | Planned |
+| [EPIC-047B](completed/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | The host writes the facts it holds in memory to a file when they change (G7a) | Elite | EPIC-048A and the first pull request of 048B (#731) | 🔴 | ✅ Done (2026-10-27) |
+| [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | The bridge: a second process behind a forced-command key for the `sew` account, commands through `DirectoryHostControl` | Elite | 047A, 047B | 🔴 | 🟡 In review (VPS run pending) |
 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | The desktop transport on `asyncssh`, connection profiles and the Options page (O6, D5), with Windows agent login and a reconnect under 2 s | Elite | 047A, 047C | 🟡 | Planned |
 | [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) | The VPS Bots tab: two tabs, the same classes (AC7) | Elite | 047D | 🔴 | Planned |
 | [EPIC-047F](incomplete/EPIC-047F_the_bots_log_lines_in_the_tab.md) | The selected bot's own log lines in the tab (G4) | Elite | 047E | 🟢 | Planned |
@@ -57,6 +58,7 @@
 As the charter §4: any inbound port; a change to a bot's behaviour or a trading rule; backtests on the VPS; managing the VPS itself from the tab (`sew-update`, `sew-key`, systemd, backups); editing exchange keys, alert channels or the loss cap remotely; mobile or web access, more than one user, role-based permissions; the Trade tab on the VPS account. Also: several hosts at once (G2), a read-only mode across versions (record D6), a Unix socket, a VPN or a TLS endpoint (record O1), an Engine change (G8). Cleaning up the stray table fragment in the charter §4 (after the Constitution check) is left to the next charter revision.
 
 ## Notes (newest first)
+- **2026-10-27** — 047B marked Done (merged #738). 047C built on `claude/epic-047c-bridge`: the bridge process, its protocol, the revision rule, the unbuilt venue's key state; one rule widened (`shell/` may import a module's `link.py`); the restricted-key check and the VPS import time wait for the owner (047C's "Owner step").
 - **2026-10-24** — Epic scaffolded: the charter, Discover and De-risk documents moved from `Tasks/proposal/EPIC-047_vps_bots_tab/` with `git mv`; two decision records (the remote link; the SSH client) and seven children; the UI's-doors epic is [EPIC-048](../EPIC-048_ui_reaches_the_application_through_its_doors/README.md).
 
 ---
