@@ -58,6 +58,7 @@ def _earned() -> GridRuntime:
         start_price=Decimal("734.23"),
         mark_price=Decimal("732.92"),
         mark_price_at=datetime(2026, 10, 24, 2, 19, tzinfo=UTC),
+        waiting_best_price=Decimal("731.5"),
         maker_fee=Decimal("0.0002"),
         unpriced_fees=1,
         commissions=Decimal("1.6309"),

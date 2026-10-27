@@ -50,6 +50,7 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
         "mark_price_at": (
             runtime.mark_price_at.isoformat() if runtime.mark_price_at else None
         ),
+        "waiting_best_price": _optional(runtime.waiting_best_price),
         "maker_fee": _optional(runtime.maker_fee),
         "unpriced_fees": runtime.unpriced_fees,
         "commissions": str(runtime.commissions),
@@ -84,6 +85,8 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         mark_price_at=(
             _moment(data["mark_price_at"]) if data.get("mark_price_at") else None
         ),
+        # Absent from a file an earlier build wrote: nothing heard while waiting (`BUG-276`).
+        waiting_best_price=_optional_decimal(data, "waiting_best_price"),
         # Absent from a file an earlier build wrote: no rate recorded (`BOT-194`).
         maker_fee=_optional_decimal(data, "maker_fee"),
         unpriced_fees=_int(data, "unpriced_fees") if "unpriced_fees" in data else 0,

@@ -161,3 +161,16 @@ def test_a_rate_that_is_not_a_number_is_refused_by_name() -> None:
 
     with pytest.raises(GridRuntimeCodecError, match="maker_fee"):
         decode_runtime(encoded)
+
+
+def test_the_best_price_heard_while_waiting_survives_a_round_trip_and_is_absent_in_an_old_file() -> (
+    None
+):
+    """`BUG-276`: an earlier build's file has no such key; that reads as nothing heard."""
+    runtime = replace(_busy_runtime(), waiting_best_price=Decimal("734.7"))
+
+    stored = encode_runtime(runtime)
+
+    assert decode_runtime(stored).waiting_best_price == Decimal("734.7")
+    del stored["waiting_best_price"]
+    assert decode_runtime(stored).waiting_best_price is None

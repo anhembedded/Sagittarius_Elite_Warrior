@@ -144,6 +144,9 @@ class TriggerMark:
     #: `True` for a LONG grid (it waits for the price at or below the trigger), `False` for a
     #: SHORT one (at or above it).
     at_or_below: bool
+    #: `BUG-276`: the best price the bot heard while it waited, on the side the trigger wants
+    #: (the lowest for `at_or_below`, the highest otherwise); `None` before one was heard.
+    seen_best: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,16 +346,21 @@ def _position(params: GridParams, bot: BotSnapshot, now: datetime) -> PricePosit
         has_liquidation_price=(
             profile is not None and profile.exposure_kind is ExposureKind.POSITION
         ),
-        trigger=_trigger(params, last),
+        trigger=_trigger(
+            params, last, progress.waiting_best_price if progress else None
+        ),
     )
 
 
-def _trigger(params: GridParams, last: Decimal | None) -> TriggerMark | None:
+def _trigger(
+    params: GridParams, last: Decimal | None, seen_best: Decimal | None
+) -> TriggerMark | None:
     if params.trigger_price is None:
         return None
     return TriggerMark(
         _mark(params.trigger_price, last),
         at_or_below=better_is_lower(params),
+        seen_best=seen_best,
     )
 
 
