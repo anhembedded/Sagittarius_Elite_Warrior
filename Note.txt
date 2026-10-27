@@ -1,0 +1,25 @@
+nano /var/lib/sew/plan.json
+$M bot apply /var/lib/sew/plan.json --prune
+$M bot list
+
+
+
+    {
+      "name": "TAO_NaThan",
+      "kind": "grid",
+      "venue": "futures_mainnet",
+      "symbol": "TAOUSDT",
+      "params": {
+        "capital_quote": "36",
+        "direction": "LONG",
+        "grid_count": "10",
+        "leverage": "10",
+        "lower": "245",
+        "spacing": "ARITHMETIC",
+        "stop_loss": "price:243",
+        "take_profit": "price:257",
+        "trigger_price": "248",
+        "upper": "255"
+      },
+      "desired_state": "stopped"
+    }
