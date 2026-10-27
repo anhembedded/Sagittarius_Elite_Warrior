@@ -133,3 +133,13 @@ def test_a_run_with_no_start_price_takes_the_ladders() -> None:
     ladder = GridRuntime(empty_ladder().levels, start_price=Decimal(120))
     resumed = resumed_runtime(earned, ladder, OwnerInventory(_HELD, _COST_WITHOUT_FEES))
     assert resumed.start_price == Decimal(120)
+
+
+def test_a_resume_starts_its_wait_without_the_best_price_of_an_earlier_one() -> None:
+    """The review of #748, round 2: the best price heard belongs to one wait. A resumed run is a
+    new entry (ADR 046 D3), so a low heard before it halted must not seed the next wait."""
+    resumed = resumed_runtime(
+        _earned(), empty_ladder(), OwnerInventory(_HELD, _COST_WITHOUT_FEES)
+    )
+
+    assert resumed.waiting_best_price is None

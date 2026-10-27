@@ -238,7 +238,7 @@ class GridRuntime:
     #: the side its trigger wants (the lowest for a bot that wants a lower price, the highest for
     #: the other), the bar's wick included. Shown so the owner sees whether the price touched the
     #: trigger between two samples; it enters nothing. Meaningful only while the bot is in
-    #: `AWAITING_RANGE`, and kept across a restart or a resume. `None` before one was heard, for a bot
+    #: `AWAITING_RANGE`, kept across a restart and dropped by a resume (a new entry). `None` before one was heard, for a bot
     #: with no trigger and for a record an earlier build wrote.
     waiting_best_price: Decimal | None = None
     #: `BOT-194` - the account's maker fee rate the run's start read from the exchange, kept so a

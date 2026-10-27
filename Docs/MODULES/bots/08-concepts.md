@@ -31,7 +31,8 @@ keeps the best price it heard on the side its trigger wants, the bar's observed 
 (`GridRuntime.waiting_best_price`, `bots/application/kinds/grid/watch/grid_waiting_best.py` →
 `GridWaitingBest`; `BUG-276`): the lowest for a bot that wants a lower price, the highest for the
 other. It is kept only for a bot with a trigger price, saved at most every `WAITING_BEST_SAVE_SECONDS`, carried
-across a restart or a resume (a new wait starts from what the record holds), absent from a
+across a restart (the same wait starts from what the record holds) and dropped by a resume
+(`grid_resumed_runtime.py` → `LADDER_FIELDS`: a resume is a new entry), absent from a
 file an earlier build wrote, and only shown (`TriggerMark.seen_best`, `bots/contracts/grid_ladder_texts.py` →
 `waiting_text`); the entry still judges its samples (`ADR 046`). A level's own lifecycle is the second table in
 [`state-machines.md`](state-machines.md). An order is the bot's when its client order id carries the

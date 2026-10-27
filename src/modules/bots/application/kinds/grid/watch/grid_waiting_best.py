@@ -5,8 +5,8 @@ close on Spot), so a wick that touched the trigger between two of them leaves th
 no trace. This keeps what the bot heard on the side its trigger wants - the lowest price for a bot
 that wants a lower one, the highest for the other - and saves it with the record for the screen to
 say. A bot with no trigger price keeps nothing: the screen shows the value beside a trigger only.
-A restart or a resume starts from the value the record already holds, so the first price after it
-cannot overwrite a low the bot saw before. It decides nothing: the gate and the entry (`GridRangeEntry`) are untouched.
+A restart starts from the value the record already holds, so the first price after it cannot
+overwrite a low the bot saw before; a resume drops it (`resumed_runtime`), being a new entry. It decides nothing: the gate and the entry (`GridRangeEntry`) are untouched.
 
 The wick counts as the bar's extremes the bot observed while listening (`GridTickExtremes`,
 `BUG-191`), not the ones from before it did. Touched only on the bot's worker.

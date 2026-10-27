@@ -136,3 +136,20 @@ def test_a_wait_with_no_trigger_keeps_and_writes_nothing(market: str) -> None:
 
     assert case.world.state() is S.AWAITING_RANGE
     assert case.world.runtime().waiting_best_price is None
+
+
+@pytest.mark.parametrize(("market", "direction", "start"), _CASES)
+def test_the_best_price_is_cleared_when_the_bot_leaves_the_wait(
+    market: str, direction: str, start: Decimal
+) -> None:
+    """The review of #748, round 2: a low from this wait must not seed a later wait of the same
+    record (a halted run resumed flat), where it would report a touch that never happened."""
+    case = started(a_wait(market, direction, start, config=_TRIGGERED))
+    case.price_is(D(128))
+    assert case.world.runtime().waiting_best_price == D(128)
+
+    case.price_is(D(124))
+    assert case.world.state() is S.RUNNING
+    case.price_is(D(124))
+
+    assert case.world.runtime().waiting_best_price is None
