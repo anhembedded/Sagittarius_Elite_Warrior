@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a wrong wire form shows a wrong number on a real-money screen; the contract tests and the same-build handshake are what hold it.
 **Complexity:** M — about 140 lines of codec in the spike (R4), 14 roots behind 47 records, plus the handshake.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md) and the first pull request of [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/incomplete/EPIC-048B_the_bots_screen_through_the_doors.md) (`GetBotRunFactsQuery`, `AssessBotQuery` and the readiness read models, merged as #731). 047A needs the contract types that exist, not the second pull request (`GetVenueChoicesQuery`), which joins the codec as one entry when it lands.
+**Depends on:** [EPIC-048A](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048A_the_doors_rule_and_its_guard.md) and the first pull request of [EPIC-048B](../../EPIC-048_ui_reaches_the_application_through_its_doors/completed/EPIC-048B_the_bots_screen_through_the_doors.md) (`GetBotRunFactsQuery`, `AssessBotQuery` and the readiness read models, merged as #731). 047A needs the contract types that exist, not the second pull request (`GetVenueChoicesQuery`), which joins the codec as one entry when it lands.
 
 ---
 
