@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_prefere
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
     DisplayTimezonePreference,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.link_profiles import (
+    LinkProfiles,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
     TickFlashPreference,
 )
@@ -31,6 +34,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.desk.default_transports import (
+    build_transport_registry,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.desk.transport_registry import (
+    TransportRegistry,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -125,3 +134,11 @@ def register_remembered_state(
     state_coordinator.restore_into(tick_flash)
     tick_flash.set_on_changed(lambda: state_coordinator.mark_dirty(tick_flash))
     container.singleton(TickFlashPreference, tick_flash)
+
+    # `EPIC-047D` - the VPS connection profiles and which one is in use: edited in Tools -> Options
+    # -> VPS Link, read by the VPS Bots tab (`EPIC-047E`). References to keys, never a key.
+    link_profiles = LinkProfiles()
+    state_coordinator.restore_into(link_profiles)
+    link_profiles.set_on_changed(lambda: state_coordinator.mark_dirty(link_profiles))
+    container.singleton(LinkProfiles, link_profiles)
+    container.singleton(TransportRegistry, build_transport_registry())

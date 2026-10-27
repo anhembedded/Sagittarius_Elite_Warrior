@@ -1,4 +1,4 @@
-"""`EPIC-033E` — Tools → Options holds each module's page, then Appearance, then Developer.
+"""`EPIC-033E` — Tools → Options holds each module's page, then Appearance, VPS Link, then Developer.
 
 Replaces the Settings screen's sanity test: the pages come from the real
 modules' contributions through the same `assemble_contributions()` and
@@ -73,7 +73,7 @@ def _apply_button(dialog: OptionsDialog) -> QPushButton:
     return button
 
 
-def test_the_pages_are_each_modules_then_appearance_then_developer(
+def test_the_pages_are_each_modules_then_appearance_vps_link_then_developer(
     qapp, app_engine
 ) -> None:
     assert [page.title for page in _pages(app_engine)] == [
@@ -81,6 +81,7 @@ def test_the_pages_are_each_modules_then_appearance_then_developer(
         "Market Data",
         "Alerts",
         "Appearance",
+        "VPS Link",
         "Developer",
     ]
 

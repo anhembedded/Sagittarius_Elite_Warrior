@@ -4,7 +4,7 @@
 Each module's page comes from its `OptionsPageContribution`, built here with
 the container; the shell's own pages go last, after the pages about trading
 and data, as an application's own options do: Appearance (`EPIC-043B`), then
-Developer (`EPIC-033C`). Appearance is not first so that Options still opens on
+the VPS link (`EPIC-047D`), then Developer (`EPIC-033C`). Appearance is not first so that Options still opens on
 Trading, where the keys are.
 """
 
@@ -26,8 +26,14 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
 from Sagittarius_Elite_Warrior.src.shell.developer_options.developer_options_page import (
     DeveloperOptionsPage,
 )
+from Sagittarius_Elite_Warrior.src.shell.link_options.link_options_page import (
+    LinkOptionsPage,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.colour_scheme_preference import (
     ColourSchemePreference,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.link_profiles import (
+    LinkProfiles,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.tick_flash_preference import (
     TickFlashPreference,
@@ -43,7 +49,7 @@ def build_options_pages(
     running_with_dev_mode: bool,
 ) -> tuple[IOptionsSection, ...]:
     """Every page, built: the modules' in their contributed order, then
-    Appearance, then Developer."""
+    Appearance, VPS Link, then Developer."""
     module_pages = tuple(
         contribution.factory(container)
         for contribution in contributions.options_pages()
@@ -57,4 +63,5 @@ def build_options_pages(
         container.resolve(ColourSchemePreference),
         container.resolve(TickFlashPreference),
     )
-    return (*module_pages, appearance, developer)
+    vps_link = LinkOptionsPage(container.resolve(LinkProfiles))
+    return (*module_pages, appearance, vps_link, developer)
