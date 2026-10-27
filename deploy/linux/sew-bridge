@@ -1,0 +1,21 @@
+#!/bin/sh
+# sew-bridge - the one command the desktop's key may run (EPIC-047C, remote link record D2 and D3).
+#
+# `sshd` starts it for each session of a key restricted in the sew account's authorized_keys:
+#
+#   restrict,command="/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge" ssh-ed25519 AAAA...
+#
+# `restrict` turns off port forwarding, agent forwarding, X11 and the terminal; `command=` makes
+# this script the only thing the key runs, whatever the client asks for (the request is in
+# SSH_ORIGINAL_COMMAND, which this script never reads). The bridge speaks newline-delimited JSON on
+# its standard input and output and listens on nothing. It runs as the account that owns the key,
+# `sew`, never root. The key line is an operator step (Docs/OPERATIONS/headless_runbook.md).
+#
+# Plain POSIX sh and one exec: nothing here may print to standard output, which is the protocol.
+SEW_HOME=${SEW_HOME:-/opt/sew}
+SEW_DATA=${SEW_DATA:-/var/lib/sew}
+PYTHONPATH=$SEW_HOME
+SEW_DATA_ROOT=$SEW_DATA
+PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH SEW_DATA_ROOT PYTHONDONTWRITEBYTECODE
+exec "$SEW_HOME/venv/bin/python" -m Sagittarius_Elite_Warrior.src.shell.link_bridge_main
