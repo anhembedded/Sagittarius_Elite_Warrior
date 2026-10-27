@@ -79,6 +79,11 @@ class VpsFeedHost:
     def begin(self, context: IEngineContext, clock: IOperationsClock) -> None:
         container = context.container
         settings = container.resolve(VpsFeedSettings)
+        if not settings.feed_enabled:
+            logger.info(
+                "[vps-feed] off in this process (setting); the host serves the VPS tab"
+            )
+            return
         codec = container.resolve(IWireCodec)
         scheduler = container.resolve(Scheduler)
         if settings.market_recorder_enabled:

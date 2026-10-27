@@ -183,6 +183,10 @@ class ConfigKeys(str, Enum):
     #: `EPIC-047H` - whether the host writes the market-data file (forming candles, last and mark price)
     #: for the VPS tab. Off: the tab says "not published by the host".
     OPERATIONS_VPS_MARKET_RECORDER_ENABLED = "operations.vps_market_recorder_enabled"
+    #: `EPIC-047H` - whether this process runs the VPS feed at all (recorder, refresher, both files). On
+    #: for the headless host; the GUI entry point turns it off for its run, so a desktop never spends
+    #: weight on its own IP for files nothing on it reads.
+    OPERATIONS_VPS_FEED_ENABLED = "operations.vps_feed_enabled"
 
     # `BOT-018` — Telegram notification channel. Since `EPIC-036C1` these two keys are only what
     # an older install still holds: `TelegramConfigMigration` moves them into the secret store at

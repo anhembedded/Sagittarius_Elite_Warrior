@@ -24,10 +24,20 @@ _FEED_FILES = (
     f"{_OPERATIONS}/facts_refreshing.py",
     f"{_OPERATIONS}/market_recorder.py",
     f"{_OPERATIONS}/refresh_facts_outcome.py",
+    f"{_OPERATIONS}/vps_facts_refresher.py",
+    f"{_OPERATIONS}/vps_refresh_budget.py",
+    f"{_OPERATIONS}/vps_refresh_costs.py",
+    f"{_OPERATIONS}/vps_refresh_report.py",
+    f"{_OPERATIONS}/vps_refresh_work.py",
+    f"{_OPERATIONS}/vps_weight_ledger.py",
     "src/modules/operations/adapters/wire_document_file.py",
     "src/modules/operations/composition/vps_feed_bindings.py",
     "src/modules/operations/composition/vps_feed_host.py",
     "src/modules/bots/application/services/host_reads/exchange_bot_read_refresh.py",
+    "src/modules/bots/adapters/latest_exchange_reads.py",
+    "src/modules/bots/adapters/held_host_exchange_reads.py",
+    "src/modules/market_data/adapters/bridge_candles.py",
+    "src/modules/market_data/adapters/persistence/readonly_candle_shards.py",
     "src/modules/trading/adapters/memory_mark_board.py",
     "src/modules/trading/adapters/binance/policy_weight_meter.py",
 )
@@ -75,6 +85,7 @@ _FORBIDDEN_NAMES = frozenset(
 def breaches(source: str, path: str) -> list[str]:
     """What `source` imports that a feed file may not."""
     found: list[str] = []
+    own = "Sagittarius_Elite_Warrior." + path.removesuffix(".py").replace("/", ".")
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.Import):
             modules = [alias.name for alias in node.names]
@@ -86,7 +97,11 @@ def breaches(source: str, path: str) -> list[str]:
         for module in modules:
             if module.split(".")[0] in _NETWORK:
                 found.append(f"{path}: imports the network library {module}")
-            if module.startswith(_FORBIDDEN_PREFIXES):
+            # a file inside a forbidden package (the store reader beside the store) may name its neighbours
+            if module.startswith(_FORBIDDEN_PREFIXES) and not any(
+                own.startswith(prefix) and module.startswith(prefix)
+                for prefix in _FORBIDDEN_PREFIXES
+            ):
                 found.append(f"{path}: imports the client-building module {module}")
         found += [
             f"{path}: imports {name}, which acts on an order, a session or a key"

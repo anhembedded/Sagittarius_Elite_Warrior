@@ -17,7 +17,7 @@ overdue bots over the interval again, so reopening queues nothing.
 **Failure** leaves the last good snapshot and its `read_at` (`ExchangeBotReadRefresh` records only a
 read that happened) and is logged once per cause until a read succeeds.
 
-**Rounds.** A bot's round is its facts read, and on every `fills_every_rounds`-th round (the tenth) its planner
+**Rounds.** A bot's round is its facts read, and on every `fills_every_rounds`-th round (the fifth) its planner
 inputs and its fills too, each a read of its own that the ceiling paces and charges on its own. An asked-for
 refresh is a round with all three. An account-history read is 20 weight a day window, which is why the
 fills are not on every round, and why the first connect of a tab asks for the bot it selects.
@@ -237,6 +237,8 @@ class FactsRefresher(IFactsRefreshRequests):
             if verdict.reason == "ceiling" and job.kind in SLOW_KINDS:
                 self._deferred[(job.bot_id, job.asked)] = now + verdict.wait_s
                 return BETWEEN_READS_S
+            if verdict.reason == "too_dear":
+                budget.costs.forget(job.kind)
             self._hold(job.venue, verdict.wait_s, verdict.reason, now)
             return min(verdict.wait_s, IDLE_S)
         self._read(job, meter, now)
@@ -250,7 +252,7 @@ class FactsRefresher(IFactsRefreshRequests):
     ) -> None:
         budget = self._budget(job.venue)
         before = meter.read()
-        outcome = self._do(job)
+        outcome = self._do_charged(job)
         after = meter.read()
         planned = budget.costs.expected(job.kind)
         cost = (
@@ -272,6 +274,21 @@ class FactsRefresher(IFactsRefreshRequests):
             return
         self._deferred.pop((job.bot_id, job.asked), None)
         self._settle(job, outcome, now)
+
+    def _do_charged(self, job: Job) -> RefreshOutcome:
+        """A read that raises has still spent what its requests cost: it is a failed read, charged and paced like
+        any other, never a job retried at once (`IBotReadRefresh` says it does not raise; this is the seam that
+        keeps the ceiling true if one does)."""
+        try:
+            return self._do(job)
+        except Exception as failure:  # noqa: BLE001 - the seam to the exchange reads: a raise is a word, and the weight spent is still charged
+            logger.warning(
+                "[vps-feed] a %s read of %s raised: %s [vps-feed-read]",
+                job.kind.value,
+                job.bot_id or job.venue.value,
+                failure,
+            )
+            return RefreshOutcome(None, f"the read raised: {failure}")
 
     def _do(self, job: Job) -> RefreshOutcome:
         if job.kind is ReadKind.STATIC:

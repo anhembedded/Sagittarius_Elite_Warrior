@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
@@ -101,6 +102,12 @@ def _settings(container: IContainer) -> VpsFeedSettings:
             )
         ),
         bool(config.get(ConfigKeys.OPERATIONS_VPS_MARKET_RECORDER_ENABLED.value, True)),
+    )
+    settings = replace(
+        settings,
+        feed_enabled=bool(
+            config.get(ConfigKeys.OPERATIONS_VPS_FEED_ENABLED.value, True)
+        ),
     )
     for note in settings.notes:
         logger.warning("[vps-feed] setting adjusted: %s [vps-feed-setting]", note)

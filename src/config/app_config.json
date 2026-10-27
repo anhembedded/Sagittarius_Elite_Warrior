@@ -30,5 +30,6 @@
     "trading.position_refresh_interval_seconds": 5.0,
     "operations.vps_facts_refresh_interval_s": 120,
     "operations.vps_facts_weight_ceiling_pct": 3.0,
-    "operations.vps_market_recorder_enabled": true
+    "operations.vps_market_recorder_enabled": true,
+    "operations.vps_feed_enabled": true
 }

@@ -38,6 +38,8 @@ class VpsFeedSettings:
     #: What `judged` changed, in words for the log; empty when every value was as given.
     notes: tuple[str, ...] = ()
     fills_every_rounds: int = FILLS_EVERY_ROUNDS
+    #: Whether this process runs the feed at all; off in the GUI entry point (`EPIC-047H`).
+    feed_enabled: bool = True
 
     @property
     def refresh_enabled(self) -> bool:
