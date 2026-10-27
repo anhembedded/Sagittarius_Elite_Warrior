@@ -1,7 +1,7 @@
 """A command file becomes the command the Bots tab dispatches (`EPIC-038J`).
 
 One row per action: the contract command the bots module answers by dispatching the screen's
-own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand`, `StartBotCommand`, `EditBotCommand`, `CreateBotCommand` or `DeleteBotCommand` (and,
+own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand`, `StartBotCommand`, `EditBotCommand`, `CreateBotCommand` or `DeleteBotCommand` (and, for `refresh-facts`, a queued read of the exchange that `refresh_outcome` words; and,
 for the owner's `loss-cap-ack`, the acknowledgement of the account-level loss cap, `EPIC-026L`). So the file adds no
 way to stop, pause, resume, start or edit a bot; it only
 asks for one by name, and the lifecycle table, the read-only rule
@@ -43,8 +43,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StopBotForOperatorCommand,
     UnplanBotForHostCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.application.refresh_facts_outcome import (
+    refresh_outcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HostCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_facts_refresh_requests import (
+    IFactsRefreshRequests,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_host_command_executor import (
     ExecutionOutcome,
@@ -158,10 +164,17 @@ def _accepted_words(command: HostCommand, result: BotCommandResult) -> str:
 
 
 class BotHostCommandExecutor(IHostCommandExecutor):
-    def __init__(self, dispatcher: ICommandDispatcher) -> None:
+    def __init__(
+        self,
+        dispatcher: ICommandDispatcher,
+        refresh: IFactsRefreshRequests | None = None,
+    ) -> None:
         self._dispatcher = dispatcher
+        self._refresh = refresh
 
     def execute(self, command: HostCommand) -> ExecutionOutcome:
+        if command.action is HostControlAction.REFRESH_FACTS:
+            return refresh_outcome(command, self._refresh)
         request = _REQUESTS[command.action](command)
         result = cast(
             BotCommandResult, self._dispatcher.dispatch(type(request), request)

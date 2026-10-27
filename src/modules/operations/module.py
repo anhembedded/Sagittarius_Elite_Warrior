@@ -3,9 +3,10 @@
 **The context's one question:** *how does an operator, or a supervisor, know
 this process is alive and well, and make it start and stop cleanly?* It listens
 to the other contexts and is depended on by none (`DESIGN_2026-10-09_headless_operation.md`
-§3). It declares three dependencies: `bots`, a read of the bots' status report for
-`status`, `alerting`, whether a bot's halt has a channel (`EPIC-036G`), and `trading`, the
-budget caps the host-facts file holds and the bridge reads back (`EPIC-047C`).
+§3). It declares four dependencies: `bots`, a read of the bots' status report for
+`status`, `alerting`, whether a bot's halt has a channel (`EPIC-036G`), `market_data`, the kline ticks the market-data
+file records (`EPIC-047H`), and `trading`, the budget caps the host-facts file holds and the bridge reads back
+(`EPIC-047C`) and the venue's weight the refresh is held to (`EPIC-047H`).
 
 What it holds today:
 
@@ -20,6 +21,12 @@ What it holds today:
     caps and the exchange's latest answer for each bot - written to `state/host-facts.json` on a
     change and at a heartbeat, owner-only and atomically, from a worker thread of its own, for a
     second process (the bridge, `EPIC-047C`) that can reach nothing in the host's memory;
+  - **what the host serves the VPS tab besides the facts** (`EPIC-047H`, decision record 2026-10-27): the
+    **market-data file** (`state/market-data.json`: the last price, the mark and the forming candles of each
+    symbol the host already streams, written at most once a second), the **host-reads file**
+    (`state/host-reads.json`: the planner inputs, the fills and the symbol rules the host read again) and the
+    **refresh** that reads them under a weight ceiling at `ROUTINE` priority, each on a worker thread of its
+    own. All three only read: they place, cancel and start nothing, and they open no connection of their own;
   - **`status`**, which reads that file, the instance lock and the bots, and
     opens no port.
 
@@ -150,6 +157,12 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.status_cli_handler imp
 from Sagittarius_Elite_Warrior.src.modules.operations.composition.control_bindings import (
     bind_control,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.composition.vps_feed_bindings import (
+    bind_vps_feed,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.composition.vps_feed_host import (
+    VpsFeedHost,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     FACTS_HEARTBEAT_SECONDS,
     FACTS_POLL_SECONDS,
@@ -199,12 +212,13 @@ class OperationsModule(BoundedContextModule):
 
     #: Reads the bots' status report and the alerting module's status (`EPIC-036G`);
     #: checked by `test_module_declarations.py`.
-    dependencies: list[str] = ["bots", "alerting", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
+    dependencies: list[str] = ["bots", "alerting", "market_data", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     _publishing: HealthPublishing | None = None
     _job: ScheduledJob | None = None
     _facts_publishing: HostFactsPublishing | None = None
     _facts_job: ScheduledJob | None = None
+    _feed: VpsFeedHost | None = None
 
     def register(self, context: IEngineContext) -> None:
         container = context.container
@@ -246,6 +260,8 @@ class OperationsModule(BoundedContextModule):
         )
         # `EPIC-038J` - control of a running host through the command directory (channel A).
         bind_control(container)
+        # `EPIC-047H` - what the host reads and writes for the VPS tab besides the facts.
+        bind_vps_feed(container)
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         registry.declare(
@@ -303,6 +319,8 @@ class OperationsModule(BoundedContextModule):
             cadence.interval_s,
         )
         self._begin_host_facts(container, clock)
+        self._feed = VpsFeedHost()
+        self._feed.begin(context, clock)
 
     def _begin_host_facts(self, container: IContainer, clock: IOperationsClock) -> None:
         """`EPIC-047B`: the host's facts, looked at every `FACTS_POLL_SECONDS` on a worker thread
@@ -346,6 +364,9 @@ class OperationsModule(BoundedContextModule):
         if self._facts_publishing is not None:
             self._facts_publishing.end()
             self._facts_publishing = None
+        if self._feed is not None:
+            self._feed.end()
+            self._feed = None
 
 
 def _snapshot_path() -> Path:

@@ -15,6 +15,11 @@ ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_start_journeys_run_at_production_pacing.py",
         (("tests/integration/modules/bots", "test_*.py"),),
     ),
+    # `EPIC-047H` - the files that serve the VPS tab read and open no connection; the guard reads them by name.
+    (
+        "tests/unit/architecture/test_the_vps_feed_reads_only_and_opens_no_connection.py",
+        (("src/modules/operations/application", "vps_*.py"),),
+    ),
     # `BOT-226` - only the three query handlers open the request-priority scope.
     (
         "tests/unit/architecture/test_only_the_query_handlers_open_a_request_priority_scope.py",

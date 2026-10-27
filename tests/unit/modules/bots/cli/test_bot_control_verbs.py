@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     DeleteBotVerb,
     EditBotVerb,
     PauseBotVerb,
+    RefreshFactsVerb,
     ResumeBotVerb,
     StartBotVerb,
     StopBotVerb,
@@ -74,6 +75,7 @@ def _run(
     [
         (StopBotVerb(), HostControlAction.STOP),
         (PauseBotVerb(), HostControlAction.PAUSE),
+        (RefreshFactsVerb(), HostControlAction.REFRESH_FACTS),
         (ResumeBotVerb(), HostControlAction.RESUME),
         (StartBotVerb(), HostControlAction.START),
         (DeleteBotVerb(), HostControlAction.DELETE),
@@ -105,7 +107,7 @@ def test_a_stop_carries_the_close_position_flag_to_the_host() -> None:
 
 
 def test_the_verbs_are_registered_under_the_words_the_operator_types() -> None:
-    assert {"stop", "pause", "resume", "start", "edit"} <= {
+    assert {"stop", "pause", "refresh-facts", "resume", "start", "edit"} <= {
         verb.name for verb in BOT_VERBS
     }
 

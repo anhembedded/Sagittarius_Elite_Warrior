@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import os
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.venue_subdirectory import (
+    venue_subdirectory,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
@@ -26,6 +29,7 @@ def venue_directory(base: str, venue: MarketDataVenue) -> str:
     already a store of its own in memory, and joining a path onto the sentinel
     would turn it into a real filesystem path (`shard_name()`).
     """
-    if venue is MarketDataVenue.MAINNET_PUBLIC or base == IN_MEMORY:
+    subdirectory = venue_subdirectory(venue)
+    if not subdirectory or base == IN_MEMORY:
         return base
-    return os.path.join(base, venue.value)
+    return os.path.join(base, subdirectory)

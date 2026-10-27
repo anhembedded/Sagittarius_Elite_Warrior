@@ -22,6 +22,9 @@ from collections.abc import Iterable
 
 from Sagittarius_Elite_Warrior.src.core.contracts.wire_name import is_wire_name
 from Sagittarius_Elite_Warrior.src.core.contracts.wire_root import WireRoot
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_wire_codec import (
+    IWireCodec,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.wire_codec import decode, encode
 from Sagittarius_Elite_Warrior.src.support.wire.wire_errors import (
     WireDecodeError,
@@ -56,7 +59,7 @@ _SECRET_FIELD = re.compile(
 )
 
 
-class WireRoots:
+class WireRoots(IWireCodec):
     """The registry: encodes a value under its root's name, decodes a message by the name it carries."""
 
     def __init__(self, roots: Iterable[WireRoot]) -> None:

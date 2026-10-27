@@ -10,6 +10,7 @@ that builds an app. It holds no behaviour of its own. The paths are the host's o
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
@@ -32,18 +33,34 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.replaying_command
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.system_operations_clock import (
     SystemOperationsClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.wire_document_file import (
+    WireDocumentView,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.composition.wire_roots import (
     HOST_FACTS_DOCUMENT_ROOT,
+    HOST_READS_DOCUMENT_ROOT,
+    MARKET_DATA_DOCUMENT_ROOT,
     OPERATIONS_WIRE_ROOTS,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     HOST_FACTS_FILE_NAME,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_reads_document import (
+    HOST_READS_FILE_NAME,
+    HostReadsDocument,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.market_data_document import (
+    MARKET_DATA_FILE_NAME,
+    MarketDataDocument,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_facts import (
     IBridgeFacts,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_command_door import (
     ICommandDoor,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_wire_codec import (
+    IWireCodec,
 )
 
 
@@ -60,6 +77,30 @@ def bridge_facts(state_directory: Path) -> IBridgeFacts:
         SystemOperationsClock(),
         HOST_FACTS_DOCUMENT_ROOT,
     )
+
+
+def bridge_documents(
+    state_directory: Path, codec: IWireCodec
+) -> Mapping[str, IBridgeFacts]:
+    """The host's market-data file and host-reads file under `state_directory`, by the kind the protocol names
+    them (`market`, `reads`), read for the bridge (`EPIC-047H`). `codec` is the build's registry of wire roots."""
+    clock = SystemOperationsClock()
+    return {
+        "market": WireDocumentView[MarketDataDocument](
+            state_directory / MARKET_DATA_FILE_NAME,
+            codec,
+            MARKET_DATA_DOCUMENT_ROOT,
+            lambda document: document.header,
+            clock,
+        ),
+        "reads": WireDocumentView[HostReadsDocument](
+            state_directory / HOST_READS_FILE_NAME,
+            codec,
+            HOST_READS_DOCUMENT_ROOT,
+            lambda document: document.header,
+            clock,
+        ),
+    }
 
 
 def bridge_door(state_directory: Path, probe: IInstanceProbe) -> ICommandDoor:

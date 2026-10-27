@@ -38,20 +38,28 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_candle_call import (
+    serve_candles,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_commands import (
     BridgeCommands,
     Send,
     Spawn,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_documents import (
+    FACTS_KIND,
+    DocumentWatch,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
+    DOCUMENTS_LOOK_S,
     EXIT_ENDED,
     EXIT_IDLE,
     EXIT_INTERNAL,
     EXIT_PROTOCOL,
     EXIT_REFUSED,
-    FACTS_LOOK_S,
     HEARTBEAT_S,
     HELLO_TIMEOUT_S,
     IDLE_WATCHDOG_S,
@@ -63,10 +71,12 @@ from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
     BotReading,
-    FactsLook,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
     IBridgeBots,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_candles import (
+    IBridgeCandles,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_facts import (
     IBridgeFacts,
@@ -90,6 +100,10 @@ class SessionPorts:
     bots: IBridgeBots
     facts: IBridgeFacts
     door: ICommandDoor
+    #: `EPIC-047H`: the host's other files by kind (`market`, `reads`), each watched like the facts file.
+    documents: Mapping[str, IBridgeFacts] = field(default_factory=dict)
+    #: `EPIC-047H`: the host's closed candles; `None` where the build offers none (the `candles` call says so).
+    candles: IBridgeCandles | None = None
 
 
 class BridgeSession:
@@ -118,12 +132,14 @@ class BridgeSession:
         self._started_at = 0.0
         self._last_inbound = 0.0
         self._next_poll = 0.0
-        self._next_facts = 0.0
+        self._next_documents = 0.0
+        self._documents = DocumentWatch(
+            {FACTS_KIND: ports.facts, **ports.documents}, roots
+        )
         self._subscribed = False
         self._seq = 0
         self._seen: dict[str, tuple[int, ...]] = {}
         self._revision: dict[str, int] = {}
-        self._facts_key: tuple[int, str] | None = None
         self.exit_code: int | None = None
         self.events_sent = 0
         self._calls_served = 0
@@ -189,9 +205,9 @@ class BridgeSession:
         if now >= self._next_poll:
             self._next_poll = now + POLL_S
             self._poll(announce=True)
-        if now >= self._next_facts:
-            self._next_facts = now + FACTS_LOOK_S
-            self._look_at_facts(announce=True)
+        if now >= self._next_documents:
+            self._next_documents = now + DOCUMENTS_LOOK_S
+            self._look_at_documents()
 
     def violate_line_too_long(self) -> None:
         """The reader met a line over its bound."""
@@ -224,9 +240,9 @@ class BridgeSession:
             return
         self._greeted = True
         self._send({"type": "welcome", **self._timings()})
-        self._next_poll = self._next_facts = now
+        self._next_poll = self._next_documents = now
         self._poll(announce=False)
-        self._look_at_facts(announce=False)
+        self._documents.snapshot()
 
     def _serve(self, document: dict[str, object]) -> None:
         kind = document.get("type")
@@ -267,6 +283,8 @@ class BridgeSession:
         if method == "command":
             self._commands.start(call_id, params)
             return None
+        if method == "candles":
+            return serve_candles(self._ports.candles, self._roots, params)
         raise CallError("unknown_method", f"no method {method[:40]!r}")
 
     # -- reads ----------------------------------------------------------------------------
@@ -274,15 +292,15 @@ class BridgeSession:
     def _snapshot(self) -> dict[str, object]:
         self._poll(announce=True)
         listing = self._ports.bots.listing()
-        look = self._ports.facts.look()
-        self._facts_key = _facts_key(look)
+        documents = self._documents.snapshot()
         return {
             "seq": self._seq,
             "list": self._roots.encode(listing.root, listing.value),
             "revisions": {
                 bot_id: self._revision[bot_id] for bot_id in sorted(self._seen)
             },
-            "facts": self._facts_payload(look),
+            "facts": documents.pop(FACTS_KIND),
+            "documents": documents,
         }
 
     def _poll(self, *, announce: bool) -> None:
@@ -324,28 +342,10 @@ class BridgeSession:
             }
         )
 
-    def _look_at_facts(self, *, announce: bool) -> None:
-        look = self._ports.facts.look()
-        key = _facts_key(look)
-        if key == self._facts_key:
-            return
-        self._facts_key = key
-        if announce and self._subscribed:
-            self._event({"kind": "facts", **self._facts_payload(look)})
-
-    def _facts_payload(self, look: FactsLook) -> dict[str, object]:
-        document = (
-            None
-            if look.document is None
-            else self._roots.encode(look.document.root, look.document.value)
-        )
-        return {
-            "state": look.state.value,
-            "revision": look.revision,
-            "age_s": look.age_s,
-            "problem": look.problem,
-            "document": document,
-        }
+    def _look_at_documents(self) -> None:
+        for kind, payload in self._documents.changes():
+            if self._subscribed:
+                self._event({"kind": kind, **payload})
 
     def _event(self, body: dict[str, object]) -> None:
         self._seq += 1
@@ -391,7 +391,3 @@ class BridgeSession:
             self.calls_served,
             self.events_sent,
         )
-
-
-def _facts_key(look: FactsLook) -> tuple[int, str]:
-    return (look.revision, look.state.value)

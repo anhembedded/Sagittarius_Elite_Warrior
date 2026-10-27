@@ -43,6 +43,7 @@ def action_problem(
         or _proposal_problem(document, action)
         or _strategy_problem(document, action, venue, bot_id)
         or _acknowledgement_problem(document, action, venue, bot_id)
+        or _refresh_problem(document, action, venue)
     )
 
 
@@ -208,6 +209,17 @@ def _acknowledgement_problem(
         return f"a loss-cap-ack names no bot: bot_id is {LOSS_CAP_SUBJECT}"
     if venue is not None or "close_position" in document or "set" in document:
         return "a loss-cap-ack carries no venue, close_position or set"
+    return None
+
+
+def _refresh_problem(
+    document: dict[str, object], action: str, venue: object
+) -> str | None:
+    """A refresh only reads (`EPIC-047H`): it names a bot and carries nothing that acts on one."""
+    if action != HostControlAction.REFRESH_FACTS.value:
+        return None
+    if venue is not None or "close_position" in document or "set" in document:
+        return "a refresh-facts carries no venue, close_position or set"
     return None
 
 

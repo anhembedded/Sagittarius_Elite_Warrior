@@ -36,6 +36,9 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
+    DEFAULT_CHART_TIMEFRAMES,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
     StateData,
     StateScope,
@@ -54,10 +57,11 @@ _PINNED_KEY = "pinned_by_symbol"
 #: holds for the symbol, and the full picker can pin or unpin any of the
 #: domain's sixteen codes from there.
 #:
-#: Moved here from `chart_toolbar.py` (still re-exported from there for
+#: The codes themselves live in `core/vo/market_timeframes.py` since `EPIC-047H` (the headless host publishes one
+#: candle per code and may not import this package). Moved here from `chart_toolbar.py` (still re-exported from there for
 #: existing call sites/tests) because seeding a never-seen symbol is now this
 #: store's own job, not `ChartToolbar`'s constructor default.
-DEFAULT_TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1h", "1d")
+DEFAULT_TIMEFRAMES: tuple[str, ...] = DEFAULT_CHART_TIMEFRAMES
 
 
 def _normalise_symbol(symbol: str) -> str:

@@ -112,6 +112,17 @@ class PauseBotVerb(_ControlVerb):
     action = HostControlAction.PAUSE
 
 
+class RefreshFactsVerb(_ControlVerb):
+    """`bot refresh-facts <id>`: the host reads the bot's exchange facts, planner inputs and fills again (`EPIC-047H`).
+
+    It only reads: the host queues the read at `ROUTINE` priority inside its weight ceiling and answers at once,
+    or says the bot was read less than 30 s ago and when. The Bots tab's Refresh exchange and Refresh fills.
+    """
+
+    name = "refresh-facts"
+    action = HostControlAction.REFRESH_FACTS
+
+
 class ResumeBotVerb(_ControlVerb):
     name = "resume"
     action = HostControlAction.RESUME

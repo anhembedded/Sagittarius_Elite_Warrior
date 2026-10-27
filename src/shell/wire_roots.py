@@ -11,6 +11,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.bots.link import (
     wire_roots as bots_wire_roots,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.link import (
+    wire_roots as market_data_wire_roots,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.link import (
     wire_roots as operations_wire_roots,
 )
@@ -19,4 +22,10 @@ from Sagittarius_Elite_Warrior.src.support.wire.wire_roots import WireRoots
 
 def link_roots() -> WireRoots:
     """The registry of every type this build carries, refusing at once a graph it cannot carry."""
-    return WireRoots((*bots_wire_roots(), *operations_wire_roots()))
+    return WireRoots(
+        (
+            *bots_wire_roots(),
+            *market_data_wire_roots(),
+            *operations_wire_roots(),
+        )
+    )

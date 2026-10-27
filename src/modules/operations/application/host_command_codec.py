@@ -9,7 +9,7 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "arm-strategy" | "disarm-strategy" | "loss-cap-ack"
+  action          "stop" | "pause" | "resume" | "confirm-resume" | "start" | "edit" | "add" | "delete" | "move" | "arm-strategy" | "disarm-strategy" | "loss-cap-ack" | "refresh-facts"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone

@@ -6,14 +6,17 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     HostFactsDocument,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_document_sink import (
+    IDocumentSink,
+)
 
 
-class IHostFactsSink(ABC):
+class IHostFactsSink(IDocumentSink[HostFactsDocument]):
     @abstractmethod
     def publish(self, document: HostFactsDocument) -> None:
         """Make `document` the current file. Atomic: a reader sees the previous file or this

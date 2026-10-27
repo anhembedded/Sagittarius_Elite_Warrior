@@ -205,6 +205,7 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(ExchangeFactsReader, _build_exchange_facts_reader)
     container.singleton(FuturesFactsReader, _build_futures_facts_reader)
     container.singleton(IVenueFacts, _build_venue_facts)
+    container.singleton(VenueFactsByProfile, _build_venue_facts_by_profile)
     container.singleton(IVenueSettingsGate, _build_venue_settings_gate)
     container.singleton(SymbolBrackets, _build_symbol_brackets)
     container.singleton(IGridBudgets, _build_grid_budgets)
@@ -330,14 +331,19 @@ def _build_venue_facts(container: IContainer) -> IVenueFacts:
     """The readiness facts of whichever venue a bot is on, by the venue's profile, each read
     remembered for the host's facts file (`EPIC-047B`; the exchange is asked no more often)."""
     return RecordedVenueFacts(
-        VenueFactsByProfile(
-            container.resolve(IVenueProfiles),
-            {
-                ExposureKind.INVENTORY: container.resolve(ExchangeFactsReader),
-                ExposureKind.POSITION: container.resolve(FuturesFactsReader),
-            },
-        ),
+        container.resolve(VenueFactsByProfile),
         container.resolve(ILatestVenueReads),
+    )
+
+
+def _build_venue_facts_by_profile(container: IContainer) -> VenueFactsByProfile:
+    """The reader beneath the recording: the host's refresh reads through it and records a read only when it happened (`EPIC-047H`)."""
+    return VenueFactsByProfile(
+        container.resolve(IVenueProfiles),
+        {
+            ExposureKind.INVENTORY: container.resolve(ExchangeFactsReader),
+            ExposureKind.POSITION: container.resolve(FuturesFactsReader),
+        },
     )
 
 

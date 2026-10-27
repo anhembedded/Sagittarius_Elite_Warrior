@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_wire_codec import (
+    WireCodecError,
+)
 
-class WireError(Exception):
+
+class WireError(WireCodecError):
     """A value could not be turned into a wire form or back. The message says where and why."""
 
 
