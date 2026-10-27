@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.funding_rate import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
     FuturesSymbolSetting,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_board import (
+    IMarkBoard,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
     IOrderEntryTerms,
 )
@@ -79,9 +82,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 class OrderEntryTermsService(IOrderEntryTerms):
     """The order-entry terms of one venue (`EPIC-028H`)."""
 
-    def __init__(self, dispatcher: ICommandDispatcher, venue: TradingVenue) -> None:
+    def __init__(
+        self,
+        dispatcher: ICommandDispatcher,
+        venue: TradingVenue,
+        marks: IMarkBoard | None = None,
+    ) -> None:
         self._dispatcher = dispatcher
         self._venue = venue
+        #: `EPIC-047H`: every mark read here is remembered for the host's market-data file.
+        self._marks = marks
 
     def terms_for(self, symbol: str) -> OrderEntryTerms:
         return self._terms(symbol, refresh=False)
@@ -114,10 +124,13 @@ class OrderEntryTermsService(IOrderEntryTerms):
     def mark_price_for(
         self, symbol: str, priority: RequestPriority = RequestPriority.ROUTINE
     ) -> MarkPrice | NotApplicable:
-        return self._ask_unless_not_applicable(
+        mark = self._ask_unless_not_applicable(
             GetMarkPriceQuery(venue=self._venue, symbol=symbol, priority=priority),
             MarkPrice,
         )
+        if self._marks is not None and isinstance(mark, MarkPrice):
+            self._marks.record(self._venue, mark.symbol, mark.mark_price, mark.as_of)
+        return mark
 
     def funding_rate_for(self, symbol: str) -> FundingRate | NotApplicable:
         return self._ask_unless_not_applicable(

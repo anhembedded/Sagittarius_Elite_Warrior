@@ -163,6 +163,7 @@ def test_the_verbs_are_a_table_not_a_chain() -> None:
         "export",
         "stop",
         "pause",
+        "refresh-facts",
         "resume",
         "confirm-resume",
         "start",

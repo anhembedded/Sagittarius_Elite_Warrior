@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.re
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.closed_candle_window import (
+    CANDLE_WINDOW_ROOT,
+)
 from Sagittarius_Elite_Warrior.src.shell.wire_roots import link_roots
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_session import (
     BridgeSession,
@@ -32,6 +35,11 @@ from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
     IBridgeBots,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_candles import (
+    CandleQuery,
+    IBridgeCandles,
+    UnknownCandleSeriesError,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_facts import (
     IBridgeFacts,
 )
@@ -45,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.support.wire.link_handshake import (
 from Sagittarius_Elite_Warrior.tests.unit.support.wire.contract.samples_bots import (
     full_bot,
     minimal_bot,
+)
+from Sagittarius_Elite_Warrior.tests.unit.support.wire.contract.samples_market_data import (
+    full_candle_window,
 )
 from Sagittarius_Elite_Warrior.tests.unit.support.wire.contract.samples_operations import (
     full_host_facts,
@@ -119,6 +130,39 @@ class FakeFacts(IBridgeFacts):
         )
 
 
+class FakeDocument(IBridgeFacts):
+    """A host file the test moves: one root, a value and a revision. Counts how often it was asked."""
+
+    def __init__(self, root: str, value: object, revision: int = 7) -> None:
+        self._root = root
+        self.look_now = FactsLook(FactsState.LIVE, revision, 0.2, Wired(root, value))
+        self.asked = 0
+
+    def look(self) -> FactsLook:
+        self.asked += 1
+        return self.look_now
+
+    def host_wrote(self, value: object, revision: int) -> None:
+        self.look_now = FactsLook(
+            FactsState.LIVE, revision, 0.1, Wired(self._root, value)
+        )
+
+
+class FakeCandles(IBridgeCandles):
+    """The host's candle store as the test seeds it; remembers what it was asked."""
+
+    def __init__(self) -> None:
+        self.asked: list[CandleQuery] = []
+        self.answer = Wired(CANDLE_WINDOW_ROOT, full_candle_window())
+        self.refusal: UnknownCandleSeriesError | None = None
+
+    def window(self, query: CandleQuery) -> Wired:
+        self.asked.append(query)
+        if self.refusal is not None:
+            raise self.refusal
+        return self.answer
+
+
 class FakeDoor(ICommandDoor):
     def __init__(self) -> None:
         self.sent: list[tuple[str, HostControlRequest, float]] = []
@@ -144,6 +188,8 @@ class Desk:
         *,
         bots: FakeBots | None = None,
         spawn: Callable[[Callable[[], None]], None] | None = None,
+        documents: Mapping[str, IBridgeFacts] | None = None,
+        candles: IBridgeCandles | None = None,
     ) -> None:
         self.bots = bots or FakeBots(full_bot(), minimal_bot())
         self.facts = FakeFacts()
@@ -154,7 +200,7 @@ class Desk:
         self.session = BridgeSession(
             ROOTS,
             VERSION,
-            SessionPorts(self.bots, self.facts, self.door),
+            SessionPorts(self.bots, self.facts, self.door, documents or {}, candles),
             self.out.append,
             spawn or (lambda work: work()),
         )

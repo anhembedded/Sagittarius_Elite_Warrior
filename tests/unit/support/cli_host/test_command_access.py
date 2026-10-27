@@ -72,6 +72,7 @@ _READ_ONLY = {
     # process changes no bot, and a lock it took would be the one the host holds.
     ("bot", "stop"),
     ("bot", "pause"),
+    ("bot", "refresh-facts"),
     ("bot", "resume"),
     ("bot", "start"),
     # `EPIC-038L` - the same: a command file for the host, which changes the bot, never this process.

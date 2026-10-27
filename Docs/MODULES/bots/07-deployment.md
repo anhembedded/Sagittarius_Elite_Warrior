@@ -99,12 +99,13 @@ exchange and never holds a key.
 and local: it asks no exchange, and it reads a venue's session only when `IVenueContexts.built` lists the venue, because
 `IVenueContexts.get` builds a venue's adapters; the key state comes from `IVenueKeyStates`, which builds nothing but the stored key's provider. **Two things follow, and a reader must know them:**
 
-- **An exchange fact is as old as the last read that took it.** `RecordedVenueFacts` decorates
-  `IVenueFacts` (`bots/composition/executor_bindings.py` → `_build_venue_facts`) and asks its inner reader
-  exactly as often as before, so the file adds no request on the account and IP the bots trade on. A snapshot
-  is therefore the one a Start, a Resume or a screen load took, and `read_at` says how old; a bot nobody has
-  read since the host started has none. A bounded refresh (one read per active bot every few minutes) would add
-  REST weight, which is the owner's call (the tab does need it once it reads nothing at Binance itself: `EPIC-047H` and `DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md` D4 propose a bounded refresh, awaiting the owner).
+- **An exchange fact is as old as the last read that took it, and the host reads again on a schedule (`EPIC-047H`).**
+  `RecordedVenueFacts` decorates `IVenueFacts` (`bots/composition/executor_bindings.py` → `_build_venue_facts`) and
+  asks its inner reader exactly as often as before, so a Start, a Resume or a screen load take a snapshot and
+  `read_at` says how old. Since the VPS tab reads nothing at Binance, the host also reads a bot's facts again every
+  `operations.vps_facts_refresh_interval_s` (120 s) under a weight ceiling, and records only a read that happened
+  (see the next section; this replaces `DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md` D3, as
+  `DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md` D4 says).
 - **A venue nothing has used shows its key state and a lease with no holder** (`EPIC-047C`: the owner's
   default decision, `DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md`). `IVenueKeyStates` builds a provider
   for each question and keeps none, because the mainnet provider keeps its first read for the life of the process and a kept
@@ -117,7 +118,7 @@ Everything else is `operations`' (it has no design folder yet; the file is the m
 | Question | Answer |
 | :--- | :--- |
 | Who writes, and on which thread? | one daemon thread named `host-facts-writer` (`operations/application/host_facts_publishing.py` → `HostFactsPublishing`); the scheduler's job only raises a flag, so a full disk or a key store that hangs delays the file and nothing else; a stuck write is never joined by a second one |
-| When? | the facts are looked at every `FACTS_POLL_SECONDS` (2 s); the file is written when they differ from the last written ones (value equality, `operations/application/host_facts_publisher.py` → `HostFactsPublisher.tick`) and at least every `FACTS_HEARTBEAT_SECONDS` (15 s), both in `operations/contracts/host_facts_document.py` |
+| When? | the facts are looked at every `FACTS_POLL_SECONDS` (2 s); the file is written when they differ from the last written ones (value equality, `operations/application/document_publisher.py` → `DocumentPublisher.tick`) and at least every `FACTS_HEARTBEAT_SECONDS` (15 s), both in `operations/contracts/host_facts_document.py` |
 | What does a reader check? | `schema` (`sew.host-facts/1`), `revision` (grows by one a write and continues across restarts: `first_revision_after`), `written_at` and `heartbeat_s`; `operations/application/host_facts_watch.py` → `HostFactsWatch` keeps the last good header across a torn, missing or older file and calls a host dead after `LIVE_AFTER_HEARTBEATS` (3) heartbeats |
 | What is never in it? | a key, a secret, an exception's text: the fields are written by name, and the two free-text fields an exchange failure fills (`bots/contracts/host_held_facts.py` → `UNPUBLISHED_TEXT_FIELDS`) are replaced by `operations/adapters/json_host_facts_codec.py` → `UNAVAILABLE_WORDS`; the reason stays in the host's log |
 | How is it written? | `operations/adapters/owner_only_atomic_file.py` → `write_owner_only_atomically`: a temporary file created `0600`, fsync, `os.replace` (Windows: the file inherits `state/`'s ACL) |
@@ -127,6 +128,56 @@ Everything else is `operations`' (it has no design folder yet; the file is the m
 
 **Known limit.** A lease is read for each symbol a stored bot is on; a lease on a symbol no bot is on (a Trade
 tab strategy's) is not in the file, because `ITradingSession` has no way to list its leases.
+
+## Built: what the host serves the VPS tab besides the facts (EPIC-047H)
+
+The VPS tab opens no connection to Binance ([`../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md`](../../../Tasks/epics/EPIC-047_vps_bots_tab/DECISION_2026-10-27_a_vps_bot_reaches_binance_only_through_the_vps.md),
+D1). The host is the only client of the exchange, and it writes three more things for the bridge to tail; the bridge
+still calls no exchange and loads no key (D2). Everything here only **reads**: it places, cancels and starts nothing,
+and it opens no connection of its own (`tests/unit/architecture/test_the_vps_feed_reads_only_and_opens_no_connection.py`).
+
+| What | File or source | Who writes it | When |
+| :--- | :--- | :--- | :--- |
+| Last price, mark price, the forming candle of each timeframe | `state/market-data.json` (`operations/contracts/market_data_document.py` → `MarketDataDocument`) | worker `market-data-writer` (`operations/application/document_publisher.py` → `DocumentPublisher`, run by `HostFactsPublishing`) from `operations/application/market_recorder.py` → `MarketRecorder` | looked at every `MARKET_POLL_SECONDS` (1 s), written on a change, heartbeat `MARKET_HEARTBEAT_SECONDS` (5 s) |
+| Planner inputs, fills, symbol rules of each bot | `state/host-reads.json` (`operations/contracts/host_reads_document.py` → `HostReadsDocument`) | worker `host-reads-writer`, from `bots/adapters/latest_exchange_reads.py` → `LatestExchangeReads` | looked at every `HOST_READS_POLL_SECONDS` (5 s), heartbeat 30 s |
+| Exchange facts of each bot | `state/host-facts.json` (as above) | `HostFactsPublishing`, from `LatestVenueReads` | a refresh's read shows within `FACTS_POLL_SECONDS` |
+| Closed candles | the host's candle store, opened read-only by the bridge (`market_data/adapters/persistence/readonly_candle_shards.py` → `ReadOnlyCandleShards`) | the host's `market_data` writer | on the bridge's `candles` call |
+
+**The recorder reuses what the host holds.** `MarketRecorder.on_tick` listens to the `MarketTickEvent`s the bots' price
+streams already publish (`bots/application/services/watches/bot_price_watch.py` → `BotPriceWatch` holds one **1m**
+kline stream per bot not at rest), and `MarketRecorder.snapshot` asks the mark board (`trading/contracts/i_mark_board.py`
+→ `IMarkBoard`) for the mark the exit watch reads each beat (`trading/application/orders/order_entry_terms_service.py` →
+`OrderEntryTermsService.mark_price_for` records it). It stores and returns; it never delays a tick. The forming candle of a
+longer timeframe is folded from the 1m ticks (`operations/application/candle_fold.py` → `CandleFold`) and is flagged
+`complete` only when the host saw the bucket from its first minute. The timeframes are the Bots chart's own default list
+(`core/vo/market_timeframes.py` → `DEFAULT_CHART_TIMEFRAMES`). A symbol with no stream (the bot is at rest) has no live
+price: its entry ages in the file and drops after 24 h.
+
+**The refresh and its ceiling.** The whole feed (recorder, refresher, both files) runs in the headless host only: `operations.vps_feed_enabled` is on by default and the GUI entry point (`shell/gui_wiring.py` → `create_gui_app`) turns it off for its run. A read that raises is charged like any other, and a kind whose median cost lands above the ceiling is forgotten (`vps_refresh_costs.py` → `ExpectedCosts.forget`) and re-measured. `operations/application/vps_facts_refresher.py` → `FactsRefresher` runs on one worker
+(`operations/application/facts_refreshing.py` → `FactsRefreshing`, thread `vps-refresh`) and reads, through
+`bots/application/services/host_reads/exchange_bot_read_refresh.py` → `ExchangeBotReadRefresh`, the same queries and
+readers the Bots tab uses. A bot's round is its facts read, and on every fifth round its planner inputs and its fills,
+each a read of its own; an asked-for refresh is a round with all three; the static exchange info of a venue is read at
+start and every 24 h. Three things hold the weight:
+
+| Bound | How it is held | Where |
+| :--- | :--- | :--- |
+| Priority | every read goes out at `RequestPriority.ROUTINE`, so it waits at the 70 % line and never touches the exit reserve; the adapter opens no scope of its own and refuses to read inside someone else's | `ExchangeBotReadRefresh.refresh`; `trading/adapters/binance/exchange_call_policy.py` → `ExchangeCallPolicy` |
+| Ceiling | a share of the venue's minute weight (`operations.vps_facts_weight_ceiling_pct`, default 3, highest 10, enforced in `operations/contracts/vps_feed_settings.py` → `VpsFeedSettings.judged`); a read goes only when the ledger has room for its expected cost, and its cost is the rise of the used-weight header around it (`trading/contracts/i_venue_weight_meter.py` → `IVenueWeightMeter`, read from the call policy) | `operations/application/vps_refresh_budget.py` → `VenueBudget`; `operations/application/vps_weight_ledger.py` → `WeightLedger`; `operations/application/vps_refresh_costs.py` → `measured_weight` |
+| No burst | after a read the venue waits the share of the minute that read is of the ceiling (`VenueBudget.pace`), so reads are evenly spread; a closed gate or a full ledger holds the venue and the oldest overdue bot is read first | `VenueBudget.hold`, `FactsRefresher._hold` |
+
+The interval therefore stretches with the bots. Simulated for three hours on a fake clock with the planning weights
+(`tests/unit/modules/operations/vps_feed/`): the median gap between two facts reads of one bot is 120 s with one bot and with
+five, and about 410 s with twenty; the most weight spent in any minute was 55, 70 and 70 of the 72 allowed. The planner
+and fills reads (about 55 weight a bot, every fifth round) give way to other bots' facts reads when the ceiling has no room, so
+under load they come later, not earlier. A failed read keeps the last snapshot and its `read_at` and is logged once per
+cause (`[vps-refresh]`). The on-demand verb is `bot refresh-facts <id>` (`core/contracts/host_control.py` →
+`HostControlAction.REFRESH_FACTS`): the host queues it and answers at once (`operations/application/refresh_facts_outcome.py`
+→ `refresh_outcome`), at most once per 30 s per bot, counted inside the ceiling.
+
+**What it cannot do.** The `market_data` REST client does not pass `ExchangeCallPolicy`, so a candle backfill would not be
+seen by the gate or the header: it is charged to the ceiling by estimate (50 weight a symbol sync), see below. The host streams the
+1m kline only, so the forming candles of longer timeframes are partial after a start.
 
 ## Built: the bridge on the host (EPIC-047C)
 
@@ -169,7 +220,7 @@ sequenceDiagram
 
 | Question | Answer |
 | :--- | :--- |
-| Where is it? | the loop is `support/wire/bridge/bridge_session.py` → `BridgeSession` (no I/O of its own) with `bridge_runner.py` → `serve` (the pipes and threads); the ports are `support/wire/contracts/` (`IBridgeBots`, `IBridgeFacts`, `ICommandDoor`); `bots/link.py` → `bridge_bots` and `operations/link.py` → `bridge_facts`, `bridge_door` implement them; `shell/link_bridge_main.py` → `main` composes them |
+| Where is it? | the loop is `support/wire/bridge/bridge_session.py` → `BridgeSession` (no I/O of its own) with `bridge_runner.py` → `serve` (the pipes and threads); the ports are `support/wire/contracts/` (`IBridgeBots`, `IBridgeFacts`, `ICommandDoor`, `IBridgeCandles`); `bots/link.py` → `bridge_bots`; `operations/link.py` → `bridge_facts`, `bridge_door`, `bridge_documents`; `market_data/link.py` → `bridge_candles` implement them; `shell/link_bridge_main.py` → `main` composes them |
 | Why a `link.py` beside `module.py`? | `module.py` loads every handler and adapter of the module (about a second on the VPS) and the bridge starts for each session; `link.py` imports the wire roots and the reader only. `tests/unit/architecture/boundaries/zones.py` → `is_module_entry_point` lets `shell/` import both, and nothing else of a module |
 | How does it start? | `deploy/linux/sew-bridge` is the key's `command=`; it ignores what the client asked for and execs `python -m Sagittarius_Elite_Warrior.src.shell.link_bridge_main` with `SEW_DATA_ROOT`. The `authorized_keys` line is an operator step (`EPIC-047G`) |
 | Which threads? | the main thread (feeds the session, ticks it every 50 ms), a reader thread on standard input, and one short-lived thread per waiting command, at most four (`bridge_protocol.py` → `MAX_PENDING_COMMANDS`); every message is one line written under one lock |
@@ -178,11 +229,11 @@ sequenceDiagram
 | How long may a desktop be silent? | `bridge_protocol.py` → `IDLE_WATCHDOG_S` (6 s), a third of which is `HEARTBEAT_S`; any line resets it. The process exits with status 6, whatever `sshd` believes |
 | Exit statuses | 0 the session ended, 3 refused (a different build), 4 a protocol violation, 5 a failure nobody planned for (a port raised; logged with its traceback, the desktop gets a word and never the exception's text), 6 the idle watchdog (`bridge_protocol.py`) |
 | What can it not do? | open a socket (the process holds none, `tests/integration/modules/operations/test_the_bridge_process.py`), load a key, call an exchange, write a bot (the store it holds is `ReadOnlyBotStore`), or reach any command but the host's own door |
-| What does it read? | `<data root>/state/bots/` (the default place; `bots.state_dir` is not honoured, a key that exists for a test boot) and `<data root>/state/host-facts.json`, and writes only `<data root>/state/control/` through the door |
+| What does it read? | `<data root>/state/bots/` (the default place; `bots.state_dir` is not honoured, a key that exists for a test boot), `<data root>/state/host-facts.json`, `market-data.json` and `host-reads.json` (looked at every `DOCUMENTS_LOOK_S`, 0.5 s, as events of kind `facts`, `market`, `reads`), and, on a `candles` call, the candle store `<data root>/database` read-only; it writes only `<data root>/state/control/` through the door |
 
-**Known limits.** A bot's fills and the readiness reads are not in the bridge: they come from the exchange through
-the host's ports and are the VPS tab's question (`EPIC-047E`); the bridge hands over the bots and the facts file, from
-which the desktop assembles the Run step's facts (`GetBotRunFactsQuery` is a pure function of the file and the bots).
+**Known limits.** The readiness reads are not in the bridge: the bridge hands over the bots and the facts file, from
+which the desktop assembles the Run step's facts (`GetBotRunFactsQuery` is a pure function of the file and the bots); a bot's
+fills, the planner inputs, the market data and the closed candles are in the files and the `candles` call above (`EPIC-047H`).
 A command adds up to about a second (the host polls its control directory every second).
 
 ## Built: the headless host

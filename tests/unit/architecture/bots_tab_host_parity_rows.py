@@ -62,10 +62,14 @@ MENU: dict[str, HostVerb | Excluded | ReadOnly] = {
     "bots.bots.disarm_strategy": HostVerb(
         "disarm-strategy", HostControlAction.DISARM_STRATEGY
     ),
-    "bots.bots.refresh_fills": ReadOnly("Reads the selected bot's fills again."),
+    "bots.bots.refresh_fills": HostVerb(
+        "refresh-facts", HostControlAction.REFRESH_FACTS
+    ),
     "bots.bots.fit_levels": ReadOnly("Fits the chart to the ladder; a view."),
     "bots.bots.retry_connection": ReadOnly("Reads the venue account again."),
-    "bots.bots.refresh_exchange": ReadOnly("Asks the exchange its facts again."),
+    "bots.bots.refresh_exchange": HostVerb(
+        "refresh-facts", HostControlAction.REFRESH_FACTS
+    ),
     "bots.bots.fix_next": ReadOnly(
         "Performs the first readiness fix: read the account, ask the exchange, bring a field "
         "forward or select the active bot. It changes no stored bot."

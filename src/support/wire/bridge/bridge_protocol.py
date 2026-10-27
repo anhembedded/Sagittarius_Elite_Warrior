@@ -19,7 +19,11 @@ IDLE_WATCHDOG_S: Final = 6.0
 HELLO_TIMEOUT_S: Final = 10.0
 #: The spike's cadence (DERISK R5: one `scandir` every 100 ms, p50 52 ms, p95 100 ms).
 POLL_S: Final = 0.1
-FACTS_LOOK_S: Final = 1.0
+#: The host's files (facts, market data, reads) are looked at this often. `EPIC-047H`: the market-data file is
+#: written once a second, so half that is the most a price waits in the bridge; the facts file was looked at every
+#: second before and is now looked at with the rest.
+DOCUMENTS_LOOK_S: Final = 0.5
+FACTS_LOOK_S: Final = DOCUMENTS_LOOK_S
 DEFAULT_COMMAND_WAIT_S: Final = 5.0
 MAX_COMMAND_WAIT_S: Final = 30.0
 MAX_PENDING_COMMANDS: Final = 4

@@ -66,6 +66,10 @@ class HostControlAction(StrEnum):
     APPLY_ENTRY = "apply-entry"
     #: `EPIC-045C`: forget the wish the applied-plan record holds for this bot, because the plan no longer names it.
     UNPLAN = "unplan"
+    #: `EPIC-047H`: read one bot's exchange facts, planner inputs and fills again now, for the VPS tab (the Bots tab's
+    #: Refresh exchange and Refresh fills). It only reads: the host queues it, at `ROUTINE` priority inside its weight
+    #: ceiling, at most once per 30 s per bot, and answers "already fresh, read at ..." inside that time.
+    REFRESH_FACTS = "refresh-facts"
 
 
 #: What an acknowledgement's `bot_id` says: it is about the account, not a bot.

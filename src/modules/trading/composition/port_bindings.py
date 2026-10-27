@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.memory_mark_board import (
+    MemoryMarkBoard,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.real_money_consent import (
     RealMoneyConsent,
 )
@@ -47,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_board import (
+    IMarkBoard,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -83,6 +89,7 @@ def _build_venue_trading_ports(container: IContainer) -> VenueTradingPortsRegist
         container.resolve(ICommandDispatcher),
         container.resolve(IVenueContexts),
         container.resolve(VenueSessionStates),
+        container.resolve(IMarkBoard),
     )
 
 
@@ -103,6 +110,8 @@ def bind_published_ports(container: IContainer) -> None:
     the single Trading screen and Dev Board trade on until `EPIC-028K`/
     `028L` give each venue its own desk, and `EPIC-028M` retires them.
     """
+    # `EPIC-047H`: the mark each watch reads, remembered for the host's market-data file.
+    container.singleton(IMarkBoard, MemoryMarkBoard())
     container.singleton(VenueTradingPortsRegistry, _build_venue_trading_ports)
     container.singleton(
         IVenueTradingPorts, lambda c: c.resolve(VenueTradingPortsRegistry)

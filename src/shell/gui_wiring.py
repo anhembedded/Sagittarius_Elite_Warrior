@@ -37,6 +37,7 @@ function beside this one; the shared composition does not change.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -86,6 +87,8 @@ def create_gui_app(
 ) -> App:
     """The object graph the GUI entry point boots: the shared composition plus
     the GUI's additions. `instance` is `create_app`'s (`EPIC-035H`)."""
+    # the VPS feed reads the exchange for files only the host's bridge reads: never on a desktop (`EPIC-047H`)
+    config_manager.load_dict({ConfigKeys.OPERATIONS_VPS_FEED_ENABLED.value: False})
     app = create_app(config_manager, instance)
     add_gui_wiring(app)
     return app

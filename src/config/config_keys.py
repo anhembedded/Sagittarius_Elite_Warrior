@@ -172,6 +172,21 @@ class ConfigKeys(str, Enum):
     TRADING_POSITION_REFRESH_INTERVAL_SECONDS = (
         "trading.position_refresh_interval_seconds"
     )
+    #: `EPIC-047H` - how often the host reads again the exchange facts of each bot with exposure, for the
+    #: VPS tab (seconds; 0 = never). Below `REFRESH_INTERVAL_LOWEST_S` it is raised to it. A read-only
+    #: refresh at `RequestPriority.ROUTINE`, inside `OPERATIONS_VPS_FACTS_WEIGHT_CEILING_PCT`.
+    OPERATIONS_VPS_FACTS_REFRESH_INTERVAL_S = "operations.vps_facts_refresh_interval_s"
+    #: `EPIC-047H` - the share of the venue's per-minute request weight everything the host reads for the
+    #: VPS tab may spend (percent). Above `CEILING_HIGHEST_PCT` it is lowered to it, so no setting reaches
+    #: the 70 % soft line the exit reserve starts at.
+    OPERATIONS_VPS_FACTS_WEIGHT_CEILING_PCT = "operations.vps_facts_weight_ceiling_pct"
+    #: `EPIC-047H` - whether the host writes the market-data file (forming candles, last and mark price)
+    #: for the VPS tab. Off: the tab says "not published by the host".
+    OPERATIONS_VPS_MARKET_RECORDER_ENABLED = "operations.vps_market_recorder_enabled"
+    #: `EPIC-047H` - whether this process runs the VPS feed at all (recorder, refresher, both files). On
+    #: for the headless host; the GUI entry point turns it off for its run, so a desktop never spends
+    #: weight on its own IP for files nothing on it reads.
+    OPERATIONS_VPS_FEED_ENABLED = "operations.vps_feed_enabled"
 
     # `BOT-018` — Telegram notification channel. Since `EPIC-036C1` these two keys are only what
     # an older install still holds: `TelegramConfigMigration` moves them into the secret store at

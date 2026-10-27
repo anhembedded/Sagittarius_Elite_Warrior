@@ -23,8 +23,8 @@ import logging
 import threading
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.operations.application.host_facts_publisher import (
-    HostFactsPublisher,
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_tick_publisher import (
+    ITickPublisher,
 )
 
 logger = logging.getLogger("App.Operations.HostFacts")
@@ -49,13 +49,21 @@ class FailureCause:
 
 
 class HostFactsPublishing:
-    """`begin()` -> `tick()`* -> `end()`."""
+    """`begin()` -> `tick()`* -> `end()`.
+
+    @par One worker per file
+    `EPIC-047H` runs the market-data and host-reads files on the same class, each with a worker of its own
+    (`name` is its thread's and its log lines' name for what it writes), so one file's slow disk never holds another."""
 
     def __init__(
-        self, publisher: HostFactsPublisher, join_seconds: float = END_JOIN_SECONDS
+        self,
+        publisher: ITickPublisher,
+        join_seconds: float = END_JOIN_SECONDS,
+        name: str = "host-facts",
     ) -> None:
         self._publisher = publisher
         self._join_seconds = join_seconds
+        self._name = name
         self._wake = threading.Event()
         self._closed = threading.Event()
         self._worker: threading.Thread | None = None
@@ -66,7 +74,7 @@ class HostFactsPublishing:
         if self._worker is not None:
             return
         self._worker = threading.Thread(
-            target=self._work, name="host-facts-writer", daemon=True
+            target=self._work, name=f"{self._name}-writer", daemon=True
         )
         self._worker.start()
         self._wake.set()
@@ -85,7 +93,8 @@ class HostFactsPublishing:
         worker.join(self._join_seconds)
         if worker.is_alive():
             logger.warning(
-                "[host-facts] the writer is still busy at shutdown; it is left behind"
+                "[%s] the writer is still busy at shutdown; it is left behind",
+                self._name,
             )
 
     def write_now(self) -> None:
@@ -112,9 +121,10 @@ class HostFactsPublishing:
         if cause == self._failing:
             return
         self._failing = cause
-        logger.debug("[host-facts] the failure's own words", exc_info=failure)
+        logger.debug("[%s] the failure's own words", self._name, exc_info=failure)
         logger.error(
-            "[host-facts] could not write the host's facts (%s, errno %s); the file is stale until a write succeeds",
+            "[%s] could not write the file (%s, errno %s); it is stale until a write succeeds",
+            self._name,
             cause.kind,
             cause.errno,
         )
@@ -123,4 +133,4 @@ class HostFactsPublishing:
         if self._failing is None:
             return
         self._failing = None
-        logger.info("[host-facts] writing the host's facts again")
+        logger.info("[%s] writing the file again", self._name)

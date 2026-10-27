@@ -618,6 +618,34 @@
               }
             ]
           },
+          "refresh-facts": {
+            "modules": ["bots", "operations"],
+            "help": "Ask the running host (main.py run) to read one bot's exchange facts, planner inputs and fills again, for the VPS tab (the Bots tab's Refresh exchange and Refresh fills). It only reads: the host queues the read at routine priority inside its weight ceiling and answers at once, or says the bot was read less than 30 s ago and when. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
           "resume": {
             "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to resume one PAUSED, RECOVERING, HALTED or AWAITING_RECOVERY bot, as the Bots tab's Resume does. A HALTED or AWAITING_RECOVERY bot's resume only proposes a ladder and places nothing: the reply carries the proposal and its fingerprint, then bot confirm-resume --proposal lays that ladder and no other (run --resume-halted answers it in advance at start). Exit 10 when no host is running, 5 when this account has no control over it",

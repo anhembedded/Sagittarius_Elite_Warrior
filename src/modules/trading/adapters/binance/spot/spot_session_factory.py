@@ -20,8 +20,14 @@ from __future__ import annotations
 from typing import cast
 
 from binance.client import Client
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.policy_weight_meter import (
+    PolicyWeightMeter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_sessions import (
     VenueSessions,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_weight_meter import (
+    IVenueWeightMeter,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -61,6 +67,10 @@ class SpotSessionFactory(ISpotSessionFactory):
                 f"the sessions are for the venue {self._sessions.venue.name}, "
                 f"not this factory's venue {venue.name}"
             )
+
+    def weight_meter(self) -> IVenueWeightMeter:
+        """What this venue's sessions last heard of the minute's weight (`EPIC-047H`)."""
+        return PolicyWeightMeter(self._sessions.policy)
 
     def create_account_client(
         self, credentials: ExchangeCredentials

@@ -90,6 +90,11 @@ class VenueSessions:
     def venue(self) -> TradingVenue:
         return self._venue
 
+    @property
+    def policy(self) -> ExchangeCallPolicy:
+        """The venue's call policy, which every session of the venue shares (`EPIC-047H`: its weight is read from here)."""
+        return self._policy
+
     def signed(self, credentials: ExchangeCredentials) -> ResilientSession:
         """The venue's signed session for `credentials`.
 

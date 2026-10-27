@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_p
 from Sagittarius_Elite_Warrior.src.modules.operations.composition.secret_file_control_check import (
     platform_control_file_check,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_facts_refresh_requests import (
+    IFactsRefreshRequests,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_operations_clock import (
     IOperationsClock,
 )
@@ -75,7 +78,10 @@ def bind_control(container: IContainer) -> None:
                     _control_directory(), [platform_control_file_check()]
                 ),
                 JsonlHostControlAudit(_control_directory() / AUDIT_FILE_NAME),
-                BotHostCommandExecutor(resolver.resolve(ICommandDispatcher)),
+                BotHostCommandExecutor(
+                    resolver.resolve(ICommandDispatcher),
+                    resolver.resolve(IFactsRefreshRequests),
+                ),
                 resolver.resolve(IOperationsClock),
             ),
             _control_directory(),

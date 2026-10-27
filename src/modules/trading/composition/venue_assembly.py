@@ -1,11 +1,11 @@
 """`EPIC-028A` — the one place a venue's live-trading adapters are built.
 
-@details Absorbs the `TradingVenue` branches `adapter_bindings.py` carried one
-per port (`EPIC-027G`–`027L`). Each part is built on first use and cached, so
-asking for one venue's metadata provider never builds its user data stream —
-and never resolves `IEventBus`/`ITaskManager`, which a caller that only wants
-rounding rules may not have bound (a Spot client factory resolves the bus: it
-reports fills through it, `BOT-173`).
+@details Absorbs the `TradingVenue` branches `adapter_bindings.py` carried one per
+port (`EPIC-027G`–`027L`). Each part is built on first use and cached, so asking
+for one venue's metadata provider never builds its user data stream — and never
+resolves `IEventBus`/`ITaskManager`, which a caller that only wants rounding
+rules may not have bound (a Spot client factory resolves the bus: it reports
+fills through it, `BOT-173`).
 
 Everything a venue owns is its own: credentials for its own env-var pair, its
 own metadata cache (a Futures and a Spot `BTCUSDT` are different
@@ -203,9 +203,9 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def _futures_sessions(self) -> FuturesSessionFactory:
-        """This venue's own session factory (`EPIC-034` D11): the venue is what
-        tells it which exchange to open sessions on, so Futures Testnet and
-        Futures Mainnet are this class with one argument different."""
+        """This venue's own session factory (`EPIC-034` D11): the venue tells it
+        which exchange to open sessions on, so Futures Testnet and Mainnet are
+        this class with one argument different."""
         return FuturesSessionFactory(self._venue)
 
     @LockedCachedProperty
@@ -285,8 +285,7 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def history_reader(self) -> IAccountHistoryReader:
-        # `EPIC-028Q` — paging re-reads the whole span; the cache bounds the
-        # request weight that costs.
+        # `EPIC-028Q` — paging re-reads the span; the cache bounds the weight it costs.
         if self._is_spot:
             return CachedAccountHistoryReader(
                 SpotHistoryReader(
@@ -395,4 +394,7 @@ class VenueAssembly:
             book_ticker_reader=self.book_ticker_reader,
             mark_price_reader=self.mark_price_reader,
             funding_reader=self.funding_reader,
+            weight_meter=(
+                self._spot_sessions if self._is_spot else self._futures_sessions
+            ).weight_meter(),
         )

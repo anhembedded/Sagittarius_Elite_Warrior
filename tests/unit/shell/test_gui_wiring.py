@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capabil
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.vps_feed_settings import (
+    VpsFeedSettings,
+)
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.src.shell.qt_package_check import (
@@ -160,3 +163,11 @@ def test_the_gui_checks_boot_before_any_module(gui_app):
     assert order.index("DependencyValidatorExtension") < order.index(
         "EngineCapabilityValidatorExtension"
     ), order
+
+
+def test_the_gui_graph_runs_no_vps_feed_and_the_shared_graph_does(gui_app, shared_app):
+    """`EPIC-047H`: a desktop never reads the exchange for the host's files; the headless graph does."""
+    gui = gui_app.context.container.resolve(VpsFeedSettings)
+    shared = shared_app.context.container.resolve(VpsFeedSettings)
+
+    assert (gui.feed_enabled, shared.feed_enabled) == (False, True)

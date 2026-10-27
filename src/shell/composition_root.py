@@ -116,6 +116,7 @@ from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import SystemFailu
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
     TerminalAwareTextRenderer,
 )
+from Sagittarius_Elite_Warrior.src.shell.wire_roots import link_roots
 from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
     TextReportRenderer,
 )
@@ -125,6 +126,9 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
 )
 from Sagittarius_Elite_Warrior.src.support.instance_lock.instance_probe import (
     FileLockInstanceProbe,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_wire_codec import (
+    IWireCodec,
 )
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
@@ -249,6 +253,8 @@ def create_app(
     # screen's developer-mode switch is the first caller to go through the
     # port instead, and the downcast retires with that screen (SDD §4).
     container.singleton(IConfigWriter, ConfigManagerWriter(config_manager))
+    # `EPIC-047H`: the build's one registry of wire roots, for the files the host writes in their wire form.
+    container.singleton(IWireCodec, link_roots())
 
     # `BUG-126` — the two failure paths `EPIC-008` §1 found unsubscribed get a
     # subscriber, at the one place the entry points pass through, rather than in

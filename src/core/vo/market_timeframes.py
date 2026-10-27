@@ -16,6 +16,12 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
+#: The timeframes a chart pins by default, shortest first. The chart's toolbar seeds a symbol's pinned pills from
+#: it (`timeframe_pin_preferences.DEFAULT_TIMEFRAMES`), and the host publishes the forming candle of each
+#: (`EPIC-047H`), so the VPS tab's chart finds a candle behind every pill it can show: one list, in `core`
+#: because the headless host must not import the charting package.
+DEFAULT_CHART_TIMEFRAMES: tuple[str, ...] = ("1m", "5m", "15m", "1h", "1d")
+
 #: What a market cannot load. A market missing here loads every timeframe, so a
 #: new `MarketType` member is a decision made here, with its evidence.
 _UNSUPPORTED: dict[MarketType, frozenset[TimeFrame]] = {
