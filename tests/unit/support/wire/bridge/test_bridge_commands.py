@@ -195,14 +195,14 @@ def test_commands_wait_on_their_own_threads_and_only_so_many_at_once() -> None:
     request = ROOTS.encode(REQUEST_ROOT, minimal_request())
 
     calls = [
-        desk.call("command", request_id=REQUEST_ID, request=request)
-        for _ in range(MAX_PENDING_COMMANDS + 1)
+        desk.call("command", request_id=f"{n:032x}", request=request)
+        for n in range(MAX_PENDING_COMMANDS + 1)
     ]
 
     assert len(held) == MAX_PENDING_COMMANDS
     assert desk.error_of(calls[-1])["code"] == "busy"
     held[0]()  # type: ignore[operator]
-    again = desk.call("command", request_id=REQUEST_ID, request=request)
+    again = desk.call("command", request_id=f"{99:032x}", request=request)
     assert len(held) == MAX_PENDING_COMMANDS + 1
     assert [m["type"] for m in desk.out if m.get("id") == again] == []
 
@@ -257,3 +257,27 @@ def test_the_command_verbs_the_bridge_forwards_are_the_hosts_not_a_list_of_its_o
         )
 
     assert [sent[1].action for sent in desk.door.sent] == list(HostControlAction)
+
+
+def test_a_second_call_with_a_request_id_already_waiting_is_refused() -> None:
+    """Review round 1, finding 2: two in-flight sends of one id would race on one command file."""
+    held: list[object] = []
+    desk = Desk(spawn=held.append)
+    desk.greet()
+    request = ROOTS.encode(REQUEST_ROOT, minimal_request())
+    desk.call("command", request_id=REQUEST_ID, request=request)
+
+    second = desk.call("command", request_id=REQUEST_ID, request=request)
+
+    assert desk.error_of(second)["code"] == "duplicate"
+    assert len(held) == 1
+
+
+def test_the_same_id_may_be_sent_again_once_the_first_send_has_answered() -> None:
+    desk = _greeted()
+    request = ROOTS.encode(REQUEST_ROOT, minimal_request())
+
+    desk.call("command", request_id=REQUEST_ID, request=request)
+    desk.call("command", request_id=REQUEST_ID, request=request)
+
+    assert len(desk.door.sent) == 2

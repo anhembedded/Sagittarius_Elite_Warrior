@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
-    HostControlReply,
     HostControlRequest,
     HostControlStatus,
 )
@@ -212,7 +211,7 @@ def test_the_same_id_sent_again_after_the_host_ran_it_is_answered_from_the_audit
 class _ForbidsWriting(DirectoryHostControl):
     """The same door, which fails the test if it writes a command file."""
 
-    def _write(self, command: HostCommand) -> HostControlReply | None:
+    def _write(self, command: HostCommand) -> object:  # type: ignore[override]
         raise AssertionError("the command was written again")
 
 
@@ -255,4 +254,101 @@ def test_a_file_an_earlier_send_left_for_the_host_is_waited_for_and_not_written_
     )
 
     assert reply.status is HostControlStatus.DONE
+    assert len(rig.executor.executed) == 1
+
+
+def _door_whose_sleep(
+    rig: HostAndWriter, on_sleep: object, *, host_runs: bool = True
+) -> DirectoryHostControl:
+    """The door beside the rig, whose waits run `on_sleep` (another send's doing) instead of the host."""
+    slept: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        slept.append(seconds)
+        rig.clock_now += seconds
+        if len(slept) == 1:
+            on_sleep()  # type: ignore[operator]
+
+    return DirectoryHostControl(
+        rig.directory,
+        HeldProbe(host_runs),
+        JsonlHostControlAudit(rig.directory / "audit.jsonl"),
+        MovableClock(),
+        lambda: ID_A,
+        sleep,
+        lambda: rig.clock_now,
+    )
+
+
+@posix_only
+def test_a_send_that_did_not_write_the_file_never_says_the_host_took_a_file_another_send_withdrew(
+    tmp_path: Path,
+) -> None:
+    """Review round 1, finding 2: the old bridge's send wrote the file and withdrew it at its timeout
+    while the new bridge's send, which wrote nothing, was still waiting. Nothing ran; the words must
+    not claim the host took the command."""
+    rig = HostAndWriter(tmp_path, host_alive=False)
+    left = write_command_file(rig.directory, command(ID_A, HostControlAction.STOP, BOT))
+    door = _door_whose_sleep(rig, left.unlink)
+
+    reply = door.send(HostControlRequest(HostControlAction.STOP, BOT), 1.0)
+
+    assert reply.status is HostControlStatus.NO_ANSWER
+    assert "took the command" not in reply.message
+    assert "earlier send" in reply.message
+    assert rig.clock_now < 3.0  # no extra grace for a file nobody took
+
+
+@posix_only
+def test_a_send_that_did_not_write_the_file_never_withdraws_it(tmp_path: Path) -> None:
+    rig = HostAndWriter(tmp_path, host_alive=False)
+    left = write_command_file(rig.directory, command(ID_A, HostControlAction.STOP, BOT))
+    door = _door_whose_sleep(rig, lambda: None)
+
+    reply = door.send(HostControlRequest(HostControlAction.STOP, BOT), 0.5)
+
+    assert reply.status is HostControlStatus.NO_ANSWER
+    assert left.exists()
+    assert "still waiting" in reply.message
+
+
+@posix_only
+def test_another_sends_scratch_file_is_waited_for_not_unlinked_and_not_called_a_permission_problem(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path, host_alive=False)
+    scratch = rig.directory / f".{ID_A}.tmp"
+    scratch.write_text("being written by another send", encoding="utf-8")
+
+    reply = _plain_door(rig).send(HostControlRequest(HostControlAction.STOP, BOT), 0.5)
+
+    assert reply.status is HostControlStatus.NO_ANSWER
+    assert "cannot write" not in reply.message
+    assert scratch.exists()
+
+
+def _plain_door(rig: HostAndWriter) -> DirectoryHostControl:
+    return DirectoryHostControl(
+        rig.directory,
+        HeldProbe(True),
+        JsonlHostControlAudit(rig.directory / "audit.jsonl"),
+        MovableClock(),
+        lambda: ID_A,
+        rig._sleep,
+        lambda: rig.clock_now,
+    )
+
+
+@posix_only
+def test_an_id_that_settled_one_action_is_not_answered_for_another(
+    tmp_path: Path,
+) -> None:
+    """A desktop that reused an id for a different action must not get the earlier action's verdict."""
+    rig = HostAndWriter(tmp_path)
+    rig.send()
+
+    reply = _plain_door(rig).send(HostControlRequest(HostControlAction.PAUSE, BOT), 5.0)
+
+    assert reply.status is HostControlStatus.REJECTED
+    assert "stop" in reply.message and "pause" in reply.message
     assert len(rig.executor.executed) == 1

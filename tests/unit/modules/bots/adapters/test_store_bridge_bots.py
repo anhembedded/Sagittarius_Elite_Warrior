@@ -139,3 +139,18 @@ def test_the_bridge_writes_nothing_however_it_is_used(tmp_path: Path) -> None:
     assert before == sorted(
         (p.name, p.stat().st_mtime_ns) for p in (tmp_path / "bots").iterdir()
     )
+
+
+def test_a_file_that_is_not_text_is_refused_in_words_not_a_crash(
+    tmp_path: Path,
+) -> None:
+    """Review round 1, finding 3: `read_text` raised `UnicodeDecodeError`, which the store did not map."""
+    _, bridge = _world(tmp_path)
+    (tmp_path / "bots").mkdir()
+    (tmp_path / "bots" / "bbbbbb.json").write_bytes(b"\xff\xfe\x00")
+
+    reading = bridge.read("bbbbbb")
+    listing = bridge.listing()
+
+    assert reading.bot is None and reading.refused
+    assert [r.name for r in listing.value.refused] == ["bbbbbb.json"]  # type: ignore[attr-defined]

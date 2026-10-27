@@ -72,7 +72,13 @@ def read_held_facts(body: dict[str, JsonValue]) -> HostHeldFacts:
                 _exchange_read(item) for item in _objects(body, "exchange_reads")
             ),
         )
-    except (KeyError, TypeError, ValueError, InvalidOperation) as failure:
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        OverflowError,
+        InvalidOperation,
+    ) as failure:
         raise HostFactsUnreadableError(
             f"the file's facts are malformed ({type(failure).__name__}: {failure})"
         ) from failure

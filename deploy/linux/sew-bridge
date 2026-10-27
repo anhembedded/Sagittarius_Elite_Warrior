@@ -18,4 +18,5 @@ PYTHONPATH=$SEW_HOME
 SEW_DATA_ROOT=$SEW_DATA
 PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH SEW_DATA_ROOT PYTHONDONTWRITEBYTECODE
-exec "$SEW_HOME/venv/bin/python" -m Sagittarius_Elite_Warrior.src.shell.link_bridge_main
+# -P: the current directory (the account's home, where sshd starts this) is not put on sys.path.
+exec "$SEW_HOME/venv/bin/python" -P -m Sagittarius_Elite_Warrior.src.shell.link_bridge_main

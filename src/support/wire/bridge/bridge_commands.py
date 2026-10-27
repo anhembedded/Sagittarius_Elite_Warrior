@@ -50,7 +50,7 @@ class BridgeCommands:
         self._door = door
         self._spawn = spawn
         self._send = send
-        self._pending: set[int] = set()
+        self._pending: dict[int, str] = {}
         self._lock = threading.Lock()
         self.served = 0
 
@@ -63,11 +63,17 @@ class BridgeCommands:
         wait_s = wait_of(params.get("wait_s", DEFAULT_COMMAND_WAIT_S))
         request = self._request_of(params.get("request"))
         with self._lock:
+            if request_id in self._pending.values():
+                # Two sends of one id at once would race on one command file (review round 1).
+                raise CallError(
+                    "duplicate",
+                    "a command with this request_id is already waiting; wait for its result",
+                )
             if len(self._pending) >= MAX_PENDING_COMMANDS:
                 raise CallError(
                     "busy", f"{MAX_PENDING_COMMANDS} commands are waiting already"
                 )
-            self._pending.add(call_id)
+            self._pending[call_id] = request_id
         self._spawn(lambda: self._run(call_id, request_id, request, wait_s))
 
     def _request_of(self, message: object) -> HostControlRequest:
@@ -103,8 +109,17 @@ class BridgeCommands:
                 )
             )
         else:
+            logger.info(
+                "[link-bridge] command %s (call %d): %s on %s -> %s",
+                request_id,
+                call_id,
+                request.action.value,
+                request.bot_id,
+                reply.status.value,
+            )
             self._send({"type": "result", "id": call_id, "data": {"reply": message}})
-            self.served += 1
+            with self._lock:
+                self.served += 1
         finally:
             with self._lock:
-                self._pending.discard(call_id)
+                self._pending.pop(call_id, None)

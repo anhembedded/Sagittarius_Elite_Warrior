@@ -96,6 +96,21 @@ def test_an_unreadable_file_is_refused_by_name_never_dropped(
         store.load(BotId("bad222"))
 
 
+def test_a_file_that_is_not_utf8_is_refused_by_name_not_a_crash(tmp_path: Path) -> None:
+    """Review round 1 of EPIC-047C: `read_text` raised `UnicodeDecodeError`, which `bot list` did not
+    map, so one damaged file stopped the whole list (and, at the bridge, every session)."""
+    store = JsonBotStore(tmp_path)
+    store.save(sample_bot("good11"))
+    (tmp_path / "bad222.json").write_bytes(b"\xff\xfe\x00")
+
+    reading = store.load_all()
+
+    assert [s.bot.bot_id.value for s in reading.bots] == ["good11"]
+    assert [r.name for r in reading.refused] == ["bad222.json"]
+    with pytest.raises(UnreadableBotError):
+        store.load(BotId("bad222"))
+
+
 def test_a_file_whose_name_is_not_its_id_is_refused(tmp_path: Path) -> None:
     store = JsonBotStore(tmp_path)
     store.save(sample_bot("abc123"))

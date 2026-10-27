@@ -57,10 +57,11 @@ def serve(
     output_closed = threading.Event()
 
     def emit(message: dict[str, object]) -> None:
+        # Encoding is outside the `try`: a message that cannot be encoded is the session's failure,
+        # not a closed pipe.
+        line = json.dumps(message, separators=(",", ":"), allow_nan=False) + "\n"
         try:
-            stdout.write(
-                json.dumps(message, separators=(",", ":"), allow_nan=False) + "\n"
-            )
+            stdout.write(line)
             stdout.flush()
         except (BrokenPipeError, ValueError):
             output_closed.set()

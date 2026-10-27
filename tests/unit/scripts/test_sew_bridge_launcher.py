@@ -53,6 +53,7 @@ def test_the_launcher_runs_the_bridge_module_in_the_sew_environment(
     lines = _run(tmp_path / "home", tmp_path / "data", "")
 
     assert lines == [
+        "-P",
         "-m",
         "Sagittarius_Elite_Warrior.src.shell.link_bridge_main",
         f"PYTHONPATH={tmp_path / 'home'}",
@@ -74,7 +75,11 @@ def test_what_the_client_asked_for_never_reaches_the_command(
 
     lines = _run(tmp_path / "home", tmp_path / "data", asked)
 
-    assert lines[:2] == ["-m", "Sagittarius_Elite_Warrior.src.shell.link_bridge_main"]
+    assert lines[:3] == [
+        "-P",
+        "-m",
+        "Sagittarius_Elite_Warrior.src.shell.link_bridge_main",
+    ]
     assert all(asked not in line for line in lines)
 
 

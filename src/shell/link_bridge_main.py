@@ -12,7 +12,8 @@ the Engine's `App` or a Qt module; `test_the_bridge_imports_no_application` hold
 import time on the VPS is recorded in the task (`EPIC-047C`, acceptance criteria).
 
 Exit status: `0` the session ended, `3` refused (a different build), `4` a protocol violation,
-`6` the idle watchdog ended it (`bridge_session.py`).
+`5` a failure nobody planned for (logged with its traceback), `6` the idle watchdog ended it
+(`bridge_protocol.py`).
 """
 
 from __future__ import annotations

@@ -32,15 +32,6 @@ a fresh `RevisionGate` for each connection and takes a snapshot first, so a rest
 counters never meet an older one's. The bridge is single-threaded for the bots: snapshot and events
 come from one sequence, so the gate sees them in an order that cannot contradict itself. Only a
 command runs on another thread, and only its result races the rest.
-
-@par The idle watchdog
-A frozen laptop leaves a half-open connection and no end of file. If no line arrives in
-`idle_watchdog_s` the session ends with status 6, whatever `sshd` believes (DERISK R5: 1 bridge
-left after 10 s without it, none with a 6 s watchdog).
-
-@par What it cannot do
-It holds three ports (`bridge_ports`) and the wire registry; none can open a socket, load a key or
-call an exchange. A command is a request written to the host's control directory; the host decides.
 """
 
 from __future__ import annotations
@@ -57,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_commands import (
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
     EXIT_ENDED,
     EXIT_IDLE,
+    EXIT_INTERNAL,
     EXIT_PROTOCOL,
     EXIT_REFUSED,
     FACTS_LOOK_S,
@@ -167,11 +159,19 @@ class BridgeSession:
             self._serve(document)
         except CallError as failure:
             self._violate(failure.code, failure.message)
+        except Exception:  # noqa: BLE001 - last resort at the seam: a port raised; the cause goes to the log
+            self._fail_internally()
 
     def tick(self, now: float) -> None:
         """The clock moved: end a silent session, look at the files."""
         if self.exit_code is not None:
             return
+        try:
+            self._tick(now)
+        except Exception:  # noqa: BLE001 - last resort at the seam: a port raised; the cause goes to the log
+            self._fail_internally()
+
+    def _tick(self, now: float) -> None:
         if not self._greeted:
             if now - self._started_at > self._hello_timeout_s:
                 self._violate(
@@ -368,6 +368,20 @@ class BridgeSession:
         logger.warning("[link-bridge] protocol violation (%s): %s", code, message)
         self._send({"type": "refused", "reason": code, "differs": [], "words": message})
         self._end(EXIT_PROTOCOL)
+
+    def _fail_internally(self) -> None:
+        """A failure nobody planned for: the cause is logged with its traceback, the desktop gets a word
+        (never the exception's text) and the process ends with its own status, not a bare traceback."""
+        logger.exception("[link-bridge] the session failed on an unforeseen error")
+        self._send(
+            {
+                "type": "refused",
+                "reason": "internal",
+                "differs": [],
+                "words": "the bridge failed on an unforeseen error; its log on the host says why",
+            }
+        )
+        self._end(EXIT_INTERNAL)
 
     def _end(self, code: int) -> None:
         self.exit_code = code

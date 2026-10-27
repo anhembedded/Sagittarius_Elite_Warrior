@@ -8,11 +8,13 @@ import os
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from typing import TextIO
 
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
     EXIT_ENDED,
     EXIT_IDLE,
+    EXIT_INTERNAL,
     EXIT_PROTOCOL,
     EXIT_REFUSED,
 )
@@ -146,3 +148,21 @@ def test_a_frozen_desktop_with_no_end_of_file_is_let_go_by_the_watchdog() -> Non
 
         assert not worker.is_alive(), "the bridge outlived its watchdog"
         assert result == [EXIT_IDLE]
+
+
+def test_a_message_that_cannot_be_encoded_is_an_internal_failure_not_a_closed_output() -> (
+    None
+):
+    """`allow_nan=False` raises `ValueError`, which is not a closed pipe: the session must end with its
+    own status and a word, not with status 0 and silence (review round 1)."""
+    ports = _ports()
+    ports.facts.look_now = replace(ports.facts.look_now, age_s=float("nan"))  # type: ignore[attr-defined]
+    stdin = io.StringIO(
+        _hello_line() + _line({"type": "call", "id": 1, "method": "snapshot"})
+    )
+    out = io.StringIO()
+
+    status = serve(stdin, out, ROOTS, VERSION, ports)
+
+    assert status == EXIT_INTERNAL
+    assert _messages(out)[-1]["reason"] == "internal"

@@ -10,6 +10,8 @@ from typing import Final
 EXIT_ENDED: Final = 0
 EXIT_REFUSED: Final = 3
 EXIT_PROTOCOL: Final = 4
+#: A failure nobody planned for (a port raised, a message could not be encoded): the process ends with a word.
+EXIT_INTERNAL: Final = 5
 EXIT_IDLE: Final = 6
 
 HEARTBEAT_S: Final = 2.0
@@ -38,7 +40,8 @@ class CallError(Exception):
 def parse_line(line: str) -> dict[str, object]:
     try:
         document = json.loads(line)
-    except ValueError as failure:
+    except (ValueError, RecursionError) as failure:
+        # A line of 200 000 `[` is well inside the line bound and exhausts the parser's recursion.
         raise CallError("bad_json", "a line is one JSON object") from failure
     if type(document) is not dict:
         raise CallError("bad_json", "a line is one JSON object")
@@ -46,9 +49,14 @@ def parse_line(line: str) -> dict[str, object]:
 
 
 def wait_of(raw: object) -> float:
-    if type(raw) not in (int, float) or not math.isfinite(raw):  # type: ignore[arg-type]
+    if type(raw) not in (int, float):
         raise CallError("bad_command", "wait_s is a number of seconds")
-    seconds = float(raw)  # type: ignore[arg-type]
+    try:
+        seconds = float(raw)  # type: ignore[arg-type]
+    except OverflowError as failure:  # an integer too large for a float
+        raise CallError("bad_command", "wait_s is a number of seconds") from failure
+    if not math.isfinite(seconds):
+        raise CallError("bad_command", "wait_s is a number of seconds")
     if not 0 <= seconds <= MAX_COMMAND_WAIT_S:
         raise CallError(
             "bad_command", f"wait_s is between 0 and {MAX_COMMAND_WAIT_S:g} seconds"
