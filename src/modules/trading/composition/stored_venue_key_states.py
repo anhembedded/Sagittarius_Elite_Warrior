@@ -9,11 +9,11 @@ permission-checked file or a systemd credential on the VPS.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.exchange_adapters import (
+    new_stored_credentials_provider,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.shared_venue_inputs import (
     SharedVenueInputs,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
-    stored_credentials_provider,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     VenueNotEnabledError,
@@ -37,6 +37,6 @@ class StoredVenueKeyStates(IVenueKeyStates):
         if venue not in self._enabled:
             raise VenueNotEnabledError(venue, self._enabled)
         return (
-            stored_credentials_provider(venue, self._shared).resolve().credentials
+            new_stored_credentials_provider(venue, self._shared).resolve().credentials
             is not None
         )

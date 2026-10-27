@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.shared_venue_inpu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_environment_probe import (
     IKeyEnvironmentProbe,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
     ITradingSessionFactory,
 )
@@ -38,6 +41,9 @@ _SESSION_FACTORY: Deferred[ITradingSessionFactory] = Deferred(
 _VENUE_ASSEMBLY: Deferred[VenueAssembly] = Deferred(
     "Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly:VenueAssembly"
 )
+_STORED_CREDENTIALS: Deferred[IExchangeCredentialsProvider] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly:stored_credentials_provider"
+)
 _KEY_ENVIRONMENT_PROBE: Deferred[IKeyEnvironmentProbe] = Deferred(
     f"{_ADAPTERS}.key_environment_probe:BinanceKeyEnvironmentProbe"
 )
@@ -56,3 +62,11 @@ def new_key_environment_probe() -> IKeyEnvironmentProbe:
 def new_venue_assembly(venue: TradingVenue, shared: SharedVenueInputs) -> VenueAssembly:
     """The adapters of one venue, built over `shared`; the SDK is imported by this call."""
     return _VENUE_ASSEMBLY(venue, shared)
+
+
+def new_stored_credentials_provider(
+    venue: TradingVenue, shared: SharedVenueInputs
+) -> IExchangeCredentialsProvider:
+    """The provider of `venue`'s saved key (`EPIC-047C`); `venue_assembly` is imported by this call,
+    so a run that never asks whether a key is saved does not pay for the exchange adapters."""
+    return _STORED_CREDENTIALS(venue, shared)
