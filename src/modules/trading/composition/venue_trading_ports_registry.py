@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.trading_s
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_board import (
+    IMarkBoard,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -54,10 +57,12 @@ class VenueTradingPortsRegistry(IVenueTradingPorts):
         dispatcher: ICommandDispatcher,
         contexts: IVenueContexts,
         states: VenueSessionStates,
+        marks: IMarkBoard | None = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._contexts = contexts
         self._states = states
+        self._marks = marks
         self._ports: dict[TradingVenue, VenueTradingPorts] = {}
         self._lock = threading.Lock()
 
@@ -87,7 +92,9 @@ class VenueTradingPortsRegistry(IVenueTradingPorts):
             ),
             account_snapshot=AccountSnapshotService(self._dispatcher, venue),
             equity_curve=self._states.equity_recorder(venue),
-            order_entry_terms=OrderEntryTermsService(self._dispatcher, venue),
+            order_entry_terms=OrderEntryTermsService(
+                self._dispatcher, venue, self._marks
+            ),
             account_activity=AccountActivityService(self._dispatcher, venue),
             futures_settings=FuturesSettingsService(self._dispatcher, venue),
         )

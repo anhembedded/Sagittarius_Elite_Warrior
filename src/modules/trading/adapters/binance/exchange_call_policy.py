@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.request_priority im
     RequestPriority,
     current_priority,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.weight_reading import (
+    WeightReading,
+)
 
 logger = logging.getLogger("App.TradingAdapter")
 
@@ -111,6 +114,18 @@ class ExchangeCallPolicy:
         self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
         self._weight_limit = weight_limit
+        #: The last used-weight header and the wall second it came with (`EPIC-047H`, `weight_reading`).
+        self._last_used: tuple[int, float] | None = None
+
+    def weight_reading(self) -> WeightReading:
+        """What this venue's sessions last heard of the minute's weight, and whether a routine request may pass."""
+        last = self._last_used
+        return WeightReading(
+            used=None if last is None else last[0],
+            limit=self._weight_limit,
+            seen_at=None if last is None else last[1],
+            routine_open=self._gate.routine_remaining() <= 0,
+        )
 
     def run_read(self, call: Callable[[], T]) -> T:
         """@raise RateLimitedApiException The gate is closed, or the exchange
@@ -132,6 +147,7 @@ class ExchangeCallPolicy:
             logger.debug("Ignoring a used-weight header that is not a number")
 
     def note_used_weight(self, used: int) -> None:
+        self._last_used = (used, self._wall_seconds())
         if used < self._weight_limit * SOFT_WEIGHT_RATIO:
             return
         into_minute = self._wall_seconds() % _SECONDS_PER_MINUTE

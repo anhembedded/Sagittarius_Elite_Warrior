@@ -63,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_weight_meter import (
+    IVenueWeightMeter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
@@ -97,3 +100,6 @@ class VenueContext:
     #: `None` on a testnet. The adapters above already resolve their key through
     #: it (`VenueAssembly.order_credentials`); the Connect step asks it to say why.
     key_gate: IKeyPermissionGate | None = None
+    #: What the venue's sessions last heard of the minute's weight (`EPIC-047H`); `None` where nothing
+    #: measures it (a fake venue).
+    weight_meter: IVenueWeightMeter | None = None
