@@ -2,15 +2,15 @@
 
 **Epic:** [EPIC-046](README.md)
 **Date:** 2026-10-27
-**Status:** Proposed
-**Decided by:** Pending. Direction from the owner, 2026-10-27, through the coordinating session: *"ket hop Đặt lệnh kích hoạt ngay trên sàn, để sàn tự bắt. Kích hoạt theo mức thấp nhất trong khoảng giữa hai lần lấy mẫu."* (translated: "combine: place the trigger order on the exchange so the exchange catches it; trigger on the lowest price between two samples"). This is a direction, not the confirmation of the final design below; the owner confirms in the author session in their own words before any code.
+**Status:** Accepted (O1–O6 at the author's recommendations, by the owner, 2026-10-27)
+**Decided by:** the owner, 2026-10-27, in the author session: *"OK duyet"* (translated: "OK, approved"), answering the author's request to confirm O1–O6 or say "follow the recommendations"; read as accepting every recommendation below. Earlier direction from the owner, 2026-10-27, through the coordinating session: *"ket hop Đặt lệnh kích hoạt ngay trên sàn, để sàn tự bắt. Kích hoạt theo mức thấp nhất trong khoảng giữa hai lần lấy mẫu."* (translated: "combine: place the trigger order on the exchange so the exchange catches it; trigger on the lowest price between two samples"). The design below was then confirmed by the answer quoted first.
 **Supersedes / superseded by (optional):** refines [ADR 046](DECISION_2026-10-22_a_grid_trigger_price.md) D2 (the price source) and D3 (the latch); supersedes nothing yet.
 
 | Label | Meaning |
 | :--- | :--- |
 | ✅ Established | confirmed on the code tree at `b12b95f` (`master-warrior`, 2026-10-27) |
 | 🟢 User decision | decided by the owner, quoted above |
-| 🔵 Proposed | the author's proposal, awaiting the owner |
+| 🔵 Proposed | the author's proposal; here accepted as a whole by the owner's answer |
 | ❓ Open | blocks the named phase until answered |
 
 ## 1. Context
@@ -33,13 +33,13 @@ The report is [BUG-276](../../bug_report/incomplete/BUG-276_a_waiting_grid_with_
 
 | # | Decision | Status | Decided by | Consequence |
 | :-- | :--- | :--- | :--- | :--- |
-| D1 | **The entry is an order the exchange holds from the moment the bot starts waiting**, not a condition the bot polls. LONG: a buy at the trigger or better; SHORT: a sell at the trigger or better. | 🔵 Proposed | Pending (owner direction: "place the trigger order on the exchange") | Fixes BUG-276 for every wick; adds the first exchange-resident *opening* order, so every hazard in §6 becomes real money. |
-| D2 | **Which order: a resting LIMIT at the trigger price (recommended), not a conditional market order.** The bot is waiting only while the price is on the worse side of the trigger, so a LONG buy limit at the trigger rests under the market and fills at the trigger or better, exactly the owner's "like a limit". | 🔵 Proposed | Pending | A limit uses the order path the Grid ladder already uses (client id, tag, fills, reconcile, maker fee), no conditional-order API and no `MARK_PRICE` against last-trade mismatch (a limit fills on trades, the chart's price). A conditional market (`TAKE_PROFIT_MARKET`, `MARK_PRICE`) would fill at market after the touch, with slippage and a mark-based trigger; kept as the alternative if the testnet shows the limit cannot be the opening trade. |
-| D3 | **Its size is the plan's opening trade at the trigger price**, which the Plan already computes (`entry_price` → trigger, ADR 046 D5). | 🔵 Proposed | Pending | One sizing source; the Start checks already judge the ladder there (minimum, cap, budget). |
-| D4 | **A fill is the entry.** When the order fills (fully), the bot takes `range_entered` and lays the ladder around the actual fill price, the opening trade already done. A partial fill keeps the bot waiting for the rest for a bounded time, then ends it by a rule the owner sets (O4). | 🔵 Proposed | Pending | The start sequence gains an "opening trade already filled" input; it is the largest code change of the epic. |
-| D5 | **The sampled gate stays as the fallback** for the case the order cannot be placed (venue refuses, rate limit): the bot waits on the existing rule and says so. | 🔵 Proposed | Pending | The bot never silently has neither. |
-| D6 | **The B-part, as the owner worded it ("the lowest price between two samples").** The bot keeps the lowest price seen since the last sample (the kline low from the stream, and the extremes of the mark samples) and **shows it** on the Bots screen and in the waiting words; it does **not** place anything from it. | 🔵 Proposed | Pending | The owner sees whether the price touched the trigger and why the bot did or did not enter, with no new order behaviour. Honest limit: it explains a miss, it does not prevent one; D1 does. |
-| D7 | **Phasing: D6 first (small, no venue behaviour), D1–D5 as their own epic, testnet-proven before mainnet.** | 🔵 Proposed | Pending | Agrees with the coordinator's advice on the split; differs on what B can do (it cannot fix the owner's case alone, see §1). |
+| D1 | **The entry is an order the exchange holds from the moment the bot starts waiting**, not a condition the bot polls. LONG: a buy at the trigger or better; SHORT: a sell at the trigger or better. | 🟢 Accepted | Owner, 2026-10-27 ("place the trigger order on the exchange") | Fixes BUG-276 for every wick; adds the first exchange-resident *opening* order, so every hazard in §6 becomes real money. |
+| D2 | **Which order: a resting LIMIT at the trigger price (recommended), not a conditional market order.** The bot is waiting only while the price is on the worse side of the trigger, so a LONG buy limit at the trigger rests under the market and fills at the trigger or better, exactly the owner's "like a limit". | 🟢 Accepted | Owner, 2026-10-27 | A limit uses the order path the Grid ladder already uses (client id, tag, fills, reconcile, maker fee), no conditional-order API and no `MARK_PRICE` against last-trade mismatch (a limit fills on trades, the chart's price). A conditional market (`TAKE_PROFIT_MARKET`, `MARK_PRICE`) would fill at market after the touch, with slippage and a mark-based trigger; kept as the alternative if the testnet shows the limit cannot be the opening trade. |
+| D3 | **Its size is the plan's opening trade at the trigger price**, which the Plan already computes (`entry_price` → trigger, ADR 046 D5). | 🟢 Accepted | Owner, 2026-10-27 | One sizing source; the Start checks already judge the ladder there (minimum, cap, budget). |
+| D4 | **A fill is the entry.** When the order fills (fully), the bot takes `range_entered` and lays the ladder around the actual fill price, the opening trade already done. A partial fill keeps the bot waiting for the rest for a bounded time, then ends it by a rule the owner sets (O4). | 🟢 Accepted | Owner, 2026-10-27 | The start sequence gains an "opening trade already filled" input; it is the largest code change of the epic. |
+| D5 | **The sampled gate stays as the fallback** for the case the order cannot be placed (venue refuses, rate limit): the bot waits on the existing rule and says so. | 🟢 Accepted | Owner, 2026-10-27 | The bot never silently has neither. |
+| D6 | **The B-part, as the owner worded it ("the lowest price between two samples").** The bot keeps the lowest price seen since the last sample (the kline low from the stream, and the extremes of the mark samples) and **shows it** on the Bots screen and in the waiting words; it does **not** place anything from it. | 🟢 Accepted | Owner, 2026-10-27 | The owner sees whether the price touched the trigger and why the bot did or did not enter, with no new order behaviour. Honest limit: it explains a miss, it does not prevent one; D1 does. |
+| D7 | **Phasing: D6 first (small, no venue behaviour), D1–D5 as their own epic, testnet-proven before mainnet.** | 🟢 Accepted | Owner, 2026-10-27 | Agrees with the coordinator's advice on the split; differs on what B can do (it cannot fix the owner's case alone, see §1). |
 
 ## 2a. Constitution check
 The entry order is real-money behaviour, so none of D1–D7 is settled as a default; the owner decides.
@@ -73,12 +73,12 @@ The entry order is real-money behaviour, so none of D1–D7 is settled as a defa
 
 | # | Question (put to the owner in Vietnamese in the author session) | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | Resting **limit at the trigger** (D2, recommended) or a **conditional market order**? | D1 | 2026-10-27 |
-| O2 | The price falls through the band and keeps falling below the range lower bound after the fill (733): the existing range exit (ADR 044 D7) would close the new position at once at a loss. Keep that rule, or hold the position and the ladder until the owner decides? Recommendation: **keep the rule, and refuse the trigger at Design if it sits closer than a stated distance to the lower bound**, so a fill and an exit cannot be one move. | D4 | 2026-10-27 |
-| O3 | While the order rests, the loss cap, the trading switch and the owner budget cannot veto it on the exchange. Recommendation: **cancel the resting order the moment the trading switch goes off, the loss cap trips or an emergency stop runs** (the emergency stop already cancels conditional orders of flat symbols), and register the budget for the order's value at placement. | D1 | 2026-10-27 |
-| O4 | A partial fill: wait for the rest for N minutes, then keep the partial as the opening trade and lay the ladder, or cancel the rest and lay at once? Recommendation: **cancel the rest after a short bound and lay the ladder over what filled**. | D4 | 2026-10-27 |
-| O5 | Spot: the same resting limit (it reserves the quote asset while it rests). Include it in the epic, or Futures first? Recommendation: **Futures first**, Spot as the next slice of the same epic. | scope | 2026-10-27 |
-| O6 | Phasing: D6 first as a small PR, D1–D5 as an epic with a testnet gate. Confirm? | D7 | 2026-10-27 |
+| O1 ✅ | Resting **limit at the trigger** (D2, recommended) or a **conditional market order**? | D1 | 2026-10-27 |
+| O2 ✅ | The price falls through the band and keeps falling below the range lower bound after the fill (733): the existing range exit (ADR 044 D7) would close the new position at once at a loss. Keep that rule, or hold the position and the ladder until the owner decides? Recommendation: **keep the rule, and refuse the trigger at Design if it sits closer than a stated distance to the lower bound**, so a fill and an exit cannot be one move. | D4 | 2026-10-27 |
+| O3 ✅ | While the order rests, the loss cap, the trading switch and the owner budget cannot veto it on the exchange. Recommendation: **cancel the resting order the moment the trading switch goes off, the loss cap trips or an emergency stop runs** (the emergency stop already cancels conditional orders of flat symbols), and register the budget for the order's value at placement. | D1 | 2026-10-27 |
+| O4 ✅ | A partial fill: wait for the rest for N minutes, then keep the partial as the opening trade and lay the ladder, or cancel the rest and lay at once? Recommendation: **cancel the rest after a short bound and lay the ladder over what filled**. | D4 | 2026-10-27 |
+| O5 ✅ | Spot: the same resting limit (it reserves the quote asset while it rests). Include it in the epic, or Futures first? Recommendation: **Futures first**, Spot as the next slice of the same epic. | scope | 2026-10-27 |
+| O6 ✅ | Phasing: D6 first as a small PR, D1–D5 as an epic with a testnet gate. Confirm? | D7 | 2026-10-27 |
 
 ## 5. How the order is kept (the design, if D1 is accepted)
 
@@ -106,4 +106,5 @@ The entry order is real-money behaviour, so none of D1–D7 is settled as a defa
 ## 7. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1–D7 | Not assigned | Not started | Awaiting the owner's answers to O1–O6; testnet proof required before any mainnet bot |
+| D6 | Slice 1 of the epic, own PR | Not started | The lowest price seen, shown; no order behaviour |
+| D1–D5 | Slice 2+ of the epic, own tasks | Not started | Testnet proof (fill, partial fill, cancel, orphan sweep, the endpoint check of §1) required before any mainnet bot |

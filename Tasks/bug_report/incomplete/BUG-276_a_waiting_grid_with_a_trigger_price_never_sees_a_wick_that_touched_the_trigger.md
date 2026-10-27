@@ -2,7 +2,7 @@
 
 - **Reported:** 2026-10-27, by the owner (bot `ixr5v8` `BNB_ANH`, `futures_mainnet`, `BNBUSDT`, range 733–748, trigger `price <= 735`): "The bot not start even the price have pass through the trigger price."
 - **Severity:** 🟠 P2 — the bot is safe (it places nothing), but it does not do what the owner's limit-style trigger promises; no money is lost, an entry is.
-- **Status:** Open — design awaiting the owner ([the decision record](../../epics/EPIC-046_grid_trigger_price/DECISION_2026-10-27_a_triggered_entry_the_bot_cannot_miss.md)); no code yet
+- **Status:** Open — design accepted by the owner 2026-10-27, implementation in slices ([the decision record](../../epics/EPIC-046_grid_trigger_price/DECISION_2026-10-27_a_triggered_entry_the_bot_cannot_miss.md))
 - **Board:** A waiting futures Grid judges its trigger on one mark price read every 5 s, so a wick that touched the trigger between two samples (owner's 15m wick to about 734.7 under a 735 trigger) never opens it.
 - **Context:** Use case run a Grid ([SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)) → `bots` → grid entry (`GridRangeEntry`, `GridPriceReaction`, `GridMarkExit`, `entry_gate`)
 - **Environment:** App at `master-warrior` `b12b95f`; the bot's host is the owner's. The bot's log lines were not yet supplied.
