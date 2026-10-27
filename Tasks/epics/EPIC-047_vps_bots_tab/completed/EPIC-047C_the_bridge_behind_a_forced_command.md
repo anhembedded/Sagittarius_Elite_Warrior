@@ -1,6 +1,6 @@
 # EPIC-047C — A bridge process on the host, started by `sshd` behind a forced-command key, serves the Bots queries and commands
 
-**Status:** 🟡 In review — seven of nine criteria met and proved; the restricted key (AC8) and the VPS import time (AC2's measurement) are the owner's step on the VPS, pending
+**Status:** ✅ Done (2026-10-27) — merged as #739; marked Done in the pull request of EPIC-047D on the coordinator's instruction. Two observations stay the owner's, on the VPS, and open in "Owner step" below: the restricted key on a real `sshd` (criterion 8) and the import time of the bridge on the VPS (criterion 2's measurement)
 **Source:** the owner's delegation of 2026-10-24, settled as G7 and G10; [the remote link record](../DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) D2, D3 and D5; De-risk R2, R5.
 **Risk:** 🔴 — it is the only door from the desktop to a real-money host; a command that bypassed the host's gate, a shell the key should not give, or a listener would break the epic's constraints.
 **Complexity:** L — the bridge entry point, the event stream, the commands, the watchdog, and the forced-command key.
@@ -29,7 +29,7 @@ Evidence is the pull request's head and its runs. "Not run" means not run. The i
 **Also delivered (047A and 047B handed over):** the revision's source (D1 of [the decision record](../DECISION_2026-10-26_the_bridge_revision_and_the_unbuilt_venue.md), the bridge's own counter per bot, Constitution check in §2a of the record); `IHostFactsCodec.decode` (the facts body, tolerant); the non-building `IVenueKeyStates` port so an unbuilt venue shows its key state in the facts file (D2); exchange facts as fresh as the last read (D3, nothing built).
 
 ## 3. Design
-Mirror the repository's `bot show` pattern (read the files) and its control door; the forced command is OpenSSH's own mechanism (P5; sources in DERISK). The bridge is a second process, not a thread in the host (G7, record D2): it cannot slow the bots and ends with its session. The bridge lives in the app, not the Engine (G8). The `authorized_keys` line is an operator step, written in [EPIC-047G](EPIC-047G_the_runbook_for_the_vps_link.md), not by code.
+Mirror the repository's `bot show` pattern (read the files) and its control door; the forced command is OpenSSH's own mechanism (P5; sources in DERISK). The bridge is a second process, not a thread in the host (G7, record D2): it cannot slow the bots and ends with its session. The bridge lives in the app, not the Engine (G8). The `authorized_keys` line is an operator step, written in [EPIC-047G](../incomplete/EPIC-047G_the_runbook_for_the_vps_link.md), not by code.
 
 **Where it lives (decided at start, from the boundary rules).** A module imports another only through `contracts/`, a support package imports no module, and `shell/` may import a module's `module.py` only, which loads the whole module (1.1 s here). The bridge needs the wire layer, the store reader and the control-door writer, so:
 
@@ -78,7 +78,7 @@ Tier: unit, integration (one real process), then the full gate on GitHub Actions
 | M8 | `DirectoryHostControl` ignores an id the audit settled | `test_the_same_id_sent_again_after_the_host_ran_it_is_answered_from_the_audit_and_runs_once` and `test_a_settled_id_is_answered_even_when_no_host_runs_any_more` |
 
 ## 6. Docs touched
-`Docs/MODULES/bots/07-deployment.md` (the new section "Built: the bridge on the host", the facts file's key state and lease rows, the decoder), `Docs/MODULES/bots/05-building-blocks.md` (`wire_roots` now in `link.py`). `Docs/OPERATIONS/headless_runbook.md` (the key line, `PasswordAuthentication no`, the exit statuses) is [EPIC-047G](EPIC-047G_the_runbook_for_the_vps_link.md)'s. `operations` has no design folder; its part is in the bots page that already describes the headless host.
+`Docs/MODULES/bots/07-deployment.md` (the new section "Built: the bridge on the host", the facts file's key state and lease rows, the decoder), `Docs/MODULES/bots/05-building-blocks.md` (`wire_roots` now in `link.py`). `Docs/OPERATIONS/headless_runbook.md` (the key line, `PasswordAuthentication no`, the exit statuses) is [EPIC-047G](../incomplete/EPIC-047G_the_runbook_for_the_vps_link.md)'s. `operations` has no design folder; its part is in the bots page that already describes the headless host.
 
 ## Owner step (the VPS run; criterion 8 and the import time)
 On the VPS, as root, with the desktop's public key in `/tmp/desk.pub` (the runbook, 047G, writes the permanent version; this checks it):

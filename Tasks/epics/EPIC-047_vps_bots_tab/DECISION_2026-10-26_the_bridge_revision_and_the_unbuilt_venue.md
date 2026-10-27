@@ -3,7 +3,7 @@
 **Epic:** [EPIC-047](README.md)
 **Date:** 2026-10-26
 **Status:** Accepted
-**Decided by:** D1 by the author of [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md), which [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) handed it; D2 and D3 by the coordinating session under ONBOARDING §7 ("Settle an owner decision that carries a recommendation"), handed to the author in its brief of 2026-10-26. The owner may veto any row; a veto reverts it. The Constitution check is §2a.
+**Decided by:** D1 by the author of [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md), which [EPIC-047A](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) handed it; D2 and D3 by the coordinating session under ONBOARDING §7 ("Settle an owner decision that carries a recommendation"), handed to the author in its brief of 2026-10-26. The owner may veto any row; a veto reverts it. The Constitution check is §2a.
 **Supersedes / superseded by (optional):** none. Read with [the remote link record](DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) D4 and D5.
 
 | Label | Meaning |
@@ -61,6 +61,6 @@ None.
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | Verified in unit and process tests | `tests/unit/support/wire/bridge/test_bridge_reads.py` (revisions, order-independent convergence with `RevisionGate`), `tests/integration/modules/operations/test_the_bridge_process.py` |
-| D2 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | Verified in unit tests | `tests/unit/modules/trading/test_stored_venue_key_states.py`, `tests/unit/modules/bots/adapters/test_trading_host_held_facts.py` |
-| D3 | [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | Nothing built, by decision | 047B's `RecordedVenueFacts` tests |
+| D1 | [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | Verified in unit and process tests | `tests/unit/support/wire/bridge/test_bridge_reads.py` (revisions, order-independent convergence with `RevisionGate`), `tests/integration/modules/operations/test_the_bridge_process.py` |
+| D2 | [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | Verified in unit tests | `tests/unit/modules/trading/test_stored_venue_key_states.py`, `tests/unit/modules/bots/adapters/test_trading_host_held_facts.py` |
+| D3 | [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | Nothing built, by decision | 047B's `RecordedVenueFacts` tests |

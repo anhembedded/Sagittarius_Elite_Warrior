@@ -1,7 +1,7 @@
 # EPIC-047 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🟡 In progress (2/7) — resumed 2026-10-26
+- **Status:** 🟡 In progress (3/7) — resumed 2026-10-26
 - **Target Completion:** 2026-12-19
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -48,8 +48,8 @@ gantt
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-047A | [Wire codec and version handshake](completed/EPIC-047A_the_wire_codec_and_the_version_handshake.md) | `claude/epic-047a-wire-codec` | 🟡 | ✅ Done (2026-10-26) | 2026-10-26 |
 | EPIC-047B | [The host writes its in-memory facts](completed/EPIC-047B_the_host_writes_its_in_memory_facts_to_a_file.md) | `claude/epic-047b-host-facts-file` (#738) | 🔴 | ✅ Done (2026-10-27) | 2026-10-27 |
-| EPIC-047C | [The bridge](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | `claude/epic-047c-bridge` | 🔴 | 🟡 In review (VPS run pending) | 2026-11-19 |
-| EPIC-047D | [Transport, profiles, Options page](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | `Not opened` | 🟡 | 🔵 Planned | 2026-11-27 |
+| EPIC-047C | [The bridge](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | `claude/epic-047c-bridge` (#739) | 🔴 | ✅ Done (2026-10-27) (VPS run pending) | 2026-11-19 |
+| EPIC-047D | [Transport, profiles, Options page](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | `claude/epic-047d-desktop-transport` | 🟡 | 🟡 In review | 2026-11-27 |
 | EPIC-047E | [The VPS Bots tab](incomplete/EPIC-047E_the_vps_bots_tab.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-12-08 |
 | EPIC-047F | [Log lines in the tab](incomplete/EPIC-047F_the_bots_log_lines_in_the_tab.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-12 |
 | EPIC-047G | [The runbook](incomplete/EPIC-047G_the_runbook_for_the_vps_link.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-01 |

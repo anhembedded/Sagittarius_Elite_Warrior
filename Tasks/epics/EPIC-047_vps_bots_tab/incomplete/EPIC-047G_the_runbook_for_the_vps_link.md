@@ -5,7 +5,7 @@
 **Risk:** 🟢 — documentation; a wrong step in `authorized_keys` or `sshd_config` can lock the owner out of the VPS, so the order of steps and the open session matter.
 **Complexity:** S — one runbook section, one page of troubleshooting, one Learning page.
 **Epic:** [EPIC-047](../README.md)
-**Depends on:** [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md) (the exact forced command and the bridge launcher), [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the profile fields); the steps can be drafted earlier
+**Depends on:** [EPIC-047C](../completed/EPIC-047C_the_bridge_behind_a_forced_command.md) (the exact forced command and the bridge launcher), [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the profile fields); the steps can be drafted earlier
 
 ---
 

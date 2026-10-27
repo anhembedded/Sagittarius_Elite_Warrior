@@ -1,6 +1,6 @@
 # EPIC-047B — The running host writes the facts only it holds to a file when they change
 
-**Status:** ✅ Done (2026-10-27) — merged as #738 on 2026-10-27; the one criterion it narrowed (the bridge's assembly) was closed by [EPIC-047C](../incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md)
+**Status:** ✅ Done (2026-10-27) — merged as #738 on 2026-10-27; the one criterion it narrowed (the bridge's assembly) was closed by [EPIC-047C](EPIC-047C_the_bridge_behind_a_forced_command.md)
 **Source:** the owner's delegation of 2026-10-24, settled as G7a; [the remote link record](../DECISION_2026-10-24_the_remote_link_is_a_bridge_behind_a_forced_command.md) D4; De-risk R2 §2.5.
 **Risk:** 🔴 — it changes the real-money host, even though it only writes a file; a write that blocks, tears or leaks a key would be a defect on the trading host.
 **Complexity:** M — one writer beside `health_snapshot.py`, four fact groups, owner-only atomic writes.

@@ -74,6 +74,6 @@ The desktop (Windows) starts the bridge on the VPS over SSH and talks to it on s
 | :--- | :--- | :--- | :--- |
 | D1 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified |
 | D2 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified; no requirements file edited by this record |
-| D3 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md), with the slim entry point in [EPIC-047C](incomplete/EPIC-047C_the_bridge_behind_a_forced_command.md) | Not started | Not yet verified |
+| D3 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md), with the slim entry point in [EPIC-047C](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | Not started | Not yet verified |
 | D4 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not started | Not yet verified |
 | D5 | [EPIC-047D](incomplete/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | Not applicable until D3(a) fails | Not applicable |
