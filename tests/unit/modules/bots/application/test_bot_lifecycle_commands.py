@@ -323,7 +323,7 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
         "resume": lambda: ResumeBotCommandHandler(
             store, runner, ResumeReadinessReader(world.facts, world.ports, world.caps)
         ).execute(ResumeBotCommand("abc123")),
-        "stop": lambda: StopBotCommandHandler(store, runner).execute(
+        "stop": lambda: StopBotCommandHandler(store, runner, world.ports).execute(
             StopBotCommand("abc123", ExposureHandling.KEEP)
         ),
     }
@@ -333,11 +333,11 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
 
 
 def test_stop_carries_the_users_choice_for_the_base(
-    store: FakeBotStore, runner: _RecordingRunner
+    world: ReadinessWorld, store: FakeBotStore, runner: _RecordingRunner
 ) -> None:
     seed(store, "abc123", S.RUNNING)
 
-    StopBotCommandHandler(store, runner).execute(
+    StopBotCommandHandler(store, runner, world.ports).execute(
         StopBotCommand("abc123", ExposureHandling.CLOSE_AT_MARKET)
     )
 

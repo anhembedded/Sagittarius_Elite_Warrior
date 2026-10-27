@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     StopBotDialog,
     stop_question,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -52,6 +56,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.test_bot_life
     _RecordingRunner,
 )
 
+_SPOT_PORTS = FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET))
 _ID = "abc123"
 _CLOCK = FakeBotClock()
 
@@ -110,7 +115,7 @@ def test_the_dialog_and_the_handler_agree_on_keeping_for_every_venue(
     store = FakeBotStore()
     store.save(StoredBot(_bot(venue), {"cycles": 1}))
     runner = _RecordingRunner(store, _CLOCK)
-    kept = StopBotCommandHandler(store, runner).execute(
+    kept = StopBotCommandHandler(store, runner, _SPOT_PORTS).execute(
         StopBotCommand(_ID, ExposureHandling.KEEP)
     )
     dialog = StopBotDialog(BotSnapshot.of(_bot(venue)))
@@ -118,7 +123,7 @@ def test_the_dialog_and_the_handler_agree_on_keeping_for_every_venue(
 
     assert dialog.keep.isEnabled() is kept.accepted
     assert (dialog.choice() is ExposureHandling.KEEP) is kept.accepted
-    closed = StopBotCommandHandler(store, _RecordingRunner(store, _CLOCK)).execute(
-        StopBotCommand(_ID, ExposureHandling.CLOSE_AT_MARKET)
-    )
+    closed = StopBotCommandHandler(
+        store, _RecordingRunner(store, _CLOCK), _SPOT_PORTS
+    ).execute(StopBotCommand(_ID, ExposureHandling.CLOSE_AT_MARKET))
     assert closed.accepted

@@ -60,6 +60,11 @@ _BOT_SESSION_OPENERS = {
         "deliberate action, after the lifecycle table allows the stop, for a mainnet venue "
         "only with the typed `--confirm-venue`; the host's shutdown stop opens nothing"
     ),
+    "src/modules/bots/application/use_cases/stop_bot/handler.py": (
+        "the Bots screen's Stop (`BUG-274`): opens a closed session only when the command "
+        "carries the person's answer to the real-money question; the loss cap's and the "
+        "host's shutdown stop carry none and open nothing"
+    ),
 }
 
 #: Where `ensure_ready()` may be called from, and why.
