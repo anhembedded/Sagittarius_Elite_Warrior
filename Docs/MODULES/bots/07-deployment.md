@@ -153,10 +153,10 @@ longer timeframe is folded from the 1m ticks (`operations/application/candle_fol
 (`core/vo/market_timeframes.py` → `DEFAULT_CHART_TIMEFRAMES`). A symbol with no stream (the bot is at rest) has no live
 price: its entry ages in the file and drops after 24 h.
 
-**The refresh and its ceiling.** `operations/application/vps_facts_refresher.py` → `FactsRefresher` runs on one worker
+**The refresh and its ceiling.** The whole feed (recorder, refresher, both files) runs in the headless host only: `operations.vps_feed_enabled` is on by default and the GUI entry point (`shell/gui_wiring.py` → `create_gui_app`) turns it off for its run. A read that raises is charged like any other, and a kind whose median cost lands above the ceiling is forgotten (`vps_refresh_costs.py` → `ExpectedCosts.forget`) and re-measured. `operations/application/vps_facts_refresher.py` → `FactsRefresher` runs on one worker
 (`operations/application/facts_refreshing.py` → `FactsRefreshing`, thread `vps-refresh`) and reads, through
 `bots/application/services/host_reads/exchange_bot_read_refresh.py` → `ExchangeBotReadRefresh`, the same queries and
-readers the Bots tab uses. A bot's round is its facts read, and on every tenth round its planner inputs and its fills,
+readers the Bots tab uses. A bot's round is its facts read, and on every fifth round its planner inputs and its fills,
 each a read of its own; an asked-for refresh is a round with all three; the static exchange info of a venue is read at
 start and every 24 h. Three things hold the weight:
 
@@ -169,14 +169,14 @@ start and every 24 h. Three things hold the weight:
 The interval therefore stretches with the bots. Simulated for three hours on a fake clock with the planning weights
 (`tests/unit/modules/operations/vps_feed/`): the median gap between two facts reads of one bot is 120 s with one bot and with
 five, and about 410 s with twenty; the most weight spent in any minute was 55, 70 and 70 of the 72 allowed. The planner
-and fills reads (about 55 weight a bot, every tenth round) give way to other bots' facts reads when the ceiling has no room, so
+and fills reads (about 55 weight a bot, every fifth round) give way to other bots' facts reads when the ceiling has no room, so
 under load they come later, not earlier. A failed read keeps the last snapshot and its `read_at` and is logged once per
 cause (`[vps-refresh]`). The on-demand verb is `bot refresh-facts <id>` (`core/contracts/host_control.py` →
 `HostControlAction.REFRESH_FACTS`): the host queues it and answers at once (`operations/application/refresh_facts_outcome.py`
 → `refresh_outcome`), at most once per 30 s per bot, counted inside the ceiling.
 
 **What it cannot do.** The `market_data` REST client does not pass `ExchangeCallPolicy`, so a candle backfill would not be
-seen by the gate or the header: it is charged to the ceiling by estimate (10 weight a call), see below. The host streams the
+seen by the gate or the header: it is charged to the ceiling by estimate (50 weight a symbol sync), see below. The host streams the
 1m kline only, so the forming candles of longer timeframes are partial after a start.
 
 ## Built: the bridge on the host (EPIC-047C)
