@@ -8,6 +8,7 @@ the screen can say whether the price touched the trigger. It places nothing and 
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -17,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridRuntime,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
+    grid_world,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.waiting_world import (
     WITH_NO_EXITS,
@@ -87,3 +94,45 @@ def test_a_wick_from_before_the_bot_listened_is_not_kept() -> None:
     _stream_tick(case, last=D(135), low=D(110), high=D(136))
 
     assert case.world.runtime().waiting_best_price == D(135)
+
+
+def test_a_restart_keeps_the_best_price_the_record_already_holds() -> None:
+    """The review of #748: a fresh memory must start from the saved best, or the first close after
+    a restart would overwrite 128 with 131 and the screen would say the price never touched it."""
+    world = grid_world(
+        state=S.AWAITING_RANGE,
+        runtime=replace(GridRuntime(()), waiting_best_price=D(128)),
+        config=_TRIGGERED,
+        last_price=D(131),
+    )
+    case = Wait(world, None)
+
+    case.price_is(D(131))
+
+    assert world.runtime().waiting_best_price == D(128)
+
+
+def test_a_restart_still_improves_on_the_saved_best() -> None:
+    world = grid_world(
+        state=S.AWAITING_RANGE,
+        runtime=replace(GridRuntime(()), waiting_best_price=D(128)),
+        config=_TRIGGERED,
+        last_price=D(131),
+    )
+    case = Wait(world, None)
+
+    case.price_is(D(126))
+
+    assert world.runtime().waiting_best_price == D(126)
+
+
+@pytest.mark.parametrize("market", ["spot", "futures"])
+def test_a_wait_with_no_trigger_keeps_and_writes_nothing(market: str) -> None:
+    """Without a trigger the value is never shown, so the bot does not write it."""
+    case = started(a_wait(market, "LONG", D(145), config=WITH_NO_EXITS))
+
+    case.price_is(D(143))
+    case.price_is(D(142))
+
+    assert case.world.state() is S.AWAITING_RANGE
+    assert case.world.runtime().waiting_best_price is None

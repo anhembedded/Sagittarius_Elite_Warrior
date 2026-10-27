@@ -30,7 +30,8 @@ and it is the rate of the run's start, not today's. While the bot waits in `AWAI
 keeps the best price it heard on the side its trigger wants, the bar's observed wick included
 (`GridRuntime.waiting_best_price`, `bots/application/kinds/grid/watch/grid_waiting_best.py` →
 `GridWaitingBest`; `BUG-276`): the lowest for a bot that wants a lower price, the highest for the
-other. It is saved at most every `WAITING_BEST_SAVE_SECONDS`, restarted by each new wait, absent from a
+other. It is kept only for a bot with a trigger price, saved at most every `WAITING_BEST_SAVE_SECONDS`, carried
+across a restart or a resume (a new wait starts from what the record holds), absent from a
 file an earlier build wrote, and only shown (`TriggerMark.seen_best`, `bots/contracts/grid_ladder_texts.py` →
 `waiting_text`); the entry still judges its samples (`ADR 046`). A level's own lifecycle is the second table in
 [`state-machines.md`](state-machines.md). An order is the bot's when its client order id carries the

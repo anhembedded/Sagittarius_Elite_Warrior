@@ -18,9 +18,10 @@ The owner's bot `ixr5v8` waited with a trigger while a 15m wick went under it; t
 - [x] The waiting words name it ("lowest/highest price heard while waiting X") when the plan has a trigger and one was heard; the sentence still ends "nothing is placed until it is".
 - [x] A wick from before the bot listened is not kept (`BUG-191`); the entry decision and every order are unchanged.
 - [x] A record an earlier build wrote reads as nothing heard.
+- [x] A restart or a resume starts from the value the record holds, so the first price after it cannot overwrite an earlier low; a bot with no trigger price keeps and writes nothing (review round 1 of PR #748).
 
 ## 3. Design
-`GridWaitingBest` (one per bot, on the worker) sits beside `GridPriceReaction`, which hands it every stream tick and mark. It reuses `GridTickExtremes` for the observed wick and `better_is_lower` for the side. The value rides the existing runtime record and `BotProgress` into `TriggerMark.seen_best` and `waiting_text`. Writes are throttled (`WAITING_BEST_SAVE_SECONDS = 5`); a better price heard in between is held and written on the next price.
+`GridWaitingBest` (one per bot, on the worker) sits beside `GridPriceReaction`, which hands it every stream tick and mark. It reuses `GridTickExtremes` for the observed wick and `better_is_lower` for the side. The value rides the existing runtime record and `BotProgress` into `TriggerMark.seen_best` and `waiting_text`. A new memory is seeded from the record on its first price, and a bot with no trigger price does nothing. Writes are throttled (`WAITING_BEST_SAVE_SECONDS = 5`); a better price heard in between is held and written on the next price.
 
 ## 3a. Reuse
 Used `GridTickExtremes`, `better_is_lower`, the `BotProgress` → `PricePosition` → `waiting_text` path every surface shares (the Bots tab, `bot list`/`bot show`, the heartbeat).

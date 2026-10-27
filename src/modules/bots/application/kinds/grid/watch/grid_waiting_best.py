@@ -4,7 +4,9 @@ The entry is judged on samples (a mark read every few seconds on a position venu
 close on Spot), so a wick that touched the trigger between two of them leaves the bot waiting with
 no trace. This keeps what the bot heard on the side its trigger wants - the lowest price for a bot
 that wants a lower one, the highest for the other - and saves it with the record for the screen to
-say. It decides nothing: the gate and the entry (`GridRangeEntry`) are untouched.
+say. A bot with no trigger price keeps nothing: the screen shows the value beside a trigger only.
+A restart or a resume starts from the value the record already holds, so the first price after it
+cannot overwrite a low the bot saw before. It decides nothing: the gate and the entry (`GridRangeEntry`) are untouched.
 
 The wick counts as the bar's extremes the bot observed while listening (`GridTickExtremes`,
 `BUG-191`), not the ones from before it did. Touched only on the bot's worker.
@@ -43,6 +45,7 @@ class GridWaitingBest:
         self._context = context
         self._extremes = GridTickExtremes()
         self._best: Decimal | None = None
+        self._seeded = False
         self._unsaved = False
         self._saved_at: float | None = None
 
@@ -52,6 +55,9 @@ class GridWaitingBest:
         if self._context.state.state is not BotLifecycleState.AWAITING_RANGE:
             self._forget()
             return
+        if self._context.params.trigger_price is None:
+            return
+        self._seed()
         low, high = self._extremes.observed(tick)
         candidate = low if better_is_lower(self._context.params) else high
         if self._best is None or self._beats(candidate, self._best):
@@ -59,6 +65,12 @@ class GridWaitingBest:
             self._unsaved = True
         if self._unsaved:
             self._save()
+
+    def _seed(self) -> None:
+        """Start a wait from what the record holds (a restart, a resume), once."""
+        if not self._seeded:
+            self._seeded = True
+            self._best = self._context.state.runtime.waiting_best_price
 
     def _beats(self, candidate: Decimal, best: Decimal) -> bool:
         if better_is_lower(self._context.params):
@@ -80,5 +92,6 @@ class GridWaitingBest:
     def _forget(self) -> None:
         self._extremes.reset()
         self._best = None
+        self._seeded = False
         self._unsaved = False
         self._saved_at = None
