@@ -166,3 +166,6 @@ def test_the_stop_lays_no_new_ladder_order_before_it_takes_the_ladder_off(
         assert app.bot(bot_id).state is S.STOPPED
         laid = [order for order in sent if order.order_type is OrderType.LIMIT]
         assert laid == [], f"the Stop laid {len(laid)} new ladder order(s) first"
+        # The buy that filled while the app was closed is booked at its cost: the price fell below
+        # every entry, so the stopped run reports a loss, not the fill's whole proceeds as profit.
+        assert app.runtime(bot_id).realised_total < 0
