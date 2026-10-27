@@ -217,7 +217,14 @@ class DeskLink(IDeskListener):
     ) -> dict[str, object]:
         future: Future[dict[str, object]] = Future()
         with self._lock:
-            call_id = self._protocol.call(method, params, self._monotonic())
+            try:
+                call_id = self._protocol.call(method, params, self._monotonic())
+            except LinkLostError as failure:
+                if command_id is None:
+                    raise
+                # A write that raised may still have reached the host (asyncssh buffers it before it
+                # drains): the command's outcome is unknown, not "never sent".
+                raise CommandInFlightLostError(command_id) from failure
             self._pending[call_id] = _Pending(future, method, command_id)
         try:
             return future.result(timeout=timeout_s)

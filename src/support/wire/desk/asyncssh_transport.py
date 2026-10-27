@@ -67,10 +67,15 @@ class AsyncSshTransport(ILinkTransport):
         pending = asyncio.run_coroutine_threadsafe(self._connect(profile), loop)
         try:
             pending.result(timeout=profile.connect_timeout_s * 2 + 5)
+        except asyncssh.HostKeyNotVerifiable:
+            # Decided here, on the caller's thread: it reads the known_hosts file, which the loop must not.
+            self.close()
+            raise _host_key_error(profile) from None
         except LinkError:
             self.close()
             raise
         except TimeoutError:
+            pending.cancel()
             self.close()
             raise HostUnreachableError(
                 profile.host, profile.port, "no answer in time"
@@ -84,6 +89,7 @@ class AsyncSshTransport(ILinkTransport):
         try:
             pending.result(timeout=_WRITE_TIMEOUT_S)
         except (OSError, asyncssh.Error, TimeoutError) as failure:
+            pending.cancel()  # the bytes may already be in the channel's buffer: the caller treats the write as unknown
             raise LinkLostError(_reason_of(failure)) from failure
 
     def receive_line(self, timeout_s: float) -> str | None:
@@ -138,7 +144,7 @@ class AsyncSshTransport(ILinkTransport):
         try:
             connection = await asyncssh.connect(**connect_options(profile))  # type: ignore[arg-type]
         except asyncssh.HostKeyNotVerifiable:
-            raise _host_key_error(profile) from None
+            raise  # told apart by `open`, on the caller's thread (it reads known_hosts)
         except asyncssh.PermissionDenied:
             raise KeyRefusedError(profile.host, profile.user) from None
         except asyncssh.KeyImportError as failure:

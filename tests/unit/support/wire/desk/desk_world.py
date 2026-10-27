@@ -87,6 +87,7 @@ class BridgeTransport(ILinkTransport):
         self._lock = threading.Lock()
         self._cut = False
         self._silent = False
+        self._send_failure: LinkError | None = None
         self._session: BridgeSession | None = None
 
     def fail_open(self, error: LinkError) -> None:
@@ -133,7 +134,14 @@ class BridgeTransport(ILinkTransport):
         with self._lock:
             self._session.begin(time.monotonic())
 
+    def fail_next_send(self, error: LinkError) -> None:
+        """The next write raises, as a stalled drain does."""
+        self._send_failure = error
+
     def send_line(self, line: str) -> None:
+        if self._send_failure is not None:
+            failure, self._send_failure = self._send_failure, None
+            raise failure
         if self._cut or self.closed:
             raise LinkLostError("the pipe is broken")
         self.sent.append(json.loads(line))

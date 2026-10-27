@@ -250,3 +250,26 @@ def test_a_call_that_times_out_is_forgotten_and_a_late_answer_is_dropped(
     transport.cut()
     assert rig.closed.wait(BOUND_S)
     assert rig.closed_with and isinstance(rig.closed_with[0], LinkLostError)
+
+
+def test_a_command_whose_write_raised_is_unknown_not_never_sent(
+    host: BridgeHost,
+) -> None:
+    """asyncssh buffers a write before it drains, so a write that raised may still be delivered."""
+    rig, transport = _up(host)
+    transport.fail_next_send(LinkLostError("the window stalled"))
+
+    with pytest.raises(CommandInFlightLostError) as unknown:
+        rig.link.command(REQUEST_ID, REQUEST_DOC, 5.0)
+
+    assert unknown.value.request_id == REQUEST_ID
+
+
+def test_a_read_whose_write_raised_is_a_plain_lost_link(host: BridgeHost) -> None:
+    rig, transport = _up(host)
+    transport.fail_next_send(LinkLostError("the window stalled"))
+
+    with pytest.raises(LinkLostError) as lost:
+        rig.link.call("snapshot")
+
+    assert not isinstance(lost.value, CommandInFlightLostError)
