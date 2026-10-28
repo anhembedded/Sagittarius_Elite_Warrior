@@ -134,13 +134,20 @@ class BotsView(OutputSourceView):
     #: (`EPIC-040` F1: the chart commands follow it).
     front_chart_changed = Signal()
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        surface: Surface = BOTS_SURFACE,
+        channel_title: str = "Bots",
+        parent: QWidget | None = None,
+    ) -> None:
+        """`surface` and `channel_title` are the mode's own: its layout is saved under the surface's id and its channel
+        of the Output pane is named by it, both unique in the window. The VPS tab (`EPIC-047E`) is this view under its own."""
         super().__init__(parent)
         self.model = BotsViewModel(self)
         #: The mode's own channel of the Output pane: what strategies were armed and disarmed
         #: (`BOT-219`).
         self.output_log = LogListModel(self)
-        self._output = OutputChannel("bots", "Bots", self.output_log)
+        self._output = OutputChannel(surface.surface_id, channel_title, self.output_log)
         self.bots = BotsTableModel(self)
         # By name, the order a user finds a bot in.
         self._bots_table = SpecTable(
@@ -198,7 +205,7 @@ class BotsView(OutputSourceView):
         self.centre.addTab(self.backtest, BACKTEST_TAB)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
-        self.surface = WorkbenchSurface(BOTS_SURFACE)
+        self.surface = WorkbenchSurface(surface)
         self._place()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)

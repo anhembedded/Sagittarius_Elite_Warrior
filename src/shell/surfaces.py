@@ -47,6 +47,8 @@ _WORKBENCH_PLACES = frozenset(
     }
 )
 
+VPS_BOTS_SURFACE_ID = "vps_bots"
+
 SURFACES: tuple[Surface, ...] = (
     Surface("trading", owner="shell", accepts=_WORKBENCH_PLACES),
     Surface(
@@ -65,6 +67,14 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "bots",
         owner="bots",
+        accepts=frozenset(
+            {Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}
+        ),
+    ),
+    # `EPIC-047E` - the VPS Bots tab: the Bots screen's own view on its own surface, so it keeps its own layout.
+    Surface(
+        VPS_BOTS_SURFACE_ID,
+        owner="shell",
         accepts=frozenset(
             {Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}
         ),

@@ -309,7 +309,7 @@ class BotsPresenter(CommandPresenter):
             self._begin(*move)
 
     def _on_new_bot(self) -> None:
-        if self._busy():
+        if self._busy() or self._model.new_bot_unavailable:
             return
         kinds = [kind.kind_id for kind in self._catalog.kinds()]
         command = self._venues.new_bot(self._dialogs.ask_new_bot, kinds)

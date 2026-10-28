@@ -4,7 +4,8 @@
 on a host that cannot ask, so the tab asks as the command line does (`--confirm-venue`): the person types the venue's own
 identifier, for each Start, Resume, Confirm resume and Stop that reopens a session, and nothing is remembered. The typed
 word travels to the host as `confirmed_venue` and the host's gate judges it (decision O8): this class only refuses to build
-the command when the person did not type it. A testnet venue is never asked.
+the command when the person did not type it. Stop is the one command that is still sent without it: a Stop only reduces
+exposure, so declining the question stops the bot and opens no order session (`bot_commands.py`, `BUG-274`). A testnet venue is never asked.
 
 @par Extension cases
   · another way to ask (a hardware key, a second person) - another `ask`; the class and the host's gate do not change.

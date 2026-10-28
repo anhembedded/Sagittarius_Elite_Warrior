@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from pytestqt.qtbot import QtBot
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen import vps_backend
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
@@ -22,11 +24,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands imp
     lifecycle_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import BotsView
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.typed_venue_consent import (
+    TypedVenueConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_backend import (
     NO_NEW_BOT_HERE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_command_ids import (
     vps_command_id,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.bots_screen.bots_answers import (
     Answers,
@@ -117,3 +125,35 @@ def test_the_link_starts_when_the_tab_is_first_shown_and_not_when_it_is_built(
     vps.screen.view.show()
 
     assert vps.tab.opened_count == 1
+
+
+def test_the_vps_screen_asks_the_real_money_question_by_typing_every_time(
+    tab: VpsTabWorld, tmp_path: Path, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[tuple[TradingVenue, str]] = []
+
+    def typing(venue: TradingVenue, action: str) -> str | None:
+        asked.append((venue, action))
+        return venue.confirmation_word
+
+    monkeypatch.setattr(vps_backend, "ask_typed_venue", typing)
+    vps = open_vps_screen(tmp_path, qtbot, tab)
+    consent = vps.backend.dependencies.consent
+
+    assert isinstance(consent, TypedVenueConsent)
+    assert consent.confirmed(TradingVenue.FUTURES_MAINNET, "start this bot")
+    assert consent.confirmed(TradingVenue.FUTURES_MAINNET, "start this bot")
+    assert len(asked) == 2
+
+
+def test_new_bot_requested_by_another_way_still_reads_no_symbols(
+    tab: VpsTabWorld, tmp_path: Path, qtbot: QtBot
+) -> None:
+    vps = open_vps_screen(tmp_path, qtbot, tab)
+    vps.screen.settle()
+
+    vps.screen.view.model.new_bot_requested.emit()
+    vps.screen.settle()
+
+    assert vps.screen.answers.asked == []
+    assert vps.screen.market_sources.asked == []

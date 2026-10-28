@@ -72,6 +72,7 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 logger = logging.getLogger("App.VpsTab")
 
+NOT_STARTED_WORDS = "Not connected yet: the link starts when this tab is shown."
 NO_PROFILE_WORDS = "No VPS connection is chosen: add one in Tools → Options → VPS Link, then restart the application."
 
 
@@ -99,6 +100,7 @@ class VpsTabSession(IVpsTab):
         self._feeds: dict[TradingVenue, HostCandleFeed] = {}
         self._profile: LinkProfile | None = None
         self._supervisor: LinkSupervisor | None = None
+        self._started = False
 
     @property
     def events(self) -> IEventBus:
@@ -107,8 +109,9 @@ class VpsTabSession(IVpsTab):
 
     def start(self) -> None:
         """Connects the chosen profile, once. Without a profile nothing connects and the line says why."""
-        if self._supervisor is not None:
+        if self._started:
             return
+        self._started = True
         self._profile = self._profiles.selected()
         if self._profile is None:
             logger.info("[vps-tab] no connection profile is chosen; nothing to connect")
@@ -141,6 +144,8 @@ class VpsTabSession(IVpsTab):
         self.start()
 
     def host_line(self) -> HostLine:
+        if not self._started:
+            return HostLine(NOT_STARTED_WORDS, False)
         if self._profile is None:
             return HostLine(NO_PROFILE_WORDS, False)
         return host_state_line(

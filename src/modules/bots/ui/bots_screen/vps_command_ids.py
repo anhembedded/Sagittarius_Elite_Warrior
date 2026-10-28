@@ -2,8 +2,9 @@
 
 @details A command id is unique in the window, and the Bots screen binds the ids of `bots_commands.py`. The VPS tab is the
 same screen, so it contributes the same commands under the prefix `bots.vps` (`vps_commands`) and binds them through
-`PrefixedBinder`, which turns each `bots.bots...` id the screen asks for into the tab's own. No Bots screen file knows a
-second tab exists.
+`PrefixedBinder`, which turns each `bots.bots...` id the screen asks for into the tab's own. No Bots command file knows a
+second tab exists (the screen reaches the tab only through `BotsBackend`; `backend_for` chooses the VPS one because the shell
+builds the presenter through a `Deferred` that passes only a container).
 
 Qt-free for `vps_commands` (the shell contributes it on a headless run); `PrefixedBinder` only forwards.
 """

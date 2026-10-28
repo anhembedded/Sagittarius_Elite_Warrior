@@ -204,6 +204,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.venue_choices = choices
         self.venue_choices_changed.emit()
 
+    @Slot(str)
     def set_new_bot_unavailable(self, reason: str) -> None:
         """Why New bot does not work in this tab; `""` when it does."""
         if reason != self.new_bot_unavailable:

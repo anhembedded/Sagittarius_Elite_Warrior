@@ -44,6 +44,16 @@ from sagittarius_engine.interfaces.i_container import IContainer
 logger = logging.getLogger("App.Shell.Contributions")
 
 
+def contribute_shell_modes(contributions: ContributionRegistry) -> None:
+    """The modes the shell itself contributes, after every module's: Developer (`EPIC-033P`; the registry drops it when
+    developer mode is off) and the VPS Bots tab (`EPIC-047E`: the Bots screen over the VPS host's link, which the shell
+    owns). Shared with the tests' container-less assembly (`tests/conftest.py`), so the two cannot differ."""
+    contributions.contribute_screen(developer_screen())
+    contributions.contribute_screen(vps_bots_screen())
+    for command in vps_bots_commands():
+        contributions.contribute_command(command)
+
+
 def assemble_contributions(
     container: IContainer, *, dev_mode: bool
 ) -> ContributionRegistry:
@@ -57,13 +67,7 @@ def assemble_contributions(
     contributions = ContributionRegistry(dev_mode=dev_mode)
     for module in container.resolve(RegisteredModules).modules:
         module.contribute(contributions)
-    # The shell's own mode, after every module's (`EPIC-033P`); the registry
-    # drops it when developer mode is off.
-    contributions.contribute_screen(developer_screen())
-    # The VPS Bots tab (`EPIC-047E`): the Bots screen over the VPS host's link; the shell owns the link.
-    contributions.contribute_screen(vps_bots_screen())
-    for command in vps_bots_commands():
-        contributions.contribute_command(command)
+    contribute_shell_modes(contributions)
     container.singleton(IContributionTable, contributions)
     logger.info(
         "Contributions collected: %d screen(s), %d dropped by a gated surface.",

@@ -21,10 +21,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadat
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
+from Sagittarius_Elite_Warrior.src.shell.surfaces import (
+    VPS_BOTS_SURFACE_ID,
+    surfaces_by_id,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
 
+#: Also the id of the tab's surface (`shell/surfaces.py`): `test_the_vps_tab_is_the_bots_screen.py` holds the two equal.
 VPS_BOTS_ROUTE = "vps_bots"
 #: Right after the Bots tab (18).
 _NAV = NavMetadata(
@@ -35,7 +40,10 @@ _NAV = NavMetadata(
     item_sequence=19,
 )
 _BOTS_UI = "Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen"
-_VIEW: Deferred[BaseView] = Deferred(f"{_BOTS_UI}.bots_view:BotsView")
+#: The Bots screen's view on this mode's own surface and Output pane channel (`BotsView(surface, channel_title)`).
+_VIEW: Deferred[BaseView] = Deferred(
+    f"{_BOTS_UI}.bots_view:BotsView", surfaces_by_id()[VPS_BOTS_SURFACE_ID], _NAV.title
+)
 _COMMANDS: Deferred[tuple[CommandContribution, ...]] = Deferred(
     f"{_BOTS_UI}.vps_command_ids:vps_commands"
 )

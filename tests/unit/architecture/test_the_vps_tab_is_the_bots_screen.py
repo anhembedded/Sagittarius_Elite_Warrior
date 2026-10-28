@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_command_ids i
     vps_command_id,
     vps_commands,
 )
+from Sagittarius_Elite_Warrior.src.shell.surfaces import VPS_BOTS_SURFACE_ID
 from Sagittarius_Elite_Warrior.src.shell.vps_tab.vps_tab_screen import vps_bots_screen
 
 _SRC = Path(__file__).resolve().parents[3] / "src"
@@ -74,3 +75,7 @@ def test_every_bots_command_has_its_vps_twin_in_the_vps_mode() -> None:
         command.command_id for command in twins
     ]
     assert {command.mode for command in twins} == {"vps_bots"}
+
+
+def test_the_tabs_route_is_the_id_of_its_own_surface() -> None:
+    assert vps_bots_screen().route == VPS_BOTS_SURFACE_ID

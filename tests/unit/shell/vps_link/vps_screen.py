@@ -15,11 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dependencies
     BotsBackend,
     backend_for,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_backend import (
-    vps_arrangement,
-    vps_binder,
-    vps_dependencies,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_command_ids import (
     vps_commands,
 )
@@ -81,7 +76,10 @@ class TabOnTheWorld(IVpsTab):
 
 
 class VpsScreen:
-    def __init__(self, screen: BotsScreen, actions: Any, tab: TabOnTheWorld) -> None:
+    def __init__(
+        self, screen: BotsScreen, actions: Any, tab: TabOnTheWorld, backend: BotsBackend
+    ) -> None:
+        self.backend = backend
         self.screen = screen
         self.actions = actions
         self.tab = tab
@@ -93,17 +91,15 @@ def open_vps_screen(
     """The Bots screen as the shell builds the VPS tab: `BotsPresenter` with the backend `backend_for` gives a container
     carrying an `IVpsTab`, and the commands bound under the tab's ids."""
     holder: list[TabOnTheWorld] = []
+    backends: list[BotsBackend] = []
 
     def backend_of(container: IContainer) -> BotsBackend:
-        from_container = backend_for(container)
+        """The shell's way: the tab's session sits in the container and `backend_for` chooses the VPS backend."""
         on_world = TabOnTheWorld(tab, container.resolve(ICommandDispatcher))
         holder.append(on_world)
-        return BotsBackend(
-            vps_dependencies(on_world, from_container.dependencies),
-            from_container.strategies,
-            vps_arrangement(on_world),
-            vps_binder,
-        )
+        container.singleton(IVpsTab, on_world)
+        backends.append(backend_for(container))
+        return backends[0]
 
     screen = open_screen(
         tmp_path,
@@ -113,4 +109,4 @@ def open_vps_screen(
         commands_of=vps_commands,
         route=VPS_ROUTE,
     )
-    return VpsScreen(screen, screen.actions, holder[0])
+    return VpsScreen(screen, screen.actions, holder[0], backends[0])

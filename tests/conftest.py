@@ -181,11 +181,11 @@ def real_contributions(container, *, dev_mode: bool = False):
         MarketDataModule,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
+    from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
+        contribute_shell_modes,
+    )
     from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
         ContributionRegistry,
-    )
-    from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
-        developer_screen,
     )
 
     contributions = ContributionRegistry(dev_mode=dev_mode)
@@ -201,8 +201,8 @@ def real_contributions(container, *, dev_mode: bool = False):
         AlertingModule(),
     ):
         module.contribute(contributions)
-    # The shell's own mode, as `assemble_contributions()` adds it.
-    contributions.contribute_screen(developer_screen())
+    # The shell's own modes, as `assemble_contributions()` adds them.
+    contribute_shell_modes(contributions)
     return contributions
 
 

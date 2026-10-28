@@ -671,8 +671,11 @@ Every mode's presenter is built when the window is, so the VPS tab's is built at
 The first time the tab is shown, `bots/ui/bots_screen/first_shown.py` → `FirstShown` calls `IVpsTab.opened()`, and
 `shell/vps_tab/vps_tab_session.py` → `VpsTabSession.start` reads the selected profile and starts the supervised link; with no
 profile the line says so and nothing connects. A Start, Resume, Confirm resume or Stop on a mainnet venue asks the person to
-type the venue (`typed_venue_consent.py` → `TypedVenueConsent`), every time, and the word travels as `confirmed_venue` for the
-host's own gate to judge; a cancel or a wrong word sends nothing.
+type the venue (`typed_venue_consent.py` → `TypedVenueConsent`), every time. Once the typed word equals the venue's identifier the
+request carries the bot's venue as `confirmed_venue` (`remote_requests.py` → `_confirmed_venue`) for the host's own gate to judge;
+the host does not see the typed text. A cancel or a wrong word sends no Start, Resume or Confirm resume. A Stop is the exception:
+it is sent anyway, without `confirmed_venue`, because a Stop only reduces exposure; the host's own gate judges it without a
+confirmed venue.
 
 ## Built: a backtest from the workbench (EPIC-040D)
 

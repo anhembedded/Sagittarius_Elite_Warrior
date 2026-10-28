@@ -35,7 +35,7 @@ def test_every_screen_log_is_a_channel_of_the_one_pane(
 
     titles = {choice.itemText(index) for index in range(choice.count())}
 
-    assert titles == {"Market", "Sync", "Backtest", "Trade", "Bots"}
+    assert titles == {"Market", "Sync", "Backtest", "Trade", "Bots", "VPS Bots"}
     assert len(main_window.findChildren(OutputPane)) == 1
 
 

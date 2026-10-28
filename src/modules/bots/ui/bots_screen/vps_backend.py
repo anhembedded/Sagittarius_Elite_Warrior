@@ -76,11 +76,17 @@ def vps_dependencies(tab: IVpsTab, local: BotsDependencies) -> BotsDependencies:
     )
 
 
+def _opened(tab: IVpsTab, view: BotsView) -> None:
+    """The first show starts the link, and the line is drawn again at once (the profile is read now)."""
+    tab.opened()
+    view.host_line.draw_line()
+
+
 def vps_arrangement(tab: IVpsTab) -> Callable[[BotsView], None]:
     def arrange(view: BotsView) -> None:
         view.show_host_line(tab.host_line)
         view.model.set_new_bot_unavailable(NO_NEW_BOT_HERE)
-        FirstShown(view, tab.opened)
+        FirstShown(view, lambda: _opened(tab, view))
 
     return arrange
 
