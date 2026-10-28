@@ -47,6 +47,7 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
     return BotProgress(
         mark_price=runtime.mark_price,
         mark_price_at=runtime.mark_price_at,
+        waiting_best_price=runtime.waiting_best_price,
         maker_fee=runtime.maker_fee,
         pnl=pnl_summary(runtime, _capital(stored)),
         realised_profit=runtime.realised_profit,

@@ -234,6 +234,13 @@ class GridRuntime:
     #: of the bot's own clock: the unrealised PnL is judged on it, not on a chart.
     mark_price: Decimal | None = None
     mark_price_at: datetime | None = None
+    #: `BUG-276` - while the bot waits for its range and its trigger, the best price it heard on
+    #: the side its trigger wants (the lowest for a bot that wants a lower price, the highest for
+    #: the other), the bar's wick included. Shown so the owner sees whether the price touched the
+    #: trigger between two samples; it enters nothing. Meaningful only while the bot is in
+    #: `AWAITING_RANGE`, kept across a restart and dropped by a resume (a new entry). `None` before one was heard, for a bot
+    #: with no trigger and for a record an earlier build wrote.
+    waiting_best_price: Decimal | None = None
     #: `BOT-194` - the account's maker fee rate the run's start read from the exchange, kept so a
     #: reader with no exchange (the Bots tab at rest, `bot show` on a read-only copy) can say what a
     #: grid earns after fees. A rate recorded at run start, not today's: a tier change later leaves it

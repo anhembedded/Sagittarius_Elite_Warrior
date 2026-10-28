@@ -336,3 +336,33 @@ def test_a_trigger_wait_before_any_price_says_none_was_heard() -> None:
     text = waiting_text(_position(trigger=trigger, last_price=None), plain_price)
 
     assert "no price heard yet" in text
+
+
+def test_a_long_waiting_on_its_trigger_says_the_lowest_price_it_saw() -> None:
+    """`BUG-276`: whether the price touched the trigger between two samples is on the screen."""
+    trigger = TriggerMark(
+        PriceMark(Decimal(62000), None), at_or_below=True, seen_best=Decimal(61950)
+    )
+
+    text = waiting_text(_position(trigger=trigger), plain_price)
+
+    assert "lowest price heard while waiting 61,950.00" in text
+    assert text.endswith("nothing is placed until it is")
+
+
+def test_a_short_waiting_on_its_trigger_says_the_highest_price_it_saw() -> None:
+    trigger = TriggerMark(
+        PriceMark(Decimal(66000), None), at_or_below=False, seen_best=Decimal(66100)
+    )
+
+    text = waiting_text(_position(trigger=trigger), plain_price)
+
+    assert "highest price heard while waiting 66,100.00" in text
+
+
+def test_a_trigger_wait_that_heard_nothing_better_says_nothing_of_it() -> None:
+    trigger = TriggerMark(PriceMark(Decimal(62000), None), at_or_below=True)
+
+    text = waiting_text(_position(trigger=trigger), plain_price)
+
+    assert "heard while waiting" not in text

@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_tick_extremes import (
     GridTickExtremes,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_waiting_best import (
+    GridWaitingBest,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
     PriceTick,
 )
@@ -121,6 +124,7 @@ class GridPriceReaction:
         #: Mark beats the range-exit close still skips: one, armed by an entry (ADR 044 D7).
         self._range_exit_skips = 0
         self._extremes = GridTickExtremes()
+        self._waiting_best = GridWaitingBest(context)
         self._mark_saved_at: float | None = None
         self._silence_told = False
         state = context.state
@@ -135,6 +139,7 @@ class GridPriceReaction:
         self._context.reference_price.note_tick(tick.last)
         self._context.price_age.note_tick()
         self._silence_told = False
+        self._waiting_best.note(tick)
         if not self._exits_on_mark:
             self._enter_if_waiting(tick.last)
         if not self._exits_watched():
@@ -172,6 +177,7 @@ class GridPriceReaction:
         stream went quiet while the mark answers (`BUG-270`)."""
         self._context.price_age.note_poll()
         self._say_stream_is_silent()
+        self._waiting_best.note(tick)
         if self._enter_if_waiting(tick.last):
             return
         if not self._exits_watched():

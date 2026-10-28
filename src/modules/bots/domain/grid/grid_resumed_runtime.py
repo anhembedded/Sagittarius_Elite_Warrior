@@ -38,6 +38,9 @@ LADDER_FIELDS = frozenset(
         "reason",
         "reason_detail",
         "sell_base_on_stop",
+        # The best price heard while waiting belongs to one wait; a resume is a new entry
+        # (`BUG-276`, ADR 046 D3), so the fresh ladder's `None` replaces an earlier wait's.
+        "waiting_best_price",
     }
 )
 
@@ -55,6 +58,7 @@ def resumed_runtime(
         reason=ladder.reason,
         reason_detail=ladder.reason_detail,
         sell_base_on_stop=ladder.sell_base_on_stop,
+        waiting_best_price=ladder.waiting_best_price,
         inventory=holding.quantity,
         cost=cost,
         start_price=earned.start_price or ladder.start_price,

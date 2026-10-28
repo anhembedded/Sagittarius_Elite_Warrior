@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     PriceMark,
     PricePosition,
     RecordedCycles,
+    TriggerMark,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
     NO_PRICE_YET,
@@ -196,6 +197,14 @@ def _exit(mark: PriceMark | None, price: PriceWriter) -> str:
     return "off" if mark is None else _mark(mark, price)
 
 
+def _best_heard(trigger: TriggerMark, price: PriceWriter) -> str:
+    """`BUG-276`: the best price the bot heard while waiting, so a wick between two samples shows."""
+    if trigger.seen_best is None:
+        return ""
+    word = "lowest" if trigger.at_or_below else "highest"
+    return f"; {word} price heard while waiting {price(trigger.seen_best)}"
+
+
 def waiting_text(position: PricePosition, price: PriceWriter) -> str:
     """What a bot in AWAITING_RANGE says: the range it waits for, and the trigger price when the
     plan has one (`EPIC-046B`), and the price it waits on (`EPIC-044C`). The Plan's banner,
@@ -214,8 +223,8 @@ def waiting_text(position: PricePosition, price: PriceWriter) -> str:
         side = "≤" if trigger.at_or_below else "≥"
         return (
             f"Waiting for the price {side} {price(trigger.mark.price)} within "
-            f"{price(position.lower.price)}–{price(position.upper.price)} ({heard}); "
-            "nothing is placed until it is"
+            f"{price(position.lower.price)}–{price(position.upper.price)} ({heard}"
+            f"{_best_heard(trigger, price)}); nothing is placed until it is"
         )
     return (
         f"Waiting for the price to enter {price(position.lower.price)}–"
