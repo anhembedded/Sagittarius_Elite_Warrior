@@ -142,6 +142,7 @@ def full_progress() -> BotProgress:
         pnl=full_pnl(),
         mark_price_at=BANGKOK,
         maker_fee=D("0.001"),
+        waiting_best_price=D("66950.5"),
     )
 
 
