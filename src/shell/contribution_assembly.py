@@ -35,6 +35,10 @@ from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import 
     developer_screen,
 )
 from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.vps_tab_screen import (
+    vps_bots_commands,
+    vps_bots_screen,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 logger = logging.getLogger("App.Shell.Contributions")
@@ -56,6 +60,10 @@ def assemble_contributions(
     # The shell's own mode, after every module's (`EPIC-033P`); the registry
     # drops it when developer mode is off.
     contributions.contribute_screen(developer_screen())
+    # The VPS Bots tab (`EPIC-047E`): the Bots screen over the VPS host's link; the shell owns the link.
+    contributions.contribute_screen(vps_bots_screen())
+    for command in vps_bots_commands():
+        contributions.contribute_command(command)
     container.singleton(IContributionTable, contributions)
     logger.info(
         "Contributions collected: %d screen(s), %d dropped by a gated surface.",

@@ -49,7 +49,6 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
     DeclarativeStateMachine,
 )
 
-from ..strategies.strategies_wiring import strategies_for
 from .backtest_workbenches import BacktestWorkbenches
 from .bot_action_rules import BotAction
 from .bot_actions_coordinator import BotActionsCoordinator
@@ -59,7 +58,7 @@ from .bot_commands import PendingAction, command_for
 from .bot_log_feed import BotLogFeed
 from .bot_venues import BotVenues
 from .bots_command_binding import bind_bots_commands
-from .bots_dependencies import bots_dependencies_for
+from .bots_dependencies import BotsBackend, backend_for
 from .bots_dialogs import BotsDialogs, dialogs_for
 from .bots_failures import BotsFailures
 from .bots_ui_fsm_matrix import (
@@ -104,19 +103,20 @@ class BotsPresenter(CommandPresenter):
         *,
         dialogs: BotsDialogs | None = None,
         now: Callable[[], datetime] = utc_now,
+        backend: BotsBackend | None = None,
     ) -> None:
         super().__init__(view, container)
-        deps = bots_dependencies_for(container)
+        backend = backend or backend_for(container)
+        deps = backend.dependencies
         threads, commands = deps.threads, deps.commands
         self._model = view.model
-        view.use_display_timezone(deps.display_timezone)
+        backend.give_to(view)
         self._dialogs = dialogs or dialogs_for(
             view,
             new_bot_symbols(deps.symbols, threads, container, deps.notifier),
             deps.consent,
         )
-        self._now = now
-        self._catalog = deps.kinds
+        self._now, self._catalog, self._binder_of = now, deps.kinds, backend.binder_of
         self._ticks = BotTickFeed(self.event_bus, BOT_MARKET, parent=self)
         self._charts = BotChartHost(deps.chart_ports(self._ticks))
         self._reads = FencedReads(
@@ -159,8 +159,7 @@ class BotsPresenter(CommandPresenter):
             self._account, view, self._charts, self._selected, self._refresh_detail
         )
         self._recovery = PlannerRecovery(self._account, self._selected, self._queries)
-        self._select_after_create = ""
-        self._closed = False
+        self._select_after_create, self._closed = "", False
         self._reread = single_shot_timer(self, COALESCE_MS, self._queries.bots)
         self._rejudge = single_shot_timer(self, REJUDGE_MS, self._refresh_detail)
         self._clock = BotsClock(
@@ -170,8 +169,8 @@ class BotsPresenter(CommandPresenter):
         if not deps.instance.read_only:
             # A read-only copy's beat re-reads the bots, whose answer asks again.
             self._clock.timeout.connect(self._exchange.recheck_run)
-        self.strategies = strategies_for(
-            container, self._dialogs, view.output_log.append, self._model.set_status
+        self.strategies = backend.strategies(
+            self._dialogs, view.output_log.append, self._model.set_status
         )
         for event_type, handler in self.strategies.subscriptions:
             self.subscribe(event_type, handler)
@@ -299,6 +298,7 @@ class BotsPresenter(CommandPresenter):
             self._begin(PendingAction(f"{value} {bot.name}", BotAction(value)), command)
 
     def bind_commands(self, binder: ICommandBinder) -> None:
+        binder = self._binder_of(binder)
         bind_bots_commands(
             binder, self._model, self.strategies, self._charts, self.view
         )

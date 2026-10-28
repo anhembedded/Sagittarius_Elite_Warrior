@@ -665,6 +665,15 @@ while the command waits, the caller gets `NO_ANSWER` with the id, the command is
 audit says whether it ran, and the dispatcher refuses another command on that bot until it is settled. The Resume of a HALTED bot answers with the proposal and its fingerprint in words;
 `proposal_in` reads the fingerprint, and the tab's Confirm resume names that proposal and no other.
 
+### The tab's first show and a typed real-money command (EPIC-047E PR 2)
+
+Every mode's presenter is built when the window is, so the VPS tab's is built at start with its session and no connection.
+The first time the tab is shown, `bots/ui/bots_screen/first_shown.py` → `FirstShown` calls `IVpsTab.opened()`, and
+`shell/vps_tab/vps_tab_session.py` → `VpsTabSession.start` reads the selected profile and starts the supervised link; with no
+profile the line says so and nothing connects. A Start, Resume, Confirm resume or Stop on a mainnet venue asks the person to
+type the venue (`typed_venue_consent.py` → `TypedVenueConsent`), every time, and the word travels as `confirmed_venue` for the
+host's own gate to judge; a cancel or a wrong word sends nothing.
+
 ## Built: a backtest from the workbench (EPIC-040D)
 
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the

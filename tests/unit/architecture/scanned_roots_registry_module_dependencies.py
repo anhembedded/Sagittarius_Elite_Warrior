@@ -61,6 +61,16 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         (
             ("src/modules/bots/adapters/remote_host", "*.py"),
             ("src/shell/vps_link", "*.py"),
+            ("src/shell/vps_tab", "*.py"),
+        ),
+    ),
+    # `EPIC-047E` - the VPS tab is the Bots screen's own classes (AC7).
+    (
+        "tests/unit/architecture/test_the_vps_tab_is_the_bots_screen.py",
+        (
+            ("src/shell/vps_tab", "*.py"),
+            ("src/modules/bots/ui/bots_screen", "*.py"),
+            ("src/modules/bots/ui/bots_screen/vps", "*.py"),
         ),
     ),
 )

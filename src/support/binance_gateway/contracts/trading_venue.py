@@ -48,6 +48,12 @@ class TradingVenue(str, Enum):
         return _TITLES[self]
 
     @property
+    def confirmation_word(self) -> str:
+        """@brief What a person types to confirm real money on this venue: its own identifier, as the command
+        line's `--confirm-venue` takes it (`EPIC-047E`); the host compares what was typed with it (decision O8)."""
+        return self.value
+
+    @property
     def market_type(self) -> MarketType | None:
         """@brief The market this venue trades, or `None` when trading is off."""
         if self in _FUTURES:

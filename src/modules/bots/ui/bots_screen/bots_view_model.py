@@ -79,6 +79,8 @@ class BotsViewModel(StatusMessageViewModel):
     log_changed = Signal()
     #: An action is in flight: every command waits for it (`EPIC-033D`).
     action_in_flight_changed = Signal()
+    #: Whether New bot works in this tab changed (`EPIC-047E`: the VPS tab creates bots by Add to VPS).
+    new_bot_availability_changed = Signal()
     #: The selected bot's venue account was read, or could not be
     #: (`EPIC-034D`).
     connect_changed = Signal()
@@ -129,6 +131,7 @@ class BotsViewModel(StatusMessageViewModel):
         #: The tick and step sizes the selected bot's orders and fills are written in.
         self.precisions = SelectedBotPrecisions(lambda: self.selected)
         self.action_in_flight = False
+        self.new_bot_unavailable = ""
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
     @Slot(object)
@@ -200,6 +203,12 @@ class BotsViewModel(StatusMessageViewModel):
     def set_venue_choices(self, choices: tuple[VenueChoice, ...]) -> None:
         self.venue_choices = choices
         self.venue_choices_changed.emit()
+
+    def set_new_bot_unavailable(self, reason: str) -> None:
+        """Why New bot does not work in this tab; `""` when it does."""
+        if reason != self.new_bot_unavailable:
+            self.new_bot_unavailable = reason
+            self.new_bot_availability_changed.emit()
 
     @Slot(bool)
     def set_action_in_flight(self, in_flight: bool) -> None:

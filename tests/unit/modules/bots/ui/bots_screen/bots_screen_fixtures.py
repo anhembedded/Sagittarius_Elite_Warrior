@@ -19,6 +19,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
@@ -58,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dependencies import (
+    BotsBackend,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter import (
     BotsPresenter,
@@ -282,6 +288,9 @@ def open_screen(
     venue_enabled: bool = True,
     instance: IInstanceAccess | None = None,
     display_timezone: DisplayTimezonePreference | None = None,
+    backend_of: Callable[[IContainer], BotsBackend] | None = None,
+    commands_of: Callable[[str], Sequence[CommandContribution]] = bots_commands,
+    route: str = BOTS_ROUTE,
 ) -> BotsScreen:
     pool = HeldPool()
     bus = MemoryEventBus()
@@ -350,9 +359,13 @@ def open_screen(
     view = BotsView()
     qtbot.addWidget(view)
     presenter = BotsPresenter(
-        view, container, dialogs=answers.dialogs(), now=lambda: NOW
+        view,
+        container,
+        dialogs=answers.dialogs(),
+        now=lambda: NOW,
+        backend=backend_of(container) if backend_of else None,
     )
-    actions = bound_actions(view, bots_commands(BOTS_ROUTE), presenter.bind_commands)
+    actions = bound_actions(view, commands_of(route), presenter.bind_commands)
     return BotsScreen(
         view,
         presenter,

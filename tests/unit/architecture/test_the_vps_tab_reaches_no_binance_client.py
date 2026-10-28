@@ -5,7 +5,7 @@ from the host over the bridge. A review reads the diff for a call to Binance; th
 VPS tab's own files import, transitively, as Python would load them. A client that arrives through three layers of
 helpers is as forbidden as one imported in the first line.
 
-**What it checks.** The files of the tab's composition (`_REMOTE_HOST`, `_VPS_LINK`) are walked through their runtime imports
+**What it checks.** The files of the tab's composition (`_REMOTE_HOST`, `_VPS_LINK`, `_VPS_TAB`) are walked through their runtime imports
 (`imported_modules`, which skips `TYPE_CHECKING`); no module of the closure is in `_FORBIDDEN_PREFIXES` (the adapters that
 build an exchange client or session) and none is a third-party package that speaks to an exchange or opens a connection
 (`_THIRD_PARTY`). Value types and ports in `contracts/` stay allowed (`TradingVenue`).
@@ -32,6 +32,8 @@ _SRC = _REPO_ROOT / "src"
 #: The directories whose every `.py` file is part of the VPS tab's composition.
 _REMOTE_HOST = _SRC / "modules" / "bots" / "adapters" / "remote_host"
 _VPS_LINK = _SRC / "shell" / "vps_link"
+#: The shell's tab: the session and the container the Bots presenter is built over (`EPIC-047E` PR 2).
+_VPS_TAB = _SRC / "shell" / "vps_tab"
 #: Modules (by dotted prefix, relative to `src/`) that build an exchange client or a session to one.
 _FORBIDDEN_PREFIXES = (
     "modules.trading.adapters.binance",
@@ -73,7 +75,7 @@ def _named_imports(source: str) -> set[str]:
 def _closure() -> dict[str, Path]:
     pending = [
         ".".join(path.relative_to(_SRC).with_suffix("").parts)
-        for directory in (_REMOTE_HOST, _VPS_LINK)
+        for directory in (_REMOTE_HOST, _VPS_LINK, _VPS_TAB)
         for path in sorted(directory.glob("*.py"))
     ]
     seen: dict[str, Path] = {}

@@ -4,7 +4,7 @@ The static guard (`test_the_vps_tab_reaches_no_binance_client.py`) reads imports
 ways. A clean interpreter that imports the tab's backend loads no exchange client and no network library. And a whole
 session over the real bridge session - snapshot, events, every query the Bots screen asks, a command - opens no socket
 beyond the loopback: a recorder stands where a connection would be made and is shown to catch one first.
-The Bots tab's own contrast (it does make exchange calls) is the tab composition's test, with the tab (`EPIC-047E` PR 2).
+The Bots tab beside it, which does read the exchange, is the contrast: `test_the_vps_tab_asks_no_exchange_where_the_bots_tab_does.py`.
 """
 
 from __future__ import annotations

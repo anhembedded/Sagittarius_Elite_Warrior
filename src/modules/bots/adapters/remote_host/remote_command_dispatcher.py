@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from typing import Final
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
@@ -38,7 +38,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_host_control import IHostControl
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_queries import (
     QueryNotServedError,
     RemoteQueries,
@@ -59,9 +58,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import HostWorld
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_host_world import IHostWorld
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_unanswered_commands import (
-    IUnansweredCommands,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.remote_host_ports import (
+    RemoteHostPorts,
 )
 
 logger = logging.getLogger("App.VpsTab")
@@ -97,28 +95,13 @@ DISCONNECTED_WORDS = (
 )
 
 
-@dataclass(frozen=True, slots=True)
-class RemoteHostPorts:
-    """What the dispatcher reaches the host through."""
-
-    world: IHostWorld
-    control: IHostControl
-    #: The commands whose outcome is not known; a new one on the same bot is refused (see `_command`).
-    unanswered: IUnansweredCommands
-
-
 class RemoteCommandDispatcher(ICommandDispatcher):
-    def __init__(
-        self,
-        ports: RemoteHostPorts,
-        queries: RemoteQueries,
-        local: ICommandDispatcher,
-    ) -> None:
+    def __init__(self, ports: RemoteHostPorts, queries: RemoteQueries) -> None:
         self._world = ports.world
         self._control = ports.control
         self._unanswered = ports.unanswered
         self._queries = queries
-        self._local = local
+        self._local = ports.local
         self._proposals: dict[str, str] = {}
         self._lock = threading.Lock()
         self._in_flight: set[str] = set()

@@ -48,6 +48,15 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 logger = logging.getLogger("App.Bots.Screen")
 
 
+class WorkbenchUnavailableError(RuntimeError):
+    """A tab's backend offers no workbench for a venue (the VPS tab, which reads nothing at Binance,
+    `EPIC-047E` D6); `reason` is the sentence the tab shows where the page would be."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class BacktestWorkbenches:
     """@brief Builds, follows and shuts down the workbench of the selected bot's venue."""
 
@@ -73,7 +82,11 @@ class BacktestWorkbenches:
         if reason:
             self._leave(TabAvailability(False, reason), reason)
             return
-        workbench = self._workbench_of(bot.venue)
+        try:
+            workbench = self._workbench_of(bot.venue)
+        except WorkbenchUnavailableError as unavailable:
+            self._leave(TabAvailability(False, unavailable.reason), unavailable.reason)
+            return
         if self._shown != bot.venue:
             self._shown = bot.venue
             self._view.set_backtest_page(workbench.page, "")

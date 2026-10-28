@@ -19,7 +19,7 @@ watching a bot and editing its plan were never on screen together.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QItemSelectionModel, Qt, Signal
@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_line import HostLine
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_activity_panels import (
     BotFillsPanel,
     BotLogPanel,
@@ -51,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.host_line_bar import (
+    HostLineBar,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.identity_strip import (
     IdentityStrip,
@@ -151,6 +155,8 @@ class BotsView(OutputSourceView):
         self.status.hide()
         self.plan = BotPlanPanel(self.model)
         self.identity = IdentityStrip(self.model)
+        #: The VPS tab's line (host, keys, connection, age); hidden in the Bots tab (`EPIC-047E`).
+        self.host_line = HostLineBar()
         self.orders = BotOrdersPanel(self.model)
         self.ladder = BotLadderPanel(self.model)
         # Asks for its minimum only: the tallest bottom panel sets the
@@ -196,12 +202,17 @@ class BotsView(OutputSourceView):
         self._place()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self.host_line)
         outer.addWidget(self.identity)
         outer.addWidget(self.surface)
         self.set_chart(None)
         self.set_backtest_page(None, NO_SELECTION_BACKTEST_TEXT)
         self._use_precisions()
         self._connect()
+
+    def show_host_line(self, provider: Callable[[], HostLine]) -> None:
+        """The VPS tab's line above everything (`EPIC-047E`, charter O5)."""
+        self.host_line.show_line_of(provider)
 
     def apply_ui_mode(self, state: BotsUiState, section_key: str | None = None) -> None:
         """The presenter's FSM, made visible (`BasePresenter._bind_fsm_to_ui`)."""

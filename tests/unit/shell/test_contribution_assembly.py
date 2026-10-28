@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import 
     DEVELOPER_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.vps_tab_screen import VPS_BOTS_ROUTE
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 
 
@@ -134,13 +135,14 @@ def test_a_modules_own_screen_is_collected_too(qapp) -> None:
 
 
 def test_a_container_with_no_modules_collects_nothing(qapp) -> None:
-    """The shell contributes no screen of its own in a normal run since
-    `EPIC-033E` moved Settings into Tools → Options: every screen and page is
-    a module's."""
+    """The shell's one screen in a normal run is the VPS Bots tab
+    (`EPIC-047E`); `EPIC-033E` moved Settings into Tools → Options, so every
+    other screen and page is a module's."""
     contributions = assemble_contributions(_container(), dev_mode=False)
 
     assert contributions.panels("developer", Place.DEV_PROBE) == ()
-    assert contributions.screens() == ()
+    # The VPS Bots tab (`EPIC-047E`), the one screen the shell contributes in every run.
+    assert [screen.route for screen in contributions.screens()] == [VPS_BOTS_ROUTE]
     assert contributions.options_pages() == ()
 
 
@@ -151,9 +153,9 @@ def test_developer_mode_adds_the_shells_developer_mode_and_nothing_else(
     developer mode."""
     contributions = assemble_contributions(_container(), dev_mode=True)
 
-    (screen,) = contributions.screens()
-    assert screen.route == DEVELOPER_ROUTE
-    assert screen.contributor_id == "shell"
+    routes = {screen.route: screen for screen in contributions.screens()}
+    assert set(routes) == {DEVELOPER_ROUTE, VPS_BOTS_ROUTE}
+    assert routes[DEVELOPER_ROUTE].contributor_id == "shell"
     assert contributions.options_pages() == ()
 
 
