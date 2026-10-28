@@ -16,8 +16,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.wire_root import WireRoot
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.store_bridge_bots import (
     StoreBridgeBots,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.result import (
+    BotList,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.wire_roots import (
     BOTS_WIRE_ROOTS,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
+    BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
+    RefusedBotFile,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
     IBridgeBots,
@@ -27,6 +36,18 @@ from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
 def wire_roots() -> tuple[WireRoot, ...]:
     """The types of this module's contracts that cross the remote link (`EPIC-047A`)."""
     return BOTS_WIRE_ROOTS
+
+
+def decoded_bot_list(
+    value: object,
+) -> tuple[tuple[BotSnapshot, ...], tuple[RefusedBotFile, ...]] | None:
+    """The bots and the refused files of a decoded `BotList`, or `None` when `value` is not one.
+
+    The desktop reads the bridge's snapshot through this (`EPIC-047E`): `BotList` is an application
+    result, which `shell/` may not import."""
+    if not isinstance(value, BotList):
+        return None
+    return value.bots, value.refused
 
 
 def bridge_bots(directory: Path) -> IBridgeBots:

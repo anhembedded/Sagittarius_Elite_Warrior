@@ -52,7 +52,7 @@ gantt
 | EPIC-047C | [The bridge](completed/EPIC-047C_the_bridge_behind_a_forced_command.md) | `claude/epic-047c-bridge` (#739) | 🔴 | ✅ Done (2026-10-27) (VPS run pending) | 2026-11-19 |
 | EPIC-047D | [Transport, profiles, Options page](completed/EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) | `claude/epic-047d-desktop-transport` (#744) | 🟡 | ✅ Done (2026-10-27) (owner measurements pending) | 2026-10-27 |
 | EPIC-047H | [The host serves market data and refreshed facts](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | `claude/epic-047h-host-market-data` | 🔴 | 🟡 In review (assumptions A1–A10 verified first; VPS measurements are the owner's) | 2026-10-27 |
-| EPIC-047E | [The VPS Bots tab](incomplete/EPIC-047E_the_vps_bots_tab.md) | `Not opened` | 🔴 | 🔵 Planned | 2026-12-08 |
+| EPIC-047E | [The VPS Bots tab](incomplete/EPIC-047E_the_vps_bots_tab.md) | `claude/epic-047e-remote-world` (PR 1 of 3) | 🔴 | 🟡 PR 1 of 3 in review | 2026-12-08 |
 | EPIC-047F | [Log lines in the tab](incomplete/EPIC-047F_the_bots_log_lines_in_the_tab.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-12 |
 | EPIC-047G | [The runbook](incomplete/EPIC-047G_the_runbook_for_the_vps_link.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-01 |
 

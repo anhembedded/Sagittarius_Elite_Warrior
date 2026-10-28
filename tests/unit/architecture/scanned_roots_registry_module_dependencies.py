@@ -55,4 +55,12 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_ui_reaches_the_application_through_its_doors.py",
         (("src/modules", "*.py"), ("src", "*.py")),
     ),
+    # `EPIC-047E` - the VPS tab's composition reaches no Binance client (AC10).
+    (
+        "tests/unit/architecture/test_the_vps_tab_reaches_no_binance_client.py",
+        (
+            ("src/modules/bots/adapters/remote_host", "*.py"),
+            ("src/shell/vps_link", "*.py"),
+        ),
+    ),
 )

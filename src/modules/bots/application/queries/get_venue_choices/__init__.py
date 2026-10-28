@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_choice import (
     VenueChoices,
 )
 
-from .handler import GetVenueChoicesQueryHandler
+from .handler import GetVenueChoicesQueryHandler, venue_choices_of
 from .query import GetVenueChoicesQuery
 
 __all__ = [
@@ -17,4 +17,5 @@ __all__ = [
     "GetVenueChoicesQueryHandler",
     "VenueChoice",
     "VenueChoices",
+    "venue_choices_of",
 ]

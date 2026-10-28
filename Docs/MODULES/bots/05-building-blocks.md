@@ -211,6 +211,46 @@ step's facts, `bots/contracts/run_facts.py` → `RunFacts`; the account view,
 `bots/contracts/connect_failure_words.py` → `failure_cause`, `state_words`; and
 `bots/contracts/bot_readiness.py` → `MARKET_NOT_READ`.
 
+## Built: the remote backend of the Bots screen (EPIC-047E)
+
+The VPS Bots tab shows another host's bots through the doors above, with a second dispatcher behind the same
+screen. The parts, from the screen outward:
+
+- `bots/adapters/remote_host/remote_command_dispatcher.py` → `RemoteCommandDispatcher` is an `ICommandDispatcher`.
+  A query is answered from what the host last published, even while the link is down; a command is turned into
+  the host's request and sent through `IHostControl`; `AssessBotQuery` runs on the local dispatcher, as it reads
+  nothing. A command while the link is down is refused in words and not sent
+  (`DISCONNECTED_WORDS`), and so is a command on a bot whose earlier command was lost with the link
+  (`bots/contracts/i_unanswered_commands.py` → `IUnansweredCommands`, kept by `shell/vps_link/unanswered_ledger.py` →
+  `UnansweredLedger` until the host's audit settles it), because a second press would apply the first twice (Stop and Pause, which only reduce exposure, pass both this block and the one-command-at-a-time claim); a query or command the tab does not offer raises
+  `remote_requests.py` → `NotOfferedInVpsTabError`.
+- `bots/adapters/remote_host/remote_queries.py` → `RemoteQueries` answers the nine queries the screen asks
+  from one `HostWorld` (`bots/contracts/host_world.py`, the port `i_host_world.py` → `IHostWorld`). Where a
+  handler judged host facts, the judgement is that handler's own pure function, called with the published facts:
+  `bots/application/queries/get_venue_choices/handler.py` → `venue_choices_of`;
+  `bots/application/queries/get_plan_risk_facts/handler.py` → `plan_risk_of`;
+  `bots/application/services/readiness/bot_run_facts.py` → `host_run_facts` and `venue_problem_of`.
+  A fact the host never published is `NOT_PUBLISHED_BY_THE_HOST` in the field the screen already shows a problem
+  in; the Run facts, which have no honest default, fail the read (`NotPublishedError`) and Start keeps waiting.
+- `bots/adapters/remote_host/remote_connection.py` → `connection_of` puts the Connect step's
+  `VenueAccountSnapshot` together from the bot's exchange facts, the planner's inputs and the symbol's rules, each
+  with the moment the host read it; with any of them missing it is a `ConnectFailure`, never a snapshot of defaults.
+- `bots/adapters/remote_host/remote_requests.py` → `request_of`, `result_of`, `proposal_in` turn each command of
+  the screen into the request the `bot` verb of the same name sends (the parity table of `EPIC-045D` is checked
+  against it), and the host's reply into the screen's `BotCommandResult` in the host's own words. A Start that
+  carries unsaved edits and a rename are refused with the words to save first: two requests cannot keep the
+  in-process Start's "saved only if the bot is ready".
+
+The link side is in `shell/` because it needs the transport: `shell/vps_link/link_host_world.py` →
+`LinkHostWorld` (an `ILinkObserver` and the `IHostWorld`: snapshot at each welcome, events through the connection's
+revision gate), `link_host_control.py` → `LinkHostControl` (the `IHostControl`, one request id per command, never
+resent; a lost command is `NO_ANSWER` and is listed in `unanswered`), `host_event_publisher.py` →
+`HostEventPublisher` (`BotChangedEvent` and `MarketTickEvent` on the tab's own bus, forming candles only while the
+host's market file is live), `host_candle_feed.py` → `HostCandleFeed` (an `ICandleFeed` over the bridge's `candles`
+call; its `sync` does nothing) and `host_state_line.py` → `host_state_line` (host, keys, connected or "data as of",
+age). A guard keeps the closure of these files free of any Binance client
+(`tests/unit/architecture/test_the_vps_tab_reaches_no_binance_client.py`).
+
 ## Built: the types that cross the remote link (EPIC-047A)
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.

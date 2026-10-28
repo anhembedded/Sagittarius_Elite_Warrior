@@ -115,7 +115,7 @@ def command_for(
     if action is BotAction.RESUME:
         # Reaching here, `allow_real_money` answered yes: the use case enforces it.
         return ResumeBotCommand(bot_id, real_money_confirmed=True)
-    return {
-        BotAction.PAUSE: PauseBotCommand,
-        BotAction.CONFIRM_RESUME: ConfirmBotResumeCommand,
-    }[action](bot_id)
+    if action is BotAction.CONFIRM_RESUME:
+        # Reaching here, `allow_real_money` answered yes: the host's gate judges the typed venue.
+        return ConfirmBotResumeCommand(bot_id, real_money_confirmed=True)
+    return PauseBotCommand(bot_id)

@@ -6,6 +6,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
     Wired,
 )
@@ -33,3 +36,8 @@ class IBridgeCandles(ABC):
     def window(self, query: CandleQuery) -> Wired:
         """The window of closed candles the host's store holds, read-only.
         @raise UnknownCandleSeriesError The query is not a series this build can name."""
+
+
+def candle_venue_code(venue: TradingVenue) -> str:
+    """The venue as a `candles` call and a `CandleQuery` name it: a `TradingVenue` value, one spelling for both ends."""
+    return venue.value
