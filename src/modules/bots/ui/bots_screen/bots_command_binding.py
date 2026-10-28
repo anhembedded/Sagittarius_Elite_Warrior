@@ -56,16 +56,17 @@ def bind_bots_commands(
     if view is not None:
         _bind_centre_tabs(binder, view)
         BotsChartCommands(view, view_model).bind_commands(binder)
-    idle = DerivedState(
+    new_bot = DerivedState(
         view_model.action_in_flight_changed,
-        lambda: not view_model.action_in_flight,
+        lambda: not view_model.action_in_flight and not view_model.new_bot_unavailable,
         view_model,
     )
+    new_bot.listen(view_model.new_bot_availability_changed)
     binder.bind(
         NEW_BOT,
         lambda _checked: view_model.new_bot_requested.emit(),
-        enabled=idle.changed,
-        initially_enabled=idle.value,
+        enabled=new_bot.changed,
+        initially_enabled=new_bot.value,
     )
     # The fills belong to the selected bot: with none selected the read has
     # nothing to fetch, so the command waits for a selection, as it did in

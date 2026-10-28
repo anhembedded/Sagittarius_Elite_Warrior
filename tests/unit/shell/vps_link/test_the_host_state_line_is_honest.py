@@ -37,7 +37,7 @@ def test_a_connected_tab_names_the_host_the_key_and_how_old_the_facts_are() -> N
         "nathan-warrior", LIVE_WORLD, CONNECTED, LOOKED + timedelta(seconds=2)
     )
 
-    assert line.connected
+    assert line.ok
     assert line.text == (
         "nathan-warrior · Spot Testnet key saved · connected · facts updated 2 s ago"
     )
@@ -71,7 +71,7 @@ def test_a_disconnected_tab_says_so_with_the_time_the_data_is_from() -> None:
         "nathan-warrior", LIVE_WORLD, status, LOOKED + timedelta(minutes=5)
     )
 
-    assert not line.connected
+    assert not line.ok
     assert "disconnected, data as of 12:00:05 UTC" in line.text
     assert "connected ·" not in line.text
     assert "updated" not in line.text

@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_backtest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_vps_tab import IVpsTab
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     plan_market_of,
 )
@@ -41,6 +42,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host im
     BotChartPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import panel_for
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategies_wiring import (
+    strategies_for,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.venue_strategies import (
+    VenueStrategies,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -53,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_preference import (
     DisplayTimezonePreference,
     find_display_timezone_preference,
@@ -60,7 +70,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_pref
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .bots_dialogs import BotsDialogs
+from .bots_view import BotsView
 from .venue_candles import venue_candles
+from .vps_backend import vps_arrangement, vps_binder, vps_dependencies
 
 
 @dataclass(frozen=True)
@@ -97,7 +110,41 @@ class BotsDependencies:
         )
 
 
-def bots_dependencies_for(container: IContainer) -> BotsDependencies:
+#: Makes the strategy commands: the dialogs, a line for the Output pane, the status line.
+type MakeStrategies = Callable[
+    [BotsDialogs, Callable[[str], None], Callable[[str, bool], None]], VenueStrategies
+]
+
+
+@dataclass(frozen=True, slots=True)
+class BotsBackend:
+    """`EPIC-047E` - what differs between the Bots tab and the VPS Bots tab, as one value.
+
+    Both tabs are built from the same view, presenter and widget classes (charter O4, AC7); the presenter is handed
+    the few things that are a tab's own and builds everything else the same way: the doors it reaches the application
+    through (`BotsDependencies`), how its strategy commands are made, and what it arranges in the view. (A tab
+    with no Backtest says so through `WorkbenchUnavailableError` from its `workbench_ports`.)
+
+    @par Extension cases
+      · a third backend (a second host) - one more function returning a `BotsBackend`; the presenter does not change;
+      · another thing a tab owns - one more field with the local tab's value as its default."""
+
+    dependencies: BotsDependencies
+    strategies: MakeStrategies
+    #: What the tab does to its view besides what every tab does: the VPS tab shows its host line and turns New bot off.
+    arrange: Callable[[BotsView], None] = lambda _view: None
+    #: The binder the tab's commands are bound through: the VPS tab's commands carry its own ids (`vps_command_ids.py`).
+    binder_of: Callable[[ICommandBinder], ICommandBinder] = lambda binder: binder
+
+    def give_to(self, view: BotsView) -> None:
+        """Gives `view` this tab's own touches (the display time zone every tab follows, then `arrange`)."""
+        view.use_display_timezone(self.dependencies.display_timezone)
+        self.arrange(view)
+
+
+def backend_for(container: IContainer) -> BotsBackend:
+    """The tab's backend: this computer's own application, or the VPS host's when the container carries an `IVpsTab`
+    (the shell hands the VPS tab one, `EPIC-047E`)."""
     threads = container.resolve(IThreadManager)
     commands = container.resolve(ICommandDispatcher)
     notifier = container.resolve(INotifier)
@@ -106,7 +153,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
     display_timezone = (
         find_display_timezone_preference(container) or DisplayTimezonePreference()
     )
-    return BotsDependencies(
+    dependencies = BotsDependencies(
         threads=threads,
         commands=commands,
         kinds=catalog,
@@ -128,4 +175,16 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         consent=container.resolve(IRealMoneyConsent),
         instance=container.resolve(IInstanceAccess),
         display_timezone=display_timezone,
+    )
+    strategies: MakeStrategies = lambda dialogs, tell, status: strategies_for(
+        container, dialogs, tell, status
+    )
+    if IVpsTab not in container.registrations():
+        return BotsBackend(dependencies, strategies)
+    tab = container.resolve(IVpsTab)
+    return BotsBackend(
+        vps_dependencies(tab, dependencies),
+        strategies,
+        vps_arrangement(tab),
+        vps_binder,
     )

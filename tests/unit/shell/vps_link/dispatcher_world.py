@@ -13,13 +13,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_command_dispatcher import (
     RemoteCommandDispatcher,
-    RemoteHostPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_queries import (
     RemoteQueries,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.remote_host_ports import (
+    RemoteHostPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
@@ -69,11 +71,13 @@ class BlockingDoor(FakeDoor):
         return self.reply
 
 
-def build_dispatcher(tab: VpsTabWorld) -> tuple[RemoteCommandDispatcher, _Local]:
-    local = _Local()
+def build_dispatcher(
+    tab: VpsTabWorld, local: ICommandDispatcher | None = None
+) -> tuple[RemoteCommandDispatcher, ICommandDispatcher]:
+    local = local or _Local()
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
-    ports = RemoteHostPorts(tab.world, tab.control, tab.unanswered)
-    return RemoteCommandDispatcher(ports, RemoteQueries(kinds), local), local
+    ports = RemoteHostPorts(tab.world, tab.control, tab.unanswered, local)
+    return RemoteCommandDispatcher(ports, RemoteQueries(kinds)), local
 
 
 def ask(dispatcher: RemoteCommandDispatcher, query: object) -> object:

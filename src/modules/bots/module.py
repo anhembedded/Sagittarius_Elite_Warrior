@@ -95,6 +95,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     IOperationsRegistry,
     PreflightCheckDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_command_dispatcher import (
+    RemoteCommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_queries import (
+    RemoteQueries,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
@@ -144,6 +150,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings impor
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
 )
@@ -153,6 +162,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_status impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_loss_cap_store import (
     ILossCapStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.remote_host_ports import (
+    RemoteHostPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
@@ -174,6 +186,14 @@ logger = logging.getLogger("App.BotsModule")
 _WRITABLE_BOOT: Deferred[BotWatches] = Deferred(
     "Sagittarius_Elite_Warrior.src.modules.bots.composition.writable_boot:boot_writable"
 )
+
+
+def remote_bots_dispatcher(
+    ports: RemoteHostPorts, kinds: IBotKindCatalog
+) -> ICommandDispatcher:
+    """The Bots screen's doors on another host (`EPIC-047E`): its queries answered from what the host
+    published, its commands carried to the host's own gate. The shell, which owns the link, calls this."""
+    return RemoteCommandDispatcher(ports, RemoteQueries(kinds))
 
 
 class BotsModule(BoundedContextModule):

@@ -13,9 +13,9 @@ A function of the world, the link status and `now`: no clock, no thread; a test 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_line import HostLine
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import (
     HostFile,
     HostFileState,
@@ -30,21 +30,16 @@ _SEPARATOR = " · "
 _NOTHING_PUBLISHED = "the host has published no facts yet"
 
 
-@dataclass(frozen=True, slots=True)
-class HostStateLine:
-    #: The line itself, ready to show.
-    text: str
-    connected: bool
-
-
 def host_state_line(
     host: str, world: HostWorld, status: LinkStatus, now: datetime
-) -> HostStateLine:
+) -> HostLine:
     if status.state is LinkState.CONNECTED:
         parts = [host, _keys_of(world), "connected", _updated(world, now)]
-        return HostStateLine(_SEPARATOR.join(parts), True)
+        return HostLine(
+            _SEPARATOR.join(parts), world.held_file.state is HostFileState.LIVE
+        )
     # The link's own words already say "disconnected, data as of ..." and what it is doing about it.
-    return HostStateLine(_SEPARATOR.join([host, status.words, _keys_of(world)]), False)
+    return HostLine(_SEPARATOR.join([host, status.words, _keys_of(world)]), False)
 
 
 def _keys_of(world: HostWorld) -> str:

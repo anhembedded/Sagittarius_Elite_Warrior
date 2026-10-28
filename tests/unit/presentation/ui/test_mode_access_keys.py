@@ -157,6 +157,8 @@ def test_the_real_modes_show_the_same_keys_with_or_without_developer_mode(
         "Data": "&Data",
         "Alerts": "&Alerts",
         "Backtest engine": "Ba&cktest engine",
+        # `EPIC-047E`: declared `v`, taken by no other mode or View command.
+        "VPS Bots": "&VPS Bots",
     }
     if dev_mode:
         expected["Developer"] = "D&eveloper"

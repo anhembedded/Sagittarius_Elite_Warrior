@@ -173,6 +173,8 @@ _EVERY_MODE = (
     "data_management",
     "alerts",
     "backtest",
+    # `EPIC-047E`: the VPS Bots tab, built at start with every mode and connected only when it is shown.
+    "vps_bots",
 )
 
 

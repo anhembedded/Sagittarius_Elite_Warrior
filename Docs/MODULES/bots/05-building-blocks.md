@@ -251,6 +251,29 @@ call; its `sync` does nothing) and `host_state_line.py` → `host_state_line` (h
 age). A guard keeps the closure of these files free of any Binance client
 (`tests/unit/architecture/test_the_vps_tab_reaches_no_binance_client.py`).
 
+## Built: the VPS Bots tab (EPIC-047E PR 2)
+
+The tab is the Bots screen's own `BotsView` and `BotsPresenter`, built a second time over the host's link; no class of the
+screen is copied or subclassed (`tests/unit/architecture/test_the_vps_tab_is_the_bots_screen.py`).
+
+- `bots/ui/bots_screen/bots_dependencies.py` → `BotsBackend` is what differs between the two tabs as one value: the
+  doors (`BotsDependencies`), how the strategy commands are made, what the tab arranges in its view, and the binder its
+  commands go through. `backend_for(container)` builds this computer's; with an `IVpsTab` in the container it builds the
+  VPS tab's from `vps_backend.py` → `vps_dependencies`, `vps_arrangement`, `vps_binder`.
+- `bots/contracts/i_vps_tab.py` → `IVpsTab` is the port the shell fills: the screen's dispatcher over the link, a candle
+  feed per venue, the line above the tab (`host_line.py` → `HostLine`) and `opened()`, called when the tab is first shown.
+  It is on the UI-doors allowlist (`architecture-rule.md` §3.1).
+- What the tab turns off, with its reason, never hidden: New bot (`bots_view_model.py` → `new_bot_unavailable`; its symbol
+  list is the exchange's) and the Backtest tab (`backtest_workbenches.py` → `WorkbenchUnavailableError`; it replays
+  candles from Binance). `host_line_bar.py` → `HostLineBar` shows the honest line, asking again every second.
+- The real-money question is typed: `typed_venue_consent.py` → `TypedVenueConsent` asks every time for a mainnet venue,
+  with `typed_venue_dialog.py` → `TypedVenueDialog`; a testnet is never asked and nothing is remembered.
+- Commands: `vps_command_ids.py` → `vps_commands` contributes the Bots commands under the `bots.vps` prefix and
+  `PrefixedBinder` binds the screen's own ids through it, so a command added to the Bots tab is in the VPS tab by itself.
+- The shell owns the rest (`shell/vps_tab/`): `vps_tab_screen.py` (the contribution, route `vps_bots`, item 19),
+  `vps_tab_builder.py` (the Bots presenter over a `VpsContainer` that answers the tab's private bus, the session and no local
+  venue), `vps_tab_session.py` → `VpsTabSession` (the supervised link, started on the first show, stopped at quit).
+
 ## Built: the types that cross the remote link (EPIC-047A)
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.
