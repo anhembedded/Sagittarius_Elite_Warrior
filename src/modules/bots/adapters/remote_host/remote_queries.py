@@ -16,6 +16,8 @@ fact (decision record 2026-10-27, D5).
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
+
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_connection import (
     connection_of,
 )
@@ -72,6 +74,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import (
     NOT_PUBLISHED_BY_THE_HOST,
+    HostFile,
+    HostFileState,
     HostWorld,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
@@ -110,29 +114,61 @@ class RemoteQueries:
         self._kinds = kinds
 
     def answer(self, query: object, world: HostWorld) -> object:
+        gaps = _Gaps(
+            _gap_words(world.held_file, "facts"), _gap_words(world.reads_file, "reads")
+        )
+        live = _live(world)
         match query:
             case ListBotsQuery():
-                return _list(world)
+                return _list(live)
             case GetBotFillsQuery():
-                return _fills(query, world)
+                return _fills(query, live, gaps)
             case GetExchangeFactsQuery():
-                return _snapshot(query.bot_id, world)
+                return _snapshot(query.bot_id, live, gaps)
             case GetPlanRiskFactsQuery():
-                return plan_risk_of(_snapshot(query.bot_id, world))
+                return plan_risk_of(_snapshot(query.bot_id, live, gaps))
             case GetPlannerMarketQuery():
-                return _planner(query, world)
+                return _planner(query, live, gaps)
             case GetBotRunFactsQuery():
-                return _run_facts(query, world)
+                return _run_facts(query, live, gaps)
             case GetVenueConnectionQuery():
                 return connection_of(
-                    query.venue, query.symbol, world.bots, world.held, world.reads
+                    query.venue, query.symbol, live.bots, live.held, live.reads
                 )
             case GetVenueChoicesQuery():
-                return _choices(world, self._kinds)
+                return _choices(live, gaps, self._kinds)
             case ExportBotPlanQuery():
-                return export_plan(world.bots, None, query.bot_ids)
+                return export_plan(live.bots, None, query.bot_ids)
             case _:
                 raise QueryNotServedError(query)
+
+
+@dataclass(frozen=True, slots=True)
+class _Gaps:
+    """The sentence for a published file that cannot be used: never published, or the host went quiet."""
+
+    held: str
+    reads: str
+
+
+def _gap_words(file: HostFile, what: str) -> str:
+    if file.state is not HostFileState.STALE:
+        return NOT_PUBLISHED_BY_THE_HOST
+    since = "" if file.age_s is None else f" for at least {int(file.age_s)} s"
+    return (
+        f"the host has not written its {what}{since}: it may have stopped, "
+        "so its last picture is not shown as current"
+    )
+
+
+def _live(world: HostWorld) -> HostWorld:
+    """`world` with a host file that is not live taken out: a `STALE` file is the last picture of a host that
+    may have stopped, and an answer drawn from it would read as current (the bridge keeps the document)."""
+    return replace(
+        world,
+        held=world.held if world.held_file.state is HostFileState.LIVE else None,
+        reads=world.reads if world.reads_file.state is HostFileState.LIVE else None,
+    )
 
 
 def _list(world: HostWorld) -> BotList:
@@ -143,7 +179,7 @@ def _bot(bot_id: str, world: HostWorld) -> BotSnapshot | None:
     return next((bot for bot in world.bots if bot.bot_id == bot_id), None)
 
 
-def _snapshot(bot_id: str, world: HostWorld) -> VenueSnapshot:
+def _snapshot(bot_id: str, world: HostWorld, gaps: _Gaps) -> VenueSnapshot:
     if _bot(bot_id, world) is None:
         return ExchangeUnavailable(UNKNOWN_BOT)
     held = world.held
@@ -152,14 +188,10 @@ def _snapshot(bot_id: str, world: HostWorld) -> VenueSnapshot:
         if held is None
         else next((r for r in held.exchange_reads if r.bot_id == bot_id), None)
     )
-    return (
-        ExchangeUnavailable(NOT_PUBLISHED_BY_THE_HOST)
-        if read is None
-        else read.snapshot
-    )
+    return ExchangeUnavailable(gaps.held) if read is None else read.snapshot
 
 
-def _fills(query: GetBotFillsQuery, world: HostWorld) -> BotFills:
+def _fills(query: GetBotFillsQuery, world: HostWorld, gaps: _Gaps) -> BotFills:
     if _bot(query.bot_id, world) is None:
         return BotFills(problem=UNKNOWN_BOT)
     reads = world.reads
@@ -168,10 +200,12 @@ def _fills(query: GetBotFillsQuery, world: HostWorld) -> BotFills:
         if reads is None
         else next((r for r in reads.fills if r.bot_id == query.bot_id), None)
     )
-    return BotFills(problem=NOT_PUBLISHED_BY_THE_HOST) if read is None else read.fills
+    return BotFills(problem=gaps.reads) if read is None else read.fills
 
 
-def _planner(query: GetPlannerMarketQuery, world: HostWorld) -> PlannerMarket:
+def _planner(
+    query: GetPlannerMarketQuery, world: HostWorld, gaps: _Gaps
+) -> PlannerMarket:
     reads = world.reads
     on_market = {
         bot.bot_id
@@ -183,11 +217,13 @@ def _planner(query: GetPlannerMarketQuery, world: HostWorld) -> PlannerMarket:
         candidates = [r for r in reads.planner if r.bot_id in on_market]
         read = max(candidates, key=lambda r: r.read_at, default=None)
     if read is None:
-        return PlannerMarket(None, None, None, None, NOT_PUBLISHED_BY_THE_HOST)
+        return PlannerMarket(None, None, None, None, gaps.reads)
     return read.market
 
 
-def _run_facts(query: GetBotRunFactsQuery, world: HostWorld) -> BotRunFacts:
+def _run_facts(
+    query: GetBotRunFactsQuery, world: HostWorld, gaps: _Gaps
+) -> BotRunFacts:
     held = world.held
     occupancy = occupancy_of(
         query.bot_id,
@@ -197,7 +233,7 @@ def _run_facts(query: GetBotRunFactsQuery, world: HostWorld) -> BotRunFacts:
         (refused.name for refused in world.refused),
     )
     if held is None:
-        raise NotPublishedError(NOT_PUBLISHED_BY_THE_HOST)
+        raise NotPublishedError(gaps.held)
     lease = next(
         (
             lease.holder
@@ -211,11 +247,13 @@ def _run_facts(query: GetBotRunFactsQuery, world: HostWorld) -> BotRunFacts:
     )
 
 
-def _choices(world: HostWorld, kinds: IBotKindCatalog) -> VenueChoices:
+def _choices(world: HostWorld, gaps: _Gaps, kinds: IBotKindCatalog) -> VenueChoices:
     held = world.held
 
     def connection(venue: TradingVenue) -> str:
-        if held is None or venue not in held.enabled_venues:
+        if held is None:
+            return gaps.held
+        if venue not in held.enabled_venues:
             return NOT_ENABLED
         saved = any(k.venue is venue and k.key_saved for k in held.venue_keys)
         return KEY_SAVED if saved else NO_KEY

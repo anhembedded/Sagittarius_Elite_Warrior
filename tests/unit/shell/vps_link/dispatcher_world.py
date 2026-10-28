@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_command_dispatcher import (
     RemoteCommandDispatcher,
+    RemoteHostPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_queries import (
     RemoteQueries,
@@ -71,10 +72,8 @@ class BlockingDoor(FakeDoor):
 def build_dispatcher(tab: VpsTabWorld) -> tuple[RemoteCommandDispatcher, _Local]:
     local = _Local()
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
-    return (
-        RemoteCommandDispatcher(tab.world, tab.control, RemoteQueries(kinds), local),
-        local,
-    )
+    ports = RemoteHostPorts(tab.world, tab.control, tab.unanswered)
+    return RemoteCommandDispatcher(ports, RemoteQueries(kinds), local), local
 
 
 def ask(dispatcher: RemoteCommandDispatcher, query: object) -> object:

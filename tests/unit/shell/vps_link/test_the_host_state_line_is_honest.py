@@ -1,11 +1,15 @@
-"""`EPIC-047E` (O5, D5) - the line above the VPS tab says which host, what it holds, whether it is connected and how old the data is."""
+"""`EPIC-047E` (O5, D5) - the line above the VPS tab says which host, what it holds, whether it is connected and how current its facts are."""
 
 from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import HostWorld
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import (
+    HostFile,
+    HostFileState,
+    HostWorld,
+)
 from Sagittarius_Elite_Warrior.src.shell.vps_link.host_state_line import (
     host_state_line,
 )
@@ -18,34 +22,53 @@ from Sagittarius_Elite_Warrior.tests.unit.support.wire.contract.samples_operatio
     full_host_facts,
 )
 
-HEARD = datetime(2026, 10, 27, 12, 0, 5, tzinfo=UTC)
-WORLD = HostWorld(held=full_host_facts().facts, heard_at=HEARD, connected=True)
+LOOKED = datetime(2026, 10, 27, 12, 0, 5, tzinfo=UTC)
+CONNECTED = LinkStatus(LinkState.CONNECTED, "connected")
+LIVE_WORLD = HostWorld(
+    held=full_host_facts().facts,
+    held_file=HostFile(HostFileState.LIVE, 0.0, LOOKED),
+    last_frame_at=LOOKED,
+    connected=True,
+)
 
 
-def test_a_connected_tab_names_the_host_the_key_and_the_age_of_its_data() -> None:
+def test_a_connected_tab_names_the_host_the_key_and_how_old_the_facts_are() -> None:
     line = host_state_line(
-        "nathan-warrior",
-        WORLD,
-        LinkStatus(LinkState.CONNECTED, "connected"),
-        HEARD + timedelta(seconds=2),
+        "nathan-warrior", LIVE_WORLD, CONNECTED, LOOKED + timedelta(seconds=2)
     )
 
     assert line.connected
     assert line.text == (
-        "nathan-warrior · Spot Testnet key saved · connected · updated 2 s ago"
+        "nathan-warrior · Spot Testnet key saved · connected · facts updated 2 s ago"
     )
+
+
+def test_a_quiet_host_is_not_called_updated_whatever_else_the_link_heard() -> None:
+    """The bridge keeps the last document of a host that stopped writing; a heartbeat or a bot event that
+    arrives meanwhile proves the link, not the facts."""
+    now = LOOKED + timedelta(seconds=62)
+    quiet = replace(
+        LIVE_WORLD,
+        held_file=HostFile(HostFileState.STALE, 60.0, LOOKED),
+        last_frame_at=now,
+    )
+
+    line = host_state_line("nathan-warrior", quiet, CONNECTED, now)
+
+    assert "host quiet: facts last written 122 s ago, it may have stopped" in line.text
+    assert "updated" not in line.text
 
 
 def test_a_disconnected_tab_says_so_with_the_time_the_data_is_from() -> None:
     status = LinkStatus(
         LinkState.RECONNECTING,
-        f"{disconnected_words(HEARD)}; reconnecting (attempt 2)",
-        HEARD,
+        f"{disconnected_words(LOOKED)}; reconnecting (attempt 2)",
+        LOOKED,
         2,
     )
 
     line = host_state_line(
-        "nathan-warrior", WORLD, status, HEARD + timedelta(minutes=5)
+        "nathan-warrior", LIVE_WORLD, status, LOOKED + timedelta(minutes=5)
     )
 
     assert not line.connected
@@ -57,10 +80,9 @@ def test_a_disconnected_tab_says_so_with_the_time_the_data_is_from() -> None:
 def test_a_host_that_published_nothing_is_not_described_by_a_default() -> None:
     line = host_state_line(
         "nathan-warrior",
-        replace(WORLD, held=None, heard_at=None),
-        LinkStatus(LinkState.CONNECTED, "connected"),
-        HEARD,
+        replace(LIVE_WORLD, held=None, held_file=HostFile()),
+        CONNECTED,
+        LOOKED,
     )
 
-    assert "the host has published no facts yet" in line.text
-    assert "no data yet" in line.text
+    assert line.text.count("the host has published no facts yet") == 2

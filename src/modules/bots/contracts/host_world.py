@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -34,6 +35,29 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     RefusedBotFile,
 )
 
+
+class HostFileState(StrEnum):
+    """What the bridge can say of one host file."""
+
+    #: Read, and the host rewrote it within three of its own heartbeats.
+    LIVE = "live"
+    #: Read, but the host has been quiet for longer: it may have stopped. The document is the last one.
+    STALE = "stale"
+    #: There is no file, or none was ever readable.
+    MISSING = "missing"
+
+
+@dataclass(frozen=True, slots=True)
+class HostFile:
+    """How current one host file is, as of the moment the desktop looked."""
+
+    state: HostFileState = HostFileState.MISSING
+    #: Seconds since the host wrote it when the desktop looked (the bridge's own measure, on the host).
+    age_s: float | None = None
+    #: When the desktop looked, on its own clock; `age_s` plus the time since then is the age now.
+    looked_at: datetime | None = None
+
+
 #: What a screen says of a fact the host never published (decision record 2026-10-27, D5).
 NOT_PUBLISHED_BY_THE_HOST = "not published by the host"
 
@@ -46,14 +70,19 @@ class HostWorld:
     bots: tuple[BotSnapshot, ...] = ()
     refused: tuple[RefusedBotFile, ...] = ()
     #: The facts only the running host holds (`state/host-facts.json`); `None` before it was read.
+    #: Its `held_file` says whether the host still writes it: a `STALE` document is the last one of a host
+    #: that may have stopped, and no query answers from it as if it were current.
     held: HostHeldFacts | None = None
+    held_file: HostFile = HostFile()
     #: When the host wrote `held`, on the host's clock; `None` with it.
     held_at: datetime | None = None
-    #: What the host last read from the exchange for the tab (`state/host-reads.json`).
+    #: What the host last read from the exchange for the tab (`state/host-reads.json`), and its currency.
     reads: HostExchangeReads | None = None
+    reads_file: HostFile = HostFile()
     reads_at: datetime | None = None
-    #: When the desktop last heard anything from the host, on its own clock; `None` before the first
-    #: snapshot. A disconnected tab shows it as "data as of …".
-    heard_at: datetime | None = None
+    #: When the last frame of any kind (an answer, an event, a heartbeat's revision) came from the host,
+    #: on the desktop's clock; `None` before the first snapshot. It proves the link, not the data:
+    #: a disconnected tab shows it as "data as of …", and a connected one never as how fresh a fact is.
+    last_frame_at: datetime | None = None
     #: Whether the link to the host is up now.
     connected: bool = False

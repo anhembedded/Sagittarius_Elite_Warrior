@@ -16,7 +16,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import HostWorld
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import (
+    HostFile,
+    HostFileState,
+    HostWorld,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_status import (
     LinkState,
     LinkStatus,
@@ -52,7 +56,19 @@ def _keys_of(world: HostWorld) -> str:
 
 
 def _updated(world: HostWorld, now: datetime) -> str:
-    if world.heard_at is None:
-        return "no data yet"
-    seconds = max(0, int((now - world.heard_at).total_seconds()))
-    return f"updated {seconds} s ago"
+    """How current the host's facts are: their age when the desktop looked plus the time since, never the
+    age of the last frame (a heartbeat or a bot event says the link lives, not that the facts are current)."""
+    file = world.held_file
+    if file.state is HostFileState.MISSING:
+        return _NOTHING_PUBLISHED
+    age = _age_of(file, now)
+    if file.state is HostFileState.STALE:
+        return f"host quiet: facts last written {age} s ago, it may have stopped"
+    return f"facts updated {age} s ago"
+
+
+def _age_of(file: HostFile, now: datetime) -> int:
+    since_look = (
+        0.0 if file.looked_at is None else (now - file.looked_at).total_seconds()
+    )
+    return max(0, int((file.age_s or 0.0) + since_look))

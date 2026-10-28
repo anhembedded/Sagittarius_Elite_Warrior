@@ -49,6 +49,9 @@ class HostEventPublisher(IHostWorldListener):
     def on_bot_changed(self, bot_id: str, removed: bool) -> None:
         self._bus.emit(BotChangedEvent(bot_id=bot_id, removed=removed))
 
+    def on_file_changed(self, kind: str) -> None:
+        """Nothing to publish: no screen of the application hears a host file's liveness on the bus."""
+
     def on_market(self, market: MarketDataDocument) -> None:
         for symbol in market.symbols:
             for candle in symbol.forming:

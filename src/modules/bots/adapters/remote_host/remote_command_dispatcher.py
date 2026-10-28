@@ -27,7 +27,7 @@ the host's audit knows whether it ran (`EPIC-047E`'s reconcile reads it by the s
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Final
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
@@ -56,32 +56,59 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
-    BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import HostWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_host_world import IHostWorld
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_unanswered_commands import (
+    IUnansweredCommands,
+)
 
 logger = logging.getLogger("App.VpsTab")
 
 #: How long a command waits for the host's recorded answer; under the bridge's own 30 s ceiling, over the 10 s
 #: a resume proposal takes (`PROPOSAL_REPLY_WAIT_S`).
 COMMAND_WAIT_S: Final = 15.0
+
+
+def unknown_outcome_words(request_ids: tuple[str, ...]) -> str:
+    return (
+        "An earlier command on this bot was lost with the link and its outcome is not known "
+        f"(request {request_ids[0]}): check the host's audit before sending another, "
+        "or it may be applied twice."
+    )
+
+
+def _refusal(words: str, subject: str) -> BotCommandResult:
+    """A refusal made here, in words and without a code: the host was not asked."""
+    return BotCommandResult(accepted=False, bot_id=subject, refusal=None, message=words)
+
+
 DISCONNECTED_WORDS = (
     "Not connected to the host: the command was not sent. The tab reconnects by itself; "
     "try again when it shows connected."
 )
 
 
+@dataclass(frozen=True, slots=True)
+class RemoteHostPorts:
+    """What the dispatcher reaches the host through."""
+
+    world: IHostWorld
+    control: IHostControl
+    #: The commands whose outcome is not known; a new one on the same bot is refused (see `_command`).
+    unanswered: IUnansweredCommands
+
+
 class RemoteCommandDispatcher(ICommandDispatcher):
     def __init__(
         self,
-        world: IHostWorld,
-        control: IHostControl,
+        ports: RemoteHostPorts,
         queries: RemoteQueries,
         local: ICommandDispatcher,
     ) -> None:
-        self._world = world
-        self._control = control
+        self._world = ports.world
+        self._control = ports.control
+        self._unanswered = ports.unanswered
         self._queries = queries
         self._local = local
         self._proposals: dict[str, str] = {}
@@ -112,9 +139,10 @@ class RemoteCommandDispatcher(ICommandDispatcher):
                 translated.action.value,
                 translated.bot_id,
             )
-            return BotCommandResult.refused(
-                BotRefusal.READ_ONLY_INSTANCE, DISCONNECTED_WORDS, translated.bot_id
-            )
+            return _refusal(DISCONNECTED_WORDS, translated.bot_id)
+        pending = self._unanswered.request_ids_for(translated.bot_id)
+        if pending:
+            return _refusal(unknown_outcome_words(pending), translated.bot_id)
         return self._send(translated)
 
     def _send(self, request: HostControlRequest) -> BotCommandResult:

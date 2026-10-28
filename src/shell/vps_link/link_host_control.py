@@ -3,7 +3,7 @@
 @details `IHostControl` is the operator's side of control: a request in, the host's recorded answer out. This one
 carries it as the bridge's `command` call (`support/wire/bridge/bridge_commands.py`): one fresh request id per
 command, the id the host's audit remembers. It never sends a command twice — a cut link ends the wait as
-`NO_ANSWER` with the id in the words and in `unanswered`, and whether the host ran it is the audit's to say
+`NO_ANSWER` with the id in the words and in the `UnansweredLedger`, and whether the host ran it is the audit's to say
 (`EPIC-047E`'s reconcile asks again under the same id).
 
 @par What each ending is
@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-import threading
 from collections.abc import Callable
-from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlReply,
@@ -28,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_host_control import IHostControl
 from Sagittarius_Elite_Warrior.src.shell.vps_link.link_host_world import LinkHostWorld
+from Sagittarius_Elite_Warrior.src.shell.vps_link.unanswered_ledger import (
+    UnansweredLedger,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
     REPLY_ROOT,
     REQUEST_ROOT,
@@ -47,32 +48,18 @@ _NOT_CONNECTED = "Not connected to the host: nothing was sent."
 _UNREADABLE = "The host's reply could not be read by this build; see its audit."
 
 
-@dataclass(frozen=True, slots=True)
-class UnansweredCommand:
-    """A command whose outcome is not known: the link ended with it waiting."""
-
-    request_id: str
-    request: HostControlRequest
-
-
 class LinkHostControl(IHostControl):
     def __init__(
         self,
         world: LinkHostWorld,
         roots: WireRoots,
+        unanswered: UnansweredLedger,
         new_request_id: Callable[[], str] = lambda: secrets.token_hex(16),
     ) -> None:
         self._world = world
         self._roots = roots
         self._new_request_id = new_request_id
-        self._lock = threading.Lock()
-        self._unanswered: list[UnansweredCommand] = []
-
-    @property
-    def unanswered(self) -> tuple[UnansweredCommand, ...]:
-        """The commands whose outcome the desktop does not know, oldest first."""
-        with self._lock:
-            return tuple(self._unanswered)
+        self._unanswered = unanswered
 
     def send(self, request: HostControlRequest, wait_s: float) -> HostControlReply:
         link = self._world.live_link()
@@ -115,8 +102,7 @@ class LinkHostControl(IHostControl):
     def _lost(
         self, request_id: str, request: HostControlRequest, why: str
     ) -> HostControlReply:
-        with self._lock:
-            self._unanswered.append(UnansweredCommand(request_id, request))
+        self._unanswered.add(request_id, request)
         logger.warning(
             "[vps-command] %s on %s (request %s): %s with the command waiting; it was not sent again",
             request.action.value,

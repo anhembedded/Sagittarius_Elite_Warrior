@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_queries import (
     UNKNOWN_BOT,
+    NotPublishedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_requests import (
     NotOfferedInVpsTabError,
@@ -46,6 +47,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_choice import (
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
+    FactsLook,
+    FactsState,
+    Wired,
+)
 from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.dispatcher_world import (
     BTC,
     ETH,
@@ -55,6 +61,9 @@ from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.dispatcher_world import
 )
 from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.vps_world import (
     VpsTabWorld,
+)
+from Sagittarius_Elite_Warrior.tests.unit.support.wire.bridge.bridge_world import (
+    FACTS_ROOT,
 )
 from Sagittarius_Elite_Warrior.tests.unit.support.wire.contract.samples_bots import (
     full_fills,
@@ -143,3 +152,28 @@ def test_a_query_the_tab_does_not_offer_is_refused_in_words(tab: VpsTabWorld) ->
 
     with pytest.raises(NotOfferedInVpsTabError, match="RunBacktestQuery"):
         dispatcher.dispatch(RunBacktestQuery, object.__new__(RunBacktestQuery))
+
+
+# -- a host that went quiet ------------------------------------------------------------------
+
+
+def test_a_quiet_hosts_last_picture_is_not_answered_as_current(
+    tab: VpsTabWorld,
+) -> None:
+    dispatcher, _ = build_dispatcher(tab)
+    tab.drain_file_changes()
+    tab.host.facts.look_now = FactsLook(
+        FactsState.STALE, 41, 50.0, Wired(FACTS_ROOT, full_host_facts())
+    )
+    tab.wait_file_changed()
+
+    exchange = ask(dispatcher, GetExchangeFactsQuery(ETH.bot_id))
+    choices = ask(dispatcher, GetVenueChoicesQuery())
+
+    assert "may have stopped" in exchange.reason  # type: ignore[attr-defined]
+    assert all("may have stopped" in c.connection for c in choices.choices)  # type: ignore[attr-defined]
+    with pytest.raises(NotPublishedError, match="may have stopped"):
+        ask(
+            dispatcher,
+            GetBotRunFactsQuery(ETH.bot_id, TradingVenue.SPOT_TESTNET, "BTCUSDT"),
+        )

@@ -30,7 +30,6 @@ _LOGGING_CALLS = frozenset(
 
 #: path -> the identifier its `venue.value` is.
 EXEMPT: dict[str, str] = {
-    "src/shell/vps_link/host_candle_feed.py": "the venue code of the bridge's candles call",
     "src/modules/trading/ui/trade/trade_commands.py": "a command id",
     "src/modules/trading/ui/trade/venue_choice.py": (
         "the remembered state's key and a log field"

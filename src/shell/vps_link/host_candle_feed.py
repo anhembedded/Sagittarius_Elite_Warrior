@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed impo
     ICandleFeed,
     OlderCandlesRequest,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_candles import (
+    candle_venue_code,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_errors import (
     CallFailedError,
     CallTimedOutError,
@@ -97,7 +100,7 @@ class HostCandleFeed(ICandleFeed):
         if link is None:
             raise CandlesUnavailableError(OFFLINE_WORDS)
         params: dict[str, object] = {
-            "venue": self._venue.value,
+            "venue": candle_venue_code(self._venue),
             "symbol": symbol,
             "timeframe": interval.value,
             "limit": limit,

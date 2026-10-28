@@ -97,68 +97,97 @@ class NothingToSend:
 type Translated = HostControlRequest | NothingToSend
 
 
+type OnABot = (
+    StopBotCommand
+    | StartBotCommand
+    | ResumeBotCommand
+    | ConfirmBotResumeCommand
+    | PauseBotCommand
+    | DeleteBotCommand
+    | ChangeBotVenueCommand
+    | EditBotCommand
+)
+
+
 def request_of(
     command: object, bots: Mapping[str, BotSnapshot]
 ) -> Translated | BotCommandResult:
     """The host's request for `command`, a result when the command cannot be sent as it is.
 
     `bots` are the host's bots as the desktop last heard them: a command on a bot looks its venue and
-    settings up there, and a bot that is not there is refused in words rather than sent blind."""
-    if isinstance(command, CreateBotCommand):
-        return _add(command)
-    bot_id = getattr(command, "bot_id", None)
-    if not isinstance(bot_id, str):
-        raise NotOfferedInVpsTabError(command)
-    bot = bots.get(bot_id)
-    if bot is None:
-        return BotCommandResult.refused(BotRefusal.NOT_FOUND, UNKNOWN_BOT, bot_id)
-    return _on_bot(command, bot)
+    settings up there, and a bot that is not there is refused in words rather than sent blind.
+
+    @raise NotOfferedInVpsTabError the command is not one the tab carries to the host."""
+    match command:
+        case CreateBotCommand():
+            return _add(command)
+        case (
+            StopBotCommand()
+            | StartBotCommand()
+            | ResumeBotCommand()
+            | ConfirmBotResumeCommand()
+            | PauseBotCommand()
+            | DeleteBotCommand()
+            | ChangeBotVenueCommand()
+            | EditBotCommand()
+        ):
+            bot = bots.get(command.bot_id)
+            if bot is None:
+                return BotCommandResult.refused(
+                    BotRefusal.NOT_FOUND, UNKNOWN_BOT, command.bot_id
+                )
+            return _on_bot(command, bot)
+        case _:
+            raise NotOfferedInVpsTabError(command)
 
 
-def _on_bot(command: object, bot: BotSnapshot) -> Translated | BotCommandResult:
-    venue = bot.venue.value
-    if isinstance(command, StopBotCommand):
-        return HostControlRequest(
-            HostControlAction.STOP,
-            bot.bot_id,
-            venue if command.real_money_confirmed else None,
-            close_position=command.base is ExposureHandling.CLOSE_AT_MARKET,
-        )
-    if isinstance(command, StartBotCommand):
-        if command.config is not None:
-            return BotCommandResult.refused(
-                BotRefusal.PARAMETERS_REFUSED, NOT_CARRIED_START_EDITS, bot.bot_id
+def _confirmed_venue(bot: BotSnapshot, real_money_confirmed: bool) -> str | None:
+    """The venue as typed, when the person answered the real-money question; the host judges it (O8)."""
+    return bot.venue.value if real_money_confirmed else None
+
+
+def _on_bot(command: OnABot, bot: BotSnapshot) -> Translated | BotCommandResult:
+    match command:
+        case StopBotCommand():
+            return HostControlRequest(
+                HostControlAction.STOP,
+                bot.bot_id,
+                _confirmed_venue(bot, command.real_money_confirmed),
+                close_position=command.base is ExposureHandling.CLOSE_AT_MARKET,
             )
-        return HostControlRequest(
-            HostControlAction.START,
-            bot.bot_id,
-            venue if command.real_money_confirmed else None,
-        )
-    if isinstance(command, ResumeBotCommand):
-        return HostControlRequest(
-            HostControlAction.RESUME,
-            bot.bot_id,
-            venue if command.real_money_confirmed else None,
-        )
-    if isinstance(command, ConfirmBotResumeCommand):
-        # The screen asked its question before it built this command; the host judges the typed venue.
-        return HostControlRequest(
-            HostControlAction.CONFIRM_RESUME,
-            bot.bot_id,
-            venue,
-            proposal=command.proposal,
-        )
-    if isinstance(command, PauseBotCommand):
-        return HostControlRequest(HostControlAction.PAUSE, bot.bot_id)
-    if isinstance(command, DeleteBotCommand):
-        return HostControlRequest(HostControlAction.DELETE, bot.bot_id)
-    if isinstance(command, ChangeBotVenueCommand):
-        return HostControlRequest(
-            HostControlAction.MOVE, bot.bot_id, to_venue=command.venue.value
-        )
-    if isinstance(command, EditBotCommand):
-        return _edit(command, bot)
-    raise NotOfferedInVpsTabError(command)
+        case StartBotCommand():
+            if command.config is not None:
+                return BotCommandResult.refused(
+                    BotRefusal.PARAMETERS_REFUSED, NOT_CARRIED_START_EDITS, bot.bot_id
+                )
+            return HostControlRequest(
+                HostControlAction.START,
+                bot.bot_id,
+                _confirmed_venue(bot, command.real_money_confirmed),
+            )
+        case ResumeBotCommand():
+            return HostControlRequest(
+                HostControlAction.RESUME,
+                bot.bot_id,
+                _confirmed_venue(bot, command.real_money_confirmed),
+            )
+        case ConfirmBotResumeCommand():
+            return HostControlRequest(
+                HostControlAction.CONFIRM_RESUME,
+                bot.bot_id,
+                _confirmed_venue(bot, command.real_money_confirmed),
+                proposal=command.proposal,
+            )
+        case PauseBotCommand():
+            return HostControlRequest(HostControlAction.PAUSE, bot.bot_id)
+        case DeleteBotCommand():
+            return HostControlRequest(HostControlAction.DELETE, bot.bot_id)
+        case ChangeBotVenueCommand():
+            return HostControlRequest(
+                HostControlAction.MOVE, bot.bot_id, to_venue=command.venue.value
+            )
+        case EditBotCommand():
+            return _edit(command, bot)
 
 
 def _edit(command: EditBotCommand, bot: BotSnapshot) -> Translated | BotCommandResult:

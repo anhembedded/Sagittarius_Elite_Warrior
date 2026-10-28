@@ -31,7 +31,11 @@ from typing import Final
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import HostWorld
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_world import (
+    HostFile,
+    HostFileState,
+    HostWorld,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     RefusedBotFile,
 )
@@ -84,6 +88,11 @@ class IHostWorldListener(ABC):
     @abstractmethod
     def on_market(self, market: MarketDataDocument) -> None: ...
 
+    @abstractmethod
+    def on_file_changed(self, kind: str) -> None:
+        """A host file (`facts`, `market`, `reads`) moved or changed its liveness: the line above the tab and
+        anything drawn from the file may need to be drawn again."""
+
 
 class LinkHostWorld(ILinkObserver, IHostWorld):
     def __init__(
@@ -101,7 +110,8 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
         self._looks: dict[str, DocumentLook] = {
             kind: NO_DOCUMENT for kind in FILE_KINDS
         }
-        self._heard_at: datetime | None = None
+        self._looked_at: dict[str, datetime | None] = dict.fromkeys(FILE_KINDS)
+        self._last_frame_at: datetime | None = None
         self._status = LinkStatus(LinkState.IDLE, "not connected")
         self._epoch_number = 0
         self._link: DeskLink | None = None
@@ -158,7 +168,7 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
         with self._lock:
             if epoch.number != self._epoch_number:
                 return
-            self._heard_at = self._wall_clock()
+            self._last_frame_at = self._wall_clock()
             kind = event.get("kind")
             if kind == "bot":
                 self._take_bot_event(event, epoch)
@@ -171,7 +181,7 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
     def _take_snapshot(
         self, snapshot: dict[str, object], epoch: ConnectionEpoch
     ) -> None:
-        self._heard_at = self._wall_clock()
+        self._last_frame_at = self._wall_clock()
         listing = decoded_bot_list(self._roots.decode(snapshot["list"]))
         revisions = snapshot.get("revisions")
         self._bots = {}
@@ -186,10 +196,11 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
                     self._bots[bot.bot_id] = bot
             self._refused = {file.name: file for file in refused}
         documents = snapshot.get("documents")
+        published = documents if isinstance(documents, dict) else {}
         self._take_file(FACTS, {"kind": FACTS, **_payload(snapshot.get("facts"))})
-        if isinstance(documents, dict):
-            for kind in (MARKET, READS):
-                self._take_file(kind, {"kind": kind, **_payload(documents.get(kind))})
+        # The snapshot is the whole truth: a file it does not carry is a file the host does not publish.
+        for kind in (MARKET, READS):
+            self._take_file(kind, {"kind": kind, **_payload(published.get(kind))})
         self._rebuild()
 
     def _take_bot_event(self, event: dict[str, object], epoch: ConnectionEpoch) -> None:
@@ -229,6 +240,9 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
     def _take_file(self, kind: str, payload: dict[str, object]) -> None:
         look = look_of(self._roots, payload)
         self._looks[kind] = look
+        self._looked_at[kind] = self._wall_clock()
+        if self._listener is not None:
+            self._listener.on_file_changed(kind)
         if (
             kind == MARKET
             and look.state is FactsState.LIVE
@@ -240,24 +254,30 @@ class LinkHostWorld(ILinkObserver, IHostWorld):
     def _rebuild(self) -> None:
         facts = self._looks[FACTS].document
         reads = self._looks[READS].document
-        held = facts.facts if isinstance(facts, HostFactsDocument) else None
-        read = reads.reads if isinstance(reads, HostReadsDocument) else None
         ordered = tuple(
             sorted(self._bots.values(), key=lambda bot: (bot.created_at, bot.bot_id))
         )
         self._world = HostWorld(
             bots=ordered,
             refused=tuple(self._refused.values()),
-            held=held,
+            held=facts.facts if isinstance(facts, HostFactsDocument) else None,
+            held_file=self._file_of(FACTS),
             held_at=facts.header.written_at
             if isinstance(facts, HostFactsDocument)
             else None,
-            reads=read,
+            reads=reads.reads if isinstance(reads, HostReadsDocument) else None,
+            reads_file=self._file_of(READS),
             reads_at=reads.header.written_at
             if isinstance(reads, HostReadsDocument)
             else None,
-            heard_at=self._heard_at,
+            last_frame_at=self._last_frame_at,
             connected=self._status.state is LinkState.CONNECTED,
+        )
+
+    def _file_of(self, kind: str) -> HostFile:
+        look = self._looks[kind]
+        return HostFile(
+            HostFileState(look.state.value), look.age_s, self._looked_at[kind]
         )
 
 

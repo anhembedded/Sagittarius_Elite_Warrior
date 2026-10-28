@@ -656,13 +656,13 @@ A read is a query the screen sends as always. `RemoteCommandDispatcher.dispatch`
 the latest `HostWorld` (`LinkHostWorld.current`, an immutable value swapped under a lock by the link's thread), so
 it waits on nothing and never reaches a network. The picture is filled at each welcome from the bridge's snapshot,
 then kept by events: a bot's file by revision, the host's three files (`facts`, `market`, `reads`) by their own
-revision and liveness. A cut leaves the picture and flips `connected`; the next welcome replaces it whole, so a bot
+revision and liveness. Each host file carries its own currency (`bots/contracts/host_world.py` → `HostFile`): a heartbeat or a bot event proves the link, never that the facts are current, so a host that stopped writing its facts shows "host quiet" and answers no fact as live. A cut leaves the picture and flips `connected`; the next welcome replaces it whole, so a bot
 deleted while the link was down is gone.
 
 A command is built by the screen after its own question; `request_of` gives the host's request, `LinkHostControl.send`
 makes one request id and calls the bridge's `command`, and the host's own gate and audit answer. If the link is cut
 while the command waits, the caller gets `NO_ANSWER` with the id, the command is not sent again, and the host's
-audit says whether it ran. The Resume of a HALTED bot answers with the proposal and its fingerprint in words;
+audit says whether it ran, and the dispatcher refuses another command on that bot until it is settled. The Resume of a HALTED bot answers with the proposal and its fingerprint in words;
 `proposal_in` reads the fingerprint, and the tab's Confirm resume names that proposal and no other.
 
 ## Built: a backtest from the workbench (EPIC-040D)

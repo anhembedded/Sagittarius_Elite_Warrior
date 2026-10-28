@@ -11,6 +11,7 @@ import threading
 from dataclasses import replace
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
     HostControlReply,
@@ -24,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_requ
     NOT_CARRIED_RENAME,
     NOT_CARRIED_START_EDITS,
     proposal_in,
+    request_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
@@ -39,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot import (
     EditBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
+    PauseBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
     ResumeBotCommand,
@@ -188,6 +193,7 @@ def test_while_disconnected_queries_answer_the_last_data_and_commands_are_not_se
 
     assert {bot.bot_id for bot in listed.bots} == {BTC.bot_id, ETH.bot_id}  # type: ignore[attr-defined]
     assert refused.message == DISCONNECTED_WORDS  # type: ignore[attr-defined]
+    assert refused.refusal is None  # type: ignore[attr-defined]
     assert tab.host.door.sent == []
 
 
@@ -216,7 +222,7 @@ def test_a_command_in_flight_when_the_link_is_cut_is_never_sent_again() -> None:
     assert not result.accepted  # type: ignore[attr-defined]
     assert door.sent[0][0] in result.message  # type: ignore[attr-defined]
     assert len(door.sent) == 1
-    assert [u.request_id for u in tab.control.unanswered] == [door.sent[0][0]]
+    assert [u.request_id for u in tab.unanswered.entries()] == [door.sent[0][0]]
 
 
 def test_a_bot_the_host_never_read_shows_a_gap_in_words_not_a_default(
@@ -261,3 +267,75 @@ def test_confirm_resume_lays_the_proposal_the_screen_was_shown_and_no_other(
     confirm = tab.host.door.sent[1][1]
     assert confirm.action is HostControlAction.CONFIRM_RESUME
     assert confirm.proposal == "0a1b2c3d"
+
+
+def test_a_second_command_on_a_bot_whose_last_one_is_lost_is_refused_not_sent() -> None:
+    host = VpsHost()
+    door = BlockingDoor()
+    host.door = door
+    tab = VpsTabWorld(host).start()
+    dispatcher, _ = build_dispatcher(tab)
+    first = threading.Thread(
+        target=lambda: dispatcher.dispatch(
+            StopBotCommand, StopBotCommand(ETH.bot_id, ExposureHandling.KEEP)
+        )
+    )
+    first.start()
+    assert door.arrived.wait(timeout=5)
+    tab.cut()
+    first.join(timeout=10)
+    tab.wait_up()  # the supervisor redials; the new link does not settle the lost command
+    door.release.set()
+
+    again = dispatcher.dispatch(
+        StopBotCommand, StopBotCommand(ETH.bot_id, ExposureHandling.KEEP)
+    )
+    elsewhere = dispatcher.dispatch(PauseBotCommand, PauseBotCommand(BTC.bot_id))
+    tab.stop()
+
+    lost_id = door.sent[0][0]
+    assert not again.accepted  # type: ignore[attr-defined]
+    assert lost_id in again.message  # type: ignore[attr-defined]
+    assert elsewhere.accepted  # type: ignore[attr-defined]
+    assert [s[1].bot_id for s in door.sent] == [ETH.bot_id, BTC.bot_id]
+
+
+@pytest.mark.parametrize(
+    ("command", "sends_the_venue"),
+    [
+        (StartBotCommand(ETH.bot_id), False),
+        (StartBotCommand(ETH.bot_id, real_money_confirmed=True), True),
+        (ResumeBotCommand(ETH.bot_id), False),
+        (ResumeBotCommand(ETH.bot_id, real_money_confirmed=True), True),
+        (StopBotCommand(ETH.bot_id, ExposureHandling.KEEP), False),
+        (
+            StopBotCommand(
+                ETH.bot_id, ExposureHandling.KEEP, real_money_confirmed=True
+            ),
+            True,
+        ),
+        (ConfirmBotResumeCommand(ETH.bot_id, "0a1b2c3d"), False),
+        (
+            ConfirmBotResumeCommand(ETH.bot_id, "0a1b2c3d", real_money_confirmed=True),
+            True,
+        ),
+    ],
+    ids=[
+        "start",
+        "start-yes",
+        "resume",
+        "resume-yes",
+        "stop",
+        "stop-yes",
+        "confirm",
+        "confirm-yes",
+    ],
+)
+def test_the_venue_is_typed_only_when_the_person_answered_the_question(
+    command: object, sends_the_venue: bool
+) -> None:
+    sent = request_of(command, {ETH.bot_id: ETH})
+
+    assert isinstance(sent, HostControlRequest)
+    assert (sent.confirmed_venue == ETH.venue.value) is sends_the_venue
+    assert sent.confirmed_venue is None or sent.confirmed_venue == ETH.venue.value

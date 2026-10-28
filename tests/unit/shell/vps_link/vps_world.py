@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.shell.vps_link.link_host_world import (
     IHostWorldListener,
     LinkHostWorld,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_link.unanswered_ledger import (
+    UnansweredLedger,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_session import (
     SessionPorts,
 )
@@ -107,6 +110,7 @@ class _Watch(ILinkObserver, IHostWorldListener):
         self.market = threading.Semaphore(0)
         self.down = threading.Semaphore(0)
         self.changed: list[tuple[str, bool]] = []
+        self.file_changed = threading.Semaphore(0)
 
     def on_status(self, status: LinkStatus) -> None:
         assert self.world is not None
@@ -130,6 +134,9 @@ class _Watch(ILinkObserver, IHostWorldListener):
     def on_market(self, market: object) -> None:
         self.market.release()
 
+    def on_file_changed(self, kind: str) -> None:
+        self.file_changed.release()
+
 
 class VpsTabWorld:
     """A running link to a `VpsHost`: the world, the control, and what the tests wait on."""
@@ -151,7 +158,8 @@ class VpsTabWorld:
         self._watch = _Watch()
         self.world = LinkHostWorld(ROOTS, self._watch)
         self._watch.world = self.world
-        self.control = LinkHostControl(self.world, ROOTS)
+        self.unanswered = UnansweredLedger()
+        self.control = LinkHostControl(self.world, ROOTS, self.unanswered)
         self.supervisor = LinkSupervisor(
             profile, self._transports.registry(), DESK_HELLO, self._watch
         )
@@ -162,10 +170,19 @@ class VpsTabWorld:
         # The statuses before the welcome (connecting) are not "the link went down".
         while self._watch.down.acquire(blocking=False):
             pass
+        self.drain_file_changes()
         return self
 
     def wait_up(self) -> None:
         assert self._watch.up.acquire(timeout=BOUND_S), "the link did not come up"
+
+    def wait_file_changed(self) -> None:
+        """Waits for the next change of a host file's look (after any that came with the snapshot)."""
+        assert self._watch.file_changed.acquire(timeout=BOUND_S), "no file event came"
+
+    def drain_file_changes(self) -> None:
+        while self._watch.file_changed.acquire(blocking=False):
+            pass
 
     def wait_bot_changed(self) -> None:
         assert self._watch.bot_changed.acquire(timeout=BOUND_S), "no bot event came"
