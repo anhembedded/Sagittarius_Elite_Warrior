@@ -222,7 +222,7 @@ screen. The parts, from the screen outward:
   nothing. A command while the link is down is refused in words and not sent
   (`DISCONNECTED_WORDS`), and so is a command on a bot whose earlier command was lost with the link
   (`bots/contracts/i_unanswered_commands.py` → `IUnansweredCommands`, kept by `shell/vps_link/unanswered_ledger.py` →
-  `UnansweredLedger` until the host's audit settles it), because a second press would apply the first twice; a query or command the tab does not offer raises
+  `UnansweredLedger` until the host's audit settles it), because a second press would apply the first twice (Stop and Pause, which only reduce exposure, pass both this block and the one-command-at-a-time claim); a query or command the tab does not offer raises
   `remote_requests.py` → `NotOfferedInVpsTabError`.
 - `bots/adapters/remote_host/remote_queries.py` → `RemoteQueries` answers the nine queries the screen asks
   from one `HostWorld` (`bots/contracts/host_world.py`, the port `i_host_world.py` → `IHostWorld`). Where a

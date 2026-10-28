@@ -42,9 +42,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot import (
     EditBotCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
-    PauseBotCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
     ResumeBotCommand,
 )
@@ -267,37 +264,6 @@ def test_confirm_resume_lays_the_proposal_the_screen_was_shown_and_no_other(
     confirm = tab.host.door.sent[1][1]
     assert confirm.action is HostControlAction.CONFIRM_RESUME
     assert confirm.proposal == "0a1b2c3d"
-
-
-def test_a_second_command_on_a_bot_whose_last_one_is_lost_is_refused_not_sent() -> None:
-    host = VpsHost()
-    door = BlockingDoor()
-    host.door = door
-    tab = VpsTabWorld(host).start()
-    dispatcher, _ = build_dispatcher(tab)
-    first = threading.Thread(
-        target=lambda: dispatcher.dispatch(
-            StopBotCommand, StopBotCommand(ETH.bot_id, ExposureHandling.KEEP)
-        )
-    )
-    first.start()
-    assert door.arrived.wait(timeout=5)
-    tab.cut()
-    first.join(timeout=10)
-    tab.wait_up()  # the supervisor redials; the new link does not settle the lost command
-    door.release.set()
-
-    again = dispatcher.dispatch(
-        StopBotCommand, StopBotCommand(ETH.bot_id, ExposureHandling.KEEP)
-    )
-    elsewhere = dispatcher.dispatch(PauseBotCommand, PauseBotCommand(BTC.bot_id))
-    tab.stop()
-
-    lost_id = door.sent[0][0]
-    assert not again.accepted  # type: ignore[attr-defined]
-    assert lost_id in again.message  # type: ignore[attr-defined]
-    assert elsewhere.accepted  # type: ignore[attr-defined]
-    assert [s[1].bot_id for s in door.sent] == [ETH.bot_id, BTC.bot_id]
 
 
 @pytest.mark.parametrize(

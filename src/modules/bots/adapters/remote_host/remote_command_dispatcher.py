@@ -20,13 +20,14 @@ Capability: Answer the Bots screen's queries and carry its commands from a remot
     Status: stable
 
 @par A command is never sent twice
-This class sends once. A command lost in flight comes back from the link as a `NO_ANSWER` reply, shown as such;
+This class sends once, and holds a bot to one command at a time (`_begin`). A command lost in flight comes back from the link as a `NO_ANSWER` reply, shown as such;
 the host's audit knows whether it ran (`EPIC-047E`'s reconcile reads it by the same request id).
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, replace
 from typing import Final
 
@@ -68,6 +69,13 @@ logger = logging.getLogger("App.VpsTab")
 #: How long a command waits for the host's recorded answer; under the bridge's own 30 s ceiling, over the 10 s
 #: a resume proposal takes (`PROPOSAL_REPLY_WAIT_S`).
 COMMAND_WAIT_S: Final = 15.0
+
+
+#: The verbs that only reduce what a bot holds or places. They pass the two blocks below (an unknown outcome and a
+#: command in flight): applied twice they do the same as once, and the one control that lowers exposure is never
+#: the one withheld. Every other verb is harmful when applied twice, or cannot be taken back.
+REDUCES_EXPOSURE: Final = frozenset({HostControlAction.STOP, HostControlAction.PAUSE})
+IN_FLIGHT_WORDS = "A command on this bot is still waiting for the host's answer: wait for it before sending another."
 
 
 def unknown_outcome_words(request_ids: tuple[str, ...]) -> str:
@@ -112,6 +120,8 @@ class RemoteCommandDispatcher(ICommandDispatcher):
         self._queries = queries
         self._local = local
         self._proposals: dict[str, str] = {}
+        self._lock = threading.Lock()
+        self._in_flight: set[str] = set()
 
     def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
         if handler_class is AssessBotQuery:
@@ -140,10 +150,30 @@ class RemoteCommandDispatcher(ICommandDispatcher):
                 translated.bot_id,
             )
             return _refusal(DISCONNECTED_WORDS, translated.bot_id)
+        if translated.action in REDUCES_EXPOSURE:
+            return self._send(translated)
         pending = self._unanswered.request_ids_for(translated.bot_id)
         if pending:
             return _refusal(unknown_outcome_words(pending), translated.bot_id)
-        return self._send(translated)
+        if not self._begin(translated.bot_id):
+            return _refusal(IN_FLIGHT_WORDS, translated.bot_id)
+        try:
+            return self._send(translated)
+        finally:
+            self._end(translated.bot_id)
+
+    def _begin(self, subject: str) -> bool:
+        """Claims the subject for one command; `False` when another waits on the host. The screen's own
+        action tracker serialises its buttons, but the guarantee "never applied twice" does not rest on it."""
+        with self._lock:
+            if subject in self._in_flight:
+                return False
+            self._in_flight.add(subject)
+            return True
+
+    def _end(self, subject: str) -> None:
+        with self._lock:
+            self._in_flight.discard(subject)
 
     def _send(self, request: HostControlRequest) -> BotCommandResult:
         reply = self._control.send(request, COMMAND_WAIT_S)
