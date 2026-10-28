@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
     FuturesLoaded,
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
@@ -49,11 +50,16 @@ class GetPlanRiskFactsQueryHandler(IQueryHandler[GetPlanRiskFactsQuery, PlanRisk
         found = self._lookup.find(query.bot_id)
         if isinstance(found, BotCommandResult):
             return PlanRiskUnavailable(found.message)
-        snapshot = self._facts.read(found.bot)
-        if isinstance(snapshot, FuturesLoaded):
-            return PlanRiskFacts(snapshot.facts.symbol_setting, snapshot.facts.brackets)
-        if isinstance(snapshot, ExchangeUnavailable):
-            return PlanRiskUnavailable(snapshot.reason)
-        if isinstance(snapshot, ExchangeChecking):
-            return PlanRiskUnavailable("the venue's facts are still being read")
-        return PlanRiskUnavailable(_NO_POSITION_RISK)
+        return plan_risk_of(self._facts.read(found.bot))
+
+
+def plan_risk_of(snapshot: VenueSnapshot) -> PlanRiskRead:
+    """What a venue's snapshot says the plan can be liquidated by. Pure, so the desktop that was
+    told the snapshot judges it with the host's words (`EPIC-047E`)."""
+    if isinstance(snapshot, FuturesLoaded):
+        return PlanRiskFacts(snapshot.facts.symbol_setting, snapshot.facts.brackets)
+    if isinstance(snapshot, ExchangeUnavailable):
+        return PlanRiskUnavailable(snapshot.reason)
+    if isinstance(snapshot, ExchangeChecking):
+        return PlanRiskUnavailable("the venue's facts are still being read")
+    return PlanRiskUnavailable(_NO_POSITION_RISK)

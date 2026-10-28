@@ -648,6 +648,23 @@ step sizes, which the orders, fills and ladder tables are quoted in from then on
 (`bots_view_model.py` → `BotsViewModel.learn_market`); before it, on the first selection of a venue and
 symbol, the tables keep the formatter's magnitude rule.
 
+## Built: the VPS tab reads and commands a host (EPIC-047E)
+
+*What happens when the VPS tab is asked for a bot's detail, and when a person presses Start, and on which thread?*
+
+A read is a query the screen sends as always. `RemoteCommandDispatcher.dispatch` answers it on the pool thread from
+the latest `HostWorld` (`LinkHostWorld.current`, an immutable value swapped under a lock by the link's thread), so
+it waits on nothing and never reaches a network. The picture is filled at each welcome from the bridge's snapshot,
+then kept by events: a bot's file by revision, the host's three files (`facts`, `market`, `reads`) by their own
+revision and liveness. A cut leaves the picture and flips `connected`; the next welcome replaces it whole, so a bot
+deleted while the link was down is gone.
+
+A command is built by the screen after its own question; `request_of` gives the host's request, `LinkHostControl.send`
+makes one request id and calls the bridge's `command`, and the host's own gate and audit answer. If the link is cut
+while the command waits, the caller gets `NO_ANSWER` with the id, the command is not sent again, and the host's
+audit says whether it ran. The Resume of a HALTED bot answers with the proposal and its fingerprint in words;
+`proposal_in` reads the fingerprint, and the tab's Confirm resume names that proposal and no other.
+
 ## Built: a backtest from the workbench (EPIC-040D)
 
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the

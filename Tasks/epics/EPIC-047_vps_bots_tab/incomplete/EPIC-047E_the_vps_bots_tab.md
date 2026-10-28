@@ -1,6 +1,6 @@
 # EPIC-047E — The VPS Bots tab shows and controls the host's bots with the Bots tab's own classes
 
-**Status:** 🔵 Backlog
+**Status:** 🟡 In progress — PR 1 of 3 in review (the remote backend behind the screen's doors, no Qt)
 **Source:** the owner's request of 2026-10-24: *"2 modules share everything"* (charter O4) and the delegation settled as G2, G3 and G5; charter objectives O1, O2, O3, O5, O7 and acceptance AC1, AC3, AC4, AC7, AC8, AC10 (the owner, 2026-10-27: the VPS tab connects to nothing at Binance).
 **Risk:** 🔴 — it sends real-money commands from the desktop to the host; the tab must show which host and which account it is on, and refuse commands while disconnected.
 **Complexity:** L — a second backend for the same screen, the connection line, the read-only state and the "Add to VPS" flow.
@@ -48,5 +48,32 @@ Tier: unit, architecture and offscreen UI on a fake host; then the full gate. AC
 ## 6. Docs touched
 `Docs/MODULES/bots/` (building blocks and runtime: the second backend, the connection line), `Docs/SPEC/` (a use case for the VPS tab, one file per use case), `Docs/LEARNING/` page on the design with [EPIC-047G](EPIC-047G_the_runbook_for_the_vps_link.md).
 
+## Split into three pull requests (proposed to the coordinator before building, 2026-10-27)
+| PR | Holds | Acceptance it moves | Depends on |
+| :-: | :--- | :--- | :-: |
+| 1 | The remote backend, no Qt: the screen's queries answered from the host's published facts, the screen's commands carried as the host's requests, the link's picture of the host, the events on a private bus, the host-backed candle feed, the honest state line; the AC10 guard and runtime test | AC1 (data side), AC3 and AC4 (command side), AC10, offline (D5), version words (already 047D's) | 047D, 047H, 048B |
+| 2 | The tab: a second `ScreenDescriptor`, the VPS composition of `BotsDependencies`, the connection line widget, the host picker, the typed real-money question, Backtest and exchange-symbol controls hidden, `preview.py`, the class-identity test (AC7), offscreen UI tests, AC8 frames | AC7, AC8, O5 (the widget), D6, AC10 contrast test | PR 1 |
+| 3 | Add to VPS (Scenario 2), the reconcile after a cut (AC6), arm and disarm a strategy, AC2 timing, `Docs/SPEC/`, the learning page, task closed | AC6, AC3 (strategy rows), Add to VPS, AC2 | PR 2 |
+
 ## Implementation notes (written when done)
-Not written: not started.
+### PR 1 — the remote backend behind the doors (in review)
+**Reuse (`capabilities.md`):** `ICommandDispatcher` (used: a second implementation, the screen is untouched), `IHostControl` (used: the link implements it), `LinkSupervisor` / `ILinkObserver` / `RevisionGate` (used: 047D), `MemoryEventBus` (used as the tab's private bus), `ICandleFeed` (a second implementation), the handlers' own pure functions (`venue_choices_of`, `plan_risk_of`, `host_run_facts`, extracted from the handlers so the host and the desktop run one rule), `occupancy_of`, `export_plan`. Nothing in `ui/` changed.
+
+**Where it lives, and why.** The bots-specific part is `modules/bots/adapters/remote_host/` (it names the queries and commands); the part that needs the transport and the operations documents is `shell/vps_link/`, because a module may not import `support/wire/desk` and `operations` is imported by the shell alone. They meet at two ports in `bots/contracts/`: `IHostWorld` (what the host last published) and `IHostControl` (`core/`). The decoded `BotList` reaches the shell through `bots/link.py` → `decoded_bot_list`, as `BotList` is an application result.
+
+**Decisions (agent, under the Constitution; the coordinator may veto):**
+1. *Answers from a value, not from a service.* `RemoteQueries.answer` is a function of one immutable `HostWorld`; the dispatcher never waits on the link for a read, so the screen's pool is never held by a slow VPS.
+2. *A gap is a sentence.* A fact the host never published is `NOT_PUBLISHED_BY_THE_HOST` in the problem field the screen already shows; the Run facts have no honest default (the caps), so that read fails and Start keeps waiting (`NotPublishedError`), as the screen does for a failed read.
+3. *A Start that carries unsaved edits is refused with "Save the changes first".* The in-process Start saves the edits only if the bot is ready; two host requests cannot promise that, and an edit saved by a Start the host then refuses would change a stored bot the person did not agree to. A rename is refused for the same reason. This changes nothing a command does on the Bots tab; the VPS tab sends less. (Owner may want Save-then-Start in one act; that is a host verb, not this tab.)
+4. *The answer to the real-money question travels as the venue typed.* A command that carries `real_money_confirmed` sends `confirmed_venue = the bot's venue`, as `--confirm-venue` does; the host judges it. The tab composition (PR 2) must make the question a typed one (G3, AC4): this slice does not ask anything.
+5. *A refusal in the host's words has no `BotRefusal` code.* The wire carries none, and an invented code would claim a reason the host never gave; `refusal` is `None` and the screen shows the words (it reads no code).
+6. *Confirm resume names the proposal the screen was shown.* The host's confirmation requires a fingerprint; the Resume reply prints it in words, `proposal_in` reads it (pinned by a test against the host's own sentence), and the dispatcher keeps the last one per bot.
+7. *A command lost in flight is `NO_ANSWER` and is never sent again.* Its id is in `LinkHostControl.unanswered` for PR 3's reconcile.
+8. *The Connect step's account snapshot is put together from three published reads* (exchange facts, planner inputs, symbol rules), each with the host's read time; `holdings` is empty because the host publishes the bot's balances and not the account's list, and nothing in `bots` reads it (`SpotHolding` is forbidden in `bots` anyway).
+
+**Open for the owner (not decided here):** the epic's O5 asks the line to show the exchange account *masked* ("Futures Mainnet account …1a2b"). The host's facts carry whether a venue has a key and no part of it (`HostHeldFacts`, 047B), so the line says which venues hold a key. Publishing a masked tail is derived from a secret: the owner's call.
+
+**Verification (PR 1).** `tests/unit/shell/vps_link/` runs the real `LinkSupervisor`, `LinkHostWorld` and `LinkHostControl` against the real `BridgeSession` over the bridge tests' fake ports: the picture follows snapshot, events, a cut and the next welcome; every query the screen asks; every command with a host verb reaches the host's door as that verb (checked against the parity table); a disconnected tab answers its last data and sends nothing; a command in flight at a cut is sent once; the chart and ticks come from the host and freeze offline. Mutations checked red: sending while disconnected; confirming the venue on every command; a Binance import in the tab's closure (the static guard found a namespace package the first version of it missed). AC10: `test_the_vps_tab_reaches_no_binance_client.py` (closure of 375 modules, baseline 0) and `test_the_vps_tab_opens_no_connection_to_the_exchange.py` (a clean interpreter loads no exchange client; a whole session opens no socket beyond the loopback, with a control that shows the recorder catches one). Not run: the zero-call test with the Bots tab composed beside it (PR 2), the owner's VPS.
+
+## Owner steps (pending, marked honestly)
+Live connect, the side-by-side with `M bot show`, the screenshots on the real link and the testnet dry run need the owner's machine and VPS: not run.

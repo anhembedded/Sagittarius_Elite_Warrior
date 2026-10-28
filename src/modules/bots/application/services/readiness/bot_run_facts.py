@@ -9,7 +9,7 @@ budget of the parameters on screen itself, through `run_facts_for` (`EPIC-048B`)
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
@@ -67,34 +67,53 @@ class BotRunFactsReader:
     ) -> BotRunFacts:
         """Every Run fact but the budget, which `run_facts_for` judges from the parameters
         (`GetBotRunFactsQuery`, `EPIC-048B`)."""
-        problem = self._venue_problem(venue)
-        holder = ""
-        if not problem:
-            held = self._ports.get(venue).trading_session.lease_holder(symbol)
-            named_already = {
-                bot_owner_id(bot_id),
-                bot_owner_id(occupancy.symbol_holder),
-            }
-            holder = held if held and held not in named_already else ""
-        return BotRunFacts(
-            RunFacts(
-                venue_problem=problem,
-                other_active_bot=occupancy.symbol_holder,
-                venue_full_of=occupancy.venue_full_of,
-                venue_recovering=occupancy.venue_recovering,
-                lease_holder=holder,
-            ),
-            self._caps,
+        enabled = self._ports.enabled()
+        held = (
+            self._ports.get(venue).trading_session.lease_holder(symbol)
+            if not venue_problem_of(venue, enabled)
+            else ""
         )
+        return host_run_facts(bot_id, venue, enabled, held or "", occupancy, self._caps)
 
-    def _venue_problem(self, venue: TradingVenue) -> str:
-        if bot_profile_of(venue, GRID_MARKETS) is None:
-            return (
-                f"{venue.display_name} is not a {SPOT_TITLE} venue this app trades on"
-            )
-        if venue not in self._ports.enabled():
-            return f"{venue.display_name} is not enabled"
-        return ""
+
+def venue_problem_of(venue: TradingVenue, enabled: Collection[TradingVenue]) -> str:
+    """Why `venue` cannot run a Spot Grid, or `""`. Pure, so a desktop that holds only the
+    host's published `enabled` list judges it with the words the host would use (`EPIC-047E`)."""
+    if bot_profile_of(venue, GRID_MARKETS) is None:
+        return f"{venue.display_name} is not a {SPOT_TITLE} venue this app trades on"
+    if venue not in enabled:
+        return f"{venue.display_name} is not enabled"
+    return ""
+
+
+def host_run_facts(
+    bot_id: str,
+    venue: TradingVenue,
+    enabled: Collection[TradingVenue],
+    lease_holder: str,
+    occupancy: VenueOccupancy,
+    caps: OwnerBudgetCaps,
+) -> BotRunFacts:
+    """The Run facts from what the host holds: `lease_holder` is whoever holds the symbol's lease
+    (`""` for nobody). The one place they are put together, for the host's own reader and for the
+    desktop that was told them (`EPIC-047E`)."""
+    problem = venue_problem_of(venue, enabled)
+    named_already = {bot_owner_id(bot_id), bot_owner_id(occupancy.symbol_holder)}
+    holder = (
+        lease_holder
+        if not problem and lease_holder and lease_holder not in named_already
+        else ""
+    )
+    return BotRunFacts(
+        RunFacts(
+            venue_problem=problem,
+            other_active_bot=occupancy.symbol_holder,
+            venue_full_of=occupancy.venue_full_of,
+            venue_recovering=occupancy.venue_recovering,
+            lease_holder=holder,
+        ),
+        caps,
+    )
 
 
 def run_facts_for(host: BotRunFacts, config: Mapping[str, str]) -> RunFacts:

@@ -8,6 +8,8 @@ ungated; it never reaches the exchange). The answer holds a venue and a few word
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_choices.query import (
     GetVenueChoicesQuery,
@@ -46,26 +48,9 @@ class GetVenueChoicesQueryHandler(IQueryHandler[GetVenueChoicesQuery, VenueChoic
 
     def execute(self, query: GetVenueChoicesQuery) -> VenueChoices:
         enabled = self._contexts.enabled()
-        markets = frozenset(
-            market
-            for kind in self._kinds.kinds()
-            for market in kind.supported_profiles()
-        )
-        choices = [
-            VenueChoice(venue, self._connection_of(venue, enabled))
-            for venue in TradingVenue
-            if _runs_bots(venue) and plan_market_of(venue) in markets
-        ]
-        return VenueChoices(
-            tuple(
-                sorted(
-                    choices,
-                    key=lambda choice: (
-                        choice.closed_reason is not None,
-                        choice.connection != KEY_SAVED,
-                    ),
-                )
-            )
+        return venue_choices_of(
+            self._kinds,
+            lambda venue: self._connection_of(venue, enabled),
         )
 
     def _connection_of(
@@ -75,6 +60,33 @@ class GetVenueChoicesQueryHandler(IQueryHandler[GetVenueChoicesQuery, VenueChoic
             return NOT_ENABLED
         saved = self._contexts.get(venue).credentials_provider.resolve().credentials
         return KEY_SAVED if saved is not None else NO_KEY
+
+
+def venue_choices_of(
+    kinds: IBotKindCatalog, connection_of: Callable[[TradingVenue], str]
+) -> VenueChoices:
+    """The venue pickers' list, from how each venue's connection reads. Pure, so the desktop
+    that was told which venues the host enables and which have a key lists them in the same
+    order with the same words (`EPIC-047E`)."""
+    markets = frozenset(
+        market for kind in kinds.kinds() for market in kind.supported_profiles()
+    )
+    choices = [
+        VenueChoice(venue, connection_of(venue))
+        for venue in TradingVenue
+        if _runs_bots(venue) and plan_market_of(venue) in markets
+    ]
+    return VenueChoices(
+        tuple(
+            sorted(
+                choices,
+                key=lambda choice: (
+                    choice.closed_reason is not None,
+                    choice.connection != KEY_SAVED,
+                ),
+            )
+        )
+    )
 
 
 def _runs_bots(venue: TradingVenue) -> bool:
