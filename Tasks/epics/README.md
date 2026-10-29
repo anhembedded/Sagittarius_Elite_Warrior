@@ -10,16 +10,23 @@ hoặc vào bảng Kanban chính làm cả 2 nơi đều khó đọc.
 
 ```text
 Tasks/epics/
-├── README.md                          # File này
-└── EPIC-XXX_slug_ngan_gon/
-    ├── README.md                      # Tổng quan epic: mục tiêu, bối cảnh, danh sách task con
-    ├── incomplete/                    # Task con CHƯA xong — task mới luôn tạo ở đây
-    │   └── EPIC-XXXA_ten_task.md
-    ├── completed/                     # Task con ĐÃ xong, dời từ incomplete/ sang
-    │   └── EPIC-XXXB_ten_task.md
-    └── cancelled/                     # Task con bị HUỶ — chỉ tạo khi thật sự cần
-        └── EPIC-XXXC_ten_task.md
+├── README.md                          # This file
+└── EPIC-XXX_short_slug/
+    ├── README.md                      # Hub: outcome, phases, goals, sub-tasks — always
+    ├── TRACKING.md                    # Gantt (required), PR matrix, log — always
+    ├── charter/README.md              # Clarify — only when the epic needs it
+    ├── discover/README.md             # System survey — only when needed
+    ├── derisk/README.md, R1_*.md      # Experiments — only when needed
+    ├── decisions/DECISION_*.md        # Decision records
+    ├── incomplete/                    # Unfinished children — a new child is always created here
+    │   └── EPIC-XXXA_task_name.md
+    ├── completed/                     # Finished children, moved from incomplete/
+    │   └── EPIC-XXXB_task_name.md
+    └── cancelled/                     # Cancelled children — created only when needed
+        └── EPIC-XXXC_task_name.md
 ```
+
+- **Layout since 2026-10-29** (modelled on [EPIC-047](EPIC-047_vps_bots_tab/README.md)): which phase folders an epic writes, and why it skips the others, is decided by [`create-epic`](../../.claude/skills/create-epic/SKILL.md) §4 and recorded on the README's `Phases:` line. Epics created earlier keep their flat layout so the links into them stay valid; EPIC-047 moves into the new one when it closes.
 
 - **ID Epic**: `EPIC-XXX` (số tăng dần riêng, không dùng chung pool với
   `BOT-XXX`/`BUG-XXX` — độc lập, giống cách `BUG-XXX` đã tách khỏi `BOT-XXX`

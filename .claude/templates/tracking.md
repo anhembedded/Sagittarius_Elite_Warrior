@@ -1,5 +1,5 @@
 ---
-description: The format of an epic's TRACKING.md under Tasks/epics/EPIC-nnn_slug/. Copy it, fill every brace, delete this front matter and instructional comments.
+description: The format of an epic's TRACKING.md under Tasks/epics/EPIC-nnn_slug/ — required for every epic; its Gantt is required and refreshed whenever a child changes state. Copy it, fill every brace, delete this front matter and instructional comments.
 ---
 
 # EPIC-{nnn} — Tracking
@@ -15,7 +15,7 @@ description: The format of an epic's TRACKING.md under Tasks/epics/EPIC-nnn_slug
 
 ## 1. Schedule (Gantt)
 
-<!-- Keep bars high-level (one per milestone/PR). Replace sample bars with your epic timeline. -->
+<!-- Required. One bar per child task (or per pull request of a split child) and one per phase gate; every child of the epic README has a bar. Replace the sample bars with the epic's timeline. Whenever a child starts, finishes or is cancelled, the same pull request refreshes its bar (`active` → `done`, the real dates; a cancelled bar keeps its dates and gains "(cancelled)") and moves the dependent bars. Validate the block per .claude/skills/execute-task/references/mermaid-validation.md before committing. -->
 ```mermaid
 gantt
     title EPIC-nnn - Epic Title
