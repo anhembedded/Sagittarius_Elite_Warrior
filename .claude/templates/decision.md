@@ -1,5 +1,5 @@
 ---
-description: The format of a decision record (ADR, Nygard 2011) inside an epic — DECISION_{date}_{slug}.md. Copy it, fill every brace, delete this front matter.
+description: The format of a decision record (ADR, Nygard 2011) inside an epic — decisions/DECISION_{date}_{slug}.md. Copy it, fill every brace, delete this front matter.
 ---
 
 # ADR — {the decision as one sentence}

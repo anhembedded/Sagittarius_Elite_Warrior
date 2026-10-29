@@ -8,8 +8,10 @@ description: The format of an epic's README.md under Tasks/epics/EPIC-nnn_slug/ 
 - **Status:** {🔵 Planned / 🟡 Phase n in progress / ✅ Done (YYYY-MM-DD) / ❌ Cancelled (YYYY-MM-DD; reason)}
 - **Repositories:** {Elite / Engine / both}
 - **Origin:** {PRO-nnn, or the user's words quoted once and translated}
-- **North star:** {the design document under `Docs/` this epic implements; the epic summarises it and does not repeat it}
-- **Decisions (optional):** {DECISION_{date}_{slug}.md — one line per record}
+- **North star:** {the design document under `Docs/` this epic implements, or its `charter/README.md`; the epic summarises it and does not repeat it}
+- **Phases:** {one entry per optional phase, written or skipped with the reason (section 4 of the create-epic skill), e.g. `Charter: PRO-nnn · Discover: written · De-risk: skipped — no irreversible assumption`}
+- **Tracking:** the epic's `TRACKING.md` (required; its Gantt is refreshed whenever a child changes state)
+- **Decisions (optional):** {decisions/DECISION_{date}_{slug}.md — one line per record}
 - **Dependencies:** {other epic/task links and prerequisites, or None}
 
 ---
