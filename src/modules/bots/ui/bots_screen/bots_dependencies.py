@@ -42,11 +42,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host im
     BotChartPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import panel_for
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.i_strategy_commands import (
+    IStrategyCommands,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategies_wiring import (
     strategies_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.venue_strategies import (
-    VenueStrategies,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
@@ -73,7 +73,12 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from .bots_dialogs import BotsDialogs
 from .bots_view import BotsView
 from .venue_candles import venue_candles
-from .vps_backend import vps_arrangement, vps_binder, vps_dependencies
+from .vps_backend import (
+    vps_arrangement,
+    vps_binder,
+    vps_dependencies,
+    vps_strategies,
+)
 
 
 @dataclass(frozen=True)
@@ -112,7 +117,8 @@ class BotsDependencies:
 
 #: Makes the strategy commands: the dialogs, a line for the Output pane, the status line.
 type MakeStrategies = Callable[
-    [BotsDialogs, Callable[[str], None], Callable[[str, bool], None]], VenueStrategies
+    [BotsDialogs, Callable[[str], None], Callable[[str, bool], None]],
+    IStrategyCommands,
 ]
 
 
@@ -182,9 +188,5 @@ def backend_for(container: IContainer) -> BotsBackend:
     if IVpsTab not in container.registrations():
         return BotsBackend(dependencies, strategies)
     tab = container.resolve(IVpsTab)
-    return BotsBackend(
-        vps_dependencies(tab, dependencies),
-        strategies,
-        vps_arrangement(tab),
-        vps_binder,
-    )
+    vps = vps_dependencies(tab, dependencies)
+    return BotsBackend(vps, vps_strategies(vps), vps_arrangement(tab), vps_binder)

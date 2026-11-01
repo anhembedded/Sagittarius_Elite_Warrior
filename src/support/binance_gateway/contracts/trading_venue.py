@@ -54,6 +54,12 @@ class TradingVenue(str, Enum):
         return self.value
 
     @property
+    def identifier(self) -> str:
+        """@brief The venue's own word in a command to the host (`bot arm-strategy --venue`, `confirmed_venue`):
+        written into a request, never shown to a person (`display_name` is what a screen shows)."""
+        return self.value
+
+    @property
     def market_type(self) -> MarketType | None:
         """@brief The market this venue trades, or `None` when trading is off."""
         if self in _FUTURES:

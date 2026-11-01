@@ -24,6 +24,7 @@ from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     ADD_SUBJECT,
+    STRATEGY_SUBJECT,
     HostControlAction,
     HostControlReply,
     HostControlRequest,
@@ -66,6 +67,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ArmStrategyForHostCommand,
+    DisarmStrategyForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
@@ -137,6 +142,19 @@ def request_of(
                     BotRefusal.NOT_FOUND, UNKNOWN_BOT, command.bot_id
                 )
             return _on_bot(command, bot)
+        case ArmStrategyForHostCommand():
+            return HostControlRequest(
+                HostControlAction.ARM_STRATEGY,
+                STRATEGY_SUBJECT,
+                command.confirmed_venue,
+                strategy_venue=command.venue,
+            )
+        case DisarmStrategyForHostCommand():
+            return HostControlRequest(
+                HostControlAction.DISARM_STRATEGY,
+                STRATEGY_SUBJECT,
+                strategy_venue=command.venue,
+            )
         case _:
             raise NotOfferedInVpsTabError(command)
 

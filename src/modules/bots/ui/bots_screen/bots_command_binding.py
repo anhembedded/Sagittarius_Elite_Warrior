@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
-from ..strategies.venue_strategies import VenueStrategies
+from ..strategies.i_strategy_commands import IStrategyCommands
 from .bot_action_rules import BotAction, export_plan_availability
 from .bot_chart_host import BotChartHost
 from .bots_chart_commands import BotsChartCommands
@@ -48,7 +48,7 @@ ANOTHER_ACTION_REASON = "Another action is still running."
 def bind_bots_commands(
     binder: ICommandBinder,
     view_model: BotsViewModel,
-    strategies: VenueStrategies,
+    strategies: IStrategyCommands,
     charts: BotChartHost | None = None,
     view: BotsView | None = None,
 ) -> None:

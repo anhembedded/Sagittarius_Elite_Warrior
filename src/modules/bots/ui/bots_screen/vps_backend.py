@@ -9,7 +9,8 @@
     Add to VPS (`EPIC-047E` PR 3);
   · the line above the tab: host, keys, connected or not, the facts' age (charter O5).
 Its strategy commands are the Bots tab's own, over the venues of the container the tab is given: the shell hands it a container
-that serves none of this computer's venues, so Arm and Disarm are disabled here until they travel to the host (PR 3).
+that serves none of this computer's venues, so its strategy commands are `HostStrategies` (`vps_strategies`): Arm and Disarm carried
+to the host's own gate (`EPIC-047E` PR 3b).
 """
 
 from __future__ import annotations
@@ -25,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_w
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.backtest_workbenches import (
     WorkbenchUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
+    BotsDialogs,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import BotsView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.first_shown import (
     FirstShown,
@@ -38,6 +42,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.typed_venue_dialo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_command_ids import (
     PrefixedBinder,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.host_strategies import (
+    HostStrategies,
+    HostStrategyPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.i_strategy_commands import (
+    IStrategyCommands,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -48,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dependencies import (
         BotsDependencies,
+        MakeStrategies,
     )
 
 NO_BACKTEST_HERE = (
@@ -89,6 +101,33 @@ def vps_arrangement(tab: IVpsTab) -> Callable[[BotsView], None]:
         FirstShown(view, lambda: _opened(tab, view))
 
     return arrange
+
+
+def vps_strategies(dependencies: BotsDependencies) -> MakeStrategies:
+    """Arm and Disarm strategy carried to the host (`HostStrategies`), over the doors the tab was given."""
+
+    def make(
+        dialogs: BotsDialogs,
+        tell: Callable[[str], None],
+        status: Callable[[str, bool], None],
+    ) -> IStrategyCommands:
+        return HostStrategies(
+            HostStrategyPorts(
+                commands=dependencies.commands,
+                threads=dependencies.threads,
+                venues=tuple(
+                    venue
+                    for venue in TradingVenue
+                    if venue is not TradingVenue.DISABLED
+                ),
+                choose=dialogs.choose_venue,
+                allow_real_money=dependencies.consent.confirmed,
+                set_status=status,
+                tell=tell,
+            )
+        )
+
+    return make
 
 
 def vps_binder(binder: ICommandBinder) -> ICommandBinder:

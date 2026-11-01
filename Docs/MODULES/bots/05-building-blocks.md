@@ -308,6 +308,24 @@ fence line, below):
   (`tests/unit/shell/vps_link/test_a_fill_reaches_the_tab_within_the_budget.py`); the measured figure on the owner's VPS is
   an owner step.
 
+## Built: Arm and Disarm strategy in the VPS tab (EPIC-047E PR 3b)
+
+The presenter reaches its strategy commands through `bots/ui/strategies/i_strategy_commands.py` → `IStrategyCommands` (two
+members, `subscriptions` and `bind_commands`); `VenueStrategies` arms this computer's venues, `host_strategies.py` →
+`HostStrategies` carries the same two commands to the VPS host, and `vps_backend.py` → `vps_strategies` is how the VPS
+backend chooses it (`BotsBackend.strategies`).
+
+- The host arms **its saved arming** (owner decision O2 of `EPIC-045G`): the tab asks only which venue
+  (`HostStrategies.arm`, `disarm`), and a mainnet arm asks the real-money question by typing the venue, as every command to
+  the host does (`TypedVenueConsent`); the host judges it (`confirmed_venue`) and answers in its own words, told in the Output
+  pane and the status line. Disarm sells and cancels nothing and asks nothing more.
+- `remote_requests.py` → `request_of` turns `ArmStrategyForHostCommand` and `DisarmStrategyForHostCommand` into the host's
+  `arm-strategy` and `disarm-strategy` verbs (subject `STRATEGY_SUBJECT`, venue in `strategy_venue`).
+- The dispatch runs off the UI thread (`IThreadManager.submit`, answered through a `UiThreadRelay`); both commands are off
+  while one waits, and a command that went out while the venue question was open wins.
+- Not shown: what is armed on the host (the host publishes no armed-strategy fact; the tab does not guess). The host's
+  words say whether an arm was refused because something is armed already.
+
 ## Built: the types that cross the remote link (EPIC-047A)
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.
