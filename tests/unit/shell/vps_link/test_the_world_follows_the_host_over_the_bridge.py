@@ -87,9 +87,13 @@ def test_a_cut_keeps_the_last_picture_and_marks_it_disconnected() -> None:
 def test_the_next_welcome_corrects_what_changed_while_the_link_was_down(
     tab: VpsTabWorld,
 ) -> None:
+    # The tab reconnects at once (a zero delay), so the host's change must wait for the link to be down and the
+    # reconnect must wait for the change: without the hold the new snapshot could be taken before the bot is removed.
+    tab.hold_reconnects()
     tab.cut()
     tab.wait_down()
     tab.host.bots.remove(minimal_bot().bot_id)
+    tab.release_reconnects()
 
     tab.wait_up()
 
