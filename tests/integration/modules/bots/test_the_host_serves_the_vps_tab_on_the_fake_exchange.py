@@ -82,7 +82,10 @@ ROOTS = WireRoots(OPERATIONS_WIRE_ROOTS)
 WITHIN_S = 8.0
 LIMIT = 2400
 SOFT_LINE = int(LIMIT * 0.7)
-NOW = datetime(2026, 10, 27, 9, 0, tzinfo=UTC)
+#: One day before the real clock, never a fixed date: the host reads the exchange's history, which
+#: reaches back `MAX_HISTORY_LOOKBACK` (30 days), so a fixed bot creation date goes stale
+#: (`BUG-279`, `pitfalls/tests.md` #9).
+NOW = datetime.now(UTC).replace(microsecond=0) - timedelta(days=1)
 
 
 def _seed(
