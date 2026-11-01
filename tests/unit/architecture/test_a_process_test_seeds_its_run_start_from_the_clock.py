@@ -3,6 +3,9 @@
 The host a `presentation` process test launches reads the real clock, and a run older than
 `MAX_HISTORY_LOOKBACK` (30 days) reconciles another way: a fixed `run_started_at` is true until
 the calendar passes it (`pitfalls/tests.md` #9).
+
+Limit: a stop-gap. It reads one directory and matches by file (`run_started_at` and `datetime(20xx,`
+in the same file); it does not see `fromisoformat`, `date(...)` or `tests/integration/modules/`.
 """
 
 import re

@@ -22,10 +22,10 @@ FAILED ...::test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_l
 `_seed_a_bot_that_ran` (`test_control_of_a_running_host_process.py:101` at `f7176b3`) writes `run_started_at = 2026-10-01`. The host process is a real subprocess and reads the real clock. `checkpointed_replay.py:108` (`now - start.read_from > MAX_HISTORY_LOOKBACK`, 30 days, `i_account_history_reader.py:75`) takes the "no checkpoint covers it" path once the run is older than 30 days, so the Stop's reconcile does not finish and the bot stays `STOPPING`. The product is right (the venue's history really stops at 30 days); the test mixed a fixed instant with a real clock. Same family as `BUG-269` (`pitfalls/tests.md` #9).
 
 ## Fix
-Test only: the run starts `datetime.now(UTC) - timedelta(days=1)`. Assertions unchanged. A guard (`tests/unit/architecture/test_a_process_test_seeds_its_run_start_from_the_clock.py`) fails an `integration/presentation` test that writes `run_started_at` and a fixed `datetime(202x, …)` literal in one file.
+Test only: the run starts `datetime.now(UTC) - timedelta(days=1)`. Assertions unchanged. A guard (`tests/unit/architecture/test_a_process_test_seeds_its_run_start_from_the_clock.py`) fails an `integration/presentation` test that writes `run_started_at` and a fixed `datetime(202x, …)` literal in one file (a stop-gap: file-level, `presentation` only; the follow-up replaces it with a wider scan). `test_run_process_beside_other_processes.py` also seeds its bot's `created_at` from the clock.
 
 ## Regression test
-`tests/integration/presentation/test_control_of_a_running_host_process.py::test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_listens_on_no_port` — red on `f7176b3` for the reason above; green after, also under `faketime -f +45d` and `+400d`.
+`tests/integration/presentation/test_control_of_a_running_host_process.py::test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_listens_on_no_port` — red on `f7176b3` for the reason above; green after, on the real clock (2026-11-01). Clock shifting with `faketime` proved nothing: it breaks the host-process tests with or without the fix (a zero-day `faketime -f +0d` already fails 14 of 36 bots tests that pass on the real clock).
 
 ## Verification
-See the pull request.
+See the pull request. The `faketime` +45d failures in `tests/integration/modules/bots` (16 timeouts, 1 thread assertion) are a harness artifact, not dates: the same 36 tests pass in 22 s on the real clock and 14 fail under `+0d`. `RUN_STARTED = 2026-10-08` (`bots_module_world.py:96`) turns 30 days old on 2026-11-07 and is the follow-up bug.
