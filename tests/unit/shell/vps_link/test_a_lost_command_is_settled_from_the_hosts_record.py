@@ -110,3 +110,19 @@ def test_with_the_link_down_nothing_is_settled_and_the_person_is_told_it_could_n
     assert remaining == 1
     assert "could not be checked" in told[0]
     assert len(tab.unanswered.entries()) == 1
+
+
+def test_two_reconciles_of_one_command_tell_the_person_once() -> None:
+    """A second pass that finds the entry already settled says nothing (`settle` reports whether it removed it)."""
+    tab, door, _ = a_lost_start_then_back_up()
+    _, told = _reconciler(tab)
+    second = CommandReconciler(tab.unanswered, tab.control, told.append)
+    request_id = door.sent[0][0]
+    entry = tab.unanswered.entries()[0]
+
+    assert tab.unanswered.settle(request_id) is True
+    second._settle(entry, None)
+    tab.stop()
+
+    assert told == []
+    assert tab.unanswered.settle(request_id) is False

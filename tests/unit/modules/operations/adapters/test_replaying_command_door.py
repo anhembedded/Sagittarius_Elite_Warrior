@@ -15,14 +15,20 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.replaying_command_door import (
     ReplayingCommandDoor,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
+    ControlAuditEntry,
+    ControlVerdict,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.adapters.host_control_files_world import (
     HeldProbe,
     HostAndWriter,
     posix_only,
+    write_command_file,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.control_world import (
     BOT,
     MovableClock,
+    command,
 )
 
 REQUEST_ID = "0123456789abcdef0123456789abcdef"
@@ -135,3 +141,59 @@ def test_a_command_file_the_host_has_not_taken_yet_is_waiting_not_unseen(
 
     assert recorded is not None
     assert recorded.status is HostControlStatus.NO_ANSWER
+
+
+@posix_only
+def test_an_unseen_id_the_desktop_gave_up_cannot_run_when_an_old_bridge_delivers_it_late(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-047E`, review of PR 3a: "never reached the host" must stay true. The old bridge process may still read the
+    bytes of the lost command after the new link asked; the question fences the id, so neither path runs it."""
+    rig = HostAndWriter(tmp_path)
+    assert _door(rig).outcome_of(REQUEST_ID) is None
+
+    late = _door(rig).send(
+        REQUEST_ID, STOP, 0.0
+    )  # the old bridge's door, a moment later
+    rig.processor.poll()
+
+    assert late.status is HostControlStatus.REJECTED
+    assert "withdrawn" in late.message
+    assert rig.executor.executed == []
+
+
+@posix_only
+def test_a_file_the_old_bridge_wrote_after_the_fence_is_refused_by_the_host(
+    tmp_path: Path,
+) -> None:
+    """The other half: a send that passed its own check before the fence and wrote the file after it. The host's
+    `has_seen` reads the file again, so the fence reaches a host that loaded its audit long before."""
+    rig = HostAndWriter(tmp_path)
+    assert (
+        rig.audit.has_seen(REQUEST_ID) is False
+    )  # the host's audit has read the file already
+    assert _door(rig).outcome_of(REQUEST_ID) is None
+    write_command_file(rig.directory, command(REQUEST_ID))
+
+    rig.processor.poll()
+
+    assert rig.executor.executed == []
+    assert [e.verdict.value for e in rig.audit._read_entries()][-1] == "replayed"
+
+
+@posix_only
+def test_a_real_outcome_outranks_the_fence_if_the_command_ran_after_all(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path)
+    assert _door(rig).outcome_of(REQUEST_ID) is None
+    rig.audit.record(
+        ControlAuditEntry(
+            REQUEST_ID, MovableClock().now(), ControlVerdict.EXECUTED, "stop", BOT, "ok"
+        )
+    )
+
+    recorded = _door(rig).outcome_of(REQUEST_ID)
+
+    assert recorded is not None
+    assert recorded.status is HostControlStatus.DONE

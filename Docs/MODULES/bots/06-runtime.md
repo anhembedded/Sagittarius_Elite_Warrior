@@ -685,7 +685,9 @@ When the link is cut while a command waits, `LinkHostControl.send` returns `NO_A
 `CommandReconciler.reconcile`: for each entry it sends the bridge an `outcome` call (read-only) and settles it from the host's
 audit. The person is told by a toast in the host's words (ran, did not run, or never reached the host: send it again if
 wanted); an entry the host has recorded nothing for stays blocked and is asked again up to `PASSES` times. A link lost again
-or a bridge without the call leaves the ledger as it was and says so. No path sends the command again.
+or a bridge without the call leaves the ledger as it was and says so. When the asks run out the person is told once that the bot
+stays blocked. For an id the host never saw, the bridge's `outcome` first fences it, so a late delivery from the old bridge
+process is refused by id. No path sends the command again.
 
 ## Built: a backtest from the workbench (EPIC-040D)
 

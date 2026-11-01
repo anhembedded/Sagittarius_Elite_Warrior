@@ -7,9 +7,11 @@ nothing to settle no thread is started.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
+import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
     HostControlRequest,
@@ -20,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.shell.vps_link.command_reconciler import (
 from Sagittarius_Elite_Warrior.src.shell.vps_link.reconciling_observer import (
     PASSES,
     PAUSE_S,
+    STILL_UNSETTLED_WORDS,
     ReconcilingObserver,
 )
 from Sagittarius_Elite_Warrior.src.shell.vps_link.unanswered_ledger import (
@@ -61,18 +64,21 @@ class _Reconciler(CommandReconciler):
         return self._remaining.pop(0)
 
 
-def _observer(
-    ledger: UnansweredLedger, remaining: list[int]
-) -> tuple[
-    ReconcilingObserver, _Inner, _Reconciler, list[Callable[[], None]], list[float]
-]:
-    inner, reconciler = _Inner(), _Reconciler(remaining)
-    spawned: list[Callable[[], None]] = []
-    slept: list[float] = []
-    observer = ReconcilingObserver(
-        inner, ledger, reconciler, spawned.append, slept.append
-    )
-    return observer, inner, reconciler, spawned, slept
+class _Rig:
+    def __init__(self, ledger: UnansweredLedger, remaining: list[int]) -> None:
+        self.inner = _Inner()
+        self.reconciler = _Reconciler(remaining)
+        self.spawned: list[Callable[[], None]] = []
+        self.slept: list[float] = []
+        self.told: list[str] = []
+        self.observer = ReconcilingObserver(
+            self.inner,
+            ledger,
+            self.reconciler,
+            self.told.append,
+            self.spawned.append,
+            self.slept.append,
+        )
 
 
 def _ledger_with_one() -> UnansweredLedger:
@@ -82,54 +88,82 @@ def _ledger_with_one() -> UnansweredLedger:
 
 
 def test_every_call_still_reaches_the_world() -> None:
-    observer, inner, *_ = _observer(UnansweredLedger(), [])
+    rig = _Rig(UnansweredLedger(), [])
 
-    observer.on_status(LinkStatus(LinkState.CONNECTED, "connected"))
-    observer.on_event(None, {})  # type: ignore[arg-type]
-    observer.on_link_up(None, None)  # type: ignore[arg-type]
+    rig.observer.on_status(LinkStatus(LinkState.CONNECTED, "connected"))
+    rig.observer.on_event(None, {})  # type: ignore[arg-type]
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
 
-    assert inner.calls == ["status", "event", "up"]
+    assert rig.inner.calls == ["status", "event", "up"]
 
 
 def test_a_link_up_with_nothing_unsettled_starts_no_thread() -> None:
-    observer, _, _, spawned, _ = _observer(UnansweredLedger(), [])
+    rig = _Rig(UnansweredLedger(), [])
 
-    observer.on_link_up(None, None)  # type: ignore[arg-type]
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
 
-    assert spawned == []
+    assert rig.spawned == []
 
 
 def test_a_link_up_with_a_lost_command_asks_the_host_after_the_world_took_its_snapshot() -> (
     None
 ):
-    observer, inner, reconciler, spawned, _ = _observer(_ledger_with_one(), [0])
+    rig = _Rig(_ledger_with_one(), [0])
 
-    observer.on_link_up(None, None)  # type: ignore[arg-type]
-    assert inner.calls == ["up"] and reconciler.passes == 0
-    spawned[0]()
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+    assert rig.inner.calls == ["up"] and rig.reconciler.passes == 0
+    rig.spawned[0]()
 
-    assert reconciler.passes == 1
+    assert rig.reconciler.passes == 1
+    assert rig.told == []
 
 
-def test_while_the_host_has_recorded_nothing_it_is_asked_again_a_bounded_number_of_times() -> (
+def test_while_the_host_has_recorded_nothing_it_is_asked_a_bounded_number_of_times_then_the_person_is_told_once() -> (
     None
 ):
-    observer, _, reconciler, spawned, slept = _observer(
-        _ledger_with_one(), [1] * PASSES
-    )
+    rig = _Rig(_ledger_with_one(), [1] * PASSES)
 
-    observer.on_link_up(None, None)  # type: ignore[arg-type]
-    spawned[0]()
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+    rig.spawned[0]()
 
-    assert reconciler.passes == PASSES
-    assert slept == [PAUSE_S] * (PASSES - 1)
+    assert rig.reconciler.passes == PASSES
+    assert rig.slept == [PAUSE_S] * (PASSES - 1)
+    assert rig.told == [STILL_UNSETTLED_WORDS]
 
 
 def test_it_stops_asking_once_everything_is_settled() -> None:
-    observer, _, reconciler, spawned, slept = _observer(_ledger_with_one(), [1, 0])
+    rig = _Rig(_ledger_with_one(), [1, 0])
 
-    observer.on_link_up(None, None)  # type: ignore[arg-type]
-    spawned[0]()
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+    rig.spawned[0]()
 
-    assert reconciler.passes == 2
-    assert slept == [PAUSE_S]
+    assert rig.reconciler.passes == 2
+    assert rig.slept == [PAUSE_S]
+    assert rig.told == []
+
+
+def test_a_second_run_while_the_first_still_sleeps_does_nothing() -> None:
+    """A flapping link starts a second thread; two of them would tell the person about one command twice."""
+    rig = _Rig(_ledger_with_one(), [1, 0])
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+    first, second = rig.spawned
+    rig.observer._sleep = lambda _s: second()  # type: ignore[method-assign]
+
+    first()
+
+    assert rig.reconciler.passes == 2  # the nested second run asked nothing
+
+
+def test_a_failure_in_the_thread_is_logged_under_the_tabs_namespace_not_lost(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    rig = _Rig(
+        _ledger_with_one(), []
+    )  # an empty script: the first ask raises IndexError
+    rig.observer.on_link_up(None, None)  # type: ignore[arg-type]
+
+    with caplog.at_level(logging.ERROR, logger="App.VpsTab"):
+        rig.spawned[0]()
+
+    assert any("[vps-command]" in record.getMessage() for record in caplog.records)

@@ -97,7 +97,8 @@ class CommandReconciler:
 
     def _settle(self, entry: UnansweredCommand, reply: HostControlReply | None) -> None:
         if reply is None:
-            self._ledger.settle(entry.request_id)
+            if not self._ledger.settle(entry.request_id):
+                return
             logger.info(
                 "[vps-command] request %s (%s) never reached the host; not sent again",
                 entry.request_id,
@@ -105,7 +106,8 @@ class CommandReconciler:
             )
             self._notify(never_reached_words(entry))
         elif reply.status in _SETTLED:
-            self._ledger.settle(entry.request_id)
+            if not self._ledger.settle(entry.request_id):
+                return
             logger.info(
                 "[vps-command] request %s (%s) settled on the host: %s",
                 entry.request_id,

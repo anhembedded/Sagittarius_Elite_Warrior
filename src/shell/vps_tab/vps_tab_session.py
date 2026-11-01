@@ -101,7 +101,10 @@ class VpsTabSession(IVpsTab):
         control = LinkHostControl(self._world, self._roots, self._ledger)
         #: Settles the commands a cut lost, from the host's record, on each reconnect; never sends one again.
         self._observer = ReconcilingObserver(
-            self._world, self._ledger, CommandReconciler(self._ledger, control, notify)
+            self._world,
+            self._ledger,
+            CommandReconciler(self._ledger, control, notify),
+            notify,
         )
         ports = RemoteHostPorts(
             self._world,

@@ -95,8 +95,8 @@ class LinkHostControl(IHostControl):
         if link is None:
             raise LinkLostError("not connected")
         data = link.call("outcome", {"request_id": request_id})
-        if data.get("reply") is None:
-            return None
+        if "reply" in data and data["reply"] is None:
+            return None  # an explicit null: the host fenced the id; a missing key is read as unreadable below
         return self._reply_of(data, request_id)
 
     def _reply_of(self, data: dict[str, object], request_id: str) -> HostControlReply:

@@ -24,8 +24,10 @@ class ICommandDoor(ABC):
 
     @abstractmethod
     def outcome_of(self, request_id: str) -> HostControlReply | None:
-        """What the host recorded for `request_id`, read-only: nothing is written, taken or run.
+        """What the host recorded for `request_id`; nothing is taken or run, and the only thing ever written is a fence.
 
         The settled outcome (`DONE`, `REFUSED` or `REJECTED`) with the host's words; `NO_ANSWER` in words while the command
-        still waits for the host or the host has recorded nothing yet; `None` when the host has never seen the id, so the
-        command never reached it (`EPIC-047E`: the desktop's reconcile of a command lost with the link)."""
+        still waits for the host or the host has recorded nothing yet; `None` when the host had never seen the id. Before
+        answering `None` the host **fences** the id (one audit line), so the answer stays true: a command the old bridge
+        process delivers late is refused by id, never run (`EPIC-047E`: the desktop's reconcile of a command lost with the
+        link, review of PR 3a)."""

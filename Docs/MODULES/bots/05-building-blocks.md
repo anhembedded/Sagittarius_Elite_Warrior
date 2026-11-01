@@ -277,12 +277,14 @@ screen is copied or subclassed (`tests/unit/architecture/test_the_vps_tab_is_the
 ## Built: a lost command is settled from the host's record, never re-run (EPIC-047E PR 3a)
 
 A command whose answer was lost with the link stays in the ledger and blocks its bot (above). After a reconnect the tab asks
-the host what it recorded, read-only, and settles the entry:
+the host what it recorded and settles the entry (the question runs nothing; for an id the host never saw it writes one
+fence line, below):
 
 - `support/wire/contracts/i_command_door.py` → `ICommandDoor.outcome_of` answers the host's recorded outcome
   as a `HostControlReply`, a `NO_ANSWER` in words while the file still waits or the host has recorded nothing yet, and `None`
   when the host never saw the id. `operations/adapters/directory_host_control.py` → `DirectoryHostControl.recorded_outcome`
-  reads the audit and the control directory and writes, takes and runs nothing; `replaying_command_door.py` →
+  reads the audit and the control directory, takes and runs nothing, and for an unseen id appends a **fence** (an `EXPIRED`
+  line, `host_command.py` → `FENCE_MESSAGE`) before it answers `None`; `replaying_command_door.py` →
   `ReplayingCommandDoor.outcome_of` gives it the bridge's id.
 - `support/wire/bridge/bridge_outcome_call.py` → `serve_outcome` is the bridge's `outcome` call (`{"request_id"}` →
   `{"reply": <reply> | null}`), added in `bridge_session.py` → `BridgeSession._answer`. Desktop and host are the same build
@@ -292,6 +294,12 @@ the host what it recorded, read-only, and settles the entry:
   host's words as ran or not run; never seen: told that it never reached the host and may be sent again; nothing yet: kept
   and asked again) and tells the person through `INotifier.notify`; `reconciling_observer.py` → `ReconcilingObserver` runs
   it on a short daemon thread after each welcomed link, `PASSES` times `PAUSE_S` apart while the host has recorded nothing.
+- **The fence keeps "never reached" true.** The old bridge process outlives the cut and may still read the bytes of the lost
+  command after the new link asked. A fenced id is refused by the old door's own pre-check (`send` replays the fence as
+  "withdrawn") and by the host (`jsonl_host_control_audit.py` → `JsonlHostControlAudit.has_seen` reads the file again on a
+  miss, so a host that loaded its audit long ago still honours a fence another process wrote); a real outcome of the same id
+  outranks a fence (`final_entry_of`). The order is check, fence, check again, so a command that appears in between is told
+  as waiting, never as unseen.
 - **Nothing here sends a command again.** A lost Start, Edit, Add or Resume that never arrived must not run minutes later
   without a fresh answer to the real-money question, so a re-send is always a new action of the person with a new request id
   (decision of 2026-10-28, recorded in the task). Stop and Pause still pass the block while it stands.
