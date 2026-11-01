@@ -85,7 +85,7 @@ class LinkHostControl(IHostControl):
         return self._reply_of(data, request_id)
 
     def outcome_of(self, request_id: str) -> HostControlReply | None:
-        """What the host recorded for `request_id`, read-only (the bridge's `outcome` call): the settled outcome, a
+        """What the host recorded for `request_id` (the bridge's `outcome` call; it runs nothing and fences an id the host never saw): the settled outcome, a
         `NO_ANSWER` while it has recorded nothing yet, or `None` when the host never saw the command.
 
         @raise LinkLostError the link is down or went down before the answer.

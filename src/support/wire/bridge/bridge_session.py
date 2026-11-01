@@ -20,7 +20,7 @@ a test gives it a list and a number.
        · `subscribe` — from now on, one **event** per change;
        · `command` — `{"request_id": <32 hex>, "request": sew.host-control-request/1,
          "wait_s": n}` through the host's control door; the reply is `sew.host-control-reply/1`;
-       · `outcome` — `{"request_id": <32 hex>}`: what the host recorded for that command id, read-only
+       · `outcome` — `{"request_id": <32 hex>}`: what the host recorded for that command id (it fences an id the host never saw)
          (`bridge_outcome_call.py`; `EPIC-047E`).
   4. **events** — `{"type":"event","seq":n,"kind":"bot",…}` for every write to a bot's file (found
      by listing the directory every `POLL_S`), `kind":"facts"` when the host-facts file's revision

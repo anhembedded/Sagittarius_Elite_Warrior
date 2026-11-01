@@ -682,7 +682,7 @@ confirmed venue.
 When the link is cut while a command waits, `LinkHostControl.send` returns `NO_ANSWER` and files the request id in the
 `UnansweredLedger`; the bot is blocked for every verb but Stop and Pause. On the next welcomed link
 `ReconcilingObserver.on_link_up` lets `LinkHostWorld` take its snapshot, then a daemon thread runs
-`CommandReconciler.reconcile`: for each entry it sends the bridge an `outcome` call (read-only) and settles it from the host's
+`CommandReconciler.reconcile`: for each entry it sends the bridge an `outcome` call (it runs nothing; for an id the host never saw it appends a fence) and settles it from the host's
 audit. The person is told by a toast in the host's words (ran, did not run, or never reached the host: send it again if
 wanted); an entry the host has recorded nothing for stays blocked and is asked again up to `PASSES` times. A link lost again
 or a bridge without the call leaves the ledger as it was and says so. When the asks run out the person is told once that the bot

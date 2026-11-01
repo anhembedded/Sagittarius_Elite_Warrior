@@ -1,14 +1,15 @@
 """`EPIC-047E` (AC6) — settles the commands the link lost, from what the host recorded, and never sends one again.
 
 @details A command whose answer was lost with the link sits in the `UnansweredLedger`, and its bot is blocked for the next
-command (the one-press-twice guarantee). After a reconnect this asks the host, read-only (`LinkHostControl.outcome_of`, the
-bridge's `outcome` call), what it recorded for each request id:
+command (the one-press-twice guarantee). After a reconnect this asks the host, for each request id (`LinkHostControl.outcome_of`, the
+bridge's `outcome` call; the question runs nothing), what it recorded:
 
   · a settled outcome (done, refused, rejected) → the entry leaves the ledger and the person is told, in the host's words,
     that it ran or was refused;
   · nothing recorded yet (the file still waits, or the host took it and has not written the outcome) → the entry stays and
     the bot stays blocked; it is asked again;
-  · the host never saw the id → the command never reached it: the entry leaves the ledger and the person is told nothing
+  · the host never saw the id → it has now fenced the id (`DirectoryHostControl.recorded_outcome`), so the command can never
+    run afterwards; it never reached the host: the entry leaves the ledger and the person is told nothing
     happened and that they may send it again if they still want it. **It is not sent again by this class**: a lost
     Start, Edit, Add or Resume must not run minutes later without a fresh answer to the real-money question (decision of
     2026-10-28, `EPIC-047E` PR 3). Any re-send is a new action of the person, with a new request id.

@@ -1,7 +1,7 @@
 """`EPIC-047E` (AC6, decision of 2026-10-28) - after a cut, what became of a lost command is read from the host, never re-run.
 
 The business promise: a command whose answer was lost with the link is settled from what the host recorded for its request
-id (read-only); the person is told in the host's words whether it ran, or that it never reached the host and may be sent
+id (the question runs nothing; for an unseen id the host fences it); the person is told in the host's words whether it ran, or that it never reached the host and may be sent
 again; the bot's block lifts only then; and nothing in this path sends a command again, so a lost Start cannot run late.
 """
 

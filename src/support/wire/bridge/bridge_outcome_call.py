@@ -1,10 +1,12 @@
-"""`EPIC-047E` — the bridge's `outcome` call: what the host recorded for a command id, read-only.
+"""`EPIC-047E` — the bridge's `outcome` call: what the host recorded for a command id; it runs and takes nothing, and fences an id the host never saw.
 
 @details `{"type":"call","id":n,"method":"outcome","params":{"request_id":<32 hex>}}` is answered by
 `{"reply": <sew.host-control-reply/1> | null}`: the recorded outcome (or, in words, that the command still waits for the
 host), and `null` when the host has never seen the id. The desktop asks it after a reconnect for a command whose answer was
 lost with the link, so it learns what happened without sending anything again (decision of 2026-10-28, `EPIC-047E`: a lost
-command is never re-executed by itself). It reads the host's audit and control directory and writes nothing, so it runs on
+command is never re-executed by itself). It reads the host's audit and control directory and, for an id the host never saw, appends one fence line first (so a
+late delivery by the old bridge process is refused by id: `DirectoryHostControl.recorded_outcome`); it is a read of local
+files and one append, so it runs on
 the session's thread like `snapshot`.
 """
 
