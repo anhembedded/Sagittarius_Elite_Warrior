@@ -53,11 +53,6 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
-    # `BUG-278` - a presentation process test seeds a run's start from the clock.
-    (
-        "tests/unit/architecture/test_a_process_test_seeds_its_run_start_from_the_clock.py",
-        (("tests/integration/presentation", "*.py"),),
-    ),
     # `PRO-014` - every `Deferred("package.module:attribute")` in `src/` resolves.
     (
         "tests/unit/architecture/test_every_deferred_literal_resolves.py",

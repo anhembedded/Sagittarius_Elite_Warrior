@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 PRESENTATION_TESTS = (
-    Path(__file__).resolve().parents[2] / "integration" / "presentation"
+    Path(__file__).resolve().parents[3] / "tests" / "integration" / "presentation"
 )
 FIXED_DATE = re.compile(r"datetime\(\s*20\d\d\s*,")
 
