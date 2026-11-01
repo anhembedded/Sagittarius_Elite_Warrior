@@ -1,7 +1,7 @@
 # BOT-236 — A waiting Grid shows the best price it heard, so a wick between two samples is visible
 
 **Status:** ✅ Done (2026-10-27)
-**Board:** A Grid waiting on a trigger keeps the lowest (or highest, for a SHORT) price it heard while waiting, the observed kline wick included, and says it beside the last price; it shows the miss of [BUG-276](bug_report/incomplete/BUG-276_a_waiting_grid_with_a_trigger_price_never_sees_a_wick_that_touched_the_trigger.md) and enters nothing.
+**Board:** A Grid waiting on a trigger keeps the lowest (or highest, for a SHORT) price it heard while waiting, the observed kline wick included, and says it beside the last price; it shows the miss of [BUG-276](bug_report/completed/BUG-276_a_waiting_grid_with_a_trigger_price_never_sees_a_wick_that_touched_the_trigger.md) and enters nothing.
 **Source:** the owner, 2026-10-27, on the BUG-276 design: *"OK duyet"* (translated: "OK, approved"); the coordinator allowed this slice to start alone ([decision D6](epics/EPIC-046_grid_trigger_price/DECISION_2026-10-27_a_triggered_entry_the_bot_cannot_miss.md)).
 **Risk:** 🟢 — no order behaviour changes; one optional runtime key is added.
 **Complexity:** S — one small watch class, one runtime key, one phrase.

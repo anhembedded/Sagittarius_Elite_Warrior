@@ -2,8 +2,8 @@
 
 - **Reported:** 2026-10-27, by the owner (bot `ixr5v8` `BNB_ANH`, `futures_mainnet`, `BNBUSDT`, range 733–748, trigger `price <= 735`): "The bot not start even the price have pass through the trigger price."
 - **Severity:** 🟠 P2 — the bot is safe (it places nothing), but it does not do what the owner's limit-style trigger promises; no money is lost, an entry is.
-- **Status:** Open — design direction accepted by the owner 2026-10-27, slice 1 (BOT-236) in review, the exchange-held entry awaits the owner's scope confirmation ([the decision record](../../epics/EPIC-046_grid_trigger_price/DECISION_2026-10-27_a_triggered_entry_the_bot_cannot_miss.md))
-- **Board:** A waiting futures Grid judges its trigger on one mark price read every 5 s, so a wick that touched the trigger between two samples (owner's 15m wick to about 734.7 under a 735 trigger) never opens it.
+- **Status:** ✅ Closed (2026-10-28): the display of the price the bot heard is delivered ([BOT-236](../../completed/BOT-236_a_waiting_grid_shows_the_best_price_it_heard.md), #748); the owner declined changing how the entry is placed, so the bot still judges its trigger on samples
+- **Board:** A waiting futures Grid judges its trigger on one mark price every 5 s, so a wick between two samples never opens it. Closed: the screen now shows the lowest price heard while waiting (BOT-236); an exchange-held entry order was considered and declined by the owner (2026-10-28).
 - **Context:** Use case run a Grid ([SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)) → `bots` → grid entry (`GridRangeEntry`, `GridPriceReaction`, `GridMarkExit`, `entry_gate`)
 - **Environment:** App at `master-warrior` `b12b95f`; the bot's host is the owner's. The bot's log lines were not yet supplied.
 
@@ -22,13 +22,10 @@ Established from code at `b12b95f`; the wick's exact timing against the bot's sa
 Spot has the same shape: `on_tick` passes `tick.last` only, so the kline low is discarded there too.
 
 ## Fix
-Pending the owner's decision on what "activate like a limit order" means when the price touched the trigger and moved away. See the decision record: sampling alone cannot meet it.
+Only the display half, by the owner's decision of 2026-10-28 ("không muốn làm lệnh trên sàn"): a waiting Grid keeps and shows the best price it heard, wick included, with no change to when or whether an order is placed ([BOT-236](../../completed/BOT-236_a_waiting_grid_shows_the_best_price_it_heard.md), PR #748). The exchange-held resting entry order (D1–D5 of the [decision record](../../epics/EPIC-046_grid_trigger_price/DECISION_2026-10-27_a_triggered_entry_the_bot_cannot_miss.md)) was declined, so a wick between two samples can still pass without opening the bot; the screen now tells the owner whether it happened.
 
 ## Regression test
-Pending: a waiting LONG bot whose price path dips to the trigger and returns between two samples must, per the decided rule, either enter at the trigger or stay waiting with the dip shown.
+The tests of BOT-236 (`test_a_waiting_bot_remembers_the_best_price_it_saw.py` and the ladder-text and runtime-codec cases) cover the display; none exists for the declined entry order.
 
 ## Verification
-Not run.
-
-## Suggested next steps
-Owner answers the decision record's open questions in the author session; the bot's log lines and the exact wick time are requested.
+BOT-236's gate on #748 (green) and its review (PASS). The owner's real bot was not re-run after the display shipped. The exact wick time against the bot's samples was never established (the bot's log lines were not supplied).
