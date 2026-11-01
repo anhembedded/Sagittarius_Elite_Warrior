@@ -18,6 +18,7 @@ application (the tab says which profile it is on).
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -34,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.remote_host_ports impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.module import remote_bots_dispatcher
 from Sagittarius_Elite_Warrior.src.shell.link_version import link_app_version
+from Sagittarius_Elite_Warrior.src.shell.vps_link.command_reconciler import (
+    CommandReconciler,
+)
 from Sagittarius_Elite_Warrior.src.shell.vps_link.host_candle_feed import (
     HostCandleFeed,
 )
@@ -47,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.shell.vps_link.link_host_control import (
     LinkHostControl,
 )
 from Sagittarius_Elite_Warrior.src.shell.vps_link.link_host_world import LinkHostWorld
+from Sagittarius_Elite_Warrior.src.shell.vps_link.reconciling_observer import (
+    ReconcilingObserver,
+)
 from Sagittarius_Elite_Warrior.src.shell.vps_link.unanswered_ledger import (
     UnansweredLedger,
 )
@@ -83,6 +90,7 @@ class VpsTabSession(IVpsTab):
         transports: TransportRegistry,
         local: ICommandDispatcher,
         kinds: IBotKindCatalog,
+        notify: Callable[[str], None],
     ) -> None:
         self._profiles = profiles
         self._transports = transports
@@ -90,9 +98,14 @@ class VpsTabSession(IVpsTab):
         self._bus = MemoryEventBus()
         self._world = LinkHostWorld(self._roots, HostEventPublisher(self._bus))
         self._ledger = UnansweredLedger()
+        control = LinkHostControl(self._world, self._roots, self._ledger)
+        #: Settles the commands a cut lost, from the host's record, on each reconnect; never sends one again.
+        self._observer = ReconcilingObserver(
+            self._world, self._ledger, CommandReconciler(self._ledger, control, notify)
+        )
         ports = RemoteHostPorts(
             self._world,
-            LinkHostControl(self._world, self._roots, self._ledger),
+            control,
             self._ledger,
             local,
         )
@@ -120,7 +133,7 @@ class VpsTabSession(IVpsTab):
             self._profile,
             self._transports,
             hello_of(self._roots, link_app_version()),
-            self._world,
+            self._observer,
         )
         self._supervisor.start()
         logger.info("[vps-tab] connecting profile %s", self._profile.name)

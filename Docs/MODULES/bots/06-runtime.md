@@ -677,6 +677,16 @@ the host does not see the typed text. A cancel or a wrong word sends no Start, R
 it is sent anyway, without `confirmed_venue`, because a Stop only reduces exposure; the host's own gate judges it without a
 confirmed venue.
 
+### After a cut: what became of a lost command (EPIC-047E PR 3a)
+
+When the link is cut while a command waits, `LinkHostControl.send` returns `NO_ANSWER` and files the request id in the
+`UnansweredLedger`; the bot is blocked for every verb but Stop and Pause. On the next welcomed link
+`ReconcilingObserver.on_link_up` lets `LinkHostWorld` take its snapshot, then a daemon thread runs
+`CommandReconciler.reconcile`: for each entry it sends the bridge an `outcome` call (read-only) and settles it from the host's
+audit. The person is told by a toast in the host's words (ran, did not run, or never reached the host: send it again if
+wanted); an entry the host has recorded nothing for stays blocked and is asked again up to `PASSES` times. A link lost again
+or a bridge without the call leaves the ledger as it was and says so. No path sends the command again.
+
 ## Built: a backtest from the workbench (EPIC-040D)
 
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the

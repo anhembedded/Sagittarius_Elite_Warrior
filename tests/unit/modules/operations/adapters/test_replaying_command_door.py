@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlRequest,
     HostControlStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
+    command_file_name,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.replaying_command_door import (
     ReplayingCommandDoor,
 )
@@ -86,3 +89,49 @@ def test_with_no_host_running_nothing_is_written(tmp_path: Path) -> None:
 
     assert reply.status is HostControlStatus.NOT_RUNNING
     assert [p.name for p in rig.directory.iterdir()] == []
+
+
+@posix_only
+def test_the_recorded_outcome_of_a_settled_id_is_what_the_host_wrote_and_nothing_runs_again(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-047E`: the desktop asks after a reconnect, read-only, what became of a command whose answer was lost."""
+    rig = HostAndWriter(tmp_path)
+    sent = _door(rig).send(REQUEST_ID, STOP, 5.0)
+
+    recorded = _door(rig).outcome_of(REQUEST_ID)
+
+    assert recorded is not None
+    assert (recorded.status, recorded.message, recorded.command_id) == (
+        sent.status,
+        sent.message,
+        sent.command_id,
+    )
+    assert len(rig.executor.executed) == 1
+
+
+@posix_only
+def test_an_id_the_host_never_saw_has_no_recorded_outcome_and_asking_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path)
+
+    recorded = _door(rig).outcome_of(REQUEST_ID)
+
+    assert recorded is None
+    assert [p.name for p in rig.directory.iterdir() if p.name != "audit.jsonl"] == []
+    assert rig.executor.executed == []
+
+
+@posix_only
+def test_a_command_file_the_host_has_not_taken_yet_is_waiting_not_unseen(
+    tmp_path: Path,
+) -> None:
+    """The host that is down or slow: the file is there, so the command is not 'never reached'."""
+    rig = HostAndWriter(tmp_path, host_alive=False)
+    (rig.directory / command_file_name(REQUEST_ID)).write_text("{}", encoding="utf-8")
+
+    recorded = _door(rig).outcome_of(REQUEST_ID)
+
+    assert recorded is not None
+    assert recorded.status is HostControlStatus.NO_ANSWER

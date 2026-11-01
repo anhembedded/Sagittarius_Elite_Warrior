@@ -274,6 +274,32 @@ screen is copied or subclassed (`tests/unit/architecture/test_the_vps_tab_is_the
   `vps_tab_builder.py` (the Bots presenter over a `VpsContainer` that answers the tab's private bus, the session and no local
   venue), `vps_tab_session.py` → `VpsTabSession` (the supervised link, started on the first show, stopped at quit).
 
+## Built: a lost command is settled from the host's record, never re-run (EPIC-047E PR 3a)
+
+A command whose answer was lost with the link stays in the ledger and blocks its bot (above). After a reconnect the tab asks
+the host what it recorded, read-only, and settles the entry:
+
+- `support/wire/contracts/i_command_door.py` → `ICommandDoor.outcome_of` answers the host's recorded outcome
+  as a `HostControlReply`, a `NO_ANSWER` in words while the file still waits or the host has recorded nothing yet, and `None`
+  when the host never saw the id. `operations/adapters/directory_host_control.py` → `DirectoryHostControl.recorded_outcome`
+  reads the audit and the control directory and writes, takes and runs nothing; `replaying_command_door.py` →
+  `ReplayingCommandDoor.outcome_of` gives it the bridge's id.
+- `support/wire/bridge/bridge_outcome_call.py` → `serve_outcome` is the bridge's `outcome` call (`{"request_id"}` →
+  `{"reply": <reply> | null}`), added in `bridge_session.py` → `BridgeSession._answer`. Desktop and host are the same build
+  (the handshake refuses a difference), so the call needs no version negotiation of its own.
+- `shell/vps_link/link_host_control.py` → `LinkHostControl.outcome_of` asks it over the link;
+  `shell/vps_link/command_reconciler.py` → `CommandReconciler` settles each ledger entry (a settled outcome: told in the
+  host's words as ran or not run; never seen: told that it never reached the host and may be sent again; nothing yet: kept
+  and asked again) and tells the person through `INotifier.notify`; `reconciling_observer.py` → `ReconcilingObserver` runs
+  it on a short daemon thread after each welcomed link, `PASSES` times `PAUSE_S` apart while the host has recorded nothing.
+- **Nothing here sends a command again.** A lost Start, Edit, Add or Resume that never arrived must not run minutes later
+  without a fresh answer to the real-money question, so a re-send is always a new action of the person with a new request id
+  (decision of 2026-10-28, recorded in the task). Stop and Pause still pass the block while it stands.
+- AC2: a fill is a write of the bot's file; `BridgeSession` looks at the bot files every `POLL_S` (0.1 s) and the screen
+  coalesces re-reads for `COALESCE_MS` (150 ms), so the tab's own part of the five seconds is a quarter of a second
+  (`tests/unit/shell/vps_link/test_a_fill_reaches_the_tab_within_the_budget.py`); the measured figure on the owner's VPS is
+  an owner step.
+
 ## Built: the types that cross the remote link (EPIC-047A)
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.

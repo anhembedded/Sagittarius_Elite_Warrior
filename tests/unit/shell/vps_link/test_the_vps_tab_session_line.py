@@ -27,7 +27,7 @@ from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.dispatcher_world import
 
 def _session() -> VpsTabSession:
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
-    return VpsTabSession(LinkProfiles(), TransportRegistry(), _Local(), kinds)
+    return VpsTabSession(LinkProfiles(), TransportRegistry(), _Local(), kinds, print)
 
 
 def test_before_the_first_show_the_line_does_not_claim_a_missing_profile() -> None:

@@ -12,7 +12,6 @@ import threading
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import HostControlAction
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_command_dispatcher import (
     IN_FLIGHT_WORDS,
-    RemoteCommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot import (
     EditBotCommand,
@@ -35,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.dispatcher_world import (
     ETH,
     BlockingDoor,
+    a_lost_start_then_back_up,
     build_dispatcher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.vps_world import (
@@ -43,30 +43,10 @@ from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.vps_world import (
 )
 
 
-def _a_lost_start_then_back_up() -> tuple[
-    VpsTabWorld, BlockingDoor, RemoteCommandDispatcher
-]:
-    host = VpsHost()
-    door = BlockingDoor()
-    host.door = door
-    tab = VpsTabWorld(host).start()
-    dispatcher, _ = build_dispatcher(tab)
-    first = threading.Thread(
-        target=lambda: dispatcher.dispatch(StartBotCommand, StartBotCommand(ETH.bot_id))
-    )
-    first.start()
-    assert door.arrived.wait(timeout=5)
-    tab.cut()
-    first.join(timeout=10)
-    tab.wait_up()
-    door.release.set()
-    return tab, door, dispatcher
-
-
 def test_stop_and_pause_pass_the_block_of_a_lost_command_the_other_verbs_do_not() -> (
     None
 ):
-    tab, door, dispatcher = _a_lost_start_then_back_up()
+    tab, door, dispatcher = a_lost_start_then_back_up()
 
     stop = dispatcher.dispatch(
         StopBotCommand, StopBotCommand(ETH.bot_id, ExposureHandling.KEEP)
@@ -117,7 +97,7 @@ def test_a_second_command_on_a_bot_while_one_waits_for_the_host_is_refused() -> 
 def test_a_second_start_on_a_bot_whose_first_was_lost_is_refused_with_the_request_id() -> (
     None
 ):
-    tab, door, dispatcher = _a_lost_start_then_back_up()
+    tab, door, dispatcher = a_lost_start_then_back_up()
 
     again = dispatcher.dispatch(StartBotCommand, StartBotCommand(ETH.bot_id))
     tab.stop()

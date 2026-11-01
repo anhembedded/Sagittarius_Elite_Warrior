@@ -135,6 +135,31 @@ class DirectoryHostControl(IHostControl):
             wrote = written.wrote
         return self._await_outcome(command, wait_s, wrote=wrote)
 
+    def recorded_outcome(self) -> HostControlReply | None:
+        """What the host recorded for this door's command id, read-only; nothing is written, taken or run.
+
+        The settled outcome as `send` would replay it; `NO_ANSWER` in words while the file still waits for the host
+        or the host took it and has recorded nothing yet; `None` when the host has never seen the id (the command
+        never reached it). The reconcile of a command lost with the link asks this (`EPIC-047E`)."""
+        command_id = self._new_command_id()
+        settled = self._audit.final_entry_of(command_id)
+        if settled is not None:
+            return _reply_of(settled)
+        name = command_file_name(command_id)
+        if (self._directory / claimed_name(name)).exists():
+            return HostControlReply(
+                HostControlStatus.NO_ANSWER,
+                "The host took the command and has recorded no outcome yet.",
+                command_id,
+            )
+        if (self._directory / name).exists():
+            return HostControlReply(
+                HostControlStatus.NO_ANSWER,
+                "The command is still waiting for the host to take it.",
+                command_id,
+            )
+        return None
+
     def _is_waiting_for_the_host(self, command_id: str) -> bool:
         """An earlier send of this id left its file for the host, or the host has taken it."""
         name = command_file_name(command_id)

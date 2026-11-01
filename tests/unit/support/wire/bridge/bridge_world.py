@@ -170,6 +170,15 @@ class FakeDoor(ICommandDoor):
             HostControlStatus.DONE, "stopped", "c" * 32, "b-0001"
         )
         self.failure: Exception | None = None
+        #: What `outcome_of` answers by id; an id never sent (and not set here) is one the host never saw.
+        self.outcomes: dict[str, HostControlReply | None] = {}
+        self.asked: list[str] = []
+
+    def outcome_of(self, request_id: str) -> HostControlReply | None:
+        self.asked.append(request_id)
+        if request_id in self.outcomes:
+            return self.outcomes[request_id]
+        return self.reply if any(sent[0] == request_id for sent in self.sent) else None
 
     def send(
         self, request_id: str, request: HostControlRequest, wait_s: float
