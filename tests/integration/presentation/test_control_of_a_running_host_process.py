@@ -18,7 +18,7 @@ import stat
 import subprocess
 import sys
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -96,9 +96,13 @@ def _seed_a_bot_that_ran(
     bot_id: str,
     state: BotLifecycleState = BotLifecycleState.RUNNING,
 ) -> Path:
-    """A bot (RUNNING unless said) with a run behind it (`run_started_at`): a stop has a run to close."""
+    """A bot (RUNNING unless said) with a run behind it (`run_started_at`): a stop has a run to close.
+
+    The run started a day ago by the real clock, because the host process under test reads that
+    clock: a fixed date ages past `MAX_HISTORY_LOOKBACK` (30 days) and the Stop reconciles another
+    way (`BUG-278`, `pitfalls/tests.md` #9)."""
     bots = data_root / "state" / "bots"
-    started = datetime(2026, 10, 1, tzinfo=UTC)
+    started = datetime.now(UTC) - timedelta(days=1)
     bot = Bot(
         BotId(bot_id),
         BotDefinition("grid one", "grid", TradingVenue.SPOT_TESTNET, "BTCUSDT", GRID),
