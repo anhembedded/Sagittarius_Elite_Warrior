@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.remote_host.remote_quer
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
+    StartBotCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.remote_host_ports import (
     RemoteHostPorts,
 )
@@ -28,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
     GridThresholds,
 )
 from Sagittarius_Elite_Warrior.tests.unit.shell.vps_link.vps_world import (
+    VpsHost,
     VpsTabWorld,
 )
 from Sagittarius_Elite_Warrior.tests.unit.support.wire.bridge.bridge_world import (
@@ -82,3 +86,25 @@ def build_dispatcher(
 
 def ask(dispatcher: RemoteCommandDispatcher, query: object) -> object:
     return dispatcher.dispatch(type(query), query)
+
+
+def a_lost_start_then_back_up() -> tuple[
+    VpsTabWorld, BlockingDoor, RemoteCommandDispatcher
+]:
+    """A Start sent to the host while the link was cut: the answer is lost, the link is back up, and the host's door
+    (released at last) has the command once."""
+    host = VpsHost()
+    door = BlockingDoor()
+    host.door = door
+    tab = VpsTabWorld(host).start()
+    dispatcher, _ = build_dispatcher(tab)
+    first = threading.Thread(
+        target=lambda: dispatcher.dispatch(StartBotCommand, StartBotCommand(ETH.bot_id))
+    )
+    first.start()
+    assert door.arrived.wait(timeout=5)
+    tab.cut()
+    first.join(timeout=10)
+    tab.wait_up()
+    door.release.set()
+    return tab, door, dispatcher

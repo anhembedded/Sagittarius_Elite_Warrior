@@ -84,6 +84,21 @@ class LinkHostControl(IHostControl):
             )
         return self._reply_of(data, request_id)
 
+    def outcome_of(self, request_id: str) -> HostControlReply | None:
+        """What the host recorded for `request_id` (the bridge's `outcome` call; it runs nothing and fences an id the host never saw): the settled outcome, a
+        `NO_ANSWER` while it has recorded nothing yet, or `None` when the host never saw the command.
+
+        @raise LinkLostError the link is down or went down before the answer.
+        @raise CallFailedError the bridge refused the call (a build without it).
+        @raise CallTimedOutError no answer in time."""
+        link = self._world.live_link()
+        if link is None:
+            raise LinkLostError("not connected")
+        data = link.call("outcome", {"request_id": request_id})
+        if "reply" in data and data["reply"] is None:
+            return None  # an explicit null: the host fenced the id; a missing key is read as unreadable below
+        return self._reply_of(data, request_id)
+
     def _reply_of(self, data: dict[str, object], request_id: str) -> HostControlReply:
         try:
             decoded = self._roots.decode(data.get("reply"))

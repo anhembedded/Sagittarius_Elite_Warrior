@@ -281,3 +281,34 @@ def test_the_same_id_may_be_sent_again_once_the_first_send_has_answered() -> Non
     desk.call("command", request_id=REQUEST_ID, request=request)
 
     assert len(desk.door.sent) == 2
+
+
+def test_the_outcome_call_asks_the_door_what_it_recorded_and_sends_nothing() -> None:
+    """`EPIC-047E`: after a reconnect the desktop learns what became of a lost command without re-sending it."""
+    desk = _greeted()
+    desk.door.outcomes[REQUEST_ID] = HostControlReply(
+        HostControlStatus.DONE, "stopped", REQUEST_ID, "b-0001"
+    )
+
+    call = desk.call("outcome", request_id=REQUEST_ID)
+
+    assert ROOTS.decode(desk.result_of(call)["reply"]) == desk.door.outcomes[REQUEST_ID]
+    assert desk.door.asked == [REQUEST_ID]
+    assert desk.door.sent == []
+
+
+def test_an_id_the_host_never_saw_is_answered_with_no_reply() -> None:
+    desk = _greeted()
+
+    call = desk.call("outcome", request_id=REQUEST_ID)
+
+    assert desk.result_of(call) == {"reply": None}
+
+
+def test_an_outcome_call_without_a_well_formed_id_is_refused() -> None:
+    desk = _greeted()
+
+    desk.call("outcome", request_id="not-an-id")
+
+    assert desk.sent("error")[0]["code"] == "bad_outcome"
+    assert desk.door.asked == []

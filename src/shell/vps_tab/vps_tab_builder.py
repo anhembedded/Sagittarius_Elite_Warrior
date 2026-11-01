@@ -15,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
@@ -48,6 +49,7 @@ def build_vps_presenter(view: BaseView, container: IContainer) -> BasePresenter:
         container.resolve(TransportRegistry),
         container.resolve(ICommandDispatcher),
         container.resolve(IBotKindCatalog),
+        container.resolve(INotifier).notify,
     )
     app = QApplication.instance()
     if app is not None:

@@ -54,7 +54,10 @@ class ReplayingCommandDoor(ICommandDoor):
     def send(
         self, request_id: str, request: HostControlRequest, wait_s: float
     ) -> HostControlReply:
-        door = DirectoryHostControl(
+        return self._door_for(request_id).send(request, wait_s)
+
+    def _door_for(self, request_id: str) -> DirectoryHostControl:
+        return DirectoryHostControl(
             self._directory,
             self._probe,
             JsonlHostControlAudit(self._audit_file),
@@ -63,4 +66,6 @@ class ReplayingCommandDoor(ICommandDoor):
             self._sleep,
             self._monotonic,
         )
-        return door.send(request, wait_s)
+
+    def outcome_of(self, request_id: str) -> HostControlReply | None:
+        return self._door_for(request_id).recorded_outcome()

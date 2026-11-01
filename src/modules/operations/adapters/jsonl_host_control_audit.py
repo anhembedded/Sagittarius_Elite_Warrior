@@ -5,9 +5,12 @@ says *received* is on disk before the command is dispatched. The file is `0600`,
 control directory. It is never rewritten or truncated here, and it holds no secret: ids, an
 action, a sentence.
 
-The host is its only writer, so `has_seen` answers from memory (loaded once from the file, which
-is how a restarted host remembers); `final_entry_of` re-reads the file, because the operator's
-process asks it about a command a different process is running.
+The host writes nearly every line, so `has_seen` answers from memory (loaded once from the file, which
+is how a restarted host remembers); a miss re-reads the file, because the one other line a different
+process may append is a fence (`DirectoryHostControl.recorded_outcome`, `EPIC-047E`): the desktop gave up
+a command that never reached the host, and the host must refuse the id if it arrives late.
+`final_entry_of` always re-reads the file, because the operator's process asks it about a command a
+different process is running.
 
 **Price paid:** the file grows by two lines per command and is never rotated; a command is rare
 and a line is about 200 bytes. A reader skips a line it cannot parse rather than fail.
@@ -66,13 +69,22 @@ class JsonlHostControlAudit(IHostControlAudit):
 
     def has_seen(self, command_id: str) -> bool:
         with self._lock:
-            return command_id in self._seen_ids()
+            seen = self._seen_ids()
+            if command_id in seen:
+                return True
+            # Not in memory: another process may have appended a fence for it since the file was read.
+            seen.update(entry.command_id for entry in self._read_entries())
+            return command_id in seen
 
     def final_entry_of(self, command_id: str) -> ControlAuditEntry | None:
+        """The first final line of the id; a fence only when nothing else settled it (a real outcome outranks it)."""
+        fence: ControlAuditEntry | None = None
         for entry in self._read_entries():
             if entry.command_id == command_id and entry.verdict.is_final:
-                return entry
-        return None
+                if not entry.is_fence:
+                    return entry
+                fence = fence or entry
+        return fence
 
     def _seen_ids(self) -> set[str]:
         if self._seen is None:

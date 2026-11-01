@@ -88,6 +88,10 @@ class _Transports:
     def __init__(self, host: VpsHost) -> None:
         self.host = host
         self.made: list[BridgeTransport] = []
+        #: Open by default; a test that needs the host to change while the link is down closes it, so the supervisor's
+        #: next connection waits for `release` instead of racing the test's change (a zero reconnect delay is too fast).
+        self.gate = threading.Event()
+        self.gate.set()
 
     def registry(self) -> TransportRegistry:
         registry = TransportRegistry()
@@ -95,6 +99,7 @@ class _Transports:
         return registry
 
     def _next(self) -> BridgeTransport:
+        assert self.gate.wait(timeout=BOUND_S), "the held reconnect was never released"
         transport = BridgeTransport(self.host)
         self.made.append(transport)
         return transport
@@ -189,6 +194,13 @@ class VpsTabWorld:
 
     def wait_down(self) -> None:
         assert self._watch.down.acquire(timeout=BOUND_S), "the link did not go down"
+
+    def hold_reconnects(self) -> None:
+        """The supervisor's next connection waits until `release_reconnects`: the host can change while the link is down."""
+        self._transports.gate.clear()
+
+    def release_reconnects(self) -> None:
+        self._transports.gate.set()
 
     def cut(self) -> None:
         self._transports.made[-1].cut()

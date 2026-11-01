@@ -53,6 +53,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_c
     encode_command,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
+    FENCE_MESSAGE,
     ControlAuditEntry,
     ControlVerdict,
     HostCommand,
@@ -134,6 +135,52 @@ class DirectoryHostControl(IHostControl):
                 return written.reply
             wrote = written.wrote
         return self._await_outcome(command, wait_s, wrote=wrote)
+
+    def recorded_outcome(self) -> HostControlReply | None:
+        """What the host recorded for this door's command id; for an id it never saw, a fence, so `None` stays true.
+
+        The settled outcome as `send` would replay it; `NO_ANSWER` in words while the file still waits for the host
+        or the host took it and has recorded nothing yet. For an id the host has never seen it **fences** the id and
+        answers `None`: one audit line (`EXPIRED`, "withdrawn") that makes every later `send` of the id answer
+        "withdrawn" and makes the host refuse the file if an old bridge writes it late (`has_seen` re-reads the file).
+        Without the fence "never reached" would only be true at one moment: the bytes of a command lost with the link can
+        still reach the old bridge process after the new link asks (`EPIC-047E`, review of PR 3a). The fence runs
+        nothing and takes nothing; the order is check, fence, check again, so a command that appears in between is
+        reported as waiting, never as unseen."""
+        command_id = self._new_command_id()
+        outcome = self._recorded(command_id)
+        if outcome is not None:
+            return outcome
+        if not self._directory.is_dir():
+            return None  # no control directory: no command could have been delivered
+        self._audit.record(
+            ControlAuditEntry(
+                command_id,
+                self._clock.now(),
+                ControlVerdict.EXPIRED,
+                message=FENCE_MESSAGE,
+            )
+        )
+        return self._recorded(command_id)
+
+    def _recorded(self, command_id: str) -> HostControlReply | None:
+        settled = self._audit.final_entry_of(command_id)
+        if settled is not None and not settled.is_fence:
+            return _reply_of(settled)
+        name = command_file_name(command_id)
+        if (self._directory / claimed_name(name)).exists():
+            return HostControlReply(
+                HostControlStatus.NO_ANSWER,
+                "The host took the command and has recorded no outcome yet.",
+                command_id,
+            )
+        if (self._directory / name).exists():
+            return HostControlReply(
+                HostControlStatus.NO_ANSWER,
+                "The command is still waiting for the host to take it.",
+                command_id,
+            )
+        return None
 
     def _is_waiting_for_the_host(self, command_id: str) -> bool:
         """An earlier send of this id left its file for the host, or the host has taken it."""
@@ -255,6 +302,8 @@ def _replay_of(
     entry: ControlAuditEntry, request: HostControlRequest
 ) -> HostControlReply:
     """An id the host already settled: its recorded outcome, if the request is the same action."""
+    if entry.is_fence:
+        return _reply_of(entry)
     if entry.action != request.action.value:
         return HostControlReply(
             HostControlStatus.REJECTED,

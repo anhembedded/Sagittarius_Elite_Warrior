@@ -33,9 +33,13 @@ class UnansweredLedger(IUnansweredCommands):
         with self._lock:
             self._entries.append(UnansweredCommand(request_id, request))
 
-    def settle(self, request_id: str) -> None:
+    def settle(self, request_id: str) -> bool:
+        """Takes the entry out; whether this call did (two reconciles never both tell the person)."""
         with self._lock:
-            self._entries = [e for e in self._entries if e.request_id != request_id]
+            kept = [e for e in self._entries if e.request_id != request_id]
+            removed = len(kept) != len(self._entries)
+            self._entries = kept
+            return removed
 
     def entries(self) -> tuple[UnansweredCommand, ...]:
         with self._lock:

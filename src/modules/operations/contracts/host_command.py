@@ -72,6 +72,10 @@ class ControlVerdict(StrEnum):
         return self is not ControlVerdict.RECEIVED
 
 
+#: The sentence of a fence (`EPIC-047E`): the desktop gave a command up after the link was lost, and the host had not seen it.
+FENCE_MESSAGE = "withdrawn: the desktop gave this command up after the link was lost, before it reached the host"
+
+
 @dataclass(frozen=True, slots=True)
 class ControlAuditEntry:
     """One line of the audit. Holds no secret: ids, an action, a sentence."""
@@ -82,3 +86,8 @@ class ControlAuditEntry:
     action: str = ""
     bot_id: str = ""
     message: str = ""
+
+    @property
+    def is_fence(self) -> bool:
+        """A line that only makes an id refuse to run: nothing ran, and a real outcome of the same id outranks it."""
+        return self.verdict is ControlVerdict.EXPIRED and self.message == FENCE_MESSAGE

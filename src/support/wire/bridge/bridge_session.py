@@ -19,7 +19,9 @@ a test gives it a list and a number.
          and the sequence number of the last event sent;
        · `subscribe` — from now on, one **event** per change;
        · `command` — `{"request_id": <32 hex>, "request": sew.host-control-request/1,
-         "wait_s": n}` through the host's control door; the reply is `sew.host-control-reply/1`.
+         "wait_s": n}` through the host's control door; the reply is `sew.host-control-reply/1`;
+       · `outcome` — `{"request_id": <32 hex>}`: what the host recorded for that command id (it fences an id the host never saw)
+         (`bridge_outcome_call.py`; `EPIC-047E`).
   4. **events** — `{"type":"event","seq":n,"kind":"bot",…}` for every write to a bot's file (found
      by listing the directory every `POLL_S`), `kind":"facts"` when the host-facts file's revision
      or liveness changes.
@@ -52,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_commands import (
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_documents import (
     FACTS_KIND,
     DocumentWatch,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_outcome_call import (
+    serve_outcome,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
     DOCUMENTS_LOOK_S,
@@ -285,6 +290,8 @@ class BridgeSession:
             return None
         if method == "candles":
             return serve_candles(self._ports.candles, self._roots, params)
+        if method == "outcome":
+            return serve_outcome(self._ports.door, self._roots, params)
         raise CallError("unknown_method", f"no method {method[:40]!r}")
 
     # -- reads ----------------------------------------------------------------------------
