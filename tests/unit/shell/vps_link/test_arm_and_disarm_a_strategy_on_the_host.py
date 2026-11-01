@@ -44,6 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.disarm_choice impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.host_strategies import (
     ARM_TITLE,
+    NOT_SENT,
     HostStrategies,
     HostStrategyPorts,
 )
@@ -274,3 +275,57 @@ def test_a_command_that_went_out_while_a_question_was_open_is_not_followed_by_a_
     assert [type(command).__name__ for command in recorder.sent] == [
         "DisarmStrategyForHostCommand"
     ]
+
+
+class _Raises(ICommandDispatcher):
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        raise RuntimeError("the dispatcher failed")
+
+
+class _RefusingPool(HeldPool):
+    def submit(self, task, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("the pool is shut down")
+
+
+def _strategies(
+    commands: ICommandDispatcher, pool: HeldPool, told: list[str]
+) -> HostStrategies:
+    return HostStrategies(
+        HostStrategyPorts(
+            commands=commands,
+            threads=pool,
+            venues=(TESTNET,),
+            choose=lambda question: TESTNET,
+            allow_real_money=lambda venue, action: True,
+            set_status=lambda text, error: None,
+            tell=told.append,
+        )
+    )
+
+
+def test_a_dispatch_that_raises_is_told_in_words_and_the_commands_are_free_again(
+    qtbot: QtBot, caplog
+) -> None:
+    pool, told = HeldPool(), []
+    strategies = _strategies(_Raises(), pool, told)
+
+    with caplog.at_level("ERROR", logger="App.Bots.Strategies"):
+        strategies.arm()
+        pool.run_all()
+        qtbot.wait(50)
+
+    assert told == [NOT_SENT]
+    assert strategies.can_act()
+    assert any("failed" in record.getMessage() for record in caplog.records)
+
+
+def test_a_pool_that_refuses_the_work_does_not_leave_the_commands_off(
+    qtbot: QtBot,
+) -> None:
+    told: list[str] = []
+    strategies = _strategies(_Recorder(), _RefusingPool(), told)
+
+    strategies.arm()
+
+    assert told == [NOT_SENT]
+    assert strategies.can_act()

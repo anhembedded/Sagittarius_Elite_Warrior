@@ -900,6 +900,7 @@
 ["", "[storage-vault] Prune found no empty shards."],
 ["hh", "[storage-vault] Pruned ", " empty shard(s) (0 klines in any interval): ", ""],
 ["", "[storage-vault] Storage Vault is empty: 0 database shards found on disk."],
+["s", "[strategies] ", " could not be queued"],
 ["s", "[strategies] ", " failed"],
 ["s", "[strategies] ", " sent to the host"],
 ["ss", "[strategies] ", ": ", ""],

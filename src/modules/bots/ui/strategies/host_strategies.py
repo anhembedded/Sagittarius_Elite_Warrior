@@ -162,7 +162,13 @@ class HostStrategies(QObject):
         self._waiting = True
         self.commands_changed.emit()
         logger.info("[strategies] %s sent to the host", type(command).__name__)
-        self._ports.threads.submit(self._dispatch, command)
+        try:
+            self._ports.threads.submit(self._dispatch, command)
+        except Exception:
+            logger.exception(
+                "[strategies] %s could not be queued", type(command).__name__
+            )
+            self._on_answer(None)
 
     def _dispatch(self, command: object) -> None:
         """On a pool thread: one dispatch, its words handed to the UI thread."""
