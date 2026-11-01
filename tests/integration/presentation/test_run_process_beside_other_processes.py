@@ -15,7 +15,7 @@ import json
 import signal
 import sys
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -103,7 +103,7 @@ def _seed_a_running_bot(data_root: Path, bot_id: str) -> Path:
         BotId(bot_id),
         BotDefinition("grid one", "grid", TradingVenue.SPOT_TESTNET, "BTCUSDT", GRID),
         BotLifecycle(BotLifecycleState.RUNNING),
-        datetime(2026, 10, 1, tzinfo=UTC),
+        datetime.now(UTC) - timedelta(days=1),
     )
     JsonBotStore(bots).save(StoredBot(bot, dict(encode_runtime(GridRuntime(())))))
     return bots

@@ -1,5 +1,6 @@
 """The registry rows of the guards that keep every order on its one path (and, from
-`EPIC-038E`, the secret stores in one suite).
+`EPIC-038E`, the secret stores in one suite; from `BUG-278`, the one test-hygiene row,
+kept here because `scanned_roots_registry.py` is at the 400-line ceiling).
 
 Split from `scanned_roots_registry.py` when that file reached the 400-line
 ceiling (`EPIC-034I`); the registry spreads `ORDER_PATH_GUARDS` into `GUARDS`,
@@ -70,5 +71,10 @@ ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("src/modules/trading/ui/desk", "*.py"),
             ("src/modules/bots", "*.py"),
         ),
+    ),
+    # `BUG-278` - a presentation process test seeds a run's start from the clock.
+    (
+        "tests/unit/architecture/test_a_process_test_seeds_its_run_start_from_the_clock.py",
+        (("tests/integration/presentation", "*.py"),),
     ),
 )
