@@ -55,6 +55,10 @@ from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import (
 from Sagittarius_Elite_Warrior.src.shell.ui_action_failure import (
     UiActionFailureSubscriber,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.quit_hook import stop_at_quit
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.shared_vps_session import (
+    SharedVpsSession,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     AssetValidatorExtension,
 )
@@ -77,6 +81,7 @@ def add_gui_wiring(app: App) -> None:
             container.resolve(SystemFailureRelay),
         ),
     )
+    container.resolve(SharedVpsSession).stop_at_quit_with(stop_at_quit)
     app.use(QtPackageCheckExtension())
     app.use(EngineCapabilityValidatorExtension())
     app.use(AssetValidatorExtension())

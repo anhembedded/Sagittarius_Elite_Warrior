@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.shell.qt_package_check import (
 from Sagittarius_Elite_Warrior.src.shell.ui_action_failure import (
     UiActionFailureSubscriber,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.shared_vps_session import (
+    SharedVpsSession,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import AssetValidatorExtension
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
@@ -171,3 +174,14 @@ def test_the_gui_graph_runs_no_vps_feed_and_the_shared_graph_does(gui_app, share
     shared = shared_app.context.container.resolve(VpsFeedSettings)
 
     assert (gui.feed_enabled, shared.feed_enabled) == (False, True)
+
+
+def test_the_gui_graph_stops_the_vps_link_at_quit_and_the_headless_graph_does_not(
+    gui_app, shared_app
+) -> None:
+    """`EPIC-047E`: whoever starts the VPS link (the VPS tab or Add to VPS) stops it at quit; only a run with a window has a quit."""
+    gui_session = gui_app.context.container.resolve(SharedVpsSession)
+    headless_session = shared_app.context.container.resolve(SharedVpsSession)
+
+    assert gui_session.quits_with_the_application
+    assert not headless_session.quits_with_the_application

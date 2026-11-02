@@ -49,6 +49,7 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
     DeclarativeStateMachine,
 )
 
+from .add_to_vps_flow import AddToVps
 from .backtest_workbenches import BacktestWorkbenches
 from .bot_action_rules import BotAction
 from .bot_actions_coordinator import BotActionsCoordinator
@@ -135,9 +136,8 @@ class BotsPresenter(CommandPresenter):
             self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
-        self._export = PlanExport(
-            self._model, self._queries, self._dialogs, deps.notifier
-        )
+        PlanExport(self._model, self._queries, self._dialogs, deps.notifier)
+        AddToVps(self._model, self._queries, self._dialogs, deps.notifier)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, commands)

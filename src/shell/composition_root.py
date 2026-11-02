@@ -116,6 +116,7 @@ from Sagittarius_Elite_Warrior.src.shell.system_failure_relay import SystemFailu
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
     TerminalAwareTextRenderer,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_tab.vps_link_binding import bind_vps_link
 from Sagittarius_Elite_Warrior.src.shell.wire_roots import link_roots
 from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
     TextReportRenderer,
@@ -255,6 +256,7 @@ def create_app(
     container.singleton(IConfigWriter, ConfigManagerWriter(config_manager))
     # `EPIC-047H`: the build's one registry of wire roots, for the files the host writes in their wire form.
     container.singleton(IWireCodec, link_roots())
+    bind_vps_link(container)
 
     # `BUG-126` — the two failure paths `EPIC-008` §1 found unsubscribed get a
     # subscriber, at the one place the entry points pass through, rather than in

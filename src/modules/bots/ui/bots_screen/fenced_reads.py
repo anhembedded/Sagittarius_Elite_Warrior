@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_ch
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_to_vps import (
+    AddBotToVpsCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.export_bot_plan_to_file import (
     ExportBotPlanToFileCommand,
 )
@@ -88,6 +91,8 @@ class ReadKind(str, Enum):
     #: `EPIC-048B` — Export plan…: the plan document to copy, or the file to write
     #: (`plan_export_flow.py`).
     EXPORT = "export"
+    #: `EPIC-047E` — Add to VPS: the bot sent to the host and the host's answer (`add_to_vps_flow.py`).
+    ADD_TO_VPS = "add_to_vps"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
@@ -208,6 +213,9 @@ class BotQueries:
         """The plan to copy; an id that names no bot answers the `UnknownBotsError` itself."""
         query = ExportBotPlanQuery(bot_ids, all_stopped=all_stopped)
         self._reads.read(ReadKind.EXPORT, "", lambda: self._document(query))
+
+    def add_to_vps(self, bot: BotSnapshot) -> None:
+        self._read(ReadKind.ADD_TO_VPS, bot.bot_id, AddBotToVpsCommand(bot.bot_id))
 
     def plan_file(self, command: ExportBotPlanToFileCommand) -> None:
         self._read(ReadKind.EXPORT, "", command)

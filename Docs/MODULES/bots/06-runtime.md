@@ -689,6 +689,40 @@ or a bridge without the call leaves the ledger as it was and says so. When the a
 stays blocked. For an id the host never saw, the bridge's `outcome` first fences it, so a late delivery from the old bridge
 process is refused by id. No path sends the command again.
 
+### Add to VPS: a bot sent to the host once (EPIC-047E PR 3c)
+
+*What happens when the owner presses Add to VPS host… on a bot in the Bots tab, and on which thread?*
+
+```mermaid
+sequenceDiagram
+    participant UI as Bots tab (UI thread)
+    participant Pool as Pool thread
+    participant H as AddBotToVpsCommandHandler
+    participant S as VpsTabSession
+    participant L as LinkHostControl
+    participant Host as VPS host (its own gate)
+    UI->>UI: AddToVps asks "Add <bot> to the VPS host?" (Add to VPS / Cancel)
+    UI->>Pool: fenced read ADD_TO_VPS (AddBotToVpsCommand)
+    Pool->>H: ExportBotPlanQuery for the bot, then IVpsDelivery.send(add, entry)
+    H->>S: deliver (starts the link if the VPS tab never did)
+    S->>L: send (one fresh request id)
+    alt link up
+        L->>Host: command add
+        Host-->>L: recorded reply (DRAFT created, or refused in its words)
+    else link not up
+        L-->>H: NOT_RUNNING, nothing was sent
+    else cut or no reply in time
+        L-->>H: NO_ANSWER, id filed in the ledger
+    end
+    H-->>Pool: AddedToVps or NotAddedToVps
+    Pool-->>UI: queued answer (UiThreadRelay)
+    UI->>UI: status line and toast, or a failure notice (unknown told as "may or may not")
+```
+
+The bot is named by its id when the question opened, so a selection that changes meanwhile cannot send another bot. A second
+press while one waits is ignored. The request is never sent again by this flow; a reply that never came is `unknown` and the
+person reads the VPS tab before sending it again, because the host may have created the bot.
+
 ## Built: a backtest from the workbench (EPIC-040D)
 
 [`diagrams/06-backtest-run.puml`](diagrams/06-backtest-run.puml) — *what happens, in order, when the

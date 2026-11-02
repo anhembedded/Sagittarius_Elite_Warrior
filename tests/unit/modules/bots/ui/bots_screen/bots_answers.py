@@ -52,6 +52,8 @@ class Answers:
     #: Bots → Export plan… (`BOT-176`): the choice, and the path Save… picks (`""` cancels).
     export_plan: ExportPlanChoice | None = None
     plan_path: str = ""
+    #: Bots → Add to VPS… (`EPIC-047E`): `True` sends the bot.
+    add_to_vps: bool = False
     asked: list[str] = field(default_factory=list)
     offered: list[str] = field(default_factory=list)
 
@@ -65,7 +67,12 @@ class Answers:
             allow_real_money=self._allow_real_money,
             ask_export_plan=self._ask_export_plan,
             ask_plan_save_path=self._ask_plan_save_path,
+            confirm_add_to_vps=self._confirm_add_to_vps,
         )
+
+    def _confirm_add_to_vps(self, bot: BotSnapshot) -> bool:
+        self.asked.append(f"add to vps {bot.bot_id}")
+        return self.add_to_vps
 
     def _ask_export_plan(
         self, bots: Sequence[BotSnapshot], selected: BotSnapshot | None

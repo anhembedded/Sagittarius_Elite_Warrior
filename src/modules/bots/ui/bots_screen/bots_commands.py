@@ -59,6 +59,7 @@ FIX_NEXT = f"{_PREFIX}.fix_next"
 ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
 DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
 EXPORT_PLAN = f"{_PREFIX}.export_plan"
+ADD_TO_VPS = f"{_PREFIX}.add_to_vps"
 #: The centre's two tabs (`EPIC-040E`), as View commands.
 LIVE_TAB = f"{_PREFIX}.live_tab"
 BACKTEST_TAB = f"{_PREFIX}.backtest_tab"
@@ -148,6 +149,8 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
             needs_input=True,
             icon="download",
         ),
+        # `EPIC-047E`: the selected bot's definition to the VPS host as a DRAFT; asks before it sends.
+        command(ADD_TO_VPS, "Add to VPS &host…", on_toolbar=False, needs_input=True),
         # `EPIC-040E`: the centre's tabs by keyboard, named "tab" so they are not read as the
         # Backtest mode that View also lists; the Backtest tab is off for a bot whose kind or venue
         # it cannot replay, and says why (never hidden).

@@ -164,7 +164,7 @@ Each is something the defaults rely on and a green test cannot prove (P4). 047H 
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [EPIC-047E](incomplete/EPIC-047E_the_vps_bots_tab.md) (AC10), [EPIC-047H](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | The host's half in review (2026-10-27); the tab's half (047E) not started | The host serves every read the tab needs: [047H notes](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md); the tab's side is 047E's |
+| D1 | [EPIC-047E](completed/EPIC-047E_the_vps_bots_tab.md) (AC10), [EPIC-047H](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | The host's half in review (2026-10-27); the tab's half (047E) built, 2026-11-02 (owner steps on the real VPS pending) | The host serves every read the tab needs: [047H notes](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md); the tab's side is 047E's |
 | D2 | EPIC-047H | In review (2026-10-27) | `tests/unit/architecture/test_the_vps_feed_reads_only_and_opens_no_connection.py` covers the new read side and the refresher; 047C's bridge test stays green |
 | D3 | EPIC-047H | In review (2026-10-27); assumptions A1, A3, A4, A6, A8, A9 verified (A4 by estimate) | [047H notes, Step one](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) |
 | D4 | EPIC-047H | In review (2026-10-27); A2, A5 verified as far as a key-free testnet allows, A10 is the owner's | [047H notes, Step one](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) |

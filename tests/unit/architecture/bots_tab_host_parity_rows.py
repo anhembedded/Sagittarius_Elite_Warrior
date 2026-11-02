@@ -50,6 +50,10 @@ PARITY: dict[str, HostVerb | Excluded] = {
         "confirm-resume", HostControlAction.CONFIRM_RESUME
     ),
     "ChangeBotVenueCommand": HostVerb("move", HostControlAction.MOVE),
+    "AddBotToVpsCommand": Excluded(
+        "It is the Bots tab's way to the host's `add` verb (`EPIC-047E`): it sends a stored bot's definition "
+        "to the VPS host, and changes no bot on this computer."
+    ),
     "ExportBotPlanToFileCommand": Excluded(
         "It writes a plan file and changes no stored bot (`EPIC-048B`); `bot export` dispatches "
         "this same command on the read-only copy beside a running host."
@@ -61,6 +65,10 @@ MENU: dict[str, HostVerb | Excluded | ReadOnly] = {
     "bots.bots.export_plan": ReadOnly(
         "It reads bots and writes a file, changing none; the host's equivalent is the read-only "
         "`bot export`, which works on the read-only copy beside a running host."
+    ),
+    "bots.bots.add_to_vps": ReadOnly(
+        "Changes no bot on this computer; it sends the selected bot's definition to the VPS host as the "
+        "host's `add` verb (`AddBotToVpsCommand`)."
     ),
     "bots.bots.arm_strategy": HostVerb("arm-strategy", HostControlAction.ARM_STRATEGY),
     "bots.bots.disarm_strategy": HostVerb(

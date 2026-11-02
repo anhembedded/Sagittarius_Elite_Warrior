@@ -18,9 +18,14 @@ application (the tab says which profile it is on).
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    HostControlReply,
+    HostControlRequest,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -100,6 +105,7 @@ class VpsTabSession(IVpsTab):
         self._ledger = UnansweredLedger()
         control = LinkHostControl(self._world, self._roots, self._ledger)
         #: Settles the commands a cut lost, from the host's record, on each reconnect; never sends one again.
+        self._control = control
         self._observer = ReconcilingObserver(
             self._world,
             self._ledger,
@@ -117,6 +123,8 @@ class VpsTabSession(IVpsTab):
         self._profile: LinkProfile | None = None
         self._supervisor: LinkSupervisor | None = None
         self._started = False
+        #: `start` is called by the UI thread (the tab's first show) and a pool thread (Add to VPS): once, whoever is first.
+        self._start_lock = threading.Lock()
 
     @property
     def events(self) -> IEventBus:
@@ -125,21 +133,30 @@ class VpsTabSession(IVpsTab):
 
     def start(self) -> None:
         """Connects the chosen profile, once. Without a profile nothing connects and the line says why."""
-        if self._started:
-            return
-        self._started = True
-        self._profile = self._profiles.selected()
-        if self._profile is None:
-            logger.info("[vps-tab] no connection profile is chosen; nothing to connect")
-            return
-        self._supervisor = LinkSupervisor(
-            self._profile,
-            self._transports,
-            hello_of(self._roots, link_app_version()),
-            self._observer,
-        )
-        self._supervisor.start()
-        logger.info("[vps-tab] connecting profile %s", self._profile.name)
+        with self._start_lock:
+            if self._started:
+                return
+            self._started = True
+            self._profile = self._profiles.selected()
+            if self._profile is None:
+                logger.info(
+                    "[vps-tab] no connection profile is chosen; nothing to connect"
+                )
+                return
+            self._supervisor = LinkSupervisor(
+                self._profile,
+                self._transports,
+                hello_of(self._roots, link_app_version()),
+                self._observer,
+            )
+            self._supervisor.start()
+            logger.info("[vps-tab] connecting profile %s", self._profile.name)
+
+    def deliver(self, request: HostControlRequest, wait_s: float) -> HostControlReply:
+        """Add to VPS: one request over the link, connecting it first when nothing has (the owner asked for the VPS in this
+        act). A link that is not up yet answers `NOT_RUNNING`, so nothing is sent and the person sends it again."""
+        self.start()
+        return self._control.send(request, wait_s)
 
     def stop(self) -> None:
         supervisor, self._supervisor = self._supervisor, None

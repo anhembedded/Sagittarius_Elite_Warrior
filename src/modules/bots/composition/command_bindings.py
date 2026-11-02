@@ -11,6 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.acknowledg
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_for_host import (
     AddBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.add_bot_to_vps import (
+    AddBotToVpsCommand,
+    AddBotToVpsCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.apply_plan_entry_for_host import (
     ApplyPlanEntryForHostCommandHandler,
 )
@@ -123,6 +127,8 @@ def bind_commands(container: IContainer) -> None:
     container.bind(EditBotCommand, EditBotCommandHandler)
     container.bind(ChangeBotVenueCommand, ChangeBotVenueCommandHandler)
     container.bind(ExportBotPlanToFileCommand, ExportBotPlanToFileCommandHandler)
+    # `EPIC-047E` - Add to VPS: the stored bot sent to the VPS host as a DRAFT, through `IVpsDelivery` (the shell binds it).
+    container.bind(AddBotToVpsCommand, AddBotToVpsCommandHandler)
     container.bind(StartBotCommand, StartBotCommandHandler)
     container.bind(PauseBotCommand, PauseBotCommandHandler)
     container.bind(ResumeBotCommand, ResumeBotCommandHandler)

@@ -41,6 +41,7 @@ BOTS_MENU = [
     "Arm strategy…",
     "Disarm strategy…",
     "Export plan…",
+    "Add to VPS host…",
     "Live stream",
 ]
 #: HLD §11.2.3: the Bots commands with "Bots" in the toolbar column.
