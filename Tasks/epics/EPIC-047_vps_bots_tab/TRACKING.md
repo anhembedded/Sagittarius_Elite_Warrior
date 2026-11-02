@@ -37,7 +37,7 @@ gantt
     PR 047F log lines                     :         p6, after p5, 3d
 
     section Phase 4 - operation
-    PR 047G runbook                       :         p7, after p4, 3d
+    PR 047G runbook                       :done,    p7, after p4, 3d
     Epic exit check                       :milestone, m1, after p6, 0d
 ```
 
@@ -54,7 +54,7 @@ gantt
 | EPIC-047H | [The host serves market data and refreshed facts](incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) | `claude/epic-047h-host-market-data` | 🔴 | 🟡 In review (assumptions A1–A10 verified first; VPS measurements are the owner's) | 2026-10-27 |
 | EPIC-047E | [The VPS Bots tab](completed/EPIC-047E_the_vps_bots_tab.md) | `claude/epic-047e-add-to-vps` (PR 3c of 3; #749, #750, #753, #757 merged) | 🔴 | ✅ Done (2026-11-02) (owner steps on the real VPS pending) | 2026-12-08 |
 | EPIC-047F | [Log lines in the tab](incomplete/EPIC-047F_the_bots_log_lines_in_the_tab.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-12 |
-| EPIC-047G | [The runbook](incomplete/EPIC-047G_the_runbook_for_the_vps_link.md) | `Not opened` | 🟢 | 🔵 Planned | 2026-12-01 |
+| EPIC-047G | [The runbook](completed/EPIC-047G_the_runbook_for_the_vps_link.md) | `claude/epic-047g-runbook` | 🟢 | ✅ Done (2026-11-02) (owner walk-through pending) | 2026-12-01 |
 
 ---
 

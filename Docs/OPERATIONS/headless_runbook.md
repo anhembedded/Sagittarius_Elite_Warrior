@@ -48,7 +48,7 @@ It **does not start the service** unless you pass `--start`: with no key stored 
 **The manual way** below is the fallback when the script cannot run (another distribution, a layout of your own) and is what the script automates.
 
 ```bash
-sudo useradd --system --home-dir /var/lib/sew --shell /usr/sbin/nologin --user-group sew
+sudo useradd --system --home-dir /var/lib/sew --shell /usr/sbin/nologin --user-group sew   # the desktop link needs a shell for the account: §14.1 B2
 sudo install -d -o root -g root -m 0755 /opt/sew
 sudo install -d -o sew -g sew -m 0700 /var/lib/sew
 sudo install -d -o root -g sew -m 0750 /etc/sew
@@ -753,3 +753,93 @@ Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm
 ## 13. Containers
 
 `--host-signal sdnotify` does not work inside Docker unless the host's notify socket is mounted into the container, and systemd credentials do not exist there. A Dockerfile is out of scope for this epic; if you run the app in a container, run `main.py run` without `--host-signal`, supply keys through the container runtime's secrets as environment variables, and let the container runtime restart it with the same policy: do not restart on exit codes `2`–`5`.
+
+## 14. The desktop link: the VPS Bots tab reaches this host (`EPIC-047`)
+
+The desktop's VPS Bots tab shows and controls the bots on this host with no port open on it. The desktop logs in over SSH as the **`sew`** account with a key that may run **one command**, `deploy/linux/sew-bridge`; that command speaks to the desktop on its standard input and output, reads the host's files read-only, hands commands to the host's own control directory and calls no exchange. Why it is shaped so: [`Docs/LEARNING/007_a_door_with_one_key_the_desktop_reaches_the_host.md`](../LEARNING/007_a_door_with_one_key_the_desktop_reaches_the_host.md). The files it reads are `state/bots/`, `state/host-facts.json`, `state/market-data.json` and `state/host-reads.json` (§8b); it writes nothing but a command file.
+
+### 14.1 The owner's checklist, in order
+
+One place, run top to bottom. Part A is on the desktop (Windows PowerShell), Part B on the VPS as an administrator, Part C on the desktop again, Part D is what is still owed from the earlier tasks. **Keep one administrator session on the VPS open from step B1 to the end of B7**: a mistake in `sshd` settings must never be the only way in. **`root`'s own key stays your administration key** and is never put in the app's profile.
+
+**A. The desktop's key (once)**
+
+- [ ] **A1.** `ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\id_ed25519` and choose a passphrase when asked (the passphrase is typed at the prompt, never on a command line). Only the `.pub` file ever leaves the desktop.
+- [ ] **A2.** Load the key into the agent so the app, which never asks for a passphrase, can use it (an administrator PowerShell for the first two lines): `Get-Service ssh-agent | Set-Service -StartupType Automatic`, `Start-Service ssh-agent`, then `ssh-add $env:USERPROFILE\.ssh\id_ed25519`. Pageant works too. The app's profile will choose *The SSH agent*.
+- [ ] **A3.** Print the public half and keep it for B3: `Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub`.
+
+**B. The VPS (as an administrator)**
+
+- [ ] **B1.** Upgrade the host to the build the desktop runs: `sudo sew-update` (§8). A desktop and a host of different builds refuse each other (14.4). Look at the pre-flight lines it prints.
+- [ ] **B2.** Let `sew` run its forced command. `sew-install` creates the account with the shell `/usr/sbin/nologin`, and `sshd` starts a forced command through the account's login shell, so with `nologin` the bridge never runs and the desktop reads `This account is currently not available.` (checked on an OpenSSH 9.6 server, 2026-11-02). Give the account a shell: `sudo usermod -s /bin/sh sew`. The account still has no password, nobody logs in to it but the restricted key of B3 (`PasswordAuthentication no`, B6), and the key can run one command only. `sudo -u sew …` (the `M` helper, §6) is unchanged.
+- [ ] **B3.** Install the restricted key. `sew`'s home is the data root, so the file is `/var/lib/sew/.ssh/authorized_keys` (not `/home/sew`). Replace the key text with the line from A3:
+  ```bash
+  sudo install -d -m 700 -o sew -g sew /var/lib/sew/.ssh
+  PUB='ssh-ed25519 AAAA… the-line-from-A3'
+  printf '%s\n' "restrict,command=\"/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge\" $PUB" | sudo -u sew tee -a /var/lib/sew/.ssh/authorized_keys >/dev/null
+  sudo chmod 600 /var/lib/sew/.ssh/authorized_keys
+  ```
+  `restrict` switches off port forwarding, agent forwarding, X11 and the terminal; `command=` makes the bridge the only thing the key runs, whatever the client asks. `sshd`'s `StrictModes` needs `/var/lib/sew` and `.ssh` owned by `sew` and not writable by others, which `sew-install` and the lines above give.
+- [ ] **B4.** Accept the host key once, from the desktop: `ssh sew@<vps>`. The first time it asks to trust the host key: say yes, so `known_hosts` holds it (the app pins that file and refuses a host it does not name, 14.4). The command then prints one line, `{"type":"hello",…}`, and waits: that is the bridge. Press Ctrl+D; the bridge ends with the session.
+- [ ] **B5.** Run the three checks, from the desktop (§14.2). All three must give the stated result.
+- [ ] **B6.** Turn password login off, in this order. `sudo tee /etc/ssh/sshd_config.d/01-sew-keys-only.conf <<< 'PasswordAuthentication no'`; `sudo sshd -t` (nothing printed means the syntax is sound); `sudo sshd -T | grep -i '^passwordauthentication'` must print `passwordauthentication no` (the name starts with `01` so it is read before a cloud image's `50-cloud-init.conf`, and `sshd` keeps the **first** value it reads); only then `sudo systemctl reload ssh`. From the desktop, with your **administration** key: `ssh -o BatchMode=yes <login>@<vps> true` must succeed before you close the open session.
+- [ ] **B7.** Start the host if it is not running (`sudo systemctl start sew-run`) and check `state/host-facts.json` is being written (`sudo -u sew ls -l /var/lib/sew/state/host-facts.json` shows a time of a few seconds ago).
+
+**C. The desktop's profile and the first look**
+
+- [ ] **C1.** Tools → Options → VPS Link → Add. *Host*: the VPS; *Port*: 22; *User*: `sew`; *Protocol*: SSH; *Known hosts file*: leave the default (`~/.ssh/known_hosts`); *Key*: *The SSH agent*; tick *Use this connection for the VPS Bots tab*; OK. The profile is read when the tab is first shown, so a change takes effect at the next start of the application.
+- [ ] **C2.** Restart the application and open **VPS Bots**. The line above the tab reads the host's name, the venues that hold a key, `connected` and `facts updated N s ago`. If it does not, 14.4 maps each message.
+
+**D. Still owed from the earlier tasks (nothing below has run on your machines)**
+
+| # | Where | What to record | Task |
+| :-: | :--- | :--- | :--- |
+| D1 | VPS | B5's three results, and `sudo -u sew env SEW_DATA_ROOT=/var/lib/sew PYTHONPATH=/opt/sew /opt/sew/venv/bin/python -X importtime -c "import Sagittarius_Elite_Warrior.src.shell.link_bridge_main" 2>&1 | tail -1` (the bridge's import time, µs; 367 ms in the author's container); after a session is ended with Ctrl+D, `pgrep -u sew -f link_bridge_main` finds nothing | `EPIC-047C` |
+| D2 | Windows | Connect with *The SSH agent* once through Pageant and once through the OpenSSH agent service, no key file named: login succeeds | `EPIC-047D` |
+| D3 | Windows | With the tab connected, disable the adapter for a few seconds and restore it: the desktop log line `[link-reconnect] welcomed again N ms after the cut`; target N under 2000 | `EPIC-047D` |
+| D4 | VPS | The commands of `EPIC-047H`'s owner steps (rate limits, the stream line, a read-only shard open as `sew`, ten minutes of the bridge's CPU, a day of the used-weight header, the tick and facts age seen through the bridge) | `EPIC-047H` |
+| D5 | Desktop + VPS | For a bot, every field of `M bot show <id>` equals the VPS tab's: state, earnings, chart lines, Checks, Plan rows, orders, fills | `EPIC-047E` (AC1) |
+| D6 | Desktop + VPS | A real fill appears in the tab in under 5 s (fill time against the tab's update) | `EPIC-047E` (AC2) |
+| D7 | Desktop + VPS | Cut the link during a Stop or a Start on a testnet bot: the tab says what became of it from the host's record, and nothing ran twice (`bot show` and the audit) | `EPIC-047E` (AC6) |
+| D8 | Desktop + VPS | On a testnet host: Arm strategy and Disarm strategy from the tab; Bots → Add to VPS host… on a testnet bot (it appears in the VPS tab as a DRAFT with the host's Checks), then Start it there | `EPIC-047E` (PR 3b, 3c) |
+
+### 14.2 The three checks of B5
+
+From the desktop, with the key loaded. `<vps>` is the host; the first two must print the bridge's `hello`, not a shell or a file:
+
+```powershell
+ssh sew@<vps>                        # 1. a shell request: prints {"type":"hello",…}, then waits: Ctrl+D
+ssh sew@<vps> 'whoami; cat /etc/passwd'   # 2. another command: prints the SAME hello line, nothing of /etc/passwd; Ctrl+D
+ssh -tt sew@<vps>                    # 3. a terminal: PTY allocation request failed on channel 0
+```
+
+And a port forward is refused when something uses it: `ssh -N -L 9999:127.0.0.1:22 sew@<vps>` stays open doing nothing; connect to `127.0.0.1:9999` from another window and the ssh window prints `channel 1: open failed: administratively prohibited`. (These four results were reproduced on a throwaway account and an OpenSSH 9.6 server, with a stand-in script for the bridge, on 2026-11-02.)
+
+### 14.3 What the bridge does, and when it ends
+
+It is started by `sshd` for each session and ends with it. It sends a heartbeat every 2 s and ends itself if it hears nothing from the desktop for 6 s (the *idle watchdog*, exit `6`), so a desktop that vanished leaves no process; it also ends if the desktop's first message does not arrive within 10 s (exit `4`). Its exit statuses: `0` the session ended, `3` refused (a different build), `4` a protocol violation, `5` a failure nobody planned for (logged with its traceback), `6` the idle watchdog. Its log goes to standard error, which `sshd` hands to the desktop. It opens no socket. The facts files it reads are the host's (§8b); when the host stops writing them the tab says `host quiet`.
+
+### 14.4 When it fails: what the app says, and what to do
+
+| The tab or the Options page says | Cause | Fix |
+| :--- | :--- | :--- |
+| `<host> refused the key for <user>: check that its public key is in <user>'s authorized_keys on the host, or load the key into your SSH agent` | The public key is not in `sew`'s `authorized_keys`, the file's owner or mode is wrong (`StrictModes`), or the agent holds no key | B3 (`ls -l /var/lib/sew/.ssh`: owner `sew`, mode `600`/`700`); `ssh-add -l` on the desktop |
+| `the key file <path> cannot be used (…): the app never asks for a passphrase, so load an encrypted key into your SSH agent and choose the agent` | The key is passphrase-protected and the profile names the file | A2, then choose *The SSH agent* in the profile |
+| `<host> is not in <known_hosts>, so its identity cannot be checked: log in once with ssh … and accept its key` | The host key was never pinned | B4 |
+| `<host> presented a host key that is not the one pinned in <known_hosts>: refused…` | The host was reinstalled, or someone is in the way | If you reinstalled it, remove the old line (`ssh-keygen -R <host>`) and log in once; otherwise stop and look at the network |
+| `cannot reach <host> on port <port>: …` | Wrong host or port, firewall, VPS down | `ssh sew@<vps>` from the desktop shows the same; check the VPS and its firewall |
+| `the VPS host runs build X, this desktop runs Y: run `sudo sew-update`` | Different builds (the wire differs) | `sudo sew-update` on the host (B1), or update the desktop; the link is not retried |
+| `This account is currently not available.` (from `ssh sew@<vps>`), or the link connects and ends at once | `sew` still has the shell `nologin` | B2 |
+| `the host's bridge ended the session (…)` | Exit `3`, `4` or `6` of 14.3 | Read the reason in the words; `6` means the desktop went silent |
+| Disconnected, `data as of …`, reconnecting | The link was cut; the desktop redials by itself | Nothing: commands are refused meanwhile and none is sent twice (Docs/MODULES/bots/06-runtime.md) |
+| `host quiet: facts last written N s ago, it may have stopped` | The host stopped writing `state/host-facts.json` | `systemctl status sew-run`; start it |
+| `not published by the host` | The host never wrote that file or fact (an older build, or a file not yet written) | Wait a minute after a start; `ls -l /var/lib/sew/state/`; `sudo sew-update` |
+| The market data or exchange facts are older than the host's cadence | The host's market stream or refresh is quiet (`state/market-data.json`, `state/host-reads.json`) | `sewlog` for `[vps-refresh]` lines; delete `state/market-data.json` and the host writes it again (§8b) |
+
+### 14.5 Open items
+
+- The Windows agent path (Pageant and the OpenSSH agent service) and the reconnect time are untested on a real machine until D2 and D3 run.
+- The VPS run of B5, the bridge's import time and the host's measurements (D1, D4) are the owner's.
+- A bridge over a Unix socket (the Docker shape) is not built; this link needs `sshd` and the key.
+- Showing a masked tail of the exchange key on the tab's line is not built: the host publishes whether a venue has a key and no part of it.
+- The bots' own log lines in the tab (`EPIC-047F`) are not built yet.

@@ -1,0 +1,56 @@
+# EPIC-047G — The runbook sets up the VPS link from a clean desktop: a key for `sew`, password login off, and what to do when it fails
+
+**Status:** ✅ Done (2026-11-02) — documentation merged with its pull request; **owner steps pending**: the walk-through on the owner's clean desktop profile and the checks of the runbook's part D (nothing in it has run on the owner's machines).
+**Source:** the owner's delegation of 2026-10-24; charter D6; De-risk §3.4 and §9 item 8: A1 was false (the owner had a password and no key until 2026-10-24), and the key was installed for root, not for `sew`.
+**Risk:** 🟢 — documentation; a wrong step in `authorized_keys` or `sshd_config` can lock the owner out of the VPS, so the order of steps and the open session matter.
+**Complexity:** S — one runbook section, one page of troubleshooting, one Learning page.
+**Epic:** [EPIC-047](../README.md)
+**Depends on:** [EPIC-047C](../completed/EPIC-047C_the_bridge_behind_a_forced_command.md) (the exact forced command and the bridge launcher), [EPIC-047D](EPIC-047D_the_desktop_transport_profiles_and_the_options_page.md) (the profile fields), [EPIC-047H](../incomplete/EPIC-047H_the_host_serves_market_data_and_refreshed_facts_to_the_bridge.md) (the host's market-data and refreshed-facts files, for the troubleshooting rows); the steps can be drafted earlier
+
+---
+
+## 1. Context and problem
+`Docs/OPERATIONS/headless_runbook.md` covers the host. Nothing covers the desktop's link: the key, the account, the restriction, the profile. De-risk §3.4 holds the key setup that worked on the owner's Windows (`ssh-keygen -t ed25519`, installing the public half, the Windows `ssh-agent` service) and the hardening (`PasswordAuthentication no` in `/etc/ssh/sshd_config.d/50-sew-keys-only.conf`, `sshd -t` before the reload). §2.3 and §2.5 give the forced command and its checks.
+
+## 2. Acceptance criteria
+- [x] The runbook section starts with the key setup for the **`sew`** account, never root: generate an ed25519 key with a passphrase asked by `ssh-keygen`, install only the public half in `sew`'s `authorized_keys` with `restrict,command="…"` naming the bridge (the line from 047C), and load the key into the agent (Windows: the `ssh-agent` service and `ssh-add`; Pageant).
+- [x] It then turns **`PasswordAuthentication no`** on: write the drop-in, run `sshd -t`, reload `ssh`, and keep the current session open until `ssh -o BatchMode=yes <login>@<vps> true` succeeds from the desktop with the key; the order is stated so a mistake cannot lock the owner out.
+- [x] It tells the owner to log in once and accept the host key so `known_hosts` holds it, and what the app does with a wrong key (047D).
+- [x] The three checks of De-risk R2 are in it as a verification the owner can run: the restricted key gets the bridge's `hello` for a shell request, "administratively prohibited" for a port forward, and a refusal for a terminal.
+- [x] A troubleshooting table maps each error the app shows (refused key, unknown or changed host key, host unreachable, version difference, bridge not started, data age growing, market data or exchange facts older than the host's cadence, "not published by the host") to its cause and its fix; the version difference says `sudo sew-update`.
+- [x] It names the facts file of 047B, the bridge's idle watchdog, and that `root`'s key stays the owner's administration key outside the app's profiles.
+- [x] It records the open items: the untested Windows agent path until 047D's run, the Unix socket variant as not built.
+- [x] A `Docs/LEARNING/` page explains the design (the doors, the bridge, the forced command, why no port), indexed in `Docs/LEARNING/README.md` (charter D6).
+- [ ] A walk-through of the runbook on a clean desktop profile is recorded (*owner step*: the author could not run the Windows steps or reach a VPS; the forced-command, shell, forwarding and terminal behaviour was reproduced on a throwaway account and an OpenSSH 9.6 server with a stand-in script for the bridge, 2026-11-02; the document guards pass); the document guards pass.
+
+## 3. Design
+Documentation in the repository's register (`ONBOARDING.md` §10), in the existing runbook rather than a new copy of its host sections (P3). Commands are copied from De-risk §3.4 and the final 047C line, then run once before the task closes (P2: verify, don't restate).
+
+## 3a. Reuse
+`Docs/OPERATIONS/headless_runbook.md` and `deploy/linux/sew-profile.sh` (`_sew_as_service`): `used` for the host-side conventions. No UI or application need otherwise.
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `Docs/OPERATIONS/headless_runbook.md` | the desktop-link section |
+| `Docs/LEARNING/00x_….md` and `Docs/LEARNING/README.md` | the design page and its index row |
+| `Docs/MODULES/…` | the wire protocol page, if 047A's notes call for one |
+
+## 5. Testing
+Documentation-only: the guards `python3 scripts/check_skill_prompt_references.py`, `tests/unit/test_task_board_is_consistent.py`, `tests/unit/architecture/test_claude_tree_is_wired.py` and any guard that reads `Docs/`. The walk-through is a manual check with its date. Not run.
+
+## 6. Docs touched
+Those listed in §4.
+
+## Implementation notes (written when done)
+**Where it is.** `Docs/OPERATIONS/headless_runbook.md` §14, "The desktop link": one owner checklist in order (A the desktop's key, B the VPS, C the profile and the first look, D what is still owed from the earlier tasks with where to record it), the three checks, what the bridge does and when it ends, a troubleshooting table in the app's own words, and the open items. `Docs/LEARNING/007_a_door_with_one_key_the_desktop_reaches_the_host.md` teaches the design.
+
+**Two defects found by running the steps on a real `sshd` (2026-11-02), both in what 047C left the owner to do, and both fixed in the runbook:**
+1. `sew-install` creates `sew` with the shell `/usr/sbin/nologin`, and `sshd` starts a forced command through the account's login shell, so the restricted key got `This account is currently not available.` and the bridge never ran. The checklist (B2) gives the account `/bin/sh`; the key stays restricted (`restrict,command=`), the account has no password, and password login is turned off (B6). With `/bin/sh` all four of De-risk R2's results held: a shell request and another command both got the bridge's line, a terminal got `PTY allocation request failed`, and a forward got `administratively prohibited` when used.
+2. 047C's owner step said `/home/sew/.ssh`; `sew`'s home is `/var/lib/sew` (the data root), so the file is `/var/lib/sew/.ssh/authorized_keys` (B3). Also: `sshd` keeps the **first** value of a setting and a cloud image's `50-cloud-init.conf` can set `PasswordAuthentication yes`, so the drop-in is named `01-sew-keys-only.conf` and B6 checks the effective value with `sshd -T` (De-risk wrote `50-…`).
+
+**Decision (coordinator may veto; reversible, an owner-run step, no code):** the runbook tells the owner to run `usermod -s /bin/sh sew` rather than changing `sew-install` (a script change, which is code and the owner's to approve). `sew-install` could create the account with that shell in a later task; until then B2 is a step the owner runs.
+
+**Not done:** the walk-through on the owner's clean desktop profile, the Windows agent paths, and part D (D1–D8) are the owner's.
+
+
