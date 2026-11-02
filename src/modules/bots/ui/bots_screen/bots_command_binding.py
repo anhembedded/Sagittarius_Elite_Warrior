@@ -24,6 +24,7 @@ from .bot_action_rules import BotAction, export_plan_availability
 from .bot_chart_host import BotChartHost
 from .bots_chart_commands import BotsChartCommands
 from .bots_commands import (
+    ADD_TO_VPS,
     ARM_STRATEGY,
     BACKTEST_TAB,
     DISARM_STRATEGY,
@@ -128,6 +129,7 @@ def bind_bots_commands(
         initially_enabled=fix.value,
     )
     _bind_export_plan(binder, view_model)
+    _bind_add_to_vps(binder, view_model)
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)
     # The selected kind's own commands follow its toolbar; the presenter
@@ -162,6 +164,46 @@ def _bind_export_plan(binder: ICommandBinder, view_model: BotsViewModel) -> None
 
     view_model.bots_changed.connect(say)
     say()
+
+
+def _bind_add_to_vps(binder: ICommandBinder, view_model: BotsViewModel) -> None:
+    """`EPIC-047E`: live for the selected bot while no action runs, and in the Bots tab only; the tip says why not."""
+    state = DerivedState(
+        view_model.selection_changed,
+        lambda: _add_to_vps_availability(view_model)[0],
+        view_model,
+    )
+    state.listen(view_model.action_in_flight_changed)
+    state.listen(view_model.add_to_vps_availability_changed)
+    binder.bind(
+        ADD_TO_VPS,
+        lambda _checked: view_model.add_to_vps_requested.emit(),
+        enabled=state.changed,
+        initially_enabled=state.value,
+    )
+    qaction = binder.action(ADD_TO_VPS)
+    declared = qaction.toolTip()
+
+    def say() -> None:
+        qaction.setToolTip(f"{declared}\n{_add_to_vps_availability(view_model)[1]}")
+
+    for changed in (
+        view_model.selection_changed,
+        view_model.action_in_flight_changed,
+        view_model.add_to_vps_availability_changed,
+    ):
+        changed.connect(say)
+    say()
+
+
+def _add_to_vps_availability(view_model: BotsViewModel) -> tuple[bool, str]:
+    if view_model.add_to_vps_unavailable:
+        return False, view_model.add_to_vps_unavailable
+    if view_model.selected is None:
+        return False, NO_SELECTION_REASON
+    if view_model.action_in_flight:
+        return False, ANOTHER_ACTION_REASON
+    return True, "Create this bot on the VPS host as a DRAFT."
 
 
 def _bind_lifecycle(

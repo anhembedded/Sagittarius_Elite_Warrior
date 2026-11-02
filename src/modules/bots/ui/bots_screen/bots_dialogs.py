@@ -44,8 +44,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consen
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
+    VerbQuestion,
+    ask_with_verbs,
+)
 
 type ConfirmDelete = Callable[[BotSnapshot], bool]
+#: Add to VPS (`EPIC-047E`): send this bot's definition to the VPS host, yes or no.
+type ConfirmAddToVps = Callable[[BotSnapshot], bool]
 #: `(venue, what)` -> may it go on: the one question that names real money, asked
 #: on a mainnet venue's first Start or Arm of the session (`EPIC-034` D3, D11).
 type AllowRealMoney = Callable[[TradingVenue, str], bool]
@@ -67,12 +73,28 @@ class BotsDialogs:
     #: Bots → Export plan… (`BOT-176`): which bots and how, then where to save.
     ask_export_plan: AskExportPlan
     ask_plan_save_path: AskPlanSavePath
+    #: Bots → Add to VPS… (`EPIC-047E`). Declines unless given: nothing is sent to a host by a default.
+    confirm_add_to_vps: ConfirmAddToVps = lambda _bot: False
 
 
 def delete_question(bot: BotSnapshot) -> str:
     return (
         f"Delete {bot.name}? Its definition and its run's record are removed "
         "from this computer. Nothing is sent to the exchange."
+    )
+
+
+def add_to_vps_question(bot: BotSnapshot) -> VerbQuestion:
+    """Only what is true: a copy of the definition goes, as a DRAFT, and nothing starts or trades there."""
+    return VerbQuestion(
+        "Add to VPS",
+        f"Add {bot.name} to the VPS host?",
+        "Add to VPS",
+        "Cancel",
+        details=(
+            "The bot's definition is created on the host as a DRAFT. Nothing starts and no order is placed; "
+            "the host checks it against its own account, and you start it from the VPS Bots tab."
+        ),
     )
 
 
@@ -96,6 +118,7 @@ def dialogs_for(
             parent, bots, selected
         ),
         ask_plan_save_path=lambda suggested: _ask_plan_save_path(parent, suggested),
+        confirm_add_to_vps=lambda bot: ask_with_verbs(parent, add_to_vps_question(bot)),
     )
 
 

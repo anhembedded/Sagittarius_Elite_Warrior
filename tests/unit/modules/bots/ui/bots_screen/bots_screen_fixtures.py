@@ -49,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_vps_delivery import (
+    IVpsDelivery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -172,6 +175,7 @@ from .bots_market_fixtures import (
     terms,
     venue_contexts,
 )
+from .fake_vps_delivery import FakeVpsDelivery
 
 __all__ = ["NOW", "SYMBOL", "VENUE", "Answers"]
 
@@ -256,6 +260,8 @@ class BotsScreen:
     exchange_account: FakeAccountSnapshot
     #: The kinds the module registered, as the screen holds them.
     kinds: IBotKindCatalog
+    #: The VPS link Add to VPS sends through (`EPIC-047E`).
+    vps: FakeVpsDelivery
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -336,6 +342,8 @@ def open_screen(
     )
     container.singleton(IVenueAccounts, FakeVenueAccounts(account, mainnet_account))
     container.singleton(IRealMoneyConsent, FakeRealMoneyConsent())
+    vps = FakeVpsDelivery()
+    container.singleton(IVpsDelivery, vps)
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(ISymbolCatalog, FakeSymbolCatalog([SYMBOL, "ETHUSDT"]))
@@ -386,4 +394,5 @@ def open_screen(
         venue_terms,
         exchange_account,
         container.resolve(IBotKindCatalog),
+        vps,
     )

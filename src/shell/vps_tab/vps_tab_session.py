@@ -21,6 +21,10 @@ import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    HostControlReply,
+    HostControlRequest,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -100,6 +104,7 @@ class VpsTabSession(IVpsTab):
         self._ledger = UnansweredLedger()
         control = LinkHostControl(self._world, self._roots, self._ledger)
         #: Settles the commands a cut lost, from the host's record, on each reconnect; never sends one again.
+        self._control = control
         self._observer = ReconcilingObserver(
             self._world,
             self._ledger,
@@ -140,6 +145,12 @@ class VpsTabSession(IVpsTab):
         )
         self._supervisor.start()
         logger.info("[vps-tab] connecting profile %s", self._profile.name)
+
+    def deliver(self, request: HostControlRequest, wait_s: float) -> HostControlReply:
+        """Add to VPS: one request over the link, connecting it first when nothing has (the owner asked for the VPS in this
+        act). A link that is not up yet answers `NOT_RUNNING`, so nothing is sent and the person sends it again."""
+        self.start()
+        return self._control.send(request, wait_s)
 
     def stop(self) -> None:
         supervisor, self._supervisor = self._supervisor, None

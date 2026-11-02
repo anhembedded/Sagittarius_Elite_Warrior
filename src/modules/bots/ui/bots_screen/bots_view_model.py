@@ -81,6 +81,8 @@ class BotsViewModel(StatusMessageViewModel):
     action_in_flight_changed = Signal()
     #: Whether New bot works in this tab changed (`EPIC-047E`: the VPS tab creates bots by Add to VPS).
     new_bot_availability_changed = Signal()
+    #: Whether Add to VPS works in this tab changed (`EPIC-047E`: it is the Bots tab's command, off in the VPS tab).
+    add_to_vps_availability_changed = Signal()
     #: The selected bot's venue account was read, or could not be
     #: (`EPIC-034D`).
     connect_changed = Signal()
@@ -88,6 +90,8 @@ class BotsViewModel(StatusMessageViewModel):
     #: The bot the user picked, `""` for none.
     select_requested = Signal(str)
     new_bot_requested = Signal()
+    #: Bots → Add to VPS… (`EPIC-047E`).
+    add_to_vps_requested = Signal()
     #: A `BotAction` value.
     action_requested = Signal(str)
     refresh_fills_requested = Signal()
@@ -132,6 +136,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.precisions = SelectedBotPrecisions(lambda: self.selected)
         self.action_in_flight = False
         self.new_bot_unavailable = ""
+        self.add_to_vps_unavailable = ""
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
     @Slot(object)
@@ -210,6 +215,13 @@ class BotsViewModel(StatusMessageViewModel):
         if reason != self.new_bot_unavailable:
             self.new_bot_unavailable = reason
             self.new_bot_availability_changed.emit()
+
+    @Slot(str)
+    def set_add_to_vps_unavailable(self, reason: str) -> None:
+        """Why Add to VPS does not work in this tab; `""` when it does."""
+        if reason != self.add_to_vps_unavailable:
+            self.add_to_vps_unavailable = reason
+            self.add_to_vps_availability_changed.emit()
 
     @Slot(bool)
     def set_action_in_flight(self, in_flight: bool) -> None:

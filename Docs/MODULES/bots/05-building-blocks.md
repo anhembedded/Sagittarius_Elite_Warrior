@@ -326,6 +326,32 @@ backend chooses it (`BotsBackend.strategies`).
 - Not shown: what is armed on the host (the host publishes no armed-strategy fact; the tab does not guess). The host's
   words say whether an arm was refused because something is armed already.
 
+## Built: Add to VPS, a bot designed here sent to the host as a DRAFT (EPIC-047E PR 3c)
+
+Charter Scenario 2: the bot is designed and backtested in the Bots tab, then created on the VPS with no file copied by hand. It
+is a command of the Bots tab, not of the VPS tab (decision D6: the VPS tab reads no symbol list), so it reaches the link through
+a port of its own.
+
+- `bots/application/use_cases/add_bot_to_vps/` → `AddBotToVpsCommand`, `AddBotToVpsCommandHandler`, `AddedToVps`,
+  `NotAddedToVps`: the handler reads the bot with `ExportBotPlanQuery` (the same definition Export plan… writes), builds a
+  `NewBotEntry` and sends one `HostControlRequest` with action `ADD`, through `bots/contracts/i_vps_delivery.py` →
+  `IVpsDelivery`. An `add` places no order and the host creates a DRAFT, so no real-money question is asked here: the typed
+  question belongs to the host's Start, asked in the VPS tab.
+- `IVpsDelivery` is not `IHostControl`, which the application binds to the *local* running host (`bot stop` and the rest);
+  the shell implements it in `shell/vps_tab/vps_delivery.py` → `VpsDelivery` over `VpsTabSession.deliver`, which starts the
+  link if the VPS tab was never opened (the owner asked for the VPS in that act) and sends over `LinkHostControl`: one fresh
+  request id, never sent twice, `NO_ANSWER` recorded in the `UnansweredLedger` like any command.
+- `shell/vps_tab/shared_vps_session.py` → `SharedVpsSession` is the one session of the run, built at first use, so the VPS tab
+  and Add to VPS stand on the same link; `vps_link_binding.py` → `bind_vps_link` binds it and `IVpsDelivery` at the
+  composition root.
+- UI: `bots_screen/add_to_vps_flow.py` → `AddToVps` asks (`BotsDialogs.confirm_add_to_vps`, default: decline), sends as a fenced
+  read of its own (`ReadKind.ADD_TO_VPS`) and tells the host's words; a reply that never came is told as "may or may not have
+  been created", never as a failure to create. The command is `bots_commands.py` → `ADD_TO_VPS` ("Add to VPS host…": every
+  letter of "Add to VPS" was already another command's access key), off with a reason in the VPS tab
+  (`vps_backend.py` → `NO_ADD_TO_VPS_HERE`; `bots_view_model.py` → `BotsViewModel.set_add_to_vps_unavailable`).
+- Not promised: that the bot passes the host's Checks (they run on the host's own account, shown in the VPS tab), that a
+  second press creates a second bot (the host refuses a name already taken in its words), or that the bot starts.
+
 ## Built: the types that cross the remote link (EPIC-047A)
 
 `bots` declares which of its contract types the remote link may carry, and nothing else crosses.

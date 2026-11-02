@@ -66,6 +66,9 @@ NO_BACKTEST_HERE = (
     "The Backtest runs in the Bots tab on this computer. This tab reads nothing at Binance; "
     "the host's candles are for the chart."
 )
+NO_ADD_TO_VPS_HERE = (
+    "Add to VPS is done from the Bots tab: this tab already shows the host's bots."
+)
 NO_NEW_BOT_HERE = (
     "Create a bot in the Bots tab and send it with Add to VPS: this tab reads no symbol list "
     "from the exchange."
@@ -98,6 +101,7 @@ def vps_arrangement(tab: IVpsTab) -> Callable[[BotsView], None]:
     def arrange(view: BotsView) -> None:
         view.show_host_line(tab.host_line)
         view.model.set_new_bot_unavailable(NO_NEW_BOT_HERE)
+        view.model.set_add_to_vps_unavailable(NO_ADD_TO_VPS_HERE)
         FirstShown(view, lambda: _opened(tab, view))
 
     return arrange
