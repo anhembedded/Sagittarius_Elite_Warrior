@@ -31,7 +31,7 @@ Status: Current
 ## 5. When it goes wrong
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| The link is not up yet (first use, or a cut) | "Not connected to the host: nothing was sent." as a failure notice | the control door answers `NOT_RUNNING` before anything is written |
+| The link is not up yet (first use, or a cut): the first press from a cold start starts the link and usually finds it not up | "Not connected to the host: nothing was sent." as a failure notice; press again in a moment | the control door answers `NOT_RUNNING` before anything is written |
 | The host refuses (a name already taken, an unknown kind, a venue it does not trade) | The host's own sentence | the host judges the entry again after the wire and the app adds no rule |
 | The host took the command and no reply came in time | "…may or may not have been created there. Read the VPS Bots tab before sending it again." | the host may have created it, so it is never told as a failure to create, and nothing is sent again |
 | The bot was deleted while the question was open | "That bot no longer exists here, so nothing was sent." | the bot is read after the question, by id |

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_vps_tab import IVpsTab
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
@@ -34,9 +33,6 @@ _BOTS_PRESENTER: Deferred[BasePresenter] = Deferred(
 
 def build_vps_presenter(view: BaseView, container: IContainer) -> BasePresenter:
     session = container.resolve(SharedVpsSession).session()
-    app = QApplication.instance()
-    if app is not None:
-        app.aboutToQuit.connect(session.stop)
     overlay = VpsContainer(container)
     overlay.singleton(IEventBus, session.events)
     overlay.singleton(IVpsTab, session)

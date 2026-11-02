@@ -12,6 +12,9 @@ profiles and the local dispatcher, which exist only after the composition root i
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
+
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -33,15 +36,33 @@ class SharedVpsSession:
     def __init__(self, container: IContainer) -> None:
         self._container = container
         self._session: VpsTabSession | None = None
+        #: The VPS tab builds on the UI thread and Add to VPS on a pool thread: one session, whoever is first.
+        self._lock = threading.Lock()
+        self._at_quit: Callable[[Callable[[], None]], None] = lambda _stop: None
+        self._has_quit_hook = False
+
+    @property
+    def quits_with_the_application(self) -> bool:
+        """Whether a session built now would be stopped at quit (the GUI wiring gave a hook)."""
+        return self._has_quit_hook
+
+    def stop_at_quit_with(self, hook: Callable[[Callable[[], None]], None]) -> None:
+        """The GUI wiring says how the application's quit reaches a stop (`quit_hook.stop_at_quit`); a headless run has none, and
+        never builds a session. Whoever starts the link stops it at quit."""
+        self._at_quit = hook
+        self._has_quit_hook = True
 
     def session(self) -> VpsTabSession:
-        if self._session is None:
-            container = self._container
-            self._session = VpsTabSession(
-                container.resolve(LinkProfiles),
-                container.resolve(TransportRegistry),
-                container.resolve(ICommandDispatcher),
-                container.resolve(IBotKindCatalog),
-                container.resolve(INotifier).notify,
-            )
-        return self._session
+        with self._lock:
+            if self._session is None:
+                container = self._container
+                built = VpsTabSession(
+                    container.resolve(LinkProfiles),
+                    container.resolve(TransportRegistry),
+                    container.resolve(ICommandDispatcher),
+                    container.resolve(IBotKindCatalog),
+                    container.resolve(INotifier).notify,
+                )
+                self._at_quit(built.stop)
+                self._session = built
+            return self._session

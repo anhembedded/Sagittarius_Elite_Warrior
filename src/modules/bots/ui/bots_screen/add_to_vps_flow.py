@@ -97,7 +97,7 @@ class AddToVps(QObject):
         if kind is ReadKind.ADD_TO_VPS:
             self._in_flight = False
             self._fail(
-                "The bot was not added to the VPS host, and it may not have reached it. Try again.",
+                "Add to VPS stopped on an error, so it is not known whether the host created the bot. Read the VPS Bots tab before sending it again.",
                 detail,
             )
 

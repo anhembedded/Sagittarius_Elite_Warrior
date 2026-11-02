@@ -343,7 +343,8 @@ a port of its own.
   request id, never sent twice, `NO_ANSWER` recorded in the `UnansweredLedger` like any command.
 - `shell/vps_tab/shared_vps_session.py` → `SharedVpsSession` is the one session of the run, built at first use, so the VPS tab
   and Add to VPS stand on the same link; `vps_link_binding.py` → `bind_vps_link` binds it and `IVpsDelivery` at the
-  composition root.
+  composition root. The session is built under a lock (the VPS tab asks on the UI thread, Add to VPS on a pool thread) and
+  the GUI wiring gives it `quit_hook.py` → `stop_at_quit` (`SharedVpsSession.stop_at_quit_with`), so whoever starts the link stops it at quit.
 - UI: `bots_screen/add_to_vps_flow.py` → `AddToVps` asks (`BotsDialogs.confirm_add_to_vps`, default: decline), sends as a fenced
   read of its own (`ReadKind.ADD_TO_VPS`) and tells the host's words; a reply that never came is told as "may or may not have
   been created", never as a failure to create. The command is `bots_commands.py` → `ADD_TO_VPS` ("Add to VPS host…": every
