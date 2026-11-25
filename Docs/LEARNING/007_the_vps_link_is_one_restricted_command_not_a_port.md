@@ -28,7 +28,7 @@ The owner's bots run on a VPS with real money. Reading one bot meant SSH, `M bot
 `deploy/linux/sew-bridge` execs `shell/link_bridge_main.py` → `main`; `support/wire/bridge/bridge_session.py` → `BridgeSession` speaks the protocol; the desktop side is `support/wire/desk/` with an `asyncssh` adapter. A version difference is refused at the handshake before any read.
 
 ## 6. Risks and failure modes
-A wrong `authorized_keys` or `sshd_config` can lock the owner out, so the runbook orders the steps and keeps a session open. The `sew` account has the `nologin` shell by default and `sshd` runs the forced command through the shell, which the runbook handles and says is unproven until its owner run.
+A wrong `authorized_keys` or `sshd_config` can lock the owner out, so the runbook orders the steps and keeps a session open. The `sew` account has the `nologin` shell by default and `sshd` runs a forced command through the login shell. The owner chose a small guard program as `sew`'s login shell that accepts only the bridge launcher, so `sew` never gets a general shell (`headless_runbook.md` §14.3); it is unproven until the owner's check row 1.
 
 ## 7. Limits
 One host at a time, SSH only, same build on both sides. A host-side listener would be needed for a mobile client; that is another decision.
