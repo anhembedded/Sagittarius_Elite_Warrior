@@ -387,3 +387,78 @@ def test_a_symlinked_authorized_keys_is_refused_and_its_target_is_left_alone(
     assert run.code == 2
     assert "symbolic link" in run.err
     assert target.read_text(encoding="utf-8") == "untouched\n"
+
+
+@pytest.mark.parametrize(
+    "separator",
+    ["\t", "   ", " \t "],
+    ids=["tab", "spaces", "mixed"],
+)
+def test_an_unrestricted_line_for_the_same_key_is_found_whatever_whitespace_it_uses(
+    world: World, separator: str
+) -> None:
+    key = world.make_key("desk")
+    kind, body = key.read_text(encoding="utf-8").split()[:2]
+    world.ssh.mkdir(mode=0o700)
+    loose = f"{kind}{separator}{body} own\n"
+    world.auth.write_text(loose, encoding="utf-8")
+
+    run = world.run("add", str(key))
+
+    assert run.code == 2
+    assert "NOT the bridge restriction" in run.err
+    assert world.auth.read_text(encoding="utf-8") == loose
+
+
+def test_a_line_with_options_of_its_own_for_the_same_key_is_found(world: World) -> None:
+    key = world.make_key("desk")
+    world.ssh.mkdir(mode=0o700)
+    optioned = f'from="10.0.0.1",no-pty {key.read_text(encoding="utf-8").strip()}\n'
+    world.auth.write_text(optioned, encoding="utf-8")
+
+    run = world.run("add", str(key))
+
+    assert run.code == 2
+    assert world.auth.read_text(encoding="utf-8") == optioned
+
+
+def test_our_own_line_with_odd_whitespace_after_the_restriction_still_counts_as_installed(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    world.run("add", str(key))
+    again = world.run("add", "--comment", "renamed", str(key))
+
+    assert "already installed" in again.out
+    assert len(world.auth_lines()) == 1
+
+
+def test_the_ownership_check_runs_for_a_real_root_and_a_file_of_another_owner_is_refused(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    world.ssh.mkdir(mode=0o700)
+    owner_is_mallory = (
+        'if [ "$1" = "-c" ] && [ "$2" = "%U" ]; then echo mallory; exit 0; fi\n'
+        'exec /usr/bin/stat "$@"'
+    )
+
+    run = world.run("add", str(key), shims={"stat": owner_is_mallory}, real_chown=True)
+
+    assert run.code == 2
+    assert "owned by mallory" in run.err
+    assert not world.auth.exists()
+
+
+def test_the_script_never_follows_a_link_when_it_hands_a_file_to_the_account(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    record = world.root / "chown.args"
+    chown = f'echo "$@" >> "{record}"'
+
+    world.run("add", str(key), shims={"chown": chown}, real_chown=True)
+
+    calls = record.read_text(encoding="utf-8").splitlines()
+    assert calls
+    assert all(call.startswith("-h sew:sew ") for call in calls)

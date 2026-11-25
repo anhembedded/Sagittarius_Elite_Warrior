@@ -113,9 +113,13 @@ class World:
         euid: str = "0",
         real_uid: str = "1000",
         extra_env: dict[str, str] | None = None,
+        shims: dict[str, str] | None = None,
+        real_chown: bool = False,
     ) -> Run:
+        """`shims` are commands put ahead of the real ones (name -> sh body); `real_chown` lets the script's own chown and
+        owner check run, which a test that is not root can only watch through a shim."""
         env = {
-            "PATH": f"{self.id_shim(real_uid)}:{os.environ['PATH']}",
+            "PATH": f"{self.shim_dir(shims or {})}:{self.id_shim(real_uid)}:{os.environ['PATH']}",
             "HOME": str(self.root),
             "TMPDIR": str(self.root),
             "SEW_LINK_HOME": str(self.home),
@@ -132,6 +136,8 @@ class World:
             "SEW_LINK_EUID": euid,
             "SEW_LINK_NO_CHOWN": "1",
         }
+        if real_chown:
+            del env["SEW_LINK_NO_CHOWN"]
         env.update(extra_env or {})
         done = subprocess.run(
             [require_tool("bash"), str(SCRIPT), *args],
@@ -143,6 +149,15 @@ class World:
             check=False,
         )
         return Run(done.returncode, done.stdout, done.stderr)
+
+    def shim_dir(self, shims: dict[str, str]) -> Path:
+        directory = self.root / "shims"
+        directory.mkdir(exist_ok=True)
+        for name, body in shims.items():
+            tool = directory / name
+            tool.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+            tool.chmod(0o755)
+        return directory
 
     def id_shim(self, uid: str) -> Path:
         """A directory whose `id -u` answers `uid` (the script is never really root in a test)."""

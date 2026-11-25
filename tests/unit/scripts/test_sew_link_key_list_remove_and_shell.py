@@ -225,3 +225,16 @@ def test_remove_refuses_a_symlinked_ssh_directory_that_holds_the_key(
     assert run.code == 2
     assert "symbolic link" in run.err
     assert (target / "authorized_keys").read_bytes() == before
+
+
+def test_a_grep_that_fails_never_publishes_a_truncated_shells_file(
+    world: World,
+) -> None:
+    world.run("shell", "set")
+    before = world.shells.read_bytes()
+    failing_grep = '[ "$1" = "-vxF" ] && exit 2\nexec /usr/bin/grep "$@"'
+
+    run = world.run("shell", "unset", shims={"grep": failing_grep})
+
+    assert run.code == 1
+    assert world.shells.read_bytes() == before

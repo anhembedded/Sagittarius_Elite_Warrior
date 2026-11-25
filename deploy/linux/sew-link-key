@@ -19,6 +19,9 @@
 # It never edits sshd_config and never turns password login off: `check` prints the sshd drop-ins for the
 # owner to place and the PasswordAuthentication step to take after the key login works.
 #
+# Limit: the symlink and ownership checks look first and write after; a compromised sew that wins a race against a
+# root run between the two is not stopped (only the plain symlink is). Run it when the host is quiet.
+#
 # Safety: a public key only (one line; a private key, a certificate, a line with options, several lines or a
 # non-ASCII file are refused), checked with ssh-keygen -l; the installed line is rebuilt from the validated
 # parts, so nothing of the input but the key reaches the file; the same key twice is one line; other lines are
@@ -279,18 +282,18 @@ cmd_add() {
   [[ -f "$LAUNCHER" && -x "$LAUNCHER" ]] || die "the bridge launcher $LAUNCHER is missing or not executable: is the checkout in place?"
   load_public_key "$source" "$comment"
   [[ "$DRY_RUN" == 1 ]] || take_lock
-  local line="$PREFIX$KEY_TYPE $KEY_BODY $KEY_COMMENT" existing rest
+  local line="$PREFIX$KEY_TYPE $KEY_BODY $KEY_COMMENT" existing found
   require_own_files
   while IFS= read -r existing; do
     [[ -n "$existing" && "$existing" != '#'* ]] || continue
-    if rest=$(ours "$existing"); then
-      if [[ " $rest " == " $KEY_TYPE $KEY_BODY "* ]]; then
-        printf 'sew-link-key: %s is already installed; nothing to do\n' "$KEY_PRINT"
-        return 0
-      fi
-    elif [[ " $existing " == *" $KEY_TYPE $KEY_BODY "* ]]; then
-      die "$KEY_PRINT is already in $AUTH_FILE on a line that is NOT the bridge restriction (see: sew-link-key list); remove that line first: sew-link-key remove $KEY_PRINT"
+    # By fingerprint, as sshd reads the line: any whitespace between the fields, any options in front.
+    found=$(fingerprint_of_line "$existing") || continue
+    [[ "$found" == "$KEY_PRINT" ]] || continue
+    if ours "$existing" > /dev/null; then
+      printf 'sew-link-key: %s is already installed; nothing to do\n' "$KEY_PRINT"
+      return 0
     fi
+    die "$KEY_PRINT is already in $AUTH_FILE on a line that is NOT the bridge restriction (see: sew-link-key list); remove that line first: sew-link-key remove $KEY_PRINT"
   done < <(file_lines)
   if [[ "$DRY_RUN" == 1 ]]; then
     printf '  would: install %s (%s), restricted to the bridge, in %s\n' "$KEY_PRINT" "$KEY_COMMENT" "$AUTH_FILE"
