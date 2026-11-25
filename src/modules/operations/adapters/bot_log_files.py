@@ -75,10 +75,23 @@ def decode(raw: bytes) -> BotLogRecord | None:
     return BotLogRecord(seq, str(at), str(level), str(text))
 
 
+#: A file is read from its end, at most this many bytes: a file of junk, or one grown by something else, never costs a read of
+#: all of it (the rings are bounded far below this).
+_READ_LIMIT: Final = 4 * MAX_BYTES_PER_BOT
+
+
 def _records_of(path: Path) -> list[tuple[BotLogRecord, int]]:
-    """Each record of `path` with the bytes of its line, oldest first; nothing for a file that cannot be read."""
+    """Each record of `path` with the bytes of its line, oldest first, from the last `_READ_LIMIT` bytes; nothing for a file
+    that cannot be read. A line that is not a record (junk, a torn tail) is skipped."""
     try:
-        data = path.read_bytes()
+        with open(path, "rb") as handle:
+            size = os.fstat(handle.fileno()).st_size
+            if size > _READ_LIMIT:
+                handle.seek(size - _READ_LIMIT)
+                data = handle.read()
+                data = data[data.find(b"\n") + 1 :]
+            else:
+                data = handle.read()
     except OSError:
         return []
     found: list[tuple[BotLogRecord, int]] = []
@@ -97,12 +110,13 @@ class BotLogFiles(IBotLogSink):
         self._sizes: dict[str, int] = {}
         self._lines: dict[str, int] = {}
         self._known = False
+        self._tail_clean: set[str] = set()
 
     def append(self, bot_id: str, record: BotLogRecord) -> None:
         if not is_safe_bot_id(bot_id):
             raise ValueError("not a bot id")
         self._prepare()
-        data = encode(record)
+        data = self._after_a_torn_tail(bot_id) + encode(record)
         descriptor = os.open(
             self._path(bot_id), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600
         )
@@ -128,15 +142,31 @@ class BotLogFiles(IBotLogSink):
             if self._sizes[biggest] >= before:
                 break
 
+    def _after_a_torn_tail(self, bot_id: str) -> bytes:
+        """A newline when the file found at the first append does not end in one (a crash cut its last line): the new record
+        would otherwise be glued to the torn one and lost with it."""
+        if bot_id in self._tail_clean:
+            return b""
+        self._tail_clean.add(bot_id)
+        try:
+            with open(self._path(bot_id), "rb") as handle:
+                handle.seek(0, os.SEEK_END)
+                if handle.tell() == 0:
+                    return b""
+                handle.seek(-1, os.SEEK_END)
+                return b"" if handle.read(1) == b"\n" else b"\n"
+        except OSError:
+            return b""
+
     def _prepare(self) -> None:
         self._directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self._known:
             return
         for path in self._directory.glob(f"*{_SUFFIX}"):
             if is_safe_bot_id(path.stem):
-                records = _records_of(path)
-                self._sizes[path.stem] = sum(size for _record, size in records)
-                self._lines[path.stem] = len(records)
+                # The file's own size, so junk in it counts against the bound and the next compaction drops it.
+                self._sizes[path.stem] = path.stat().st_size
+                self._lines[path.stem] = len(_records_of(path))
         self._known = True
 
     def _shrink(self, bot_id: str, max_bytes: int, max_lines: int) -> None:

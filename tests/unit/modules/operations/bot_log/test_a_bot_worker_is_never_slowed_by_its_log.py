@@ -70,7 +70,7 @@ def test_a_slow_disk_never_holds_a_bot_thread_however_many_lines_it_writes() -> 
     lines = new_queue()
     handler = BotLogHandler(clock, lines)
     sink = BlockedSink()
-    writer = BotLogWriter(handler, lines, sink, lambda: 0.0)
+    writer = BotLogWriter(handler, lines, sink, clock, lambda: 0.0)
     writer.start()
     handler.emit(
         log_record("Bot ab12cd: the first, which the writer takes and then waits on")
@@ -94,7 +94,7 @@ def test_a_flood_keeps_the_queue_at_its_limit_counts_what_it_dropped_and_says_so
     lines = new_queue()
     handler = BotLogHandler(clock, lines)
     sink = BlockedSink()
-    writer = BotLogWriter(handler, lines, sink, lambda: 0.0)
+    writer = BotLogWriter(handler, lines, sink, clock, lambda: 0.0)
     writer.start()
     handler.emit(log_record("Bot ab12cd: the first"))
     assert sink.entered.wait(BOUND_S)
@@ -123,7 +123,7 @@ def test_a_full_disk_is_swallowed_with_one_warning_and_the_bot_thread_never_sees
     lines = new_queue()
     handler = BotLogHandler(clock, lines)
     writer = BotLogWriter(
-        handler, lines, BotLogFiles(tmp_path / "bot-logs"), lambda: 0.0
+        handler, lines, BotLogFiles(tmp_path / "bot-logs"), NumberClock(), lambda: 0.0
     )
     caplog.set_level(logging.WARNING, logger=OWN_LOGGER)
 
@@ -150,7 +150,7 @@ def test_a_directory_that_cannot_be_made_is_swallowed_the_same_way(
     lines = new_queue()
     handler = BotLogHandler(NumberClock(), lines)
     writer = BotLogWriter(
-        handler, lines, BotLogFiles(blocker / "bot-logs"), lambda: 0.0
+        handler, lines, BotLogFiles(blocker / "bot-logs"), NumberClock(), lambda: 0.0
     )
     caplog.set_level(logging.WARNING, logger=OWN_LOGGER)
 

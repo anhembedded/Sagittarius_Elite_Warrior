@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import logging
 import queue
+import threading
+import time
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_log_recorder import (
@@ -16,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_log_record
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
     MAX_LINE_CHARS,
+    MAX_MESSAGE_CHARS,
     BotLogRecord,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.bot_log.bot_log_world import (
@@ -35,7 +38,7 @@ def _texts(lines: queue.Queue[object]) -> list[tuple[str, str]]:
     while not lines.empty():
         queued = lines.get_nowait()
         assert isinstance(queued, QueuedLine)
-        found.append((queued.bot_id, queued.record.text))
+        found.append((queued.bot_id, queued.text))
     return found
 
 
@@ -117,23 +120,13 @@ def test_a_long_line_is_cut_to_the_bound() -> None:
     assert len(text) == MAX_LINE_CHARS
 
 
-def test_sequence_numbers_only_grow_even_when_the_clock_stands_still() -> None:
-    handler, lines = _handler()
-
-    for _ in range(3):
-        handler.emit(log_record("Bot ab12cd: x"))
-
-    seqs = [lines.get_nowait().record.seq for _ in range(3)]
-    assert seqs == sorted(set(seqs))
-
-
 def _writer(
     handler: BotLogHandler,
     lines: queue.Queue[object],
     sink: ListSink,
     clock: list[float],
 ) -> BotLogWriter:
-    return BotLogWriter(handler, lines, sink, lambda: clock[0])
+    return BotLogWriter(handler, lines, sink, NumberClock(), lambda: clock[0])
 
 
 def test_the_writer_says_once_how_many_lines_were_dropped() -> None:
@@ -207,6 +200,84 @@ def test_a_key_that_straddles_the_cut_is_dropped_not_kept_as_a_prefix() -> None:
     message = "Bot ab12cd: " + "a " * 295 + key[:20] + key[20:] + " end"
 
     handler.emit(log_record(message))
+
+    assert lines.empty()
+    assert handler.withheld == 1
+
+
+def test_the_writer_gives_strictly_increasing_numbers_in_file_order_even_when_the_clock_stands_still() -> (
+    None
+):
+    handler, lines = _handler()
+    sink = ListSink()
+    for number in range(6):
+        handler.emit(log_record(f"Bot ab12cd: line {number}"))
+    writer = _writer(handler, lines, sink, [0.0])
+
+    writer.start()
+    writer.stop()
+
+    seqs = [record.seq for _id, record in sink.kept]
+    assert len(seqs) == 6
+    assert seqs == sorted(set(seqs))
+
+
+def test_two_bot_threads_cannot_put_the_numbers_out_of_order_in_the_file() -> None:
+    """The number is given where the line is written, by the one writer thread, so racing emits cannot swap them."""
+    handler, lines = _handler(limit=4000)
+    sink = ListSink()
+    writer = _writer(handler, lines, sink, [0.0])
+    writer.start()
+
+    def emit(bot: str) -> None:
+        for number in range(1000):
+            handler.emit(log_record(f"Bot {bot}: line {number}"))
+
+    threads = [
+        threading.Thread(target=emit, args=(b,)) for b in ("aaaaa1", "aaaaa2", "aaaaa3")
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(30)
+    writer.stop(30)
+
+    seqs = [record.seq for _id, record in sink.kept]
+    assert len(seqs) == 3000
+    assert seqs == sorted(seqs)
+    assert len(set(seqs)) == 3000
+
+
+def test_a_message_longer_than_the_scan_bound_is_dropped_whole_unscanned_and_fast() -> (
+    None
+):
+    handler, lines = _handler()
+    hostile = "Bot ab12cd: " + "http://" * 30000
+    started = time.perf_counter()
+
+    handler.emit(log_record(hostile))
+
+    assert time.perf_counter() - started < 5.0
+    assert lines.empty()
+    assert handler.withheld == 1
+
+
+def test_a_long_message_that_is_not_a_bots_is_ignored_not_counted() -> None:
+    handler, lines = _handler()
+
+    handler.emit(log_record("the exchange said " + "x" * (MAX_MESSAGE_CHARS + 1)))
+
+    assert lines.empty()
+    assert handler.withheld == 0
+
+
+def test_a_message_just_under_the_scan_bound_is_still_scanned_whole() -> None:
+    handler, lines = _handler()
+    near_the_bound = (
+        "Bot ab12cd: " + "a " * ((MAX_MESSAGE_CHARS - 40) // 2) + "apikey=" + "Zz9" * 8
+    )
+
+    handler.emit(log_record(near_the_bound))
 
     assert lines.empty()
     assert handler.withheld == 1

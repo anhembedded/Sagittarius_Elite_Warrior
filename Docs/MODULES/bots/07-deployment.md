@@ -187,9 +187,9 @@ below INFO, nothing but `Bot <id>:` lines.
 
 | Part | Where | Thread | Bound |
 | :--- | :--- | :--- | :--- |
-| Handler on `App.Bots` | `operations/application/bot_log_recorder.py` → `BotLogHandler.emit` | the bot's own thread: one match, one deny-list scan, one `put_nowait`; never blocks, never raises | queue of `QUEUE_LIMIT` lines; a full queue **drops** the new line and counts it per bot |
+| Handler on `App.Bots` | `operations/application/bot_log_recorder.py` → `BotLogHandler.emit` | the bot's own thread: one match, one deny-list scan of a message of at most `MAX_MESSAGE_CHARS` (a longer one is dropped whole, unscanned), one `put_nowait`; never blocks, never raises | queue of `QUEUE_LIMIT` lines; a full queue **drops** the new line and counts it per bot |
 | Writer | `bot_log_recorder.py` → `BotLogWriter` (thread `bot-log-writer`) | its own | a failing write is swallowed, one WARNING per `FAULT_LOG_EVERY_S` |
-| Files | `state/bot-logs/<id>.jsonl`, mode 0600, directory 0700 (`operations/adapters/bot_log_files.py` → `BotLogFiles`) | the writer | `MAX_LINES_PER_BOT`, `MAX_BYTES_PER_BOT`, `MAX_BYTES_ALL_BOTS` (the biggest file is halved first), `MAX_LINE_CHARS` |
+| Files | `state/bot-logs/<id>.jsonl`, mode 0600, directory 0700 (`operations/adapters/bot_log_files.py` → `BotLogFiles`); a file is read from its last `4 × MAX_BYTES_PER_BOT` bytes, junk counts against the byte bound, and a torn last line is closed before the next record | the writer | `MAX_LINES_PER_BOT`, `MAX_BYTES_PER_BOT`, `MAX_BYTES_ALL_BOTS` (the biggest file is halved first), `MAX_LINE_CHARS` |
 | Secret filter | `operations/application/bot_log_secret_filter.py` → `SECRET_SHAPES`, `may_carry_a_secret` | the bot's thread | a line with a key shape is dropped **whole**, never redacted |
 | Reader | `bot_log_files.py` → `BotLogFileReader`, through `operations/link.py` → `bridge_bot_log` and `support/wire/bridge/bridge_bot_log_call.py` → `serve_bot_log` | the bridge session's thread | `MAX_LINES_PER_READ`, `MAX_BYTES_PER_READ`; a bot id is six characters of `[a-z0-9]` or the read is empty |
 | Desktop | `shell/vps_link/host_bot_log.py` → `HostBotLog`; `bots/ui/bots_screen/remote_bot_log_feed.py` → `RemoteBotLogFeed` | the app's pool, one read at a time | asks for the **selected** bot every `POLL_MS`; a late answer for another bot is dropped |
@@ -211,7 +211,7 @@ sequenceDiagram
     B-->>T: lines, next cursor
 ```
 
-The cursor is a time in nanoseconds the host stamps on each record (`BotLogHandler.next_seq`), so it grows across a restart
+The cursor is a time in nanoseconds the **writer thread** stamps on each record (`BotLogWriter._next_seq`; one thread, so the order in the file is the order of the numbers and two bot threads cannot swap them), so it grows across a restart
 and across a rewrite of a file. `operations.vps_log_enabled` (default on) turns the recorder off; `operations.vps_feed_enabled`
 off (the GUI) turns it off with the rest of the feed. Not built: a line of another logger (the host's own, the exchange's).
 

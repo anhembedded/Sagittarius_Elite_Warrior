@@ -6,10 +6,14 @@ from __future__ import annotations
 import os
 import stat
 from pathlib import Path
+from typing import Self
 
+import pytest
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters import bot_log_files
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.bot_log_files import (
     BotLogFileReader,
     BotLogFiles,
+    encode,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
     MAX_BYTES_ALL_BOTS,
@@ -222,3 +226,79 @@ def test_the_reader_writes_nothing_and_a_missing_file_is_an_empty_page(
     assert before == after
     assert empty.records == ()
     assert os.listdir(directory) == ["ab12cd.jsonl"]
+
+
+def test_junk_counts_against_the_bound_and_the_next_compaction_drops_it(
+    tmp_path: Path,
+) -> None:
+    files, reader, directory = _files(tmp_path)
+    directory.mkdir()
+    (directory / "ab12cd.jsonl").write_bytes(
+        b"\xff\xfe not a record\n" * (MAX_BYTES_PER_BOT // 16 + 1000)
+    )
+
+    files.append("ab12cd", _record(1, "after the junk"))
+
+    assert (directory / "ab12cd.jsonl").stat().st_size <= MAX_BYTES_PER_BOT
+    assert [r.text for r in reader.read("ab12cd", 0).records] == ["after the junk"]
+
+
+def test_a_torn_last_line_does_not_swallow_the_next_record(tmp_path: Path) -> None:
+    files, reader, directory = _files(tmp_path)
+    directory.mkdir()
+    good = encode(_record(1, "before the crash"))
+    (directory / "ab12cd.jsonl").write_bytes(good + b'{"seq":2,"at":"x","lev')
+
+    files.append("ab12cd", _record(3, "after the restart"))
+
+    assert [r.text for r in reader.read("ab12cd", 0).records] == [
+        "before the crash",
+        "after the restart",
+    ]
+
+
+class _CountingFile:
+    """A real file whose `read` counts the bytes it returned."""
+
+    def __init__(self, real: object, counter: list[int]) -> None:
+        self._real = real
+        self._counter = counter
+
+    def __enter__(self) -> Self:
+        self._real.__enter__()  # type: ignore[attr-defined]
+        return self
+
+    def __exit__(self, *details: object) -> None:
+        self._real.__exit__(*details)  # type: ignore[attr-defined]
+
+    def read(self, *arguments: int) -> bytes:
+        data: bytes = self._real.read(*arguments)  # type: ignore[attr-defined]
+        self._counter.append(len(data))
+        return data
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._real, name)
+
+
+def test_a_huge_file_is_read_only_from_its_end_by_the_reader(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _writer, reader, directory = _files(tmp_path)
+    del _writer
+    directory.mkdir()
+    big = directory / "ab12cd.jsonl"
+    with open(big, "wb") as handle:
+        handle.write(b"x" * (MAX_BYTES_PER_BOT * 40))
+        handle.write(b"\n" + encode(_record(9, "the newest")))
+    counter: list[int] = []
+    real_open = open
+
+    def counting_open(*arguments: object, **options: object) -> _CountingFile:
+        return _CountingFile(real_open(*arguments, **options), counter)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(bot_log_files, "open", counting_open, raising=False)
+
+    page = reader.read("ab12cd", 0)
+
+    assert [r.text for r in page.records] == ["the newest"]
+    assert sum(counter) <= 4 * MAX_BYTES_PER_BOT + 1024

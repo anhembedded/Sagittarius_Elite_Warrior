@@ -5,6 +5,8 @@ Mutation check: every shape has a sample that **only that shape** catches, so re
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.operations.application import (
     bot_log_secret_filter,
@@ -13,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_log_secret
     SECRET_SHAPES,
     may_carry_a_secret,
     shapes_matching,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
+    MAX_MESSAGE_CHARS,
 )
 
 #: A 64-character run, the shape of an exchange key; not a real one.
@@ -76,3 +81,18 @@ def test_the_named_secrets_are_all_caught(text: str) -> None:
 )
 def test_the_lines_a_bot_really_writes_pass(text: str) -> None:
     assert not may_carry_a_secret(text)
+
+
+def test_no_shape_is_slow_on_the_longest_text_the_handler_will_scan() -> None:
+    for pattern in (
+        "http://",
+        "https://x/",
+        "bearer ",
+        "api_key ",
+        "-----",
+        "a" * 31 + " ",
+    ):
+        text = (pattern * (MAX_MESSAGE_CHARS // len(pattern) + 1))[:MAX_MESSAGE_CHARS]
+        started = time.perf_counter()
+        may_carry_a_secret(text)
+        assert time.perf_counter() - started < 2.0, pattern

@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_log_secret
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
     DROP_NOTICE_LEVEL,
     MAX_LINE_CHARS,
+    MAX_MESSAGE_CHARS,
     QUEUE_LIMIT,
     BotLogRecord,
 )
@@ -55,10 +56,13 @@ _STOP: Final = object()
 
 @dataclass(frozen=True, slots=True)
 class QueuedLine:
-    """What waits between the bot's thread and the writer."""
+    """What waits between the bot's thread and the writer: no sequence number yet, the writer gives it (one thread, so the
+    order in the file is the order of the numbers)."""
 
     bot_id: str
-    record: BotLogRecord
+    at: str
+    level: str
+    text: str
 
 
 class BotLogHandler(logging.Handler):
@@ -71,7 +75,6 @@ class BotLogHandler(logging.Handler):
         self._lock = threading.Lock()
         self._dropped: Counter[str] = Counter()
         self._withheld = 0
-        self._last_seq = 0
 
     @property
     def withheld(self) -> int:
@@ -82,7 +85,13 @@ class BotLogHandler(logging.Handler):
         try:
             if record.name.startswith(OWN_LOGGER):
                 return
-            found = _BOT_LINE.fullmatch(record.getMessage())
+            message = record.getMessage()
+            if len(message) > MAX_MESSAGE_CHARS:
+                # Too long to scan on a bot's thread, and a line that long is not a sentence of the bot's: dropped whole.
+                if message.startswith("Bot "):
+                    self._withheld += 1
+                return
+            found = _BOT_LINE.fullmatch(message)
             if found is None:
                 return
             bot_id, whole = found.group(1), found.group(2)
@@ -91,10 +100,13 @@ class BotLogHandler(logging.Handler):
             if may_carry_a_secret(whole):
                 self._withheld += 1
                 return
-            text = whole[:MAX_LINE_CHARS]
             self._enqueue(
-                bot_id,
-                BotLogRecord(self.next_seq(), self.now_text(), record.levelname, text),
+                QueuedLine(
+                    bot_id,
+                    self._clock.now().isoformat(timespec="seconds"),
+                    record.levelname,
+                    whole[:MAX_LINE_CHARS],
+                )
             )
         except Exception:  # noqa: BLE001 - a bot's thread must never see this handler fail
             self._withheld += 1
@@ -104,20 +116,12 @@ class BotLogHandler(logging.Handler):
         with self._lock:
             return self._dropped.pop(bot_id, 0)
 
-    def _enqueue(self, bot_id: str, record: BotLogRecord) -> None:
+    def _enqueue(self, line: QueuedLine) -> None:
         try:
-            self._lines.put_nowait(QueuedLine(bot_id, record))
+            self._lines.put_nowait(line)
         except queue.Full:
             with self._lock:
-                self._dropped[bot_id] += 1
-
-    def next_seq(self) -> int:
-        with self._lock:
-            self._last_seq = max(self._last_seq + 1, _nanoseconds(self._clock))
-            return self._last_seq
-
-    def now_text(self) -> str:
-        return self._clock.now().isoformat(timespec="seconds")
+                self._dropped[line.bot_id] += 1
 
 
 def _nanoseconds(clock: IOperationsClock) -> int:
@@ -133,11 +137,14 @@ class BotLogWriter:
         handler: BotLogHandler,
         lines: queue.Queue[object],
         sink: IBotLogSink,
+        clock: IOperationsClock,
         monotonic: Callable[[], float],
     ) -> None:
         self._handler = handler
         self._lines = lines
         self._sink = sink
+        self._clock = clock
+        self._last_seq = 0
         self._monotonic = monotonic
         self._thread = threading.Thread(
             target=self._run, name="bot-log-writer", daemon=True
@@ -162,7 +169,10 @@ class BotLogWriter:
                 continue
             try:
                 self._write_drop_notice(item.bot_id)
-                self._sink.append(item.bot_id, item.record)
+                self._sink.append(
+                    item.bot_id,
+                    BotLogRecord(self._next_seq(), item.at, item.level, item.text),
+                )
             except Exception as failure:  # noqa: BLE001 - the writer outlives any one bad write
                 self._fault(failure)
 
@@ -172,12 +182,17 @@ class BotLogWriter:
             self._sink.append(
                 bot_id,
                 BotLogRecord(
-                    self._handler.next_seq(),
-                    self._handler.now_text(),
+                    self._next_seq(),
+                    self._clock.now().isoformat(timespec="seconds"),
                     DROP_NOTICE_LEVEL,
                     f"{count} lines dropped (the host's log queue was full)",
                 ),
             )
+
+    def _next_seq(self) -> int:
+        """Strictly increasing, and across a restart too (a time in nanoseconds); only this thread calls it."""
+        self._last_seq = max(self._last_seq + 1, _nanoseconds(self._clock))
+        return self._last_seq
 
     def _fault(self, failure: Exception) -> None:
         self._faults += 1

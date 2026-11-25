@@ -43,7 +43,9 @@ class BotLogHost:
     def begin(self, directory: Path, clock: IOperationsClock) -> None:
         lines = new_queue()
         handler = BotLogHandler(clock, lines)
-        writer = BotLogWriter(handler, lines, BotLogFiles(directory), time.monotonic)
+        writer = BotLogWriter(
+            handler, lines, BotLogFiles(directory), clock, time.monotonic
+        )
         writer.start()
         logging.getLogger(BOTS_LOGGER).addHandler(handler)
         self._handler, self._writer = handler, writer

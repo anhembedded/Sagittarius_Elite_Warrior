@@ -17,6 +17,9 @@ from typing import Final
 BOT_LOG_DIRECTORY: Final = "bot-logs"
 #: One line's text is cut to this many characters (a bot's lines are sentences, not dumps).
 MAX_LINE_CHARS: Final = 600
+#: A message longer than this is dropped whole, unscanned: the secret scan runs on the bot's thread, so its work is bounded
+#: (a bot's own sentences are far shorter), and a key straddling `MAX_LINE_CHARS` is still seen because the scan covers more.
+MAX_MESSAGE_CHARS: Final = 4 * MAX_LINE_CHARS
 #: A bot's file keeps at most this many lines and bytes; going over rewrites it with the newest.
 MAX_LINES_PER_BOT: Final = 1000
 MAX_BYTES_PER_BOT: Final = 256 * 1024
