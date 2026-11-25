@@ -17,6 +17,9 @@ from abc import ABC, abstractmethod
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_log_chunk import (
+    BotLogChunk,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_line import HostLine
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -38,6 +41,11 @@ class IVpsTab(ABC):
     @abstractmethod
     def host_line(self) -> HostLine:
         """The line above the tab now: host, keys, connected or not, the facts' age."""
+
+    @abstractmethod
+    def bot_log(self, bot_id: str, since: int) -> BotLogChunk:
+        """`bot_id`'s own log lines the host kept after the cursor `since` (0: the newest ones), one bounded read; it blocks,
+        so a caller runs it off the UI thread. @raise BotLogUnavailableError The link is down or the host cannot serve it."""
 
     @abstractmethod
     def opened(self) -> None:

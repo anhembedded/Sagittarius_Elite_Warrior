@@ -22,15 +22,18 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.closed_candle_w
     CANDLE_WINDOW_ROOT,
 )
 from Sagittarius_Elite_Warrior.src.shell.wire_roots import link_roots
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_ports import SessionPorts
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_session import (
     BridgeSession,
-    SessionPorts,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
     BotReading,
     FactsLook,
     FactsState,
     Wired,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bot_log import (
+    IBridgeBotLog,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
     IBridgeBots,
@@ -199,6 +202,7 @@ class Desk:
         spawn: Callable[[Callable[[], None]], None] | None = None,
         documents: Mapping[str, IBridgeFacts] | None = None,
         candles: IBridgeCandles | None = None,
+        bot_log: IBridgeBotLog | None = None,
     ) -> None:
         self.bots = bots or FakeBots(full_bot(), minimal_bot())
         self.facts = FakeFacts()
@@ -209,7 +213,9 @@ class Desk:
         self.session = BridgeSession(
             ROOTS,
             VERSION,
-            SessionPorts(self.bots, self.facts, self.door, documents or {}, candles),
+            SessionPorts(
+                self.bots, self.facts, self.door, documents or {}, candles, bot_log
+            ),
             self.out.append,
             spawn or (lambda work: work()),
         )

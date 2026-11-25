@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.bots.link import bridge_bots
 from Sagittarius_Elite_Warrior.src.modules.market_data.link import bridge_candles
 from Sagittarius_Elite_Warrior.src.modules.operations.link import (
+    bridge_bot_log,
     bridge_documents,
     bridge_door,
     bridge_facts,
@@ -54,6 +55,7 @@ def main() -> int:
         door=bridge_door(state, FileLockInstanceProbe(state / "instance.lock")),
         documents=bridge_documents(state, roots),
         candles=bridge_candles(data_root() / "database"),
+        bot_log=bridge_bot_log(state),
     )
     sys.stdin.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")  # type: ignore[union-attr]

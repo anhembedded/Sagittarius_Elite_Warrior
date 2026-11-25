@@ -9,6 +9,9 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_log_chunk import (
+    BotLogChunk,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_line import HostLine
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_vps_tab import IVpsTab
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dependencies import (
@@ -18,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dependencies
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.vps_command_ids import (
     vps_commands,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_link.host_bot_log import HostBotLog
 from Sagittarius_Elite_Warrior.src.shell.vps_link.host_candle_feed import (
     HostCandleFeed,
 )
@@ -70,6 +74,9 @@ class TabOnTheWorld(IVpsTab):
             LinkStatus(LinkState.CONNECTED, "connected"),
             datetime.now(UTC),
         )
+
+    def bot_log(self, bot_id: str, since: int) -> BotLogChunk:
+        return HostBotLog(self._tab.world).read(bot_id, since)
 
     def opened(self) -> None:
         self.opened_count += 1

@@ -187,6 +187,9 @@ class ConfigKeys(str, Enum):
     #: for the headless host; the GUI entry point turns it off for its run, so a desktop never spends
     #: weight on its own IP for files nothing on it reads.
     OPERATIONS_VPS_FEED_ENABLED = "operations.vps_feed_enabled"
+    #: `EPIC-047F` - whether the host keeps each bot's own INFO+ log lines in bounded files for the VPS tab
+    #: (`state/bot-logs/`). On by default: bounded, owner-only, a line that may hold a secret is dropped whole.
+    OPERATIONS_VPS_LOG_ENABLED = "operations.vps_log_enabled"
 
     # `BOT-018` — Telegram notification channel. Since `EPIC-036C1` these two keys are only what
     # an older install still holds: `TelegramConfigMigration` moves them into the secret store at

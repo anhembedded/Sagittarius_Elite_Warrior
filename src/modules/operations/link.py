@@ -17,6 +17,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.wire_root import WireRoot
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.bot_log_files import (
+    BotLogFileReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.bridge_bot_log_view import (
+    BridgeBotLogView,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
     AUDIT_FILE_NAME,
     control_directory_of,
@@ -42,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.composition.wire_roots imp
     MARKET_DATA_DOCUMENT_ROOT,
     OPERATIONS_WIRE_ROOTS,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
+    BOT_LOG_DIRECTORY,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_facts_document import (
     HOST_FACTS_FILE_NAME,
 )
@@ -52,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_reads_docum
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.market_data_document import (
     MARKET_DATA_FILE_NAME,
     MarketDataDocument,
+)
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bot_log import (
+    IBridgeBotLog,
 )
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_facts import (
     IBridgeFacts,
@@ -101,6 +113,11 @@ def bridge_documents(
             clock,
         ),
     }
+
+
+def bridge_bot_log(state_directory: Path) -> IBridgeBotLog:
+    """The bots' own log lines the host keeps under `state_directory`, read for the bridge (`EPIC-047F`)."""
+    return BridgeBotLogView(BotLogFileReader(state_directory / BOT_LOG_DIRECTORY))
 
 
 def bridge_door(state_directory: Path, probe: IInstanceProbe) -> ICommandDoor:

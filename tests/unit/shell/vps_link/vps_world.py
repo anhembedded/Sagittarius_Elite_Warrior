@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.shell.vps_link.unanswered_ledger import (
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_session import (
     SessionPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bot_log import (
+    IBridgeBotLog,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.desk.contracts.link_status import (
     LinkStatus,
 )
@@ -73,6 +76,8 @@ class VpsHost(BridgeHost):
         self.reads = FakeDocument(HOST_READS_DOCUMENT_ROOT, full_host_reads())
         #: The host's candle store; `None` until a test seeds one (the bridge then answers `no_candles`).
         self.candles: FakeCandles | None = None
+        #: The host's bot-log files as the bridge reads them; `None` until a test gives one (`no_bot_log`).
+        self.bot_log: IBridgeBotLog | None = None
 
     def ports(self) -> SessionPorts:
         return SessionPorts(
@@ -81,6 +86,7 @@ class VpsHost(BridgeHost):
             self.door,
             {"market": self.market, "reads": self.reads},
             self.candles,
+            self.bot_log,
         )
 
 

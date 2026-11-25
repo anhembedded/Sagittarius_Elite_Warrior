@@ -93,6 +93,8 @@ class ReadKind(str, Enum):
     EXPORT = "export"
     #: `EPIC-047E` — Add to VPS: the bot sent to the host and the host's answer (`add_to_vps_flow.py`).
     ADD_TO_VPS = "add_to_vps"
+    #: `EPIC-047F` — the selected VPS bot's own log lines, read by `RemoteBotLogFeed`'s own `FencedReads`.
+    LOG = "log"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
