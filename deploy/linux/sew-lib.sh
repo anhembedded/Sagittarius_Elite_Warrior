@@ -60,7 +60,7 @@ sew_init() {
   SERVICE=sew-run
   EXPECTED_CREDENTIAL_LINE='LoadCredential=sew:/etc/sew/credentials'
   # Linked into $SBIN_DIR; the first three are the operator's commands.
-  TOOLS=(sew-key sew-backup sew-update sew-install)
+  TOOLS=(sew-key sew-link-key sew-backup sew-update sew-install)
 }
 
 require_root() {
@@ -149,7 +149,7 @@ service_live() {
 
 # The files of deploy/linux a release must carry for the install scripts to work; prints the
 # first one the checkout lacks and returns 0, or returns 1 when none is missing.
-RELEASE_FILES=(sew-run.service sew-profile.sh sew-backup sew-backup.service sew-backup.timer sew-key sew-update sew-install sew-lib.sh)
+RELEASE_FILES=(sew-run.service sew-profile.sh sew-backup sew-backup.service sew-backup.timer sew-key sew-link-key sew-bridge-shell sew-update sew-install sew-lib.sh)
 
 missing_release_file() {
   local file

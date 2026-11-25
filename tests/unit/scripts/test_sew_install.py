@@ -49,7 +49,7 @@ def test_it_installs_the_unit_the_units_the_profile_and_the_links(
         assert (deploy.unit_dir / name).read_bytes() == (DEPLOY / name).read_bytes()
     profile = deploy.root / "etc" / "profile.d" / "sew.sh"
     assert profile.read_bytes() == (DEPLOY / "sew-profile.sh").read_bytes()
-    for tool in ("sew-key", "sew-backup", "sew-update", "sew-install"):
+    for tool in ("sew-key", "sew-link-key", "sew-backup", "sew-update", "sew-install"):
         link = deploy.sbin / tool
         assert link.is_symlink()
         assert os.readlink(link) == str(deploy.checkout / "deploy" / "linux" / tool)
