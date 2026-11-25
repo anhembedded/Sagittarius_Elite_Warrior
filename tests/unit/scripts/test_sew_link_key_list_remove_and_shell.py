@@ -208,3 +208,20 @@ def test_shell_set_refuses_when_the_checkout_has_no_guard_to_install(
 
     assert run.code == 2
     assert "sew-update" in run.err
+
+
+def test_remove_refuses_a_symlinked_ssh_directory_that_holds_the_key(
+    world: World,
+) -> None:
+    key = world.make_key("desk", "desk")
+    world.run("add", str(key))
+    target = world.root / "elsewhere"
+    world.ssh.rename(target)
+    world.ssh.symlink_to(target)
+    before = (target / "authorized_keys").read_bytes()
+
+    run = world.run("remove", "desk")
+
+    assert run.code == 2
+    assert "symbolic link" in run.err
+    assert (target / "authorized_keys").read_bytes() == before

@@ -118,7 +118,7 @@ new_scratch() {
 }
 
 own() { # owner:group path ; nothing in a test that is not root
-  [[ -n "$NO_CHOWN" ]] || chown "$1" -- "$2"
+  [[ -n "$NO_CHOWN" ]] || chown -h "$1" -- "$2"
 }
 
 take_lock() {
@@ -219,6 +219,30 @@ ensure_ssh_dir() {
   own "$ACCOUNT:$ACCOUNT" "$SSH_DIR"
 }
 
+# $HOME_DIR/.ssh is written by the sew account, which this tool must assume can be compromised: a symlink there
+# would make a root run chmod and write somewhere else. Refuse a link, and a file the account does not own.
+own_files_problem() { # prints why, returns 0 when there is a problem
+  local path
+  for path in "$SSH_DIR" "$AUTH_FILE"; do
+    if [[ -L "$path" ]]; then
+      printf '%s is a symbolic link' "$path"
+      return 0
+    fi
+    if [[ -e "$path" && -z "$NO_CHOWN" && "$(stat -c '%U' -- "$path")" != "$ACCOUNT" ]]; then
+      printf '%s is owned by %s, not by %s' "$path" "$(stat -c '%U' -- "$path")" "$ACCOUNT"
+      return 0
+    fi
+  done
+  return 1
+}
+
+require_own_files() {
+  local why
+  if why=$(own_files_problem); then
+    die "$why: remove it by hand after looking at it; this tool will not write through it"
+  fi
+}
+
 # Writes $1 (a prepared file) over authorized_keys: 0600, owned by the account, renamed over.
 publish() {
   chmod 0600 -- "$1"
@@ -255,11 +279,17 @@ cmd_add() {
   [[ -f "$LAUNCHER" && -x "$LAUNCHER" ]] || die "the bridge launcher $LAUNCHER is missing or not executable: is the checkout in place?"
   load_public_key "$source" "$comment"
   [[ "$DRY_RUN" == 1 ]] || take_lock
-  local line="$PREFIX$KEY_TYPE $KEY_BODY $KEY_COMMENT" existing
+  local line="$PREFIX$KEY_TYPE $KEY_BODY $KEY_COMMENT" existing rest
+  require_own_files
   while IFS= read -r existing; do
-    if [[ "$existing" == *" $KEY_TYPE $KEY_BODY"* ]]; then
-      printf 'sew-link-key: %s is already installed; nothing to do\n' "$KEY_PRINT"
-      return 0
+    [[ -n "$existing" && "$existing" != '#'* ]] || continue
+    if rest=$(ours "$existing"); then
+      if [[ " $rest " == " $KEY_TYPE $KEY_BODY "* ]]; then
+        printf 'sew-link-key: %s is already installed; nothing to do\n' "$KEY_PRINT"
+        return 0
+      fi
+    elif [[ " $existing " == *" $KEY_TYPE $KEY_BODY "* ]]; then
+      die "$KEY_PRINT is already in $AUTH_FILE on a line that is NOT the bridge restriction (see: sew-link-key list); remove that line first: sew-link-key remove $KEY_PRINT"
     fi
   done < <(file_lines)
   if [[ "$DRY_RUN" == 1 ]]; then
@@ -313,6 +343,7 @@ cmd_remove() {
   done
   [[ -n "$target" ]] || usage
   require_root
+  require_own_files
   [[ -f "$AUTH_FILE" ]] || die "no $AUTH_FILE: nothing to remove"
   [[ "$DRY_RUN" == 1 ]] || take_lock
   local line print rest comment matched=0 found_print="" found_comment="" lines=()
@@ -412,7 +443,7 @@ unset_shell() {
   if in_shells; then
     new_temp_beside "$SHELLS_FILE"
     local fresh="$NEW_TEMP"
-    grep -vxF -- "$GUARD" "$SHELLS_FILE" > "$fresh" || true
+    grep -vxF -- "$GUARD" "$SHELLS_FILE" > "$fresh" || [[ $? -eq 1 ]] || fail "could not read $SHELLS_FILE"
     chmod 0644 -- "$fresh"
     mv -fT -- "$fresh" "$SHELLS_FILE"
   fi
@@ -460,6 +491,8 @@ check_launcher() {
 }
 
 check_keys() {
+  local why
+  if why=$(own_files_problem); then bad "$why: the tool refuses to write through it"; return 0; fi
   if [[ ! -d "$SSH_DIR" ]]; then warn "$SSH_DIR does not exist yet: no key has been added"; return 0; fi
   local state
   state=$(owner_and_mode "$SSH_DIR")

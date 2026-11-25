@@ -206,3 +206,14 @@ def test_check_needs_root_because_the_ssh_directory_is_the_accounts(
     run = ready.run("check", euid="1000")
 
     assert run.code == 2
+
+
+def test_a_symlinked_ssh_directory_is_a_failure(ready: World) -> None:
+    moved = ready.root / "moved-ssh"
+    ready.ssh.rename(moved)
+    ready.ssh.symlink_to(moved)
+
+    run = ready.run("check")
+
+    assert run.code == 1
+    assert "symbolic link" in run.out

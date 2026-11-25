@@ -310,3 +310,80 @@ def test_add_never_changes_the_login_shell_and_says_so_when_it_is_not_the_guard(
     assert "sew-link-key shell set" in run.out
     assert "UNPROVEN" in run.out
     assert not world.calls.exists()
+
+
+def test_a_comment_line_holding_the_key_does_not_count_as_installed(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    world.ssh.mkdir(mode=0o700)
+    old = f"# old copy: {key.read_text(encoding='utf-8').strip()}\n"
+    world.auth.write_text(old, encoding="utf-8")
+
+    run = world.run("add", str(key))
+
+    assert run.code == 0, run.err
+    assert "already installed" not in run.out
+    assert world.auth_lines() == [old.strip(), world.restricted_line(key)]
+
+
+def test_the_same_key_on_a_line_that_is_not_the_bridge_restriction_is_a_refusal(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    world.ssh.mkdir(mode=0o700)
+    loose = f'command="/bin/sh" {key.read_text(encoding="utf-8").strip()}\n'
+    world.auth.write_text(loose, encoding="utf-8")
+
+    run = world.run("add", str(key))
+
+    assert run.code == 2
+    assert "NOT the bridge restriction" in run.err
+    assert world.auth.read_text(encoding="utf-8") == loose
+
+
+def test_a_longer_key_with_the_same_start_is_not_taken_for_the_installed_one(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    body = world.body_of(key)
+    world.ssh.mkdir(mode=0o700)
+    other = f'restrict,command="{world.launcher}" ssh-ed25519 {body}EXTRA other\n'
+    world.auth.write_text(other, encoding="utf-8")
+
+    run = world.run("add", str(key))
+
+    assert run.code == 0, run.err
+    assert len(world.auth_lines()) == 2
+
+
+def test_a_symlinked_ssh_directory_is_refused_and_its_target_is_left_alone(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    target = world.root / "elsewhere"
+    target.mkdir(mode=0o755)
+    world.ssh.symlink_to(target)
+
+    run = world.run("add", str(key))
+
+    assert run.code == 2
+    assert "symbolic link" in run.err
+    assert world.mode(target) == 0o755
+    assert list(target.iterdir()) == []
+
+
+def test_a_symlinked_authorized_keys_is_refused_and_its_target_is_left_alone(
+    world: World,
+) -> None:
+    key = world.make_key("desk")
+    world.ssh.mkdir(mode=0o700)
+    target = world.root / "somewhere-else"
+    target.write_text("untouched\n", encoding="utf-8")
+    world.auth.symlink_to(target)
+
+    run = world.run("add", str(key))
+
+    assert run.code == 2
+    assert "symbolic link" in run.err
+    assert target.read_text(encoding="utf-8") == "untouched\n"
