@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -70,13 +71,16 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_pref
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .bot_log_feed import BotLogFeed
 from .bots_dialogs import BotsDialogs
 from .bots_view import BotsView
+from .i_bot_log_feed import IBotLogFeed
 from .venue_candles import venue_candles
 from .vps_backend import (
     vps_arrangement,
     vps_binder,
     vps_dependencies,
+    vps_log_feed,
     vps_strategies,
 )
 
@@ -141,6 +145,8 @@ class BotsBackend:
     arrange: Callable[[BotsView], None] = lambda _view: None
     #: The binder the tab's commands are bound through: the VPS tab's commands carry its own ids (`vps_command_ids.py`).
     binder_of: Callable[[ICommandBinder], ICommandBinder] = lambda binder: binder
+    #: Where the log panel's lines come from (`EPIC-047F`): this computer's bots by default, the host's bot for the VPS tab.
+    log_feed: Callable[[QObject], IBotLogFeed] = lambda parent: BotLogFeed(parent)
 
     def give_to(self, view: BotsView) -> None:
         """Gives `view` this tab's own touches (the display time zone every tab follows, then `arrange`)."""
@@ -189,4 +195,10 @@ def backend_for(container: IContainer) -> BotsBackend:
         return BotsBackend(dependencies, strategies)
     tab = container.resolve(IVpsTab)
     vps = vps_dependencies(tab, dependencies)
-    return BotsBackend(vps, vps_strategies(vps), vps_arrangement(tab), vps_binder)
+    return BotsBackend(
+        vps,
+        vps_strategies(vps),
+        vps_arrangement(tab),
+        vps_binder,
+        vps_log_feed(tab, vps),
+    )

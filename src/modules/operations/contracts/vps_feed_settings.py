@@ -40,6 +40,8 @@ class VpsFeedSettings:
     fills_every_rounds: int = FILLS_EVERY_ROUNDS
     #: Whether this process runs the feed at all; off in the GUI entry point (`EPIC-047H`).
     feed_enabled: bool = True
+    #: `EPIC-047F`: whether the host keeps the bots' own log lines for the tab (on: the bounds and the secret filter hold).
+    log_enabled: bool = True
 
     @property
     def refresh_enabled(self) -> bool:

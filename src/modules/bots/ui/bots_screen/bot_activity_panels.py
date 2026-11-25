@@ -144,5 +144,7 @@ class BotLogPanel(QPlainTextEdit):
         self._show_log()
 
     def _show_log(self) -> None:
-        self.setPlainText("\n".join(self._model.selected_log()))
+        lines = self._model.selected_log()
+        note = self._model.log_note
+        self.setPlainText("\n".join((*lines, f"— {note}") if note else lines))
         self.moveCursor(QTextCursor.MoveOperation.End)

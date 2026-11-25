@@ -11,11 +11,15 @@ this is no hot path (`logging-rule.md` §6, `BUG-042`).
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.support.ui_kit.signal_log_handler import (
     SignalLogHandler,
 )
+
+if TYPE_CHECKING:
+    from .bots_view_model import BotsViewModel
 
 #: The bots module's logger tree.
 BOTS_LOGGER = "App.Bots"
@@ -35,6 +39,10 @@ class BotLogFeed(QObject):
             logging.Formatter("%(asctime)s %(levelname)s %(message)s", "%H:%M:%S")
         )
         logging.getLogger(BOTS_LOGGER).addHandler(self._handler)
+
+    def feed_model(self, model: BotsViewModel) -> None:
+        """Every line goes to the model; the model keeps them all and shows the selected bot's."""
+        self.line.connect(model.append_log_line)
 
     def close(self) -> None:
         """Detaches the handler. Safe to call twice."""

@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.link_profile import LinkProfile
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_log_chunk import (
+    BotLogChunk,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_line import HostLine
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -43,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.shell.link_version import link_app_version
 from Sagittarius_Elite_Warrior.src.shell.vps_link.command_reconciler import (
     CommandReconciler,
 )
+from Sagittarius_Elite_Warrior.src.shell.vps_link.host_bot_log import HostBotLog
 from Sagittarius_Elite_Warrior.src.shell.vps_link.host_candle_feed import (
     HostCandleFeed,
 )
@@ -102,6 +106,7 @@ class VpsTabSession(IVpsTab):
         self._roots = link_roots()
         self._bus = MemoryEventBus()
         self._world = LinkHostWorld(self._roots, HostEventPublisher(self._bus))
+        self._bot_log = HostBotLog(self._world)
         self._ledger = UnansweredLedger()
         control = LinkHostControl(self._world, self._roots, self._ledger)
         #: Settles the commands a cut lost, from the host's record, on each reconnect; never sends one again.
@@ -172,6 +177,9 @@ class VpsTabSession(IVpsTab):
         if venue not in self._feeds:
             self._feeds[venue] = HostCandleFeed(venue, self._world, self._roots)
         return self._feeds[venue]
+
+    def bot_log(self, bot_id: str, since: int) -> BotLogChunk:
+        return self._bot_log.read(bot_id, since)
 
     def opened(self) -> None:
         self.start()

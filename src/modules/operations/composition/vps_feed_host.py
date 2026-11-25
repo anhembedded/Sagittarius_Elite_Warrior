@@ -34,9 +34,15 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_facts_pub
 from Sagittarius_Elite_Warrior.src.modules.operations.application.market_recorder import (
     MarketRecorder,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.composition.bot_log_host import (
+    BotLogHost,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.composition.wire_roots import (
     HOST_READS_DOCUMENT_ROOT,
     MARKET_DATA_DOCUMENT_ROOT,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.bot_log import (
+    BOT_LOG_DIRECTORY,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_reads_document import (
     HOST_READS_FILE_NAME,
@@ -75,6 +81,7 @@ class VpsFeedHost:
         self._publishing: list[HostFactsPublishing] = []
         self._jobs: list[ScheduledJob] = []
         self._refreshing: FactsRefreshing | None = None
+        self._bot_log = BotLogHost()
 
     def begin(self, context: IEngineContext, clock: IOperationsClock) -> None:
         container = context.container
@@ -84,6 +91,12 @@ class VpsFeedHost:
                 "[vps-feed] off in this process (setting); the host serves the VPS tab"
             )
             return
+        if settings.log_enabled:
+            self._bot_log.begin(data_root() / "state" / BOT_LOG_DIRECTORY, clock)
+        else:
+            logger.info(
+                "[bot-log] off (operations.vps_log_enabled); no bot log is kept"
+            )
         codec = container.resolve(IWireCodec)
         scheduler = container.resolve(Scheduler)
         if settings.market_recorder_enabled:
@@ -139,6 +152,7 @@ class VpsFeedHost:
         )
 
     def end(self) -> None:
+        self._bot_log.end()
         for job in self._jobs:
             job.cancel()
         for worker in self._publishing:

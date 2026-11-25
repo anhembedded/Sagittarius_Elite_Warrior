@@ -56,7 +56,6 @@ from .bot_actions_coordinator import BotActionsCoordinator
 from .bot_changes_feed import BotChangesFeed
 from .bot_chart_host import BotChartHost
 from .bot_commands import PendingAction, command_for
-from .bot_log_feed import BotLogFeed
 from .bot_venues import BotVenues
 from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import BotsBackend, backend_for
@@ -139,7 +138,7 @@ class BotsPresenter(CommandPresenter):
         PlanExport(self._model, self._queries, self._dialogs, deps.notifier)
         AddToVps(self._model, self._queries, self._dialogs, deps.notifier)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
-        self._log = BotLogFeed(parent=self)
+        self._log = backend.log_feed(self)
         self._selected = SelectedBot(self._catalog, now, commands)
         self._venues = BotVenues(
             self._queries,
@@ -195,7 +194,7 @@ class BotsPresenter(CommandPresenter):
         self._reads.failed.connect(self._failures.read_failed)
         self._commands.finished.connect(self._on_finished)
         self._changes.changed.connect(self._on_bot_changed)
-        self._log.line.connect(model.append_log_line)
+        self._log.feed_model(model)
 
     # -- reads ------------------------------------------------------------- #
 

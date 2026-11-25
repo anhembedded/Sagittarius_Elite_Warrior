@@ -20,8 +20,8 @@ a test gives it a list and a number.
        · `subscribe` — from now on, one **event** per change;
        · `command` — `{"request_id": <32 hex>, "request": sew.host-control-request/1,
          "wait_s": n}` through the host's control door; the reply is `sew.host-control-reply/1`;
-       · `outcome` — `{"request_id": <32 hex>}`: what the host recorded for that command id (it fences an id the host never saw)
-         (`bridge_outcome_call.py`; `EPIC-047E`).
+       · `outcome` (`bridge_outcome_call.py`), `candles` (`bridge_candle_call.py`), `bot_log` (`bridge_bot_log_call.py`):
+         read-only calls, each documented in its own file.
   4. **events** — `{"type":"event","seq":n,"kind":"bot",…}` for every write to a bot's file (found
      by listing the directory every `POLL_S`), `kind":"facts"` when the host-facts file's revision
      or liveness changes.
@@ -40,9 +40,10 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Mapping
-from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_bot_log_call import (
+    serve_bot_log,
+)
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_candle_call import (
     serve_candles,
 )
@@ -58,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_documents import (
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_outcome_call import (
     serve_outcome,
 )
+from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_ports import SessionPorts
 from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
     DOCUMENTS_LOOK_S,
     EXIT_ENDED,
@@ -77,18 +79,6 @@ from Sagittarius_Elite_Warrior.src.support.wire.bridge.bridge_protocol import (
 from Sagittarius_Elite_Warrior.src.support.wire.contracts.bridge_values import (
     BotReading,
 )
-from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_bots import (
-    IBridgeBots,
-)
-from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_candles import (
-    IBridgeCandles,
-)
-from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_bridge_facts import (
-    IBridgeFacts,
-)
-from Sagittarius_Elite_Warrior.src.support.wire.contracts.i_command_door import (
-    ICommandDoor,
-)
 from Sagittarius_Elite_Warrior.src.support.wire.link_handshake import (
     Hello,
     hello_of,
@@ -98,17 +88,6 @@ from Sagittarius_Elite_Warrior.src.support.wire.wire_errors import WireDecodeErr
 from Sagittarius_Elite_Warrior.src.support.wire.wire_roots import WireRoots
 
 logger = logging.getLogger("App.LinkBridge")
-
-
-@dataclass(frozen=True, slots=True)
-class SessionPorts:
-    bots: IBridgeBots
-    facts: IBridgeFacts
-    door: ICommandDoor
-    #: `EPIC-047H`: the host's other files by kind (`market`, `reads`), each watched like the facts file.
-    documents: Mapping[str, IBridgeFacts] = field(default_factory=dict)
-    #: `EPIC-047H`: the host's closed candles; `None` where the build offers none (the `candles` call says so).
-    candles: IBridgeCandles | None = None
 
 
 class BridgeSession:
@@ -292,6 +271,8 @@ class BridgeSession:
             return serve_candles(self._ports.candles, self._roots, params)
         if method == "outcome":
             return serve_outcome(self._ports.door, self._roots, params)
+        if method == "bot_log":
+            return serve_bot_log(self._ports.bot_log, params)
         raise CallError("unknown_method", f"no method {method[:40]!r}")
 
     # -- reads ----------------------------------------------------------------------------

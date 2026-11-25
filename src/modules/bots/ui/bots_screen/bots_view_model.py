@@ -138,6 +138,8 @@ class BotsViewModel(StatusMessageViewModel):
         self.new_bot_unavailable = ""
         self.add_to_vps_unavailable = ""
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
+        #: What the log's source says of itself (the VPS tab: the age of the last line, a refusal); empty in the Bots tab.
+        self.log_note = ""
 
     @Slot(object)
     def set_bots(self, bots: tuple[BotSnapshot, ...]) -> None:
@@ -244,6 +246,12 @@ class BotsViewModel(StatusMessageViewModel):
     def append_log_line(self, line: str) -> None:
         self._log.append(line)
         if self.selected is not None and _mentions(line, self.selected.bot_id):
+            self.log_changed.emit()
+
+    @Slot(str)
+    def set_log_note(self, note: str) -> None:
+        if note != self.log_note:
+            self.log_note = note
             self.log_changed.emit()
 
     def selected_log(self) -> tuple[str, ...]:

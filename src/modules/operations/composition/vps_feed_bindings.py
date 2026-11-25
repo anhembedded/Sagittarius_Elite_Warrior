@@ -108,6 +108,7 @@ def _settings(container: IContainer) -> VpsFeedSettings:
         feed_enabled=bool(
             config.get(ConfigKeys.OPERATIONS_VPS_FEED_ENABLED.value, True)
         ),
+        log_enabled=bool(config.get(ConfigKeys.OPERATIONS_VPS_LOG_ENABLED.value, True)),
     )
     for note in settings.notes:
         logger.warning("[vps-feed] setting adjusted: %s [vps-feed-setting]", note)

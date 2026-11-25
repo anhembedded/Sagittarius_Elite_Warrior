@@ -17,8 +17,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_vps_tab import IVpsTab
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.backtest_workbench.backtest_workbench import (
     WorkbenchPorts,
@@ -32,6 +34,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import BotsView
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.first_shown import (
     FirstShown,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.i_bot_log_feed import (
+    IBotLogFeed,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.remote_bot_log_feed import (
+    RemoteBotLogFeed,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.typed_venue_consent import (
     TypedVenueConsent,
@@ -132,6 +140,15 @@ def vps_strategies(dependencies: BotsDependencies) -> MakeStrategies:
         )
 
     return make
+
+
+def vps_log_feed(
+    tab: IVpsTab, dependencies: BotsDependencies
+) -> Callable[[QObject], IBotLogFeed]:
+    """The log panel of the VPS tab: the selected bot's own lines, asked of the host (`EPIC-047F`)."""
+    return lambda parent: RemoteBotLogFeed(
+        tab.bot_log, dependencies.threads, lambda: datetime.now(UTC), parent
+    )
 
 
 def vps_binder(binder: ICommandBinder) -> ICommandBinder:
