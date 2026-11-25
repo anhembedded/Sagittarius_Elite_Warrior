@@ -1,0 +1,550 @@
+#!/usr/bin/env bash
+# sew-link-key - the desktop's key into the sew account, restricted to the bridge. Run it as root.
+#
+#   sew-link-key check                         verify the install end to end, with no key needed
+#   sew-link-key shell show|set|unset          the sew account's login shell: sew-bridge-shell, or nologin
+#   sew-link-key add [--comment TEXT] [--dry-run] <pubkey-file|->
+#                                              install ONE restricted line for a PUBLIC key
+#   sew-link-key list                          each installed key: fingerprint, type, comment, restricted or not
+#   sew-link-key remove [--dry-run] <fingerprint|comment>
+#
+# The line it installs is exactly what the remote-link de-risk proved (EPIC-047, R2):
+#   restrict,command="/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge" ssh-ed25519 AAAA... comment
+# `restrict` turns off port, agent and X11 forwarding and the terminal; `command=` makes the bridge the only
+# thing the key runs, whatever the client asks for. The account's login shell must be able to run that
+# command: `sew-install` creates `sew` with /usr/sbin/nologin, which refuses it, so `shell set` gives it
+# deploy/linux/sew-bridge-shell instead (the owner's decision of 2026-11-25): a program that accepts the bridge
+# launcher and nothing else, never a general shell. `shell` is its own command and `add` never changes it.
+#
+# It never edits sshd_config and never turns password login off: `check` prints the sshd drop-ins for the
+# owner to place and the PasswordAuthentication step to take after the key login works.
+#
+# Safety: a public key only (one line; a private key, a certificate, a line with options, several lines or a
+# non-ASCII file are refused), checked with ssh-keygen -l; the installed line is rebuilt from the validated
+# parts, so nothing of the input but the key reaches the file; the same key twice is one line; other lines are
+# copied as they are; the file is written beside itself under 0600 and renamed over; a lock stops two runs; the
+# log and the output name a fingerprint, never a key body.
+#
+# EVERYTHING HERE IS UNPROVEN ON THE OWNER'S VPS until the owner's check (runbook section 14.6, row 1) passed.
+#
+# Environment overrides, for tests (refused when really root): SEW_LINK_USER, SEW_LINK_HOME, SEW_LINK_LAUNCHER,
+# SEW_LINK_GUARD_SOURCE, SEW_LINK_GUARD, SEW_LINK_SHELLS, SEW_LINK_PASSWD (a passwd-format file instead of
+# getent), SEW_LINK_USERMOD, SEW_LINK_SSHD, SEW_LINK_KEYGEN, SEW_LINK_LOCK, SEW_LINK_EUID, SEW_LINK_NO_CHOWN.
+
+set -euo pipefail
+umask 077
+
+REAL_UID=$(id -u)
+if [[ "$REAL_UID" == "0" && -n "$(compgen -e SEW_LINK_)" ]]; then
+  printf 'sew-link-key: refusing to run as root with SEW_LINK_* set in the environment (%s)\n' \
+    "$(compgen -e SEW_LINK_ | tr '\n' ' ')" >&2
+  exit 2
+fi
+readonly REAL_UID
+
+readonly ACCOUNT="${SEW_LINK_USER:-sew}"
+readonly HOME_DIR="${SEW_LINK_HOME:-/var/lib/sew}"
+readonly SSH_DIR="$HOME_DIR/.ssh"
+readonly AUTH_FILE="$SSH_DIR/authorized_keys"
+readonly LAUNCHER="${SEW_LINK_LAUNCHER:-/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge}"
+readonly GUARD_SOURCE="${SEW_LINK_GUARD_SOURCE:-/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge-shell}"
+readonly GUARD="${SEW_LINK_GUARD:-/usr/local/sbin/sew-bridge-shell}"
+readonly SHELLS_FILE="${SEW_LINK_SHELLS:-/etc/shells}"
+readonly PASSWD_FILE="${SEW_LINK_PASSWD:-}"
+readonly USERMOD="${SEW_LINK_USERMOD:-usermod}"
+readonly SSHD="${SEW_LINK_SSHD:-sshd}"
+readonly KEYGEN="${SEW_LINK_KEYGEN:-ssh-keygen}"
+readonly LOCK_FILE="${SEW_LINK_LOCK:-/run/lock/sew-link-key.lock}"
+readonly EFFECTIVE_UID="${SEW_LINK_EUID:-$REAL_UID}"
+readonly NO_CHOWN="${SEW_LINK_NO_CHOWN:-}"
+readonly NOLOGIN=/usr/sbin/nologin
+readonly PREFIX="restrict,command=\"$LAUNCHER\" "
+readonly MAX_BYTES=8192
+readonly UNPROVEN='UNPROVEN until the owner runs the check of runbook section 14.6, row 1, from the desktop.'
+readonly DROP_IN=/etc/ssh/sshd_config.d/60-sew-link.conf
+
+DRY_RUN=0
+TEMP_FILES=()
+cleanup() {
+  local file
+  for file in "${TEMP_FILES[@]+"${TEMP_FILES[@]}"}"; do
+    rm -f -- "$file"
+  done
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# A designed refusal exits 2 (exit_codes.md); `fail` is a real failure, exit 1.
+die() {
+  printf 'sew-link-key: %s\n' "$*" >&2
+  exit 2
+}
+
+fail() {
+  printf 'sew-link-key: %s\n' "$*" >&2
+  exit 1
+}
+
+note() { printf '  %s\n' "$*"; }
+
+usage() {
+  cat >&2 <<'USAGE'
+usage: sew-link-key check
+       sew-link-key shell show|set|unset [--dry-run]
+       sew-link-key add [--comment TEXT] [--dry-run] <pubkey-file|->
+       sew-link-key list
+       sew-link-key remove [--dry-run] <fingerprint|comment>
+USAGE
+  exit 2
+}
+
+require_root() {
+  [[ "$EFFECTIVE_UID" == "0" ]] || die "run this as root (sudo sew-link-key ...): it reads and writes $HOME_DIR/.ssh"
+}
+
+# New temporary file in $1's directory, registered for removal; its path is left in NEW_TEMP.
+NEW_TEMP=""
+new_temp_beside() { # target
+  NEW_TEMP=$(mktemp "$(dirname -- "$1")/.sew-link-key.XXXXXX")
+  TEMP_FILES+=("$NEW_TEMP")
+  chmod 0600 -- "$NEW_TEMP"
+}
+
+# A scratch file for reading input, in the temp directory (never beside the real file: that directory may not exist yet).
+new_scratch() {
+  NEW_TEMP=$(mktemp "${TMPDIR:-/tmp}/sew-link-key.XXXXXX")
+  TEMP_FILES+=("$NEW_TEMP")
+}
+
+own() { # owner:group path ; nothing in a test that is not root
+  [[ -n "$NO_CHOWN" ]] || chown "$1" -- "$2"
+}
+
+take_lock() {
+  mkdir -p -- "$(dirname -- "$LOCK_FILE")"
+  exec 9> "$LOCK_FILE"
+  flock -n 9 || die "another sew-link-key is running (lock $LOCK_FILE)"
+}
+
+# --- the account ---------------------------------------------------------------------------
+
+account_entry() { # prints the passwd line, returns 1 when there is none
+  if [[ -n "$PASSWD_FILE" ]]; then
+    grep -E "^${ACCOUNT}:" -- "$PASSWD_FILE"
+  else
+    getent passwd "$ACCOUNT"
+  fi
+}
+
+account_shell() { # the login shell field, empty when the account does not exist
+  local entry
+  entry=$(account_entry) || return 1
+  printf '%s\n' "${entry##*:}"
+}
+
+# --- one public key -------------------------------------------------------------------------
+
+KEY_TYPE="" KEY_BODY="" KEY_COMMENT="" KEY_PRINT=""
+
+# Reads a public key from $1 (a file, or - for standard input) into KEY_TYPE, KEY_BODY, KEY_COMMENT and
+# KEY_PRINT (the fingerprint), or refuses. $2 is the --comment text, possibly empty.
+load_public_key() { # source, comment
+  local source="$1" comment="$2" raw line
+  new_scratch
+  raw="$NEW_TEMP"
+  if [[ "$source" == "-" ]]; then
+    head -c $((MAX_BYTES + 1)) > "$raw"
+  else
+    [[ -f "$source" ]] || die "$source is not a file"
+    head -c $((MAX_BYTES + 1)) -- "$source" > "$raw"
+  fi
+  [[ "$(wc -c < "$raw")" -le "$MAX_BYTES" ]] || die "that is not a public key: it is longer than $MAX_BYTES bytes"
+  if [[ "$(tr -d '\000' < "$raw" | wc -c)" != "$(wc -c < "$raw")" ]]; then
+    die "that file has NUL bytes (a UTF-16 file, saved by PowerShell with > ?): copy the .pub file ssh-keygen wrote, unchanged"
+  fi
+  if grep -q -- '-----' "$raw"; then
+    die "that looks like a PRIVATE key or a PEM block. Never copy a private key to the server; give the .pub file"
+  fi
+  line=$(tr -d '\r' < "$raw")
+  line="${line%$'\n'}"
+  [[ -n "$line" ]] || die "that file is empty"
+  [[ "$line" != *$'\n'* ]] || die "that file has more than one line: one public key per call"
+  [[ "$line" != *-cert-v01@openssh.com* ]] || die "a certificate is not supported: give the plain public key"
+  local pattern='^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh\.com|sk-ecdsa-sha2-nistp256@openssh\.com) ([A-Za-z0-9+/]+={0,3})( ([A-Za-z0-9._@:+=,-]+( [A-Za-z0-9._@:+=,-]+)*))?$'
+  [[ "$line" =~ $pattern ]] || die "that is not one plain OpenSSH public key line (a key type, the key, an optional comment; no options, no command=)"
+  KEY_TYPE="${BASH_REMATCH[1]}"
+  KEY_BODY="${BASH_REMATCH[2]}"
+  KEY_COMMENT="${BASH_REMATCH[4]:-}"
+  printf '%s %s\n' "$KEY_TYPE" "$KEY_BODY" > "$raw"
+  local described
+  described=$("$KEYGEN" -l -f "$raw" 2> /dev/null) || die "ssh-keygen does not accept that as a public key"
+  [[ "$described" =~ (SHA256:[A-Za-z0-9+/]+) ]] || die "ssh-keygen gave no SHA256 fingerprint for it"
+  KEY_PRINT="${BASH_REMATCH[1]}"
+  if [[ "$KEY_TYPE" == "ssh-rsa" ]]; then
+    [[ "${described%% *}" -ge 3072 ]] || die "an RSA key under 3072 bits is refused; make an ed25519 key"
+  fi
+  [[ -n "$comment" ]] && KEY_COMMENT="$comment"
+  KEY_COMMENT=$(printf '%s' "$KEY_COMMENT" | tr -c 'A-Za-z0-9._@:-' '-' | cut -c1-64)
+  [[ -n "$KEY_COMMENT" ]] || KEY_COMMENT="desk"
+}
+
+# Our own line shape: PREFIX type body comment. Prints "type body comment" for one of ours, returns 1 for any other.
+ours() { # line
+  [[ "$1" == "$PREFIX"* ]] || return 1
+  printf '%s\n' "${1#"$PREFIX"}"
+}
+
+fingerprint_of_line() { # an authorized_keys line (any shape); prints SHA256:..., returns 1 when ssh-keygen cannot
+  # Runs in a command substitution (a subshell the exit trap never sees), so it removes its own scratch file.
+  local tmp out status=0
+  tmp=$(mktemp "${TMPDIR:-/tmp}/sew-link-key.XXXXXX")
+  printf '%s\n' "$1" > "$tmp"
+  out=$("$KEYGEN" -l -f "$tmp" 2> /dev/null) || status=1
+  rm -f -- "$tmp"
+  [[ "$status" -eq 0 && "$out" =~ (SHA256:[A-Za-z0-9+/]+) ]] || return 1
+  printf '%s\n' "${BASH_REMATCH[1]}"
+}
+
+# --- the file ------------------------------------------------------------------------------
+
+ensure_ssh_dir() {
+  if [[ "$DRY_RUN" == 1 ]]; then
+    note "would: make sure $SSH_DIR is 0700 and owned by $ACCOUNT"
+    return 0
+  fi
+  [[ -d "$HOME_DIR" ]] || die "$HOME_DIR does not exist: is sew-install done?"
+  mkdir -p -- "$SSH_DIR"
+  chmod 0700 -- "$SSH_DIR"
+  own "$ACCOUNT:$ACCOUNT" "$SSH_DIR"
+}
+
+# Writes $1 (a prepared file) over authorized_keys: 0600, owned by the account, renamed over.
+publish() {
+  chmod 0600 -- "$1"
+  own "$ACCOUNT:$ACCOUNT" "$1"
+  mv -fT -- "$1" "$AUTH_FILE"
+}
+
+# Prints the file's lines, each ending in a newline, even when its last one had none.
+file_lines() {
+  [[ -f "$AUTH_FILE" ]] || return 0
+  awk '1' "$AUTH_FILE"
+}
+
+audit() { # a line of what was done, without a key body
+  printf 'sew-link-key: %s\n' "$*"
+  logger -t sew-link-key -p auth.notice -- "$*" 2> /dev/null || true
+}
+
+# --- add / list / remove -------------------------------------------------------------------
+
+cmd_add() {
+  local comment="" source=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --comment) [[ $# -ge 2 ]] || usage; comment="$2"; shift 2 ;;
+      --dry-run) DRY_RUN=1; shift ;;
+      -) source="-"; shift ;;
+      -*) usage ;;
+      *) [[ -z "$source" ]] || usage; source="$1"; shift ;;
+    esac
+  done
+  [[ -n "$source" ]] || usage
+  require_root
+  [[ -f "$LAUNCHER" && -x "$LAUNCHER" ]] || die "the bridge launcher $LAUNCHER is missing or not executable: is the checkout in place?"
+  load_public_key "$source" "$comment"
+  [[ "$DRY_RUN" == 1 ]] || take_lock
+  local line="$PREFIX$KEY_TYPE $KEY_BODY $KEY_COMMENT" existing
+  while IFS= read -r existing; do
+    if [[ "$existing" == *" $KEY_TYPE $KEY_BODY"* ]]; then
+      printf 'sew-link-key: %s is already installed; nothing to do\n' "$KEY_PRINT"
+      return 0
+    fi
+  done < <(file_lines)
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf '  would: install %s (%s), restricted to the bridge, in %s\n' "$KEY_PRINT" "$KEY_COMMENT" "$AUTH_FILE"
+    return 0
+  fi
+  ensure_ssh_dir
+  new_temp_beside "$AUTH_FILE"
+  local fresh="$NEW_TEMP"
+  file_lines > "$fresh"
+  printf '%s\n' "$line" >> "$fresh"
+  publish "$fresh"
+  audit "installed $KEY_PRINT ($KEY_COMMENT), restricted to $LAUNCHER"
+  if [[ "$(account_shell || true)" != "$GUARD" ]]; then
+    note "the account's login shell is not $GUARD yet: run 'sew-link-key shell set', then 'sew-link-key check'"
+  fi
+  note "$UNPROVEN"
+}
+
+cmd_list() {
+  require_root
+  [[ -f "$AUTH_FILE" ]] || { printf 'no %s: no key installed\n' "$AUTH_FILE"; return 0; }
+  local line number=0 print rest type comment status
+  while IFS= read -r line; do
+    [[ -n "$line" && "$line" != '#'* ]] || continue
+    number=$((number + 1))
+    print=$(fingerprint_of_line "$line") || print="(not a key line ssh-keygen reads)"
+    if rest=$(ours "$line"); then
+      type="${rest%% *}"
+      rest="${rest#* }"
+      comment="${rest#* }"
+      status="restricted to the bridge"
+    else
+      type="?"
+      comment="?"
+      status="NOT installed by sew-link-key: its options are not the bridge restriction"
+    fi
+    printf '%d  %s  %s  %s  %s\n' "$number" "$print" "$type" "$comment" "$status"
+  done < <(file_lines)
+  [[ "$number" -gt 0 ]] || printf 'no key installed\n'
+}
+
+cmd_remove() {
+  local target=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) DRY_RUN=1; shift ;;
+      -*) usage ;;
+      *) [[ -z "$target" ]] || usage; target="$1"; shift ;;
+    esac
+  done
+  [[ -n "$target" ]] || usage
+  require_root
+  [[ -f "$AUTH_FILE" ]] || die "no $AUTH_FILE: nothing to remove"
+  [[ "$DRY_RUN" == 1 ]] || take_lock
+  local line print rest comment matched=0 found_print="" found_comment="" lines=()
+  while IFS= read -r line; do
+    lines+=("$line")
+    [[ -n "$line" && "$line" != '#'* ]] || continue
+    print=$(fingerprint_of_line "$line") || continue
+    comment=""
+    if rest=$(ours "$line"); then comment="${rest#* }"; comment="${comment#* }"; fi
+    if [[ "$print" == "$target" || ( -n "$comment" && "$comment" == "$target" ) ]]; then
+      matched=$((matched + 1))
+      found_print="$print"
+      found_comment="$comment"
+    fi
+  done < <(file_lines)
+  [[ "$matched" -ge 1 ]] || die "no installed key has the fingerprint or comment '$target' (see: sew-link-key list)"
+  [[ "$matched" -le 1 ]] || die "'$target' names $matched keys: use the fingerprint from 'sew-link-key list'"
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf '  would: remove %s (%s) from %s\n' "$found_print" "$found_comment" "$AUTH_FILE"
+    return 0
+  fi
+  new_temp_beside "$AUTH_FILE"
+  local fresh="$NEW_TEMP"
+  for line in "${lines[@]}"; do
+    if [[ -n "$line" && "$line" != '#'* ]] && [[ "$(fingerprint_of_line "$line" || true)" == "$found_print" ]]; then
+      continue
+    fi
+    printf '%s\n' "$line" >> "$fresh"
+  done
+  publish "$fresh"
+  audit "removed $found_print ($found_comment)"
+}
+
+# --- the login shell -----------------------------------------------------------------------
+
+shell_state() { # prints guard|nologin|other:<path>|missing
+  local current
+  current=$(account_shell) || { printf 'missing\n'; return 0; }
+  if [[ "$current" == "$GUARD" ]]; then printf 'guard\n'
+  elif [[ "$current" == "$NOLOGIN" ]]; then printf 'nologin\n'
+  else printf 'other:%s\n' "$current"; fi
+}
+
+cmd_shell() {
+  local action="${1:-}"
+  [[ -n "$action" ]] || usage
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) DRY_RUN=1; shift ;;
+      *) usage ;;
+    esac
+  done
+  case "$action" in
+    show) printf '%s: login shell %s (%s)\n' "$ACCOUNT" "$(account_shell || echo '(no such account)')" "$(shell_state)" ;;
+    set) require_root; set_shell ;;
+    unset) require_root; unset_shell ;;
+    *) usage ;;
+  esac
+}
+
+in_shells() { grep -qxF -- "$GUARD" "$SHELLS_FILE" 2> /dev/null; }
+
+set_shell() {
+  account_entry > /dev/null || die "there is no account '$ACCOUNT': is sew-install done?"
+  [[ -f "$GUARD_SOURCE" ]] || die "$GUARD_SOURCE is missing: update the checkout (sudo sew-update)"
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf '  would: install %s from %s (root, 0755)\n' "$GUARD" "$GUARD_SOURCE"
+    in_shells || printf '  would: add %s to %s\n' "$GUARD" "$SHELLS_FILE"
+    printf '  would: set the login shell of %s to %s\n' "$ACCOUNT" "$GUARD"
+    return 0
+  fi
+  take_lock
+  if [[ -n "$NO_CHOWN" ]]; then
+    install -m 0755 -- "$GUARD_SOURCE" "$GUARD"
+  else
+    install -m 0755 -o root -g root -- "$GUARD_SOURCE" "$GUARD"
+  fi
+  if ! in_shells; then
+    if [[ -s "$SHELLS_FILE" && "$(tail -c 1 -- "$SHELLS_FILE" | wc -l)" -eq 0 ]]; then printf '\n' >> "$SHELLS_FILE"; fi
+    printf '%s\n' "$GUARD" >> "$SHELLS_FILE"
+  fi
+  "$USERMOD" -s "$GUARD" "$ACCOUNT" || fail "usermod could not set the login shell of $ACCOUNT"
+  audit "the login shell of $ACCOUNT is now $GUARD"
+  note "undo: sew-link-key shell unset"
+  note "$UNPROVEN"
+}
+
+unset_shell() {
+  account_entry > /dev/null || die "there is no account '$ACCOUNT'"
+  if [[ "$DRY_RUN" == 1 ]]; then
+    printf '  would: set the login shell of %s back to %s and take %s out of %s\n' "$ACCOUNT" "$NOLOGIN" "$GUARD" "$SHELLS_FILE"
+    return 0
+  fi
+  take_lock
+  "$USERMOD" -s "$NOLOGIN" "$ACCOUNT" || fail "usermod could not set the login shell of $ACCOUNT"
+  if in_shells; then
+    new_temp_beside "$SHELLS_FILE"
+    local fresh="$NEW_TEMP"
+    grep -vxF -- "$GUARD" "$SHELLS_FILE" > "$fresh" || true
+    chmod 0644 -- "$fresh"
+    mv -fT -- "$fresh" "$SHELLS_FILE"
+  fi
+  rm -f -- "$GUARD"
+  audit "the login shell of $ACCOUNT is back to $NOLOGIN"
+}
+
+# --- check ---------------------------------------------------------------------------------
+
+FAILED=0
+ok() { printf '  OK    %s\n' "$*"; }
+bad() { FAILED=$((FAILED + 1)); printf '  FAIL  %s\n' "$*"; }
+warn() { printf '  WARN  %s\n' "$*"; }
+
+owner_and_mode() { stat -c '%U:%G %a' -- "$1"; }
+
+check_account() {
+  local entry home shell
+  if ! entry=$(account_entry); then
+    bad "there is no account '$ACCOUNT': run sew-install"
+    return 0
+  fi
+  IFS=: read -r _ _ _ _ _ home shell <<< "$entry"
+  if [[ "$home" == "$HOME_DIR" ]]; then ok "account $ACCOUNT, home $home"; else bad "account $ACCOUNT has home $home, this tool expects $HOME_DIR"; fi
+  case "$(shell_state)" in
+    guard) ok "login shell is $GUARD" ;;
+    nologin) bad "login shell is $NOLOGIN, which refuses the bridge: run 'sudo sew-link-key shell set'" ;;
+    *) bad "login shell is $shell: run 'sudo sew-link-key shell set' (the owner chose the guard shell, never /bin/sh)" ;;
+  esac
+}
+
+check_guard() {
+  if [[ ! -f "$GUARD" ]]; then bad "$GUARD is missing: run 'sudo sew-link-key shell set'"; return 0; fi
+  local state
+  state=$(owner_and_mode "$GUARD")
+  if [[ -z "$NO_CHOWN" && "$state" != "root:root "* ]]; then bad "$GUARD is owned by ${state%% *}: it must be root:root"; fi
+  if (( (8#$(stat -c '%a' -- "$GUARD") & 8#022) != 0 )); then bad "$GUARD is writable by group or others"; else ok "$GUARD is not writable by $ACCOUNT (mode ${state##* })"; fi
+  if [[ -f "$GUARD_SOURCE" ]] && ! cmp -s -- "$GUARD" "$GUARD_SOURCE"; then bad "$GUARD differs from the checkout's $GUARD_SOURCE: run 'sudo sew-link-key shell set'"; fi
+  if grep -qxF "LAUNCHER=$LAUNCHER" -- "$GUARD"; then ok "the guard runs $LAUNCHER and nothing else"; else bad "the guard names another launcher than $LAUNCHER"; fi
+  if in_shells; then ok "$GUARD is listed in $SHELLS_FILE"; else warn "$GUARD is not listed in $SHELLS_FILE ('shell set' adds it)"; fi
+}
+
+check_launcher() {
+  if [[ -f "$LAUNCHER" && -x "$LAUNCHER" ]]; then ok "launcher $LAUNCHER exists and is executable"; else bad "launcher $LAUNCHER is missing or not executable"; fi
+}
+
+check_keys() {
+  if [[ ! -d "$SSH_DIR" ]]; then warn "$SSH_DIR does not exist yet: no key has been added"; return 0; fi
+  local state
+  state=$(owner_and_mode "$SSH_DIR")
+  if [[ "${state##* }" == "700" && ( -n "$NO_CHOWN" || "${state%% *}" == "$ACCOUNT:$ACCOUNT" ) ]]; then ok "$SSH_DIR is 0700 and $ACCOUNT's"; else bad "$SSH_DIR is $state: it must be 0700 and owned by $ACCOUNT (sshd refuses keys otherwise)"; fi
+  if [[ ! -f "$AUTH_FILE" ]]; then warn "no $AUTH_FILE: no key has been added"; return 0; fi
+  state=$(owner_and_mode "$AUTH_FILE")
+  if [[ "${state##* }" == "600" && ( -n "$NO_CHOWN" || "${state%% *}" == "$ACCOUNT:$ACCOUNT" ) ]]; then ok "$AUTH_FILE is 0600 and $ACCOUNT's"; else bad "$AUTH_FILE is $state: it must be 0600 and owned by $ACCOUNT"; fi
+  local line count=0 foreign=0
+  while IFS= read -r line; do
+    [[ -n "$line" && "$line" != '#'* ]] || continue
+    count=$((count + 1))
+    ours "$line" > /dev/null || foreign=$((foreign + 1))
+  done < <(file_lines)
+  if [[ "$count" -eq 0 ]]; then warn "$AUTH_FILE holds no key"; else ok "$count key line(s)"; fi
+  if [[ "$foreign" -gt 0 ]]; then warn "$foreign line(s) are not the bridge restriction (list them: sew-link-key list); with the guard shell they still reach only the bridge, but may forward ports"; fi
+}
+
+# What sshd would apply to this account, from `sshd -T`: one "name value" per line, lower case.
+sshd_value() { # name
+  grep -iE "^$1 " <<< "$SSHD_CONFIG" | head -n 1 | cut -d' ' -f2- || true
+}
+
+check_sshd() {
+  if ! SSHD_CONFIG=$("$SSHD" -T -C "user=$ACCOUNT,host=localhost,addr=127.0.0.1" 2> /dev/null); then
+    warn "could not ask sshd (sshd -T): the sshd settings below are not checked"
+    return 0
+  fi
+  if [[ "$(sshd_value pubkeyauthentication)" == "yes" ]]; then ok "sshd accepts public keys"; else bad "sshd has PubkeyAuthentication off"; fi
+  local file
+  file=$(sshd_value authorizedkeysfile)
+  if [[ "$file" == *".ssh/authorized_keys"* ]]; then ok "sshd reads $file"; else bad "sshd reads '$file', not .ssh/authorized_keys"; fi
+  if [[ "$(sshd_value usepam)" == "yes" ]]; then
+    ok "UsePAM yes (with no, sshd refuses an account whose password is locked)"
+  else
+    bad "UsePAM is not yes: sshd then refuses $ACCOUNT, whose password is locked (seen on OpenSSH 9.6)"
+  fi
+  local allowed
+  allowed="$(sshd_value allowusers) $(sshd_value allowgroups)"
+  if [[ -z "${allowed// /}" ]]; then ok "no AllowUsers or AllowGroups"; elif [[ " $allowed " == *" $ACCOUNT "* ]]; then ok "$ACCOUNT is allowed by AllowUsers/AllowGroups"; else warn "AllowUsers/AllowGroups is set ('$allowed'): $ACCOUNT, or its group, must be in it"; fi
+  local missing=() option
+  for option in allowtcpforwarding allowagentforwarding x11forwarding permittty; do
+    [[ "$(sshd_value "$option")" == "no" ]] || missing+=("$option")
+  done
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    ok "sshd forbids forwarding and a terminal for $ACCOUNT"
+  else
+    warn "sshd does not forbid for $ACCOUNT: ${missing[*]} (a key $ACCOUNT adds to its own file could forward ports). Put this in $DROP_IN, then 'sudo sshd -t && sudo systemctl reload ssh':"
+    printf '        Match User %s\n            AllowTcpForwarding no\n            AllowAgentForwarding no\n            X11Forwarding no\n            PermitTTY no\n            PermitUserRC no\n' "$ACCOUNT"
+  fi
+  printf '  INFO  PasswordAuthentication %s, KbdInteractiveAuthentication %s\n' "$(sshd_value passwordauthentication)" "$(sshd_value kbdinteractiveauthentication)"
+}
+
+cmd_check() {
+  require_root
+  printf 'sew-link-key check (nothing is changed)\n'
+  check_account
+  check_guard
+  check_launcher
+  check_keys
+  check_sshd
+  if [[ "$FAILED" -gt 0 ]]; then
+    printf '\n%d check(s) FAILED. %s\n' "$FAILED" "$UNPROVEN"
+    exit 1
+  fi
+  printf '\nAll checks passed. %s\n' "$UNPROVEN"
+  cat <<'NEXT'
+Next, from the desktop: the three refusals and the bridge's hello (runbook section 14.6, rows 1 to 4).
+Only after a key login works and a NEW window is open, turn password login off (this tool never does):
+  echo 'PasswordAuthentication no' | sudo tee /etc/ssh/sshd_config.d/50-sew-keys-only.conf
+  sudo sshd -t && sudo systemctl reload ssh
+NEXT
+}
+
+main() {
+  local command="${1:-}"
+  [[ -n "$command" ]] || usage
+  shift
+  case "$command" in
+    check) [[ $# -eq 0 ]] || usage; cmd_check ;;
+    shell) cmd_shell "$@" ;;
+    add) cmd_add "$@" ;;
+    list) [[ $# -eq 0 ]] || usage; cmd_list ;;
+    remove) cmd_remove "$@" ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"
