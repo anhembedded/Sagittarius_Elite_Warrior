@@ -1,0 +1,18 @@
+#!/bin/sh
+# sew-bridge-shell - the login shell of the sew account: it runs the bridge and nothing else.
+#
+# `sshd` runs a forced command through the account's login shell as `<shell> -c "<command>"`,
+# and an interactive login as `<shell>` with no argument. This program accepts exactly one
+# request, `-c <the bridge launcher>`, and executes the launcher with a clean environment. Any
+# other request, an interactive login and `scp`/`sftp` included, is refused with a short
+# message. The account never gets a general shell (runbook section 14.3; the owner's decision
+# of 2026-11-25). Root owns this file and sew cannot write it (`sew-link-key check` looks).
+#
+# Plain POSIX sh, no input read from the client, nothing printed to standard output: standard
+# output is the bridge's protocol.
+LAUNCHER=/opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-bridge
+if [ "$#" -eq 2 ] && [ "$1" = "-c" ] && [ "$2" = "$LAUNCHER" ]; then
+  exec /usr/bin/env -i PATH=/usr/bin:/bin HOME=/var/lib/sew USER=sew LOGNAME=sew "$LAUNCHER"
+fi
+printf 'sew: this account only runs the VPS bridge\n' >&2
+exit 1
