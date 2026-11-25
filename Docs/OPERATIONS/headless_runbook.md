@@ -837,6 +837,14 @@ sudo sshd -t && sudo systemctl reload ssh           # keep your session open; th
 
 Exit status: `0` done or all checks passed; `1` a check failed or a step failed; `2` a refusal (not root, not a plain public key, an unknown key, a lock held).
 
+**Optional hardening, not done.** With the guard shell, a key that `sew` adds to its own file gets no shell and, with the drop-in above, no forwarding; the file is still `sew`'s to edit, so it can add a key that logs in as `sew` and runs the bridge, which `sew` can already do. If you want that closed too, `sshd` can read `sew`'s keys from a root-owned place outside its home instead, in the same `Match User sew` block of `/etc/ssh/sshd_config.d/60-sew-link.conf`:
+
+```text
+    AuthorizedKeysFile /etc/ssh/sew-authorized-keys/%u
+```
+
+with `/etc/ssh/sew-authorized-keys/` owned by root (`0755`) and the file `sew` inside it root-owned (`0644`), checked with `sudo sshd -T -C user=sew,host=x,addr=x | grep authorizedkeysfile` and `sshd -t`, your session open. `sew-link-key` does not write there today (it checks `.ssh/authorized_keys` and says so if `sshd` reads another file), so this is a change to the script as well: ask for it when you want it. Untested.
+
 ### 14.4 Pin the host's key
 
 The app refuses a host whose key it cannot check, and it never accepts one by itself. Log in once with your own account and accept the key, so the desktop's `known_hosts` (`%USERPROFILE%\.ssh\known_hosts`, or the file the profile names) holds the VPS:
