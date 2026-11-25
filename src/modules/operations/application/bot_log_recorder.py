@@ -85,10 +85,13 @@ class BotLogHandler(logging.Handler):
             found = _BOT_LINE.fullmatch(record.getMessage())
             if found is None:
                 return
-            bot_id, text = found.group(1), found.group(2)[:MAX_LINE_CHARS]
-            if may_carry_a_secret(text):
+            bot_id, whole = found.group(1), found.group(2)
+            # The whole message is scanned, then cut: a key that straddles the cut would otherwise leave a prefix too
+            # short to look like one.
+            if may_carry_a_secret(whole):
                 self._withheld += 1
                 return
+            text = whole[:MAX_LINE_CHARS]
             self._enqueue(
                 bot_id,
                 BotLogRecord(self.next_seq(), self.now_text(), record.levelname, text),

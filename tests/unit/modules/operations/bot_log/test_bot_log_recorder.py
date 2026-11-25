@@ -199,3 +199,14 @@ def test_a_record_that_is_not_ours_does_not_stop_the_writer() -> None:
 
     assert [r.text for _id, r in sink.kept] == ["after"]
     assert isinstance(sink.kept[0][1], BotLogRecord)
+
+
+def test_a_key_that_straddles_the_cut_is_dropped_not_kept_as_a_prefix() -> None:
+    handler, lines = _handler()
+    key = "Zz9" * 22
+    message = "Bot ab12cd: " + "a " * 295 + key[:20] + key[20:] + " end"
+
+    handler.emit(log_record(message))
+
+    assert lines.empty()
+    assert handler.withheld == 1
