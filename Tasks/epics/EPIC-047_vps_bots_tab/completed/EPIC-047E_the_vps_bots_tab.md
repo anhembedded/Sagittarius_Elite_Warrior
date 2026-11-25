@@ -46,7 +46,7 @@ The remote backend is one more implementation of the screen's gateway ([EPIC-048
 Tier: unit, architecture and offscreen UI on a fake host; then the full gate. AC1, AC4 and AC2 are also checked on the owner's testnet bots, then the mainnet dry run, and recorded. Not run.
 
 ## 6. Docs touched
-`Docs/MODULES/bots/` (building blocks and runtime: the second backend, the connection line), `Docs/SPEC/` (a use case for the VPS tab, one file per use case), `Docs/LEARNING/` page on the design with [EPIC-047G](../incomplete/EPIC-047G_the_runbook_for_the_vps_link.md).
+`Docs/MODULES/bots/` (building blocks and runtime: the second backend, the connection line), `Docs/SPEC/` (a use case for the VPS tab, one file per use case), `Docs/LEARNING/` page on the design with [EPIC-047G](../completed/EPIC-047G_the_runbook_for_the_vps_link.md).
 
 ## Split into three pull requests (proposed to the coordinator before building, 2026-10-27)
 | PR | Holds | Acceptance it moves | Depends on |

@@ -72,7 +72,7 @@ Tier: unit (45+ tests in `tests/unit/modules/operations/adapters/` and `host_fac
 **Not run:** the Windows ACL case; a real exchange; the bridge reading the file (047C).
 
 ## 6. Docs touched
-`Docs/MODULES/bots/07-deployment.md` (the facts, the thread, the cadence, the limits) and `03-context.md` (`operations` reads `IHostHeldFacts`); `operations` has no folder under `Docs/MODULES/`, so its part is written in the bots page that already describes "a second process" and the headless host, and says so there. `Docs/OPERATIONS/headless_runbook.md` lists `state/host-facts.json` with the other state files; the bridge's setup stays in [EPIC-047G](../incomplete/EPIC-047G_the_runbook_for_the_vps_link.md).
+`Docs/MODULES/bots/07-deployment.md` (the facts, the thread, the cadence, the limits) and `03-context.md` (`operations` reads `IHostHeldFacts`); `operations` has no folder under `Docs/MODULES/`, so its part is written in the bots page that already describes "a second process" and the headless host, and says so there. `Docs/OPERATIONS/headless_runbook.md` lists `state/host-facts.json` with the other state files; the bridge's setup stays in [EPIC-047G](../completed/EPIC-047G_the_runbook_for_the_vps_link.md).
 
 ## Implementation notes
 - **Cadence.** Looked at every 2 s, written on a change or at least every 15 s. A change reaches the file within one look plus one write (the integration test allows three looks); a lease or a venue is no fill, so AC2's 5 s is not at stake. The reader calls the host dead after 3 heartbeats (45 s).
