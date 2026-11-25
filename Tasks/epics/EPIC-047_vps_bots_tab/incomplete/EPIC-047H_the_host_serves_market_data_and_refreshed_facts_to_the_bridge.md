@@ -60,7 +60,7 @@ The shapes already exist and are mirrored (P5): the facts file and its publisher
 Tier: unit and integration on the composed host over the fake exchange, then the full gate. The measured weight and the tick age on the owner's VPS are the owner's run and are recorded here. Run on the fake exchange; the owner's VPS run is not done.
 
 ## 6. Docs touched
-`Docs/MODULES/bots/07-deployment.md` (the freshness section: the 2026-10-26 D3 is replaced by the agreed cadence and ceiling; the new files), the operations module's description, `Docs/OPERATIONS/headless_runbook.md` (the new files and what a stale one means, with [EPIC-047G](EPIC-047G_the_runbook_for_the_vps_link.md)).
+`Docs/MODULES/bots/07-deployment.md` (the freshness section: the 2026-10-26 D3 is replaced by the agreed cadence and ceiling; the new files), the operations module's description, `Docs/OPERATIONS/headless_runbook.md` (the new files and what a stale one means, with [EPIC-047G](../completed/EPIC-047G_the_runbook_for_the_vps_link.md)).
 
 ## Implementation notes (written when done)
 
